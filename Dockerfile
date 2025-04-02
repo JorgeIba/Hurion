@@ -3,8 +3,8 @@ ARG GO_VERSION=1.24.1
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS builder
 
 WORKDIR /app
-COPY ./app/go.mod ./
-COPY ./app/go.sum ./
+COPY ./go.mod ./
+COPY ./go.sum ./
 
 RUN go mod download
 

@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -13,35 +16,42 @@ func main() {
 
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("Error creating the session,", err)
-		return
+		log.Fatalln("Error creating the session,", err)
 	}
 
 	dg.AddHandler(messageHandler)
 	
-	err = dg.Open()
-	if err != nil {
-		fmt.Println("Error opening connection,", err)
-		return
+	if err = dg.Open(); err != nil {
+		log.Fatalln("Error opening connection,", err)
 	}
-	fmt.Println("Bot is running, CTRL+C to exit.")
+	defer dg.Close()
 
+	fmt.Println("Bot is running, CTRL+C to exit.")
 	
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
 	fmt.Println("Disconnecting bot...")
-	dg.Close()
 }
 
 func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Avoid self-checking
-	if m.Author.ID == s.State.User.ID {
+	if m.Author.Bot {
 		return
 	}
 
-	if m.Content == "!ping" {
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
+	args := strings.Split(m.Content, " ");
+	if len(args) < 1 {
+		return
+	}
+
+	switch args[0] {
+		case "!AC":
+			s.ChannelMessageSend(m.ChannelID, "I'm listening bro")
+			s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+			s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
+		default:
+			return
 	}
 }
