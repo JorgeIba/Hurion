@@ -38,10 +38,9 @@ CREATE TABLE IF NOT EXISTS solved_problems (
     FOREIGN KEY (class_id) REFERENCES classes(id)
 );
 
-CREATE TABLE pending_confirmations (
-    message_id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    problem_id INTEGER NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(discord_id),
-    FOREIGN KEY (problem_id) REFERENCES problems(id)
+CREATE TABLE IF NOT EXISTS pending_confirmations (
+    message_id TEXT,
+    user_id TEXT,
+    problem_id INTEGER,
+    PRIMARY KEY (user_id, problem_id)
 );

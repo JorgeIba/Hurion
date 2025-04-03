@@ -487,3 +487,127 @@ func TestGetClassIDByClassCode_NotFound(t *testing.T) {
 	// Verify
 	assert.Contains(t, err.Error(), "no class found")
 }
+
+func TestAddPendingConfirmation(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const messageID = "123456"
+	const userID = "789"
+	const problemID = int64(1)
+
+	// Act
+	err = db.AddPendingConfirmation(messageID, userID, problemID)
+	assert.NoError(t, err, "Should insert pending confirmation without error")
+
+	// Verify
+	var count int
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = ?", messageID).Scan(&count)
+	assert.NoError(t, err, "Should execute count query without error")
+	assert.Equal(t, 1, count, "Should have exactly one record in pending_confirmations")
+}
+
+func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const messageIDPrevious = "123"
+	const messageIDUpdated = "456"
+	const userID = "789"
+	const problemID = int64(1)
+	query := fmt.Sprintf("SELECT message_id FROM pending_confirmations WHERE user_id = %s AND problem_id = %d", userID, problemID)
+
+	// Precondition
+	err = db.AddPendingConfirmation(messageIDPrevious, userID, problemID)
+	assert.NoError(t, err, "Expected no error on first insertion")
+
+	var messageID string
+	err = db.conn.QueryRow(query).Scan(&messageID)
+	assert.NoError(t, err, "Expected no error when retrieving the first message_id")
+	assert.Equal(t, messageIDPrevious, messageID, "Expected message_id to be 'msg1'")
+
+	// Act
+	err = db.AddPendingConfirmation(messageIDUpdated, userID, problemID)
+	assert.NoError(t, err, "Expected no error on update")
+
+	// Verify
+	err = db.conn.QueryRow(query).Scan(&messageID)
+	assert.NoError(t, err, "Expected no error when retrieving the updated message_id")
+	assert.Equal(t, messageIDUpdated, messageID, "Expected message_id to be updated to 'msg2'")
+}
+
+func TestGetPendingConfirmation_Found(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const messageID = "123456"
+	const userID = "789"
+	const problemID = int64(1)
+
+	// Precondition
+	err = db.AddPendingConfirmation(messageID, userID, problemID)
+	assert.NoError(t, err, "Should insert test data without error")
+
+	// Act
+	gotUserID, gotProblemID, err := db.GetPendingConfirmation(messageID)
+
+	// Vertify
+	assert.NoError(t, err, "Should get pending confirmation without error")
+	assert.Equal(t, userID, gotUserID, "Should return correct userID")
+	assert.Equal(t, problemID, gotProblemID, "Should return correct problemID")
+}
+
+func TestGetPendingConfirmation_NotFound(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const messageID = "nonexistent"
+
+	gotUserID, gotProblemID, err := db.GetPendingConfirmation(messageID)
+	assert.NoError(t, err, "Should not return error for missing message_id")
+	assert.Empty(t, gotUserID, "Should return empty userID for missing message_id")
+	assert.Equal(t, int64(-1), gotProblemID, "Should return zero problemID for missing message_id")
+}
+
+func TestRemovePendingConfirmation(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const messageID = "msg123"
+	const userID = "user123"
+	const problemID = int64(1)
+
+	// Precondition
+	err = db.AddPendingConfirmation(messageID, userID, problemID)
+	assert.NoError(t, err, "Should insert test data without error")
+
+	var count int
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = ?", messageID).Scan(&count)
+	assert.NoError(t, err, "Should execute count query without error")
+	assert.Equal(t, 1, count, "Should have inserted the record from pending_confirmations")
+
+	// Act
+	err = db.RemovePendingConfirmation(messageID)
+	assert.NoError(t, err, "Should remove pending confirmation without error")
+
+	// Verify
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = ?", messageID).Scan(&count)
+	assert.NoError(t, err, "Should execute count query without error")
+	assert.Equal(t, 0, count, "Should have removed the record from pending_confirmations")
+}
+
+func TestRemovePendingConfirmation_NotFound(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	messageID := "nonexistent"
+
+	err = db.RemovePendingConfirmation(messageID)
+	assert.NoError(t, err, "Should not return error when removing nonexistent pending confirmation")
+}

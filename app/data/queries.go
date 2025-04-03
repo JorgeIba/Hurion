@@ -276,3 +276,45 @@ func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
 
 	return classID, nil
 }
+
+func (db *DB) AddPendingConfirmation(messageID, userID string, problemID int64) error {
+	query := `
+		INSERT INTO pending_confirmations (message_id, user_id, problem_id)
+		VALUES (?, ?, ?)
+		ON CONFLICT (user_id, problem_id) DO UPDATE SET message_id = EXCLUDED.message_id;
+	`
+	_, err := db.conn.Exec(query, messageID, userID, problemID)
+	if err != nil {
+		return fmt.Errorf("could not add or update pending confirmation: %v", err)
+	}
+	return nil
+}
+
+func (db *DB) GetPendingConfirmation(messageID string) (string, int64, error) {
+	query := `
+		SELECT user_id, problem_id FROM pending_confirmations
+		WHERE message_id = ?;
+	`
+	var userID string
+	var problemID int64
+
+	err := db.conn.QueryRow(query, messageID).Scan(&userID, &problemID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", -1, nil
+		}
+		return "", 0, fmt.Errorf("could not get pending confirmation: %v", err)
+	}
+	return userID, problemID, nil
+}
+
+func (db *DB) RemovePendingConfirmation(messageID string) error {
+	query := `
+		DELETE FROM pending_confirmations WHERE message_id = ?;
+	`
+	_, err := db.conn.Exec(query, messageID)
+	if err != nil {
+		return fmt.Errorf("could not remove pending confirmation: %v", err)
+	}
+	return nil
+}
