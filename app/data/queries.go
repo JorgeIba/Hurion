@@ -70,3 +70,30 @@ func (db *DB) RemoveProblem(problemName string, classId int64) (int64, error) {
 
 	return response.RowsAffected()
 }
+
+func (db *DB) AddAC(discordID string, problemID, classID int64) error {
+	query := `
+		INSERT INTO solved_problems (user_id, problem_id, class_id, solved_at)
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(user_id, problem_id, class_id) DO NOTHING;
+	`
+	_, err := db.conn.Exec(query, discordID, problemID, classID)
+	if err != nil {
+		return fmt.Errorf("could not AC the problem for the user in the class: %v", err)
+	}
+
+	return nil
+}
+
+func (db *DB) RemoveAC(discordID string, problemID, classID int64) error {
+	query := `
+		DELETE FROM solved_problems
+		WHERE user_id = ? AND problem_id = ? AND class_id = ?
+	`
+	_, err := db.conn.Exec(query, discordID, problemID, classID)
+	if err != nil {
+		return fmt.Errorf("could not remove the AC of problem for the user in the class: %v", err)
+	}
+
+	return nil
+}

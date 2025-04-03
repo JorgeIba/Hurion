@@ -2,8 +2,9 @@ package data
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Bind
@@ -121,7 +122,7 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 
 	const discordID = "12345"
 	const classID = 1
-	queryEnrollment := fmt.Sprintf("SELECT COUNT(*) FROM enrollments WHERE user_id = %s AND class_id = %d", discordID, classID)
+	queryEnrollment := fmt.Sprintf("SELECT COUNT(*) FROM enrollments WHERE user_id = '%s' AND class_id = %d", discordID, classID)
 
 	// Register a user
 	err = db.RegisterUserIntoClass(discordID, classID)
@@ -186,4 +187,54 @@ func TestRemoveProblem(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
+}
+
+func TestAddAC(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const discordID = "user123"
+	const problemID = int64(1)
+	const classID = int64(1)
+
+	// Verify
+	err = db.AddAC(discordID, problemID, classID)
+	assert.NoError(t, err, "Problem trying to ACing the problem for the user")
+
+	err = db.AddAC(discordID, problemID, classID)
+	assert.NoError(t, err, "Re-adding the same AC should not fail")
+
+	var count int64
+	err = db.conn.QueryRow(`SELECT COUNT(*) FROM solved_problems WHERE user_id = ? AND class_id = ?;`, discordID, classID).Scan(&count)
+	assert.NoError(t, err, "Cannot check the count for problems solved")
+
+	assert.Equal(t, int64(1), count, "A single problem should have been solved")
+}
+
+func TestRemoveAC(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const discordID = "user123"
+	const problemID = int64(1)
+	const classID = int64(1)
+	queryCount := fmt.Sprintf("SELECT COUNT(*) FROM solved_problems WHERE user_id = '%s' AND class_id = %d;", discordID, classID)
+
+	// Preconditions
+	err = db.AddAC(discordID, problemID, classID)
+	assert.NoError(t, err, "Precondition failed, problem could not be checked as solved")
+
+	var count int64
+	err = db.conn.QueryRow(queryCount).Scan(&count)
+	assert.NoError(t, err, "Cannot check the count for problems solved")
+	assert.Equal(t, int64(1), count, "A problem should have been added to solved list")
+
+	// Verify
+	err = db.RemoveAC(discordID, problemID, classID)
+	assert.NoError(t, err, "Problem trying to remove the AC of the problem for the user")
+	err = db.conn.QueryRow(queryCount).Scan(&count)
+	assert.NoError(t, err, "Cannot check the count for problems solved")
+	assert.Equal(t, int64(0), count, "Solved problem should been removed")
 }
