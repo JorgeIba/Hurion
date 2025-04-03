@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -128,4 +129,40 @@ func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, count, "User should be registered in the class")
+}
+
+func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const discordID = "12345"
+	const classID = 1
+	queryEnrollment := fmt.Sprintf("SELECT COUNT(*) FROM enrollments WHERE user_id = %s AND class_id = %d", discordID, classID)
+
+	// Register a user
+	err = db.RegisterUserIntoClass(discordID, classID)
+	if err != nil {
+		t.Fatalf("expected no error, but got: %v", err)
+	}
+
+	// Verify
+	var count int
+	if err = db.conn.QueryRow(queryEnrollment).Scan(&count); err != nil {
+		t.Fatalf("could not query enrollments: %v", err)
+	}
+	assert.Equal(t, 1, count, "User should be registered")
+
+	// Deregister
+	err = db.DeregisterUserFromClass(discordID, classID)
+	if err != nil {
+		t.Fatalf("expected no error, but got: %v", err)
+	}
+
+	// Verify
+	if err = db.conn.QueryRow(queryEnrollment).Scan(&count); err != nil {
+		t.Fatalf("could not query enrollments: %v", err)
+	}
+
+	assert.Equal(t, 0, count, "User should not be registered in the class")
 }

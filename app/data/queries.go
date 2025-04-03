@@ -31,3 +31,15 @@ func (db *DB) RegisterUserIntoClass(discordID string, classID int64) error {
 	}
 	return nil
 }
+
+func (db *DB) DeregisterUserFromClass(discordID string, classID int64) error {
+	query := `
+		DELETE FROM enrollments
+		WHERE user_id = ? AND class_id = ?;
+	`
+
+	if _, err := db.conn.Exec(query, discordID, classID); err != nil {
+		return fmt.Errorf("could not deregister the user into class: %v", err)
+	}
+	return nil
+}
