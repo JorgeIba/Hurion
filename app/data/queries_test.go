@@ -268,3 +268,51 @@ func TestGetProblemsByClass(t *testing.T) {
 	assert.Equal(t, 2, len(problemsList1), "Length are not the same")
 	assert.Equal(t, 1, len(problemsList2), "Length are not the same")
 }
+
+func TestGetAllSolvedProblemsByUser(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	// Preconditions
+
+	const discordID1 = "user123"
+	const discordID2 = "user456"
+	var updates = []struct {
+		discordID string
+		problemID int64
+		classID   int64
+	}{
+		{discordID: discordID1, problemID: 1, classID: 1},
+		{discordID: discordID1, problemID: 2, classID: 1},
+		{discordID: discordID1, problemID: 1, classID: 2},
+
+		{discordID: discordID2, problemID: 1, classID: 1},
+		{discordID: discordID2, problemID: 2, classID: 2},
+	}
+
+	for _, update := range updates {
+		err = db.AddAC(update.discordID, update.problemID, update.classID)
+		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
+	}
+
+	// Act
+	listUser1Class1, err := db.GetAllSolvedProblemsByUser(discordID1, 1)
+	assert.NoError(t, err, "Problem trying to get the list")
+
+	listUser1Class2, err := db.GetAllSolvedProblemsByUser(discordID1, 2)
+	assert.NoError(t, err, "Problem trying to get the list")
+
+	listUser2Class1, err := db.GetAllSolvedProblemsByUser(discordID2, 1)
+	assert.NoError(t, err, "Problem trying to get the list")
+
+	listUser2Class2, err := db.GetAllSolvedProblemsByUser(discordID2, 2)
+	assert.NoError(t, err, "Problem trying to get the list")
+
+	// Verify
+	assert.Equal(t, []int64{1, 2}, listUser1Class1, "List should have matched")
+	assert.Equal(t, []int64{1}, listUser1Class2, "List should have matched")
+
+	assert.Equal(t, []int64{1}, listUser2Class1, "List should have matched")
+	assert.Equal(t, []int64{2}, listUser2Class2, "List should have matched")
+}

@@ -126,3 +126,33 @@ func (db *DB) GetProblemsByClass(classID int64) ([]string, error) {
 
 	return problems, nil
 }
+
+func (db *DB) GetAllSolvedProblemsByUser(discordID string, classID int64) ([]int64, error) {
+	query := `
+		SELECT problem_id
+		FROM solved_problems
+		WHERE user_id = ? AND class_id = ?
+	`
+
+	rows, err := db.conn.Query(query, discordID, classID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get solved problems for user %s and class %d: %v", discordID, classID, err)
+	}
+	defer rows.Close()
+
+	solvedProblems := make([]int64, 0)
+
+	for rows.Next() {
+		var problemID int64
+		if err := rows.Scan(&problemID); err != nil {
+			return nil, fmt.Errorf("could not scan row: %v", err)
+		}
+		solvedProblems = append(solvedProblems, problemID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	return solvedProblems, nil
+}
