@@ -238,3 +238,33 @@ func TestRemoveAC(t *testing.T) {
 	assert.NoError(t, err, "Cannot check the count for problems solved")
 	assert.Equal(t, int64(0), count, "Solved problem should been removed")
 }
+
+func TestGetProblemsByClass(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const classID = int64(1)
+	const classID2 = int64(2)
+
+	// Preconditions
+	_, err = db.AddProblem("Sorting Stuff 1", classID)
+	assert.NoError(t, err, "Precondition failed, problem 1 could not be added")
+
+	_, err = db.AddProblem("Sorting Stuff 2", classID)
+	assert.NoError(t, err, "Precondition failed, problem 2 could not be added")
+
+	_, err = db.AddProblem("Sorting Stuff 3", classID2)
+	assert.NoError(t, err, "Precondition failed, problem 3 could not be added")
+
+	// Do
+	problemsList1, err := db.GetProblemsByClass(classID)
+	assert.NoError(t, err, "List 1 could not be retrieved")
+
+	problemsList2, err := db.GetProblemsByClass(classID2)
+	assert.NoError(t, err, "List 2 could not be retrieved")
+
+	// Verify
+	assert.Equal(t, 2, len(problemsList1), "Length are not the same")
+	assert.Equal(t, 1, len(problemsList2), "Length are not the same")
+}

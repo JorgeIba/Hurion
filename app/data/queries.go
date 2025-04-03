@@ -44,13 +44,13 @@ func (db *DB) DeregisterUserFromClass(discordID string, classID int64) error {
 	return nil
 }
 
-func (db *DB) AddProblem(problemName string, classId int64) (int64, error) {
+func (db *DB) AddProblem(problemName string, classID int64) (int64, error) {
 	query := `
 		INSERT INTO problems (name, class_id)
 		VALUES (?,?)
 		ON CONFLICT(name, class_id) DO NOTHING;
 	`
-	response, err := db.conn.Exec(query, problemName, classId)
+	response, err := db.conn.Exec(query, problemName, classID)
 	if err != nil {
 		return 0, fmt.Errorf("could not add the problem into the class: %v", err)
 	}
@@ -58,12 +58,12 @@ func (db *DB) AddProblem(problemName string, classId int64) (int64, error) {
 	return response.LastInsertId()
 }
 
-func (db *DB) RemoveProblem(problemName string, classId int64) (int64, error) {
+func (db *DB) RemoveProblem(problemName string, classID int64) (int64, error) {
 	query := `
 		DELETE FROM problems
 		WHERE name = ? AND class_id = ?
 	`
-	response, err := db.conn.Exec(query, problemName, classId)
+	response, err := db.conn.Exec(query, problemName, classID)
 	if err != nil {
 		return 0, fmt.Errorf("could not remove the problem from the class: %v", err)
 	}
@@ -96,4 +96,33 @@ func (db *DB) RemoveAC(discordID string, problemID, classID int64) error {
 	}
 
 	return nil
+}
+
+func (db *DB) GetProblemsByClass(classID int64) ([]string, error) {
+	query := `
+		SELECT name
+		FROM problems
+		WHERE class_id = ?
+	`
+
+	rows, err := db.conn.Query(query, classID)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch problems: %v", err)
+	}
+	defer rows.Close()
+
+	var problems []string
+	for rows.Next() {
+		var problemName string
+		if err := rows.Scan(&problemName); err != nil {
+			return nil, fmt.Errorf("could not scan problem name: %v", err)
+		}
+		problems = append(problems, problemName)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during rows iteration: %v", err)
+	}
+
+	return problems, nil
 }
