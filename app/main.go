@@ -1,57 +1,28 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 )
 
 func main() {
 	token := os.Getenv("DISCORD_BOT_TOKEN")
+	if token == "" {
+		log.Fatalf("There is not a token")
+	}
 
-	dg, err := discordgo.New("Bot " + token)
+	db, err := data.NewDB(data.Prod)
 	if err != nil {
-		log.Fatalln("Error creating the session,", err)
+		log.Fatalf("Error creating the DB: %v", err)
 	}
 
-	dg.AddHandler(messageHandler)
-
-	if err = dg.Open(); err != nil {
-		log.Fatalln("Error opening connection,", err)
-	}
-	defer dg.Close()
-
-	fmt.Println("Bot is running, CTRL+C to exit.")
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-
-	fmt.Println("Disconnecting bot...")
-}
-
-func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Avoid self-checking
-	if m.Author.Bot {
-		return
+	bot, err := bot.CreateBot(token, db)
+	if err != nil {
+		log.Fatalf("Error creating the bot: %v", err)
 	}
 
-	args := strings.Split(m.Content, " ")
-	if len(args) < 1 {
-		return
-	}
-
-	switch args[0] {
-	case "!AC":
-		s.ChannelMessageSend(m.ChannelID, "I'm listening bro")
-		s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
-		s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
-	default:
-		return
-	}
+	bot.Run()
 }

@@ -7,7 +7,7 @@ import (
 func TestDBConnection(t *testing.T) {
 	// Test for production database connection
 	t.Run("Prod", func(t *testing.T) {
-		db, err := newDB(Prod)
+		db, err := NewDB(Prod)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -23,7 +23,7 @@ func TestDBConnection(t *testing.T) {
 
 	// Test for in-memory database connection
 	t.Run("Test", func(t *testing.T) {
-		db, err := newDB(Test)
+		db, err := NewDB(Test)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}

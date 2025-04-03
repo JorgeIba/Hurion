@@ -9,7 +9,7 @@ import (
 
 // Bind
 func TestBindUser_NewUser(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -27,7 +27,7 @@ func TestBindUser_NewUser(t *testing.T) {
 }
 
 func TestBindUser_UpdateUser(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -53,7 +53,7 @@ func TestBindUser_UpdateUser(t *testing.T) {
 
 // Register
 func TestRegisterUserIntoClass_NewUser(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -82,7 +82,7 @@ func TestRegisterUserIntoClass_NewUser(t *testing.T) {
 }
 
 func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -116,7 +116,7 @@ func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
 
 // Deregister
 func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -147,7 +147,7 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 
 // Add problem
 func TestAddProblem_New(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -165,7 +165,7 @@ func TestAddProblem_New(t *testing.T) {
 
 // Remove problem
 func TestRemoveProblem(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -190,7 +190,7 @@ func TestRemoveProblem(t *testing.T) {
 }
 
 func TestAddAC(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -213,7 +213,7 @@ func TestAddAC(t *testing.T) {
 }
 
 func TestRemoveAC(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -240,7 +240,7 @@ func TestRemoveAC(t *testing.T) {
 }
 
 func TestGetProblemsByClass(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -270,7 +270,7 @@ func TestGetProblemsByClass(t *testing.T) {
 }
 
 func TestGetAllSolvedProblemsByUser(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -318,7 +318,7 @@ func TestGetAllSolvedProblemsByUser(t *testing.T) {
 }
 
 func TestGetAllSolvedProblemsByClass(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -364,7 +364,7 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 }
 
 func TestClearClass(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -401,7 +401,7 @@ func TestClearClass(t *testing.T) {
 }
 
 func TestCreateClass(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -427,7 +427,7 @@ func TestCreateClass(t *testing.T) {
 }
 
 func TestGetDiscordIDByUserName_Success(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -445,7 +445,7 @@ func TestGetDiscordIDByUserName_Success(t *testing.T) {
 }
 
 func TestGetDiscordIDByUserName_NotFound(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -458,7 +458,7 @@ func TestGetDiscordIDByUserName_NotFound(t *testing.T) {
 }
 
 func TestGetClassIDByClassCode_Success(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -476,7 +476,7 @@ func TestGetClassIDByClassCode_Success(t *testing.T) {
 }
 
 func TestGetClassIDByClassCode_NotFound(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -489,7 +489,7 @@ func TestGetClassIDByClassCode_NotFound(t *testing.T) {
 }
 
 func TestAddPendingConfirmation(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -509,7 +509,7 @@ func TestAddPendingConfirmation(t *testing.T) {
 }
 
 func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -539,7 +539,7 @@ func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
 }
 
 func TestGetPendingConfirmation_Found(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -561,7 +561,7 @@ func TestGetPendingConfirmation_Found(t *testing.T) {
 }
 
 func TestGetPendingConfirmation_NotFound(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -574,7 +574,7 @@ func TestGetPendingConfirmation_NotFound(t *testing.T) {
 }
 
 func TestRemovePendingConfirmation(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
@@ -602,7 +602,7 @@ func TestRemovePendingConfirmation(t *testing.T) {
 }
 
 func TestRemovePendingConfirmation_NotFound(t *testing.T) {
-	db, err := newDB(Test)
+	db, err := NewDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.closeDB()
 
