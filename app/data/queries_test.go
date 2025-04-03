@@ -425,3 +425,65 @@ func TestCreateClass(t *testing.T) {
 	assert.Equal(t, classCode, dbClassCode, "Class Code should match")
 	assert.Equal(t, className, dbClassName, "Class Name should match")
 }
+
+func TestGetDiscordIDByUserName_Success(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const discordID = "12345"
+	const userName = "Jorge"
+
+	// Act
+	err = db.BindUser(discordID, userName)
+	assert.NoError(t, err)
+
+	// Verify
+	responseDiscordID, err := db.GetDiscordIDByUserName(userName)
+	assert.NoError(t, err)
+	assert.Equal(t, discordID, responseDiscordID)
+}
+
+func TestGetDiscordIDByUserName_NotFound(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	// Act
+	_, err = db.GetDiscordIDByUserName("nonexistent")
+	assert.Error(t, err)
+
+	// Verify
+	assert.Contains(t, err.Error(), "no user found")
+}
+
+func TestGetClassIDByClassCode_Success(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const classCode = "basicos"
+	const className = "Basicos 2024"
+
+	// Act
+	classID, err := db.CreateClass(classCode, className)
+	assert.NoError(t, err)
+
+	// Verify
+	retrievedID, err := db.GetClassIDByClassCode(classCode)
+	assert.NoError(t, err)
+	assert.Equal(t, classID, retrievedID)
+}
+
+func TestGetClassIDByClassCode_NotFound(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	// Act
+	_, err = db.GetClassIDByClassCode("UNKNOWN")
+	assert.Error(t, err)
+
+	// Verify
+	assert.Contains(t, err.Error(), "no class found")
+}

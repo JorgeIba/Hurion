@@ -1,6 +1,7 @@
 package data
 
 import (
+	"database/sql"
 	"fmt"
 )
 
@@ -241,6 +242,36 @@ func (db *DB) CreateClass(classCode, className string) (int64, error) {
 	classID, err := res.LastInsertId()
 	if err != nil {
 		return 0, fmt.Errorf("could not get last insert ID: %v", err)
+	}
+
+	return classID, nil
+}
+
+func (db *DB) GetDiscordIDByUserName(userName string) (string, error) {
+	query := `SELECT discord_id FROM users WHERE user_name = ?`
+
+	var discordID string
+	err := db.conn.QueryRow(query, userName).Scan(&discordID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("no user found with name: %s", userName)
+		}
+		return "", fmt.Errorf("could not get discord ID: %v", err)
+	}
+
+	return discordID, nil
+}
+
+func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
+	query := `SELECT id FROM classes WHERE class_code = ?`
+
+	var classID int64
+	err := db.conn.QueryRow(query, classCode).Scan(&classID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("no class found with code: %s", classCode)
+		}
+		return 0, fmt.Errorf("could not get class ID: %v", err)
 	}
 
 	return classID, nil
