@@ -1,9 +1,9 @@
 package data
 
 import (
-	"fmt"
 	"database/sql"
-
+	"fmt"
+	"os"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -12,11 +12,17 @@ type DBType int
 
 const (
 	Prod DBType = iota
-	Test	
+	Test
 )
 
 type DB struct {
 	conn *sql.DB
+}
+
+func (db *DB) closeDB() {
+	if db.conn != nil {
+		db.conn.Close()
+	}
 }
 
 func newDB(t DBType) (*DB, error) {
@@ -33,10 +39,31 @@ func newDB(t DBType) (*DB, error) {
 		return nil, fmt.Errorf("could not open DB: %v", err)
 	}
 
-	err = db.Ping()
-	if err != nil {
+	if err = db.Ping(); err != nil {
 		return nil, fmt.Errorf("could not ping DB: %v", err)
+	}
+
+	if err := applySchema(db); err != nil {
+		return nil, fmt.Errorf("could not get the schema: %v", err)
 	}
 
 	return &DB{conn: db}, nil
 }
+
+func applySchema(db *sql.DB) error {
+	schemaPath := "./schema.sql"
+
+	schema, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return fmt.Errorf("could not read schema file: %v", err)
+	}
+
+	if _, err = db.Exec(string(schema)); err != nil {
+		return fmt.Errorf("could not apply schema: %v", err)
+	}
+
+	fmt.Println("Schema applied successfully")
+	return nil
+}
+
+

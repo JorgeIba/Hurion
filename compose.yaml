@@ -1,7 +1,10 @@
 services:
   bot:
-    build:
-      context: .
+    build: .
+    volumes:
+      - ./app/data:/app/data
     env_file:
       - ./app/.env
+    restart: unless-stopped
+      
 
