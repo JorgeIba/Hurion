@@ -2,9 +2,8 @@ package data
 
 import (
 	"fmt"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 // Bind
@@ -130,7 +129,7 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 
 	// Verify
 	var count int
-	err = db.conn.QueryRow(queryEnrollment).Scan(&count);
+	err = db.conn.QueryRow(queryEnrollment).Scan(&count)
 	assert.NoError(t, err, "Could not query enrollments correctly: ")
 	assert.Equal(t, 1, count, "User should be registered")
 
@@ -139,7 +138,7 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Verify
-	err = db.conn.QueryRow(queryEnrollment).Scan(&count);
+	err = db.conn.QueryRow(queryEnrollment).Scan(&count)
 	assert.NoError(t, err, "Could not query enrollments correctly: ")
 
 	assert.Equal(t, 0, count, "User should not be registered in the class")

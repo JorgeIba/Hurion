@@ -20,14 +20,14 @@ func main() {
 	}
 
 	dg.AddHandler(messageHandler)
-	
+
 	if err = dg.Open(); err != nil {
 		log.Fatalln("Error opening connection,", err)
 	}
 	defer dg.Close()
 
 	fmt.Println("Bot is running, CTRL+C to exit.")
-	
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
@@ -41,17 +41,17 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	args := strings.Split(m.Content, " ");
+	args := strings.Split(m.Content, " ")
 	if len(args) < 1 {
 		return
 	}
 
 	switch args[0] {
-		case "!AC":
-			s.ChannelMessageSend(m.ChannelID, "I'm listening bro")
-			s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
-			s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
-		default:
-			return
+	case "!AC":
+		s.ChannelMessageSend(m.ChannelID, "I'm listening bro")
+		s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+		s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
+	default:
+		return
 	}
 }

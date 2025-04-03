@@ -1,7 +1,7 @@
 package data
 
 import (
-    "fmt"
+	"fmt"
 )
 
 // Binds an existing (or not) discord id to a single user name.

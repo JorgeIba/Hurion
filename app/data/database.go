@@ -3,10 +3,9 @@ package data
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	_ "github.com/mattn/go-sqlite3"
+	"os"
 )
-
 
 type DBType int
 
@@ -65,5 +64,3 @@ func applySchema(db *sql.DB) error {
 	fmt.Println("Schema applied successfully")
 	return nil
 }
-
-
