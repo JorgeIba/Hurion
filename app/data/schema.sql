@@ -1,8 +1,3 @@
-CREATE TABLE IF NOT EXISTS user_names (
-    user_name TEXT PRIMARY KEY,
-    name TEXT
-);
-
 CREATE TABLE IF NOT EXISTS users (
     discord_id TEXT PRIMARY KEY,
     user_name TEXT,
@@ -25,7 +20,6 @@ CREATE TABLE IF NOT EXISTS problems (
 CREATE TABLE IF NOT EXISTS enrollments (
     user_id TEXT,
     class_id INTEGER,
-    registered_name TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, class_id),
     FOREIGN KEY (user_id) REFERENCES users(discord_id),
