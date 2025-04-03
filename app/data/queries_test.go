@@ -362,3 +362,41 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 		discordID2: {2},
 	}, listClass2, "List should have matched")
 }
+
+func TestClearClass(t *testing.T) {
+	db, err := newDB(Test)
+	if err != nil {
+		t.Fatalf("could not open test DB: %v", err)
+	}
+
+	// Preconditions
+	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", 1, "CS101", "Intro to CS")
+	assert.NoError(t, err, "Could not insert test data.")
+	_, err = db.conn.Exec("INSERT INTO problems (id, name, class_id) VALUES (?, ?, ?)", 1, "Problem 1", 1)
+	assert.NoError(t, err, "Could not insert test data.")
+	_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "user1", 1)
+	assert.NoError(t, err, "Could not insert test data.")
+	_, err = db.conn.Exec("INSERT INTO solved_problems (user_id, problem_id, class_id) VALUES (?, ?, ?)", "user1", 1, 1)
+	assert.NoError(t, err, "Could not insert test data.")
+
+	// Act
+	err = db.ClearClass(1)
+	assert.NoError(t, err, "Unexpected error")
+
+	// Verify
+	var count int
+	queries := []string{
+		"SELECT COUNT(*) FROM classes WHERE id = 1",
+		"SELECT COUNT(*) FROM problems WHERE class_id = 1",
+		"SELECT COUNT(*) FROM enrollments WHERE class_id = 1",
+		"SELECT COUNT(*) FROM solved_problems WHERE class_id = 1",
+	}
+	for _, query := range queries {
+		if err := db.conn.QueryRow(query).Scan(&count); err != nil {
+			t.Fatalf("could not check data: %v", err)
+		}
+		if count != 0 {
+			t.Fatalf("expected 0 rows, but found %d", count)
+		}
+	}
+}

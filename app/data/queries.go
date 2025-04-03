@@ -189,3 +189,30 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[string][]int64, er
 
 	return solvedProblemsIDByUser, nil
 }
+
+func (db *DB) ClearClass(classID int) error {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("could not begin transaction: %v", err)
+	}
+
+	queries := []string{
+		"DELETE FROM solved_problems WHERE class_id = ?",
+		"DELETE FROM enrollments WHERE class_id = ?",
+		"DELETE FROM problems WHERE class_id = ?",
+		"DELETE FROM classes WHERE id = ?",
+	}
+
+	for _, query := range queries {
+		if _, err := tx.Exec(query, classID); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("could not execute query: %v", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %v", err)
+	}
+
+	return nil
+}
