@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS problems (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
     class_id INTEGER,
+    UNIQUE(name, class_id),  -- Same problem should not exist in the same class
     FOREIGN KEY (class_id) REFERENCES classes(id)
 );
 

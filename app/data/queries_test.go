@@ -51,6 +51,7 @@ func TestBindUser_UpdateUser(t *testing.T) {
 	assert.Equal(t, nameExpected, userName, "Username doesn't match")
 }
 
+// Register
 func TestRegisterUserIntoClass_NewUser(t *testing.T) {
 	db, err := newDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -61,29 +62,21 @@ func TestRegisterUserIntoClass_NewUser(t *testing.T) {
 
 	// Preconditions
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
-	if err != nil {
-		t.Fatalf("could not insert class: %v", err)
-	}
+	assert.NoError(t, err, "Could not insert class")
 
 	_, err = db.conn.Exec("INSERT INTO users (discord_id, user_name) VALUES (?, ?)", discordID, userName)
-	if err != nil {
-		t.Fatalf("could not insert class: %v", err)
-	}
+	assert.NoError(t, err, "Could not insert class")
 
 	classID, _ := response.LastInsertId()
 
 	// Register a user
 	err = db.RegisterUserIntoClass(discordID, classID)
-	if err != nil {
-		t.Fatalf("expected no error, but got: %v", err)
-	}
+	assert.NoError(t, err, "Expected not error, but got: ")
 
 	// Verify
 	var count int
 	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", discordID, classID).Scan(&count)
-	if err != nil {
-		t.Fatalf("could not query enrollments: %v", err)
-	}
+	assert.NoError(t, err, "Could not query enrollments correctly")
 
 	assert.Equal(t, 1, count, "User should be registered in the class")
 }
@@ -98,39 +91,30 @@ func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
 
 	// Preconditions
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
-	if err != nil {
-		t.Fatalf("could not insert class: %v", err)
-	}
+	assert.NoError(t, err, "Could not insert class")
 
 	_, err = db.conn.Exec("INSERT INTO users (discord_id, user_name) VALUES (?, ?)", discordID, userName)
-	if err != nil {
-		t.Fatalf("could not insert class: %v", err)
-	}
+	assert.NoError(t, err, "Could not insert class")
 
 	classID, _ := response.LastInsertId()
 
 	// Register a user
 	err = db.RegisterUserIntoClass(discordID, classID)
-	if err != nil {
-		t.Fatalf("expected no error, but got: %v", err)
-	}
+	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Try to register it again
 	err = db.RegisterUserIntoClass(discordID, classID)
-	if err != nil {
-		t.Fatalf("expected no error, but got: %v", err)
-	}
+	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Verify
 	var count int
 	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", discordID, classID).Scan(&count)
-	if err != nil {
-		t.Fatalf("could not query enrollments: %v", err)
-	}
+	assert.NoError(t, err, "Could not query enrollments correctly: ")
 
 	assert.Equal(t, 1, count, "User should be registered in the class")
 }
 
+// Deregister
 func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 	db, err := newDB(Test)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -142,27 +126,65 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 
 	// Register a user
 	err = db.RegisterUserIntoClass(discordID, classID)
-	if err != nil {
-		t.Fatalf("expected no error, but got: %v", err)
-	}
+	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Verify
 	var count int
-	if err = db.conn.QueryRow(queryEnrollment).Scan(&count); err != nil {
-		t.Fatalf("could not query enrollments: %v", err)
-	}
+	err = db.conn.QueryRow(queryEnrollment).Scan(&count);
+	assert.NoError(t, err, "Could not query enrollments correctly: ")
 	assert.Equal(t, 1, count, "User should be registered")
 
 	// Deregister
 	err = db.DeregisterUserFromClass(discordID, classID)
-	if err != nil {
-		t.Fatalf("expected no error, but got: %v", err)
-	}
+	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Verify
-	if err = db.conn.QueryRow(queryEnrollment).Scan(&count); err != nil {
-		t.Fatalf("could not query enrollments: %v", err)
-	}
+	err = db.conn.QueryRow(queryEnrollment).Scan(&count);
+	assert.NoError(t, err, "Could not query enrollments correctly: ")
 
 	assert.Equal(t, 0, count, "User should not be registered in the class")
+}
+
+// Add problem
+func TestAddProblem_New(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	// Precondition
+	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
+	assert.NoError(t, err)
+	classID, err := classResult.LastInsertId()
+	assert.NoError(t, err)
+
+	// Add a problem
+	problemID, err := db.AddProblem("Sorting Algorithms", classID)
+	assert.NoError(t, err)
+	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
+}
+
+// Remove problem
+func TestRemoveProblem(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const problemName = "Sorting Algorithms"
+
+	// Precondition
+	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
+	assert.NoError(t, err)
+	classID, err := classResult.LastInsertId()
+	assert.NoError(t, err)
+
+	// Add a problem
+	problemID, err := db.AddProblem(problemName, classID)
+	assert.NoError(t, err)
+	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
+
+	// Remove the problem
+	rowsAffected, err := db.RemoveProblem(problemName, classID)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
 }

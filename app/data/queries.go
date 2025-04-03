@@ -43,3 +43,30 @@ func (db *DB) DeregisterUserFromClass(discordID string, classID int64) error {
 	}
 	return nil
 }
+
+func (db *DB) AddProblem(problemName string, classId int64) (int64, error) {
+	query := `
+		INSERT INTO problems (name, class_id)
+		VALUES (?,?)
+		ON CONFLICT(name, class_id) DO NOTHING;
+	`
+	response, err := db.conn.Exec(query, problemName, classId)
+	if err != nil {
+		return 0, fmt.Errorf("could not add the problem into the class: %v", err)
+	}
+
+	return response.LastInsertId()
+}
+
+func (db *DB) RemoveProblem(problemName string, classId int64) (int64, error) {
+	query := `
+		DELETE FROM problems
+		WHERE name = ? AND class_id = ?
+	`
+	response, err := db.conn.Exec(query, problemName, classId)
+	if err != nil {
+		return 0, fmt.Errorf("could not remove the problem from the class: %v", err)
+	}
+
+	return response.RowsAffected()
+}
