@@ -216,3 +216,32 @@ func (db *DB) ClearClass(classID int) error {
 
 	return nil
 }
+
+func (db *DB) CreateClass(classCode, className string) (int64, error) {
+	query := `
+		INSERT INTO classes (class_code, name) 
+		VALUES (?, ?)
+		ON CONFLICT(class_code) DO NOTHING;
+	`
+
+	res, err := db.conn.Exec(query, classCode, className)
+	if err != nil {
+		return 0, fmt.Errorf("could not create class: %v", err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("could not check affected rows: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return 0, fmt.Errorf("class with code %s already exists", classCode)
+	}
+
+	classID, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("could not get last insert ID: %v", err)
+	}
+
+	return classID, nil
+}

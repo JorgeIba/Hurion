@@ -365,9 +365,8 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 
 func TestClearClass(t *testing.T) {
 	db, err := newDB(Test)
-	if err != nil {
-		t.Fatalf("could not open test DB: %v", err)
-	}
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
 
 	// Preconditions
 	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", 1, "CS101", "Intro to CS")
@@ -399,4 +398,30 @@ func TestClearClass(t *testing.T) {
 			t.Fatalf("expected 0 rows, but found %d", count)
 		}
 	}
+}
+
+func TestCreateClass(t *testing.T) {
+	db, err := newDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	classCode := "avanzados"
+	className := "Avanzados 2025"
+
+	// Act
+	classID, err := db.CreateClass(classCode, className)
+	assert.NoError(t, err, "Unexpected error")
+
+	// Verify
+	var dbClassID int64
+	var dbClassCode, dbClassName string
+	query := "SELECT id, class_code, name FROM classes WHERE id = ?"
+	err = db.conn.QueryRow(query, classID).Scan(&dbClassID, &dbClassCode, &dbClassName)
+	if err != nil {
+		t.Fatalf("could not retrieve inserted class: %v", err)
+	}
+
+	assert.Equal(t, classID, dbClassID, "Class ID should match")
+	assert.Equal(t, classCode, dbClassCode, "Class Code should match")
+	assert.Equal(t, className, dbClassName, "Class Name should match")
 }
