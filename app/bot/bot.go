@@ -54,31 +54,9 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	switch args[0] {
-	case "!bind":
-
-	case "!register":
-
-	case "!deregister":
-
-	case "!list":
-
-	case "!score":
-
-	case "!ac":
-
-	case "!undoac":
-
-	case "!addproblem":
-
-	case "!removeproblem":
-
-	case "!clear":
-
-	case "!create":
-
-	default:
-		return
+	cmd := args[0]
+	if handler, exists := commandMap[cmd]; exists {
+		handler(s, m, args)
 	}
 }
 
