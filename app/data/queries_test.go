@@ -611,3 +611,40 @@ func TestRemovePendingConfirmation_NotFound(t *testing.T) {
 	err = db.RemovePendingConfirmation(messageID)
 	assert.NoError(t, err, "Should not return error when removing nonexistent pending confirmation")
 }
+
+func TestIsUserRegisteredInClass_Enrolled(t *testing.T) {
+	db, err := NewDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const userID = "user123"
+
+	// Precondition:
+	classID, err := db.CreateClass("basicos", "Basicos 2024")
+	assert.NoError(t, err, "Should insert class without error")
+
+	db.RegisterUserIntoClass(userID, classID)
+	assert.NoError(t, err, "Should insert enrollment without error")
+
+	// Act
+	enrolled, err := db.IsUserRegisteredInClass(userID, classID)
+	assert.NoError(t, err, "Should check enrollment without error")
+	assert.True(t, enrolled, "User should be enrolled in the class")
+}
+
+func TestIsUserRegisteredInClass_NotEnrolled(t *testing.T) {
+	db, err := NewDB(Test)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.closeDB()
+
+	const userID = "user123"
+
+	// Precondition: insertar solo clase
+	classID, err := db.CreateClass("basicos", "Basicos 2024")
+	assert.NoError(t, err, "Should insert class without error")
+
+	// Act
+	enrolled, err := db.IsUserRegisteredInClass(userID, classID)
+	assert.NoError(t, err, "Should check enrollment without error")
+	assert.False(t, enrolled, "User should NOT be enrolled in the class")
+}

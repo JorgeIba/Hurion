@@ -277,6 +277,23 @@ func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
 	return classID, nil
 }
 
+func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
+
+	query := `
+		SELECT COUNT(*)
+		FROM enrollments
+		WHERE user_id = ? AND class_id = ?;
+	`
+
+	var count int
+	err := db.conn.QueryRow(query, userID, classID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("error checking user enrollment: %v", err)
+	}
+
+	return count > 0, nil
+}
+
 func (db *DB) AddPendingConfirmation(messageID, userID string, problemID int64) error {
 	query := `
 		INSERT INTO pending_confirmations (message_id, user_id, problem_id)
