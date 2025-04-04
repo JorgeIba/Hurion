@@ -1,4 +1,4 @@
-package controllers
+package mentor
 
 import "github.com/bwmarrin/discordgo"
 

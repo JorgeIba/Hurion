@@ -3,7 +3,10 @@ package bot
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -31,16 +34,16 @@ func handleBind(s *discordgo.Session, m *discordgo.MessageCreate, args []string)
 	case 1:
 		fmt.Println(NotEnough)
 	default:
-		controllers.BindUser(s, m)
+		general.BindUser(s, m)
 	}
 }
 
 func handleRegister(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	switch len(args) {
 	case 2:
-		controllers.RegisterUserInClass(s, m)
+		general.RegisterUserInClass(s, m)
 	case 3:
-		controllers.RegisterUserInClassByUser(s, m)
+		mentor.RegisterUserInClassByUser(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -49,9 +52,9 @@ func handleRegister(s *discordgo.Session, m *discordgo.MessageCreate, args []str
 func handleDeregister(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	switch len(args) {
 	case 2:
-		controllers.DeregisterUser(s, m)
+		enrolled.DeregisterUser(s, m)
 	case 3:
-		controllers.DeregisterUserByUser(s, m)
+		mentor.DeregisterUserByUser(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -60,7 +63,7 @@ func handleDeregister(s *discordgo.Session, m *discordgo.MessageCreate, args []s
 func handleList(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	switch len(args) {
 	case 2:
-		controllers.GetListOfProblemsByClass(s, m)
+		general.GetListOfProblemsByClass(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -69,9 +72,9 @@ func handleList(s *discordgo.Session, m *discordgo.MessageCreate, args []string)
 func handleScore(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	switch len(args) {
 	case 2:
-		controllers.GetScoreByClass(s, m)
+		general.GetScoreByClass(s, m)
 	case 3:
-		controllers.GetScoreByUserAndClass(s, m)
+		general.GetScoreByUserAndClass(s, m)
 	}
 }
 
@@ -80,7 +83,7 @@ func handleAC(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		controllers.AddAC(s, m)
+		enrolled.AddAC(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -91,9 +94,9 @@ func handleUndoAC(s *discordgo.Session, m *discordgo.MessageCreate, args []strin
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		controllers.UndoAC(s, m)
+		enrolled.UndoAC(s, m)
 	case 4:
-		controllers.UndoACByUser(s, m)
+		mentor.UndoACByUser(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -104,7 +107,7 @@ func handleAddProblem(s *discordgo.Session, m *discordgo.MessageCreate, args []s
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		controllers.AddProblem(s, m)
+		mentor.AddProblem(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -115,7 +118,7 @@ func handleRemoveProblem(s *discordgo.Session, m *discordgo.MessageCreate, args 
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		controllers.RemoveProblem(s, m)
+		mentor.RemoveProblem(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -124,7 +127,7 @@ func handleRemoveProblem(s *discordgo.Session, m *discordgo.MessageCreate, args 
 func handleClearClass(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	switch len(args) {
 	case 2:
-		controllers.ClearClass(s, m)
+		admin.ClearClass(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -135,7 +138,7 @@ func handleCreateClass(s *discordgo.Session, m *discordgo.MessageCreate, args []
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		controllers.CreateClass(s, m)
+		admin.CreateClass(s, m)
 	default:
 		fmt.Println(LimitExceed)
 	}

@@ -1,4 +1,4 @@
-package controllers
+package general
 
 import "github.com/bwmarrin/discordgo"
 
