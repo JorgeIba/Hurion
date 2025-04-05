@@ -4,16 +4,16 @@ import (
 	"fmt"
 )
 
-type Datastore interface {
+type ValidatorDatastore interface {
 	GetClassIDByClassCode(classCode string) (int64, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
 }
 
 type ValidatorDB struct {
-	db Datastore
+	db ValidatorDatastore
 }
 
-func NewValidatorDB(d Datastore) *ValidatorDB {
+func NewValidatorDB(d ValidatorDatastore) *ValidatorDB {
 	return &ValidatorDB{db: d}
 }
 

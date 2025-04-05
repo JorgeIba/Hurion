@@ -61,6 +61,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		Message:           m,
 		DatabaseValidator: validators.NewValidatorDB(bot.db),
 		DiscordValidator:  validators.NewValidatorDiscord(s),
+		Datastore:         bot.db,
 		Args:              args,
 	}
 

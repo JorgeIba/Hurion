@@ -1,6 +1,7 @@
 package contextmessage
 
 import (
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
 )
@@ -11,5 +12,6 @@ type ContextMessage struct {
 	Message           *discordgo.MessageCreate
 	DatabaseValidator *validators.ValidatorDB
 	DiscordValidator  *validators.ValidatorDiscord
+	Datastore         *data.DB
 	Args              []string
 }
