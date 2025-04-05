@@ -11,7 +11,7 @@ type MockDiscordSession struct {
 	MockGuildMember func(guildID, userID string) (*discordgo.Member, error)
 }
 
-func (m *MockDiscordSession) GuildMember(guildID, userID string) (*discordgo.Member, error) {
+func (m *MockDiscordSession) GuildMember(guildID, userID string, options ...discordgo.RequestOption) (*discordgo.Member, error) {
 	return m.MockGuildMember(guildID, userID)
 }
 

@@ -1,11 +1,11 @@
 package admin
 
-import "github.com/bwmarrin/discordgo"
+import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
 
-func ClearClass(s *discordgo.Session, m *discordgo.MessageCreate) {
+func ClearClass(c *contextmessage.ContextMessage) {
 
 }
 
-func CreateClass(s *discordgo.Session, m *discordgo.MessageCreate) {
+func CreateClass(c *contextmessage.ContextMessage) {
 
 }

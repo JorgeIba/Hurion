@@ -8,7 +8,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -27,8 +29,8 @@ func (bot *Bot) Run() {
 		log.Fatalln("Error creating the session,", err)
 	}
 
-	dg.AddHandler(messageHandler)
-	dg.AddHandler(reactionHandler)
+	dg.AddHandler(bot.messageHandler)
+	dg.AddHandler(bot.reactionHandler)
 
 	if err = dg.Open(); err != nil {
 		log.Fatalln("Error opening connection,", err)
@@ -44,7 +46,7 @@ func (bot *Bot) Run() {
 	fmt.Println("Disconnecting bot...")
 }
 
-func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.Bot {
 		return
 	}
@@ -54,13 +56,21 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	context := &contextmessage.ContextMessage{
+		Session:           s,
+		Message:           m,
+		DatabaseValidator: validators.NewValidatorDB(bot.db),
+		DiscordValidator:  validators.NewValidatorDiscord(s),
+		Args:              args,
+	}
+
 	cmd := args[0]
 	if handler, exists := commandMap[cmd]; exists {
-		handler(s, m, args)
+		handler(context)
 	}
 }
 
-func reactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 	message, err := s.ChannelMessage(r.ChannelID, r.MessageID)
 	if err != nil {
 		fmt.Println("Something happened when trying to get the message:", err)

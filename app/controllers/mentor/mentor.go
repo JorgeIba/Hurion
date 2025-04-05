@@ -1,23 +1,23 @@
 package mentor
 
-import "github.com/bwmarrin/discordgo"
+import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
 
-func RegisterUserInClassByUser(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-}
-
-func DeregisterUserByUser(s *discordgo.Session, m *discordgo.MessageCreate) {
+func RegisterUserInClassByUser(c *contextmessage.ContextMessage) {
 
 }
 
-func UndoACByUser(s *discordgo.Session, m *discordgo.MessageCreate) {
+func DeregisterUserByUser(c *contextmessage.ContextMessage) {
 
 }
 
-func AddProblem(s *discordgo.Session, m *discordgo.MessageCreate) {
+func UndoACByUser(c *contextmessage.ContextMessage) {
 
 }
 
-func RemoveProblem(s *discordgo.Session, m *discordgo.MessageCreate) {
+func AddProblem(c *contextmessage.ContextMessage) {
+
+}
+
+func RemoveProblem(c *contextmessage.ContextMessage) {
 
 }

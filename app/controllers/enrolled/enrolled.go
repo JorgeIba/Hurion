@@ -1,15 +1,15 @@
 package enrolled
 
-import "github.com/bwmarrin/discordgo"
+import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
 
-func DeregisterUser(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-}
-
-func AddAC(s *discordgo.Session, m *discordgo.MessageCreate) {
+func DeregisterUser(c *contextmessage.ContextMessage) {
 
 }
 
-func UndoAC(s *discordgo.Session, m *discordgo.MessageCreate) {
+func AddAC(c *contextmessage.ContextMessage) {
+
+}
+
+func UndoAC(c *contextmessage.ContextMessage) {
 
 }

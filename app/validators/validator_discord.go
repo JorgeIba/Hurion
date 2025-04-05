@@ -6,12 +6,16 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type DiscordSession interface {
-	GuildMember(guildID, userID string) (*discordgo.Member, error)
+type DiscordGoSession interface {
+	GuildMember(guildID, userID string, options ...discordgo.RequestOption) (*discordgo.Member, error)
 }
 
 type ValidatorDiscord struct {
-	session DiscordSession
+	session DiscordGoSession
+}
+
+func NewValidatorDiscord(s DiscordGoSession) *ValidatorDiscord {
+	return &ValidatorDiscord{session: s}
 }
 
 const (

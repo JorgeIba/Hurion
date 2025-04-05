@@ -13,6 +13,10 @@ type ValidatorDB struct {
 	db Datastore
 }
 
+func NewValidatorDB(d Datastore) *ValidatorDB {
+	return &ValidatorDB{db: d}
+}
+
 func (validator *ValidatorDB) IsEnrolled(userID, classCode string) (bool, error) {
 	classID, err := validator.db.GetClassIDByClassCode(classCode)
 	if err != nil {

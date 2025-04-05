@@ -1,23 +1,23 @@
 package general
 
-import "github.com/bwmarrin/discordgo"
+import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
 
-func BindUser(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-}
-
-func RegisterUserInClass(s *discordgo.Session, m *discordgo.MessageCreate) {
+func BindUser(c *contextmessage.ContextMessage) {
 
 }
 
-func GetListOfProblemsByClass(s *discordgo.Session, m *discordgo.MessageCreate) {
+func RegisterUserInClass(c *contextmessage.ContextMessage) {
 
 }
 
-func GetScoreByClass(s *discordgo.Session, m *discordgo.MessageCreate) {
+func GetListOfProblemsByClass(c *contextmessage.ContextMessage) {
 
 }
 
-func GetScoreByUserAndClass(s *discordgo.Session, m *discordgo.MessageCreate) {
+func GetScoreByClass(c *contextmessage.ContextMessage) {
+
+}
+
+func GetScoreByUserAndClass(c *contextmessage.ContextMessage) {
 
 }
