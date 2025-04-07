@@ -14,7 +14,14 @@ func main() {
 		log.Fatalf("There is not a token")
 	}
 
-	db, err := data.NewDB(data.Prod)
+	db, err := data.NewDB(
+		&data.DBConfig{
+			DBPath:     "./data/db.sqlite",
+			SchemaPath: "./data/schema.sql",
+			DBType:     data.Prod,
+		},
+	)
+
 	if err != nil {
 		log.Fatalf("Error creating the DB: %v", err)
 	}

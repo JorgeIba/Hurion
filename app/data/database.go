@@ -8,57 +8,55 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type DBType int
+type DBTypeEnum int
 
 const (
-	Prod DBType = iota
+	Prod DBTypeEnum = iota
 	Test
 )
 
-type DB struct {
-	conn *sql.DB
+type DBConfig struct {
+	DBPath     string
+	SchemaPath string
+	DBType     DBTypeEnum
 }
 
-func (db *DB) closeDB() {
+type DB struct {
+	conn   *sql.DB
+	Config *DBConfig
+}
+
+func (db *DB) CloseDB() {
 	if db.conn != nil {
 		db.conn.Close()
 	}
 }
 
-func NewDB(t DBType) (*DB, error) {
-	var dbPath string
-
-	if t == Prod {
-		dbPath = "./db.sqlite"
-	} else if t == Test {
-		dbPath = ":memory:"
-	}
-
-	db, err := sql.Open("sqlite3", dbPath)
+func NewDB(cfg *DBConfig) (*DB, error) {
+	conn, err := sql.Open("sqlite3", cfg.DBPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not open DB: %v", err)
 	}
 
-	if err = db.Ping(); err != nil {
+	if err = conn.Ping(); err != nil {
 		return nil, fmt.Errorf("could not ping DB: %v", err)
 	}
 
-	if err := applySchema(db); err != nil {
+	if err := applySchema(conn, cfg.SchemaPath); err != nil {
 		return nil, fmt.Errorf("could not get the schema: %v", err)
 	}
 
-	return &DB{conn: db}, nil
+	return &DB{conn: conn, Config: cfg}, nil
 }
 
-func applySchema(db *sql.DB) error {
-	schemaPath := "./schema.sql"
+func applySchema(conn *sql.DB, schemaPath string) error {
 
 	schema, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return fmt.Errorf("could not read schema file: %v", err)
 	}
 
-	if _, err = db.Exec(string(schema)); err != nil {
+	if _, err = conn.Exec(string(schema)); err != nil {
 		return fmt.Errorf("could not apply schema: %v", err)
 	}
 

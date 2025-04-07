@@ -7,11 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var testConfig *DBConfig = &DBConfig{DBPath: ":memory:", SchemaPath: "./schema.sql", DBType: Test}
+
 // Bind
 func TestBindUser_NewUser(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "12345"
 	const nameQuery = "Jorge"
@@ -27,9 +29,9 @@ func TestBindUser_NewUser(t *testing.T) {
 }
 
 func TestBindUser_UpdateUser(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "12345"
 	const nameFirst = "Jorge"
@@ -53,9 +55,9 @@ func TestBindUser_UpdateUser(t *testing.T) {
 
 // Register
 func TestRegisterUserIntoClass_NewUser(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "12345"
 	const userName = "Jorge"
@@ -82,9 +84,9 @@ func TestRegisterUserIntoClass_NewUser(t *testing.T) {
 }
 
 func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "12345"
 	const userName = "Jorge"
@@ -116,9 +118,9 @@ func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
 
 // Deregister
 func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "12345"
 	const classID = 1
@@ -147,9 +149,9 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 
 // Add problem
 func TestAddProblem_New(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	// Precondition
 	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
@@ -165,9 +167,9 @@ func TestAddProblem_New(t *testing.T) {
 
 // Remove problem
 func TestRemoveProblem(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const problemName = "Sorting Algorithms"
 
@@ -190,9 +192,9 @@ func TestRemoveProblem(t *testing.T) {
 }
 
 func TestAddAC(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "user123"
 	const problemID = int64(1)
@@ -213,9 +215,9 @@ func TestAddAC(t *testing.T) {
 }
 
 func TestRemoveAC(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "user123"
 	const problemID = int64(1)
@@ -240,9 +242,9 @@ func TestRemoveAC(t *testing.T) {
 }
 
 func TestGetProblemsByClass(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const classID = int64(1)
 	const classID2 = int64(2)
@@ -270,9 +272,9 @@ func TestGetProblemsByClass(t *testing.T) {
 }
 
 func TestGetAllSolvedProblemsByUser(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	// Preconditions
 
@@ -318,9 +320,9 @@ func TestGetAllSolvedProblemsByUser(t *testing.T) {
 }
 
 func TestGetAllSolvedProblemsByClass(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	// Preconditions
 
@@ -364,9 +366,9 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 }
 
 func TestClearClass(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	// Preconditions
 	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", 1, "CS101", "Intro to CS")
@@ -401,9 +403,9 @@ func TestClearClass(t *testing.T) {
 }
 
 func TestCreateClass(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	classCode := "avanzados"
 	className := "Avanzados 2025"
@@ -427,9 +429,9 @@ func TestCreateClass(t *testing.T) {
 }
 
 func TestGetDiscordIDByUserName_Success(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const discordID = "12345"
 	const userName = "Jorge"
@@ -445,9 +447,9 @@ func TestGetDiscordIDByUserName_Success(t *testing.T) {
 }
 
 func TestGetDiscordIDByUserName_NotFound(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	// Act
 	_, err = db.GetDiscordIDByUserName("nonexistent")
@@ -458,9 +460,9 @@ func TestGetDiscordIDByUserName_NotFound(t *testing.T) {
 }
 
 func TestGetClassIDByClassCode_Success(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const classCode = "basicos"
 	const className = "Basicos 2024"
@@ -476,9 +478,9 @@ func TestGetClassIDByClassCode_Success(t *testing.T) {
 }
 
 func TestGetClassIDByClassCode_NotFound(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	// Act
 	_, err = db.GetClassIDByClassCode("UNKNOWN")
@@ -489,9 +491,9 @@ func TestGetClassIDByClassCode_NotFound(t *testing.T) {
 }
 
 func TestAddPendingConfirmation(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const messageID = "123456"
 	const userID = "789"
@@ -509,9 +511,9 @@ func TestAddPendingConfirmation(t *testing.T) {
 }
 
 func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const messageIDPrevious = "123"
 	const messageIDUpdated = "456"
@@ -539,9 +541,9 @@ func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
 }
 
 func TestGetPendingConfirmation_Found(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const messageID = "123456"
 	const userID = "789"
@@ -561,9 +563,9 @@ func TestGetPendingConfirmation_Found(t *testing.T) {
 }
 
 func TestGetPendingConfirmation_NotFound(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const messageID = "nonexistent"
 
@@ -574,9 +576,9 @@ func TestGetPendingConfirmation_NotFound(t *testing.T) {
 }
 
 func TestRemovePendingConfirmation(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const messageID = "msg123"
 	const userID = "user123"
@@ -602,9 +604,9 @@ func TestRemovePendingConfirmation(t *testing.T) {
 }
 
 func TestRemovePendingConfirmation_NotFound(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	messageID := "nonexistent"
 
@@ -613,9 +615,9 @@ func TestRemovePendingConfirmation_NotFound(t *testing.T) {
 }
 
 func TestIsUserRegisteredInClass_Enrolled(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const userID = "user123"
 
@@ -633,9 +635,9 @@ func TestIsUserRegisteredInClass_Enrolled(t *testing.T) {
 }
 
 func TestIsUserRegisteredInClass_NotEnrolled(t *testing.T) {
-	db, err := NewDB(Test)
+	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
-	defer db.closeDB()
+	defer db.CloseDB()
 
 	const userID = "user123"
 
