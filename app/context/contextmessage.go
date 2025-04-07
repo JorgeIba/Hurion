@@ -1,4 +1,4 @@
-package contextmessage
+package context
 
 import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"

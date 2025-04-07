@@ -1,8 +1,6 @@
 package data
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestDBConnection(t *testing.T) {
 	// Test for production database connection

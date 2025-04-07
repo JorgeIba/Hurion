@@ -1,15 +1,15 @@
 package enrolled
 
-import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
+import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 
-func DeregisterUser(c *contextmessage.ContextMessage) {
-
-}
-
-func AddAC(c *contextmessage.ContextMessage) {
+func DeregisterUser(c *context.ContextMessage) {
 
 }
 
-func UndoAC(c *contextmessage.ContextMessage) {
+func AddAC(c *context.ContextMessage) {
+
+}
+
+func UndoAC(c *context.ContextMessage) {
 
 }

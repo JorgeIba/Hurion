@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
@@ -56,7 +56,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		return
 	}
 
-	context := &contextmessage.ContextMessage{
+	context := &context.ContextMessage{
 		Session:           s,
 		Message:           m,
 		DatabaseValidator: validators.NewValidatorDB(bot.db),
@@ -66,6 +66,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 
 	cmd := args[0]
+	fmt.Println(cmd)
 	if handler, exists := commandMap[cmd]; exists {
 		handler(context)
 	}

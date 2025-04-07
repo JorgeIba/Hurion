@@ -3,14 +3,14 @@ package bot
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot/contextmessage"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 )
 
-type CommandRouter func(c *contextmessage.ContextMessage)
+type CommandRouter func(c *context.ContextMessage)
 
 var commandMap = map[string]CommandRouter{
 	"!bind":           handleBind,
@@ -29,7 +29,7 @@ var commandMap = map[string]CommandRouter{
 const NotEnough = "Not enough parameters bro"
 const LimitExceed = "Parameters Limit Exceed"
 
-func handleBind(c *contextmessage.ContextMessage) {
+func handleBind(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1:
 		fmt.Println(NotEnough)
@@ -38,7 +38,7 @@ func handleBind(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleRegister(c *contextmessage.ContextMessage) {
+func handleRegister(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		general.RegisterUserInClass(c)
@@ -49,7 +49,7 @@ func handleRegister(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleDeregister(c *contextmessage.ContextMessage) {
+func handleDeregister(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		enrolled.DeregisterUser(c)
@@ -60,7 +60,7 @@ func handleDeregister(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleList(c *contextmessage.ContextMessage) {
+func handleList(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		general.GetListOfProblemsByClass(c)
@@ -69,7 +69,7 @@ func handleList(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleScore(c *contextmessage.ContextMessage) {
+func handleScore(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		general.GetScoreByClass(c)
@@ -78,7 +78,7 @@ func handleScore(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleAC(c *contextmessage.ContextMessage) {
+func handleAC(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
@@ -89,7 +89,7 @@ func handleAC(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleUndoAC(c *contextmessage.ContextMessage) {
+func handleUndoAC(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
@@ -102,7 +102,7 @@ func handleUndoAC(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleAddProblem(c *contextmessage.ContextMessage) {
+func handleAddProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
@@ -113,7 +113,7 @@ func handleAddProblem(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleRemoveProblem(c *contextmessage.ContextMessage) {
+func handleRemoveProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
@@ -124,7 +124,7 @@ func handleRemoveProblem(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleClearClass(c *contextmessage.ContextMessage) {
+func handleClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		admin.ClearClass(c)
@@ -133,7 +133,7 @@ func handleClearClass(c *contextmessage.ContextMessage) {
 	}
 }
 
-func handleCreateClass(c *contextmessage.ContextMessage) {
+func handleCreateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
