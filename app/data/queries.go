@@ -277,6 +277,36 @@ func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
 	return classID, nil
 }
 
+func (db *DB) GetClassNameByClassID(classID int64) (string, error) {
+	query := `SELECT name FROM classes WHERE id = ?`
+
+	var className string
+	err := db.conn.QueryRow(query, classID).Scan(&className)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("no class found with code: %d", classID)
+		}
+		return "", fmt.Errorf("could not get class ID: %v", err)
+	}
+
+	return className, nil
+}
+
+func (db *DB) GetClassNameByClassCode(classCode string) (string, error) {
+	query := `SELECT name FROM classes WHERE class_code = ?`
+
+	var className string
+	err := db.conn.QueryRow(query, classCode).Scan(&className)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("no class found with code: %s", classCode)
+		}
+		return "", fmt.Errorf("could not get class ID: %v", err)
+	}
+
+	return className, nil
+}
+
 func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
 	query := `
 		SELECT COUNT(*)
@@ -361,7 +391,7 @@ func (db *DB) GetUsernameByDiscordID(discordID string) (string, error) {
 	err := db.conn.QueryRow(query, discordID).Scan(&userName)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", nil
+			return "", fmt.Errorf("discordId has not any username binded")
 		}
 		return "", fmt.Errorf("could not get user_name: %v", err)
 	}

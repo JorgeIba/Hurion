@@ -693,6 +693,42 @@ func TestGetUsernameByDiscordID(t *testing.T) {
 	// Act
 	userNameResponse, err := db.GetUsernameByDiscordID(discordID)
 
-	assert.NoError(t, err, "Should check binding without error")
+	assert.NoError(t, err, "Should get Username without error")
 	assert.Equal(t, userNameResponse, userName, "User names should match")
+}
+
+func TestGetClassNameyClassID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const classCode = "basicos"
+	const className = "Basicos 2025"
+
+	// Preconditions
+	classID, err := db.CreateClass(classCode, className)
+	assert.NoError(t, err)
+
+	// Act
+	classNameResponse, err := db.GetClassNameByClassID(classID)
+	assert.NoError(t, err)
+	assert.Equal(t, classNameResponse, className)
+}
+
+func TestGetClassNameyClassCode(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const classCode = "basicos"
+	const className = "Basicos 2025"
+
+	// Preconditions
+	_, err = db.CreateClass(classCode, className)
+	assert.NoError(t, err)
+
+	// Act
+	classNameResponse, err := db.GetClassNameByClassCode(classCode)
+	assert.NoError(t, err)
+	assert.Equal(t, classNameResponse, className)
 }
