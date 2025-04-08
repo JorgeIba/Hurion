@@ -26,7 +26,7 @@ func (m *MockDatastore) GetProblemByID(problemID int64) (*data.Problem, error) {
 	return m.MockGetProblemByID(problemID)
 }
 
-func TestIsEnrolled_Yes(t *testing.T) {
+func TestIsEnrolledByClassCode_Yes(t *testing.T) {
 	mockedDataStore := &MockDatastore{
 		MockGetClassIDByClassCode: func(classCode string) (int64, error) {
 			return int64(1), nil
@@ -38,12 +38,12 @@ func TestIsEnrolled_Yes(t *testing.T) {
 
 	validator := NewValidatorDB(mockedDataStore)
 
-	isMyBoyEnrolled, err := validator.IsEnrolled("Jorge", "1")
+	isMyBoyEnrolled, err := validator.IsEnrolledByClassCode("Jorge", "1")
 	assert.NoError(t, err)
 	assert.True(t, isMyBoyEnrolled)
 }
 
-func TestIsEnrolled_No(t *testing.T) {
+func TestIsEnrolledByClassCode_No(t *testing.T) {
 	mockedDataStore := &MockDatastore{
 		MockGetClassIDByClassCode: func(classCode string) (int64, error) {
 			return int64(1), nil
@@ -55,7 +55,7 @@ func TestIsEnrolled_No(t *testing.T) {
 
 	validator := NewValidatorDB(mockedDataStore)
 
-	isMyBoyEnrolled, err := validator.IsEnrolled("Jorge", "1")
+	isMyBoyEnrolled, err := validator.IsEnrolledByClassCode("Jorge", "1")
 	assert.NoError(t, err)
 	assert.False(t, isMyBoyEnrolled)
 }
@@ -114,4 +114,32 @@ func TestExistsProblemInClass_No(t *testing.T) {
 	isProblemOK, err := validator.ExistsProblemInClass(1, 111)
 	assert.NoError(t, err)
 	assert.False(t, isProblemOK)
+}
+
+func TestIsEnrolledByClassID_Yes(t *testing.T) {
+	mockedDataStore := &MockDatastore{
+		MockIsUserRegisteredInClass: func(userID string, classID int64) (bool, error) {
+			return true, nil
+		},
+	}
+
+	validator := NewValidatorDB(mockedDataStore)
+
+	isMyBoyEnrolled, err := validator.IsEnrolledByClassID("Jorge", 1)
+	assert.NoError(t, err)
+	assert.True(t, isMyBoyEnrolled)
+}
+
+func TestIsEnrolledByClassID_No(t *testing.T) {
+	mockedDataStore := &MockDatastore{
+		MockIsUserRegisteredInClass: func(userID string, classID int64) (bool, error) {
+			return false, nil
+		},
+	}
+
+	validator := NewValidatorDB(mockedDataStore)
+
+	isMyBoyEnrolled, err := validator.IsEnrolledByClassID("Jorge", 1)
+	assert.NoError(t, err)
+	assert.False(t, isMyBoyEnrolled)
 }
