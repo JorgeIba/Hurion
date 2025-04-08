@@ -650,3 +650,31 @@ func TestIsUserRegisteredInClass_NotEnrolled(t *testing.T) {
 	assert.NoError(t, err, "Should check enrollment without error")
 	assert.False(t, enrolled, "User should NOT be enrolled in the class")
 }
+
+func TestIsUserBinded_Yes(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "user123"
+
+	// Precondition:
+	db.BindUser(userID, "Jorge")
+	assert.NoError(t, err, "Should insert enrollment without error")
+
+	// Act
+	binded, err := db.IsUserBinded(userID)
+	assert.NoError(t, err, "Should check binding without error")
+	assert.True(t, binded, "User should have binded some username")
+}
+
+func TestIsUserBinded_No(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	// Act
+	binded, err := db.IsUserBinded("123")
+	assert.NoError(t, err, "Should check binding without error")
+	assert.False(t, binded, "User should have binded some username")
+}

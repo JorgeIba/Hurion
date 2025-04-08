@@ -278,7 +278,6 @@ func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
 }
 
 func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
-
 	query := `
 		SELECT COUNT(*)
 		FROM enrollments
@@ -289,6 +288,22 @@ func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error
 	err := db.conn.QueryRow(query, userID, classID).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("error checking user enrollment: %v", err)
+	}
+
+	return count > 0, nil
+}
+
+func (db *DB) IsUserBinded(userID string) (bool, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM users
+		WHERE discord_id = ?;
+	`
+
+	var count int
+	err := db.conn.QueryRow(query, userID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("error checking user binding: %v", err)
 	}
 
 	return count > 0, nil
