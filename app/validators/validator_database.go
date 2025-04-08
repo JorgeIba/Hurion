@@ -2,11 +2,14 @@ package validators
 
 import (
 	"fmt"
+
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 )
 
 type ValidatorDatastore interface {
 	GetClassIDByClassCode(classCode string) (int64, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
+	GetProblemByID(problemID int64) (*data.Problem, error)
 }
 
 type ValidatorDB struct {
@@ -29,4 +32,21 @@ func (validator *ValidatorDB) IsEnrolled(userID, classCode string) (bool, error)
 	}
 
 	return isMyBoyEnrolled, nil
+}
+
+func (validator *ValidatorDB) ExistsProblem(problemID int64) (bool, error) {
+	_, err := validator.db.GetProblemByID(problemID)
+	if err != nil {
+		return false, fmt.Errorf("could not check problem info")
+	}
+
+	return true, nil
+}
+
+func (validator *ValidatorDB) ExistsProblemInClass(problemID, classID int64) (bool, error) {
+	problem, err := validator.db.GetProblemByID(problemID)
+	if err != nil {
+		return false, fmt.Errorf("could not check problem info")
+	}
+	return problem.ClassID == classID, nil
 }

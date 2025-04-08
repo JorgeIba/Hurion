@@ -752,6 +752,6 @@ func TestGetProblemByID(t *testing.T) {
 	// Act
 	problem, err := db.GetProblemByID(problemID)
 	assert.NoError(t, err)
-	assert.Equal(t, problem.classID, classID)
-	assert.Equal(t, problem.name, problemName)
+	assert.Equal(t, problem.ClassID, classID)
+	assert.Equal(t, problem.Name, problemName)
 }

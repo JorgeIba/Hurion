@@ -413,5 +413,5 @@ func (db *DB) GetProblemByID(problemID int64) (*Problem, error) {
 		}
 		return &Problem{}, fmt.Errorf("could not get problem info: %v", err)
 	}
-	return &Problem{id: problemID, name: name, classID: class_id}, nil
+	return &Problem{ID: problemID, Name: name, ClassID: class_id}, nil
 }

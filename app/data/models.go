@@ -1,7 +1,7 @@
 package data
 
 type Problem struct {
-	id      int64
-	name    string
-	classID int64
+	ID      int64
+	Name    string
+	ClassID int64
 }

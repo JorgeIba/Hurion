@@ -8,6 +8,7 @@ type QueryDatastore interface {
 	GetClassIDByClassCode(classCode string) (int64, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
+	GetProblemByID(problemID int64) (*Problem, error)
 }
 
 type UpdateDataStore interface {
