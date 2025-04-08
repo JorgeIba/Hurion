@@ -32,9 +32,11 @@ func RegisterUserInClass(c *context.ContextMessage) {
 		return
 	}
 
-	className, err := c.Datastore.GetClassNameByClassID(classID)
+	class, err := c.Datastore.GetClassByClassID(classID)
+	className := class.Name
 	if err != nil {
 		logger.Log.Error(err)
+		return
 	}
 
 	discordID := c.Message.Author.ID

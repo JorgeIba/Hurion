@@ -710,9 +710,10 @@ func TestGetClassNameByClassID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Act
-	classNameResponse, err := db.GetClassNameByClassID(classID)
+	classNameResponse, err := db.GetClassByClassID(classID)
 	assert.NoError(t, err)
-	assert.Equal(t, classNameResponse, className)
+	assert.Equal(t, classNameResponse.Name, className)
+	assert.Equal(t, classNameResponse.ClassCode, classCode)
 }
 
 func TestGetClassNameByClassCode(t *testing.T) {
@@ -724,13 +725,14 @@ func TestGetClassNameByClassCode(t *testing.T) {
 	const className = "Basicos 2025"
 
 	// Preconditions
-	_, err = db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(classCode, className)
 	assert.NoError(t, err)
 
 	// Act
-	classNameResponse, err := db.GetClassNameByClassCode(classCode)
+	classNameResponse, err := db.GetClassByClassCode(classCode)
 	assert.NoError(t, err)
-	assert.Equal(t, classNameResponse, className)
+	assert.Equal(t, classNameResponse.Name, className)
+	assert.Equal(t, classNameResponse.ID, classID)
 }
 
 func TestGetProblemByID(t *testing.T) {

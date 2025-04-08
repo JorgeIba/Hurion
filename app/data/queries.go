@@ -277,34 +277,37 @@ func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
 	return classID, nil
 }
 
-func (db *DB) GetClassNameByClassID(classID int64) (string, error) {
-	query := `SELECT name FROM classes WHERE id = ?`
+func (db *DB) GetClassByClassID(classID int64) (*Class, error) {
+	query := `SELECT class_code, name FROM classes WHERE id = ?`
 
-	var className string
-	err := db.conn.QueryRow(query, classID).Scan(&className)
+	var classCode, className string
+
+	err := db.conn.QueryRow(query, classID).Scan(&classCode, &className)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("no class found with code: %d", classID)
+			return &Class{}, fmt.Errorf("no class found with id: %d", classID)
 		}
-		return "", fmt.Errorf("could not get class ID: %v", err)
+		return &Class{}, fmt.Errorf("could not get class: %v", err)
 	}
 
-	return className, nil
+	return &Class{ID: classID, ClassCode: classCode, Name: className}, nil
 }
 
-func (db *DB) GetClassNameByClassCode(classCode string) (string, error) {
-	query := `SELECT name FROM classes WHERE class_code = ?`
+func (db *DB) GetClassByClassCode(classCode string) (*Class, error) {
+	query := `SELECT id, name FROM classes WHERE class_code = ?`
 
+	var classID int64
 	var className string
-	err := db.conn.QueryRow(query, classCode).Scan(&className)
+
+	err := db.conn.QueryRow(query, classCode).Scan(&classID, &className)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("no class found with code: %s", classCode)
+			return &Class{}, fmt.Errorf("no class found with code: %d", classID)
 		}
-		return "", fmt.Errorf("could not get class ID: %v", err)
+		return &Class{}, fmt.Errorf("could not get class ID: %v", err)
 	}
 
-	return className, nil
+	return &Class{ID: classID, ClassCode: classCode, Name: className}, nil
 }
 
 func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
