@@ -8,7 +8,7 @@ import (
 
 var Log *logrus.Logger
 
-func init() {
+func Init() {
 	Log = logrus.New()
 
 	Log.SetLevel(logrus.DebugLevel)

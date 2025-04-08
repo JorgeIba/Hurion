@@ -6,6 +6,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
 
 func main() {
@@ -13,6 +14,8 @@ func main() {
 	if token == "" {
 		log.Fatalf("There is not a token")
 	}
+
+	logger.Init()
 
 	db, err := data.NewDB(
 		&data.DBConfig{

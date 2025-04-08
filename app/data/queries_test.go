@@ -697,7 +697,7 @@ func TestGetUsernameByDiscordID(t *testing.T) {
 	assert.Equal(t, userNameResponse, userName, "User names should match")
 }
 
-func TestGetClassNameyClassID(t *testing.T) {
+func TestGetClassNameByClassID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
@@ -715,7 +715,7 @@ func TestGetClassNameyClassID(t *testing.T) {
 	assert.Equal(t, classNameResponse, className)
 }
 
-func TestGetClassNameyClassCode(t *testing.T) {
+func TestGetClassNameByClassCode(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()

@@ -137,9 +137,7 @@ func handleCreateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
-	case 3:
-		admin.CreateClass(c)
 	default:
-		fmt.Println(LimitExceed)
+		admin.CreateClass(c)
 	}
 }

@@ -191,7 +191,7 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[string][]int64, er
 	return solvedProblemsIDByUser, nil
 }
 
-func (db *DB) ClearClass(classID int) error {
+func (db *DB) ClearClass(classID int64) error {
 	tx, err := db.conn.Begin()
 	if err != nil {
 		return fmt.Errorf("could not begin transaction: %v", err)
