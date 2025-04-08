@@ -397,3 +397,21 @@ func (db *DB) GetUsernameByDiscordID(discordID string) (string, error) {
 	}
 	return userName, nil
 }
+
+func (db *DB) GetProblemByID(problemID int64) (*Problem, error) {
+	query := `
+	SELECT name, class_id FROM problems
+	WHERE id = ?;
+	`
+	var name string
+	var class_id int64
+
+	err := db.conn.QueryRow(query, problemID).Scan(&name, &class_id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return &Problem{}, fmt.Errorf("ProblemID not found")
+		}
+		return &Problem{}, fmt.Errorf("could not get problem info: %v", err)
+	}
+	return &Problem{id: problemID, name: name, classID: class_id}, nil
+}

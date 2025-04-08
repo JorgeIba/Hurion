@@ -732,3 +732,26 @@ func TestGetClassNameByClassCode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, classNameResponse, className)
 }
+
+func TestGetProblemByID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const classCode = "basicos"
+	const className = "Basicos 2025"
+	const problemName = "Sorting"
+
+	// Preconditions
+	classID, err := db.CreateClass(classCode, className)
+	assert.NoError(t, err)
+
+	problemID, err := db.AddProblem(problemName, classID)
+	assert.NoError(t, err)
+
+	// Act
+	problem, err := db.GetProblemByID(problemID)
+	assert.NoError(t, err)
+	assert.Equal(t, problem.classID, classID)
+	assert.Equal(t, problem.name, problemName)
+}
