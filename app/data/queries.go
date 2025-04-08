@@ -350,3 +350,20 @@ func (db *DB) RemovePendingConfirmation(messageID string) error {
 	}
 	return nil
 }
+
+func (db *DB) GetUsernameByDiscordID(discordID string) (string, error) {
+	query := `
+		SELECT user_name FROM users
+		WHERE discord_id = ?;
+	`
+	var userName string
+
+	err := db.conn.QueryRow(query, discordID).Scan(&userName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("could not get user_name: %v", err)
+	}
+	return userName, nil
+}

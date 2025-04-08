@@ -678,3 +678,21 @@ func TestIsUserBinded_No(t *testing.T) {
 	assert.NoError(t, err, "Should check binding without error")
 	assert.False(t, binded, "User should have binded some username")
 }
+
+func TestGetUsernameByDiscordID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const discordID = "123"
+	const userName = "Jorge"
+
+	// Preconditions
+	db.BindUser(discordID, userName)
+
+	// Act
+	userNameResponse, err := db.GetUsernameByDiscordID(discordID)
+
+	assert.NoError(t, err, "Should check binding without error")
+	assert.Equal(t, userNameResponse, userName, "User names should match")
+}
