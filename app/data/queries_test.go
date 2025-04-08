@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -197,18 +198,26 @@ func TestAddAC(t *testing.T) {
 	defer db.CloseDB()
 
 	const discordID = "user123"
-	const problemID = int64(1)
 	const classID = int64(1)
 
+	// Preconditions
+	problemID, err := db.AddProblem("Sorting", classID)
+	assert.NoError(t, err, "Problem trying to adding the problem")
+
 	// Verify
-	err = db.AddAC(discordID, problemID, classID)
+	err = db.AddAC(discordID, problemID)
 	assert.NoError(t, err, "Problem trying to ACing the problem for the user")
 
-	err = db.AddAC(discordID, problemID, classID)
+	err = db.AddAC(discordID, problemID)
 	assert.NoError(t, err, "Re-adding the same AC should not fail")
 
 	var count int64
-	err = db.conn.QueryRow(`SELECT COUNT(*) FROM solved_problems WHERE user_id = ? AND class_id = ?;`, discordID, classID).Scan(&count)
+	err = db.conn.QueryRow(`
+		SELECT COUNT(*)
+		FROM solved_problems sp
+		JOIN problems p ON sp.problem_id = p.id
+		WHERE sp.user_id = ? AND p.class_id = ?;
+	`, discordID, classID).Scan(&count)
 	assert.NoError(t, err, "Cannot check the count for problems solved")
 
 	assert.Equal(t, int64(1), count, "A single problem should have been solved")
@@ -220,12 +229,19 @@ func TestRemoveAC(t *testing.T) {
 	defer db.CloseDB()
 
 	const discordID = "user123"
-	const problemID = int64(1)
 	const classID = int64(1)
-	queryCount := fmt.Sprintf("SELECT COUNT(*) FROM solved_problems WHERE user_id = '%s' AND class_id = %d;", discordID, classID)
+	queryCount := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM solved_problems sp 
+		JOIN problems p ON sp.problem_id = p.id 
+		WHERE sp.user_id = '%s' AND p.class_id = %d;
+	`, discordID, classID)
 
 	// Preconditions
-	err = db.AddAC(discordID, problemID, classID)
+	problemID, err := db.AddProblem("Sorting", classID)
+	assert.NoError(t, err, "Precondition failed, problem could not be added")
+
+	err = db.AddAC(discordID, problemID)
 	assert.NoError(t, err, "Precondition failed, problem could not be checked as solved")
 
 	var count int64
@@ -234,7 +250,7 @@ func TestRemoveAC(t *testing.T) {
 	assert.Equal(t, int64(1), count, "A problem should have been added to solved list")
 
 	// Verify
-	err = db.RemoveAC(discordID, problemID, classID)
+	err = db.RemoveAC(discordID, problemID)
 	assert.NoError(t, err, "Problem trying to remove the AC of the problem for the user")
 	err = db.conn.QueryRow(queryCount).Scan(&count)
 	assert.NoError(t, err, "Cannot check the count for problems solved")
@@ -277,46 +293,70 @@ func TestGetAllSolvedProblemsByUser(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
+	problemID1, err := db.AddProblem("Problem 1", 1)
+	assert.NoError(t, err)
 
-	const discordID1 = "user123"
-	const discordID2 = "user456"
+	problemID2, err := db.AddProblem("Problem 2", 1)
+	assert.NoError(t, err)
+
+	problemID3, err := db.AddProblem("Problem 3", 2)
+	assert.NoError(t, err)
+
+	problemID4, err := db.AddProblem("Problem 4", 2)
+	assert.NoError(t, err)
+
+	const discordID1 = "user1"
+	const discordID2 = "user2"
 	var updates = []struct {
 		discordID string
 		problemID int64
 		classID   int64
 	}{
-		{discordID: discordID1, problemID: 1, classID: 1},
-		{discordID: discordID1, problemID: 2, classID: 1},
-		{discordID: discordID1, problemID: 1, classID: 2},
+		{discordID: discordID1, problemID: problemID1},
+		{discordID: discordID1, problemID: problemID2},
+		{discordID: discordID1, problemID: problemID3},
+		{discordID: discordID1, problemID: problemID4},
 
-		{discordID: discordID2, problemID: 1, classID: 1},
-		{discordID: discordID2, problemID: 2, classID: 2},
+		{discordID: discordID2, problemID: problemID2},
+		{discordID: discordID2, problemID: problemID3},
 	}
 
 	for _, update := range updates {
-		err = db.AddAC(update.discordID, update.problemID, update.classID)
+		err = db.AddAC(update.discordID, update.problemID)
 		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
 	}
 
 	// Act
-	listUser1Class1, err := db.GetAllSolvedProblemsByUser(discordID1, 1)
+	listUser1Class1, err := db.GetSolvedProblemsByUserAndClass(discordID1, 1)
 	assert.NoError(t, err, "Problem trying to get the list")
+	listUser1Class1OnlyIDs := lo.Map(listUser1Class1, func(problem *SolvedProblem, _ int) int64 {
+		return problem.ProblemID
+	})
 
-	listUser1Class2, err := db.GetAllSolvedProblemsByUser(discordID1, 2)
+	listUser1Class2, err := db.GetSolvedProblemsByUserAndClass(discordID1, 2)
 	assert.NoError(t, err, "Problem trying to get the list")
+	listUser1Class2OnlyIDs := lo.Map(listUser1Class2, func(problem *SolvedProblem, _ int) int64 {
+		return problem.ProblemID
+	})
 
-	listUser2Class1, err := db.GetAllSolvedProblemsByUser(discordID2, 1)
+	listUser2Class1, err := db.GetSolvedProblemsByUserAndClass(discordID2, 1)
 	assert.NoError(t, err, "Problem trying to get the list")
+	listUser2Class1OnlyIDs := lo.Map(listUser2Class1, func(problem *SolvedProblem, _ int) int64 {
+		return problem.ProblemID
+	})
 
-	listUser2Class2, err := db.GetAllSolvedProblemsByUser(discordID2, 2)
+	listUser2Class2, err := db.GetSolvedProblemsByUserAndClass(discordID2, 2)
 	assert.NoError(t, err, "Problem trying to get the list")
+	listUser2Class2OnlyIDs := lo.Map(listUser2Class2, func(problem *SolvedProblem, _ int) int64 {
+		return problem.ProblemID
+	})
 
 	// Verify
-	assert.Equal(t, []int64{1, 2}, listUser1Class1, "List should have matched")
-	assert.Equal(t, []int64{1}, listUser1Class2, "List should have matched")
+	assert.Equal(t, []int64{problemID1, problemID2}, listUser1Class1OnlyIDs, "List should have matched")
+	assert.Equal(t, []int64{problemID3, problemID4}, listUser1Class2OnlyIDs, "List should have matched")
 
-	assert.Equal(t, []int64{1}, listUser2Class1, "List should have matched")
-	assert.Equal(t, []int64{2}, listUser2Class2, "List should have matched")
+	assert.Equal(t, []int64{problemID2}, listUser2Class1OnlyIDs, "List should have matched")
+	assert.Equal(t, []int64{problemID3}, listUser2Class2OnlyIDs, "List should have matched")
 }
 
 func TestGetAllSolvedProblemsByClass(t *testing.T) {
@@ -325,44 +365,49 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
+	problemID1, err := db.AddProblem("Problem 1", 1)
+	assert.NoError(t, err)
 
-	const discordID1 = "user123"
-	const discordID2 = "user456"
+	problemID2, err := db.AddProblem("Problem 2", 1)
+	assert.NoError(t, err)
+
+	problemID3, err := db.AddProblem("Problem 3", 1)
+	assert.NoError(t, err)
+
+	problemID4, err := db.AddProblem("Problem 4", 2)
+	assert.NoError(t, err)
+
+	const discordID1 = "user1"
+	const discordID2 = "user2"
 	var updates = []struct {
 		discordID string
 		problemID int64
 		classID   int64
 	}{
-		{discordID: discordID1, problemID: 1, classID: 1},
-		{discordID: discordID1, problemID: 2, classID: 1},
-		{discordID: discordID1, problemID: 1, classID: 2},
+		{discordID: discordID1, problemID: problemID1},
+		{discordID: discordID1, problemID: problemID2},
+		{discordID: discordID1, problemID: problemID3},
+		{discordID: discordID1, problemID: problemID4},
 
-		{discordID: discordID2, problemID: 1, classID: 1},
-		{discordID: discordID2, problemID: 2, classID: 2},
+		{discordID: discordID2, problemID: problemID2},
+		{discordID: discordID2, problemID: problemID3},
 	}
 
 	for _, update := range updates {
-		err = db.AddAC(update.discordID, update.problemID, update.classID)
+		err = db.AddAC(update.discordID, update.problemID)
 		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
 	}
 
 	// Act
-	listClass1, err := db.GetAllSolvedProblemsByClass(1)
+	solvedProblemsClass1, err := db.GetAllSolvedProblemsByClass(1)
 	assert.NoError(t, err, "Problem trying to get the list")
 
-	listClass2, err := db.GetAllSolvedProblemsByClass(2)
+	solvedProblemsClass2, err := db.GetAllSolvedProblemsByClass(2)
 	assert.NoError(t, err, "Problem trying to get the list")
 
 	// Verify
-	assert.Equal(t, map[string][]int64{
-		discordID1: {1, 2},
-		discordID2: {1},
-	}, listClass1, "List should have matched")
-
-	assert.Equal(t, map[string][]int64{
-		discordID1: {1},
-		discordID2: {2},
-	}, listClass2, "List should have matched")
+	assert.Equal(t, 2, len(solvedProblemsClass1))
+	assert.Equal(t, 1, len(solvedProblemsClass2))
 }
 
 func TestClearClass(t *testing.T) {
@@ -377,7 +422,7 @@ func TestClearClass(t *testing.T) {
 	assert.NoError(t, err, "Could not insert test data.")
 	_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "user1", 1)
 	assert.NoError(t, err, "Could not insert test data.")
-	_, err = db.conn.Exec("INSERT INTO solved_problems (user_id, problem_id, class_id) VALUES (?, ?, ?)", "user1", 1, 1)
+	_, err = db.conn.Exec("INSERT INTO solved_problems (user_id, problem_id) VALUES (?, ?)", "user1", 1)
 	assert.NoError(t, err, "Could not insert test data.")
 
 	// Act
@@ -390,7 +435,7 @@ func TestClearClass(t *testing.T) {
 		"SELECT COUNT(*) FROM classes WHERE id = 1",
 		"SELECT COUNT(*) FROM problems WHERE class_id = 1",
 		"SELECT COUNT(*) FROM enrollments WHERE class_id = 1",
-		"SELECT COUNT(*) FROM solved_problems WHERE class_id = 1",
+		"SELECT COUNT(*) FROM solved_problems sp JOIN problems p ON sp.problem_id = p.id WHERE p.class_id = 1",
 	}
 	for _, query := range queries {
 		if err := db.conn.QueryRow(query).Scan(&count); err != nil {

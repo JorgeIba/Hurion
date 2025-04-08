@@ -3,6 +3,7 @@ package data
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 // Binds an existing (or not) discord id to a single user name.
@@ -72,13 +73,13 @@ func (db *DB) RemoveProblem(problemName string, classID int64) (int64, error) {
 	return response.RowsAffected()
 }
 
-func (db *DB) AddAC(discordID string, problemID, classID int64) error {
+func (db *DB) AddAC(discordID string, problemID int64) error {
 	query := `
-		INSERT INTO solved_problems (user_id, problem_id, class_id, solved_at)
-		VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-		ON CONFLICT(user_id, problem_id, class_id) DO NOTHING;
+		INSERT INTO solved_problems (user_id, problem_id, solved_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(user_id, problem_id) DO NOTHING;
 	`
-	_, err := db.conn.Exec(query, discordID, problemID, classID)
+	_, err := db.conn.Exec(query, discordID, problemID)
 	if err != nil {
 		return fmt.Errorf("could not AC the problem for the user in the class: %v", err)
 	}
@@ -86,12 +87,12 @@ func (db *DB) AddAC(discordID string, problemID, classID int64) error {
 	return nil
 }
 
-func (db *DB) RemoveAC(discordID string, problemID, classID int64) error {
+func (db *DB) RemoveAC(discordID string, problemID int64) error {
 	query := `
 		DELETE FROM solved_problems
-		WHERE user_id = ? AND problem_id = ? AND class_id = ?
+		WHERE user_id = ? AND problem_id = ?
 	`
-	_, err := db.conn.Exec(query, discordID, problemID, classID)
+	_, err := db.conn.Exec(query, discordID, problemID)
 	if err != nil {
 		return fmt.Errorf("could not remove the AC of problem for the user in the class: %v", err)
 	}
@@ -128,27 +129,35 @@ func (db *DB) GetProblemsByClass(classID int64) ([]string, error) {
 	return problems, nil
 }
 
-func (db *DB) GetAllSolvedProblemsByUser(discordID string, classID int64) ([]int64, error) {
+func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) ([]*SolvedProblem, error) {
 	query := `
-		SELECT problem_id
-		FROM solved_problems
-		WHERE user_id = ? AND class_id = ?
+		SELECT sp.problem_id, sp.solved_at
+		FROM solved_problems sp
+		JOIN problems p ON sp.problem_id = p.id
+		WHERE sp.user_id = ? AND p.class_id = ?
 	`
 
 	rows, err := db.conn.Query(query, discordID, classID)
 	if err != nil {
-		return nil, fmt.Errorf("could not get solved problems for user %s and class %d: %v", discordID, classID, err)
+		return nil, fmt.Errorf("could not get solved problems for user %s in class %d: %v", discordID, classID, err)
 	}
 	defer rows.Close()
 
-	solvedProblems := make([]int64, 0)
+	solvedProblems := make([]*SolvedProblem, 0)
 
 	for rows.Next() {
 		var problemID int64
-		if err := rows.Scan(&problemID); err != nil {
+		var solvedAt time.Time
+
+		if err := rows.Scan(&problemID, &solvedAt); err != nil {
 			return nil, fmt.Errorf("could not scan row: %v", err)
 		}
-		solvedProblems = append(solvedProblems, problemID)
+
+		solvedProblems = append(solvedProblems, &SolvedProblem{
+			ProblemID: problemID,
+			UserID:    discordID,
+			SolvedAt:  solvedAt,
+		})
 	}
 
 	if err := rows.Err(); err != nil {
@@ -158,11 +167,12 @@ func (db *DB) GetAllSolvedProblemsByUser(discordID string, classID int64) ([]int
 	return solvedProblems, nil
 }
 
-func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[string][]int64, error) {
+func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[string][]*SolvedProblem, error) {
 	query := `
-		SELECT user_id, problem_id
-		FROM solved_problems
-		WHERE class_id = ?
+		SELECT sp.user_id, sp.problem_id, sp.solved_at
+		FROM solved_problems sp
+		JOIN problems p ON sp.problem_id = p.id
+		WHERE p.class_id = ?
 	`
 
 	rows, err := db.conn.Query(query, classID)
@@ -171,17 +181,18 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[string][]int64, er
 	}
 	defer rows.Close()
 
-	solvedProblemsIDByUser := make(map[string][]int64)
+	solvedProblemsIDByUser := make(map[string][]*SolvedProblem)
 
 	for rows.Next() {
 		var userID string
 		var problemID int64
+		var solvedAt time.Time
 
-		if err := rows.Scan(&userID, &problemID); err != nil {
+		if err := rows.Scan(&userID, &problemID, &solvedAt); err != nil {
 			return nil, fmt.Errorf("could not scan row: %v", err)
 		}
 
-		solvedProblemsIDByUser[userID] = append(solvedProblemsIDByUser[userID], problemID)
+		solvedProblemsIDByUser[userID] = append(solvedProblemsIDByUser[userID], &SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
 	}
 
 	if err := rows.Err(); err != nil {
@@ -198,7 +209,7 @@ func (db *DB) ClearClass(classID int64) error {
 	}
 
 	queries := []string{
-		"DELETE FROM solved_problems WHERE class_id = ?",
+		"DELETE FROM solved_problems WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
 		"DELETE FROM enrollments WHERE class_id = ?",
 		"DELETE FROM problems WHERE class_id = ?",
 		"DELETE FROM classes WHERE id = ?",
