@@ -23,7 +23,45 @@ func BindUser(c *context.ContextMessage) {
 }
 
 func RegisterUserInClass(c *context.ContextMessage) {
+	classCode := c.Args[1]
 
+	// Get classID and className
+	classID, err := c.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	}
+
+	className, err := c.Datastore.GetClassNameByClassID(classID)
+	if err != nil {
+		logger.Log.Error(err)
+	}
+
+	discordID := c.Message.Author.ID
+	discordNickName := c.Message.Author.GlobalName
+
+	// Discord User should have binded a User Name
+	isUserBinded, err := c.Datastore.IsUserBinded(discordID)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	} else if !isUserBinded {
+		logger.Log.Info("User has not username binded yet")
+		return
+	}
+
+	// Check if user was already registered
+	isAlreadyRegistered, err := c.Datastore.IsUserRegisteredInClass(discordID, classID)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	} else if isAlreadyRegistered {
+		logger.Log.Info("User has already registered to this class")
+		return
+	}
+
+	c.Datastore.RegisterUserIntoClass(discordID, classID)
+	logger.Log.Infof("User %s has registered in the class %s", discordNickName, className)
 }
 
 func GetListOfProblemsByClass(c *context.ContextMessage) {
