@@ -167,7 +167,7 @@ func TestAddProblem_New(t *testing.T) {
 }
 
 // Remove problem
-func TestRemoveProblem(t *testing.T) {
+func RemoveProblemByNameAndClassID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
@@ -186,7 +186,32 @@ func TestRemoveProblem(t *testing.T) {
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 
 	// Remove the problem
-	rowsAffected, err := db.RemoveProblem(problemName, classID)
+	rowsAffected, err := db.RemoveProblemByNameAndClassID(problemName, classID)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
+}
+
+func TestRemoveProblemByID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const problemName = "Sorting Algorithms"
+
+	// Precondition
+	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
+	assert.NoError(t, err)
+	classID, err := classResult.LastInsertId()
+	assert.NoError(t, err)
+
+	// Add a problem
+	problemID, err := db.AddProblem(problemName, classID)
+	assert.NoError(t, err)
+	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
+
+	// Remove the problem
+	rowsAffected, err := db.RemoveProblemByID(problemID)
 	assert.NoError(t, err)
 
 	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")

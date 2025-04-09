@@ -60,12 +60,25 @@ func (db *DB) AddProblem(problemName string, classID int64) (int64, error) {
 	return response.LastInsertId()
 }
 
-func (db *DB) RemoveProblem(problemName string, classID int64) (int64, error) {
+func (db *DB) RemoveProblemByNameAndClassID(problemName string, classID int64) (int64, error) {
 	query := `
 		DELETE FROM problems
 		WHERE name = ? AND class_id = ?
 	`
 	response, err := db.conn.Exec(query, problemName, classID)
+	if err != nil {
+		return 0, fmt.Errorf("could not remove the problem from the class: %v", err)
+	}
+
+	return response.RowsAffected()
+}
+
+func (db *DB) RemoveProblemByID(problemID int64) (int64, error) {
+	query := `
+		DELETE FROM problems
+		WHERE id = ?
+	`
+	response, err := db.conn.Exec(query, problemID)
 	if err != nil {
 		return 0, fmt.Errorf("could not remove the problem from the class: %v", err)
 	}
