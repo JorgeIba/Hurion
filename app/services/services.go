@@ -6,8 +6,7 @@ import (
 )
 
 type Services struct {
-	User    *UserService
-	Problem *ProblemService
+	User *UserService
 }
 
 func NewServices(datastore data.DataStore, dbValidator *validators.ValidatorDB) (*Services, error) {
