@@ -8,7 +8,7 @@ import (
 )
 
 func ClearClass(c *context.ContextMessage) {
-	if isAdmin, err := checkIfAdmin(c); err != nil {
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v", err)
 		return
 	} else if !isAdmin {
@@ -33,7 +33,7 @@ func ClearClass(c *context.ContextMessage) {
 }
 
 func CreateClass(c *context.ContextMessage) {
-	if isAdmin, err := checkIfAdmin(c); err != nil {
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v\n", err)
 		return
 	} else if !isAdmin {
@@ -51,7 +51,7 @@ func CreateClass(c *context.ContextMessage) {
 	logger.Log.Infoln("Class created correctly!")
 }
 
-func checkIfAdmin(c *context.ContextMessage) (bool, error) {
+func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
 	// TODO: Remove this line after testing
 	return true, nil
 

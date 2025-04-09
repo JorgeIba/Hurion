@@ -54,7 +54,7 @@ func handleDeregister(c *context.ContextMessage) {
 	case 2:
 		enrolled.DeregisterUser(c)
 	case 3:
-		mentor.DeregisterUserByUser(c)
+		mentor.DeregisterUserByUserAndClass(c)
 	default:
 		fmt.Println(LimitExceed)
 	}

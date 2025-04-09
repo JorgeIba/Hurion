@@ -54,3 +54,11 @@ func (validator *ValidatorDB) IsEnrolledByClassID(userID string, classID int64) 
 
 	return isMyBoyEnrolled, nil
 }
+
+func (validator *ValidatorDB) IsClassCodeValid(classCode string) (bool, error) {
+	_, err := validator.db.GetClassIDByClassCode(classCode)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
