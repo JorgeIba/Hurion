@@ -13,23 +13,23 @@ import (
 type CommandRouter func(c *context.ContextMessage)
 
 var commandMap = map[string]CommandRouter{
-	"!bind":           handleBind,
-	"!register":       handleRegister,
-	"!deregister":     handleDeregister,
-	"!list":           handleList,
-	"!score":          handleScore,
-	"!ac":             handleAC,
-	"!undo_ac":        handleUndoAC,
-	"!add_problem":    handleAddProblem,
-	"!remove_problem": handleRemoveProblem,
-	"!clear_class":    handleClearClass,
-	"!create_class":   handleCreateClass,
+	"!bind":           routerBind,
+	"!register":       routerRegister,
+	"!deregister":     routerDeregister,
+	"!list":           routerList,
+	"!score":          routerScore,
+	"!ac":             routerAC,
+	"!undo_ac":        routerUndoAC,
+	"!add_problem":    routerAddProblem,
+	"!remove_problem": routerRemoveProblem,
+	"!clear_class":    routerClearClass,
+	"!create_class":   routerCreateClass,
 }
 
 const NotEnough = "Not enough parameters bro"
 const LimitExceed = "Parameters Limit Exceed"
 
-func handleBind(c *context.ContextMessage) {
+func routerBind(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1:
 		fmt.Println(NotEnough)
@@ -38,30 +38,32 @@ func handleBind(c *context.ContextMessage) {
 	}
 }
 
-func handleRegister(c *context.ContextMessage) {
+func routerRegister(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		general.RegisterUserInClass(c)
 	case 3:
-		mentor.RegisterUserInClassByUser(c)
+		mentor.HandleRegisterUser(c)
 	default:
 		fmt.Println(LimitExceed)
 	}
 }
 
-func handleDeregister(c *context.ContextMessage) {
+func routerDeregister(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		enrolled.DeregisterUser(c)
 	case 3:
-		mentor.DeregisterUserByUserAndClass(c)
+		mentor.HandleDeregisterUser(c)
 	default:
 		fmt.Println(LimitExceed)
 	}
 }
 
-func handleList(c *context.ContextMessage) {
+func routerList(c *context.ContextMessage) {
 	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
 	case 2:
 		general.GetListOfProblemsByClass(c)
 	default:
@@ -69,7 +71,7 @@ func handleList(c *context.ContextMessage) {
 	}
 }
 
-func handleScore(c *context.ContextMessage) {
+func routerScore(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		general.GetScoreByClass(c)
@@ -78,7 +80,7 @@ func handleScore(c *context.ContextMessage) {
 	}
 }
 
-func handleAC(c *context.ContextMessage) {
+func routerAC(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
@@ -89,42 +91,40 @@ func handleAC(c *context.ContextMessage) {
 	}
 }
 
-func handleUndoAC(c *context.ContextMessage) {
+func routerUndoAC(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
 		enrolled.UndoAC(c)
 	case 4:
-		mentor.UndoACByUser(c)
+		mentor.HandleUndoAC(c)
 	default:
 		fmt.Println(LimitExceed)
 	}
 }
 
-func handleAddProblem(c *context.ContextMessage) {
+func routerAddProblem(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 2:
+		fmt.Println(NotEnough)
+	default:
+		mentor.HandleAddProblem(c)
+	}
+}
+
+func routerRemoveProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		mentor.AddProblem(c)
+		mentor.HandleRemoveProblem(c)
 	default:
 		fmt.Println(LimitExceed)
 	}
 }
 
-func handleRemoveProblem(c *context.ContextMessage) {
-	switch len(c.Args) {
-	case 2:
-		fmt.Println(NotEnough)
-	case 3:
-		mentor.RemoveProblem(c)
-	default:
-		fmt.Println(LimitExceed)
-	}
-}
-
-func handleClearClass(c *context.ContextMessage) {
+func routerClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		admin.ClearClass(c)
@@ -133,7 +133,7 @@ func handleClearClass(c *context.ContextMessage) {
 	}
 }
 
-func handleCreateClass(c *context.ContextMessage) {
+func routerCreateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)

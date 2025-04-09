@@ -10,6 +10,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
 )
@@ -64,6 +65,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		Datastore:         bot.db,
 		Args:              args,
 	}
+	context.Services, _ = services.NewServices(context.Datastore, context.DatabaseValidator)
 
 	cmd := args[0]
 	fmt.Println(cmd)

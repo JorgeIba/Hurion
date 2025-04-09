@@ -2,6 +2,7 @@ package context
 
 import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
 )
@@ -14,4 +15,5 @@ type ContextMessage struct {
 	DiscordValidator  *validators.ValidatorDiscord
 	Datastore         data.DataStore
 	Args              []string
+	Services          *services.Services
 }
