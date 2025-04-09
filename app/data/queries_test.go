@@ -425,7 +425,6 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 
 	// Act
 	solvedProblemsClass1, err := db.GetAllSolvedProblemsByClass(1)
-	fmt.Print(solvedProblemsClass1)
 	assert.NoError(t, err, "Problem trying to get the list")
 
 	solvedProblemsClass2, err := db.GetAllSolvedProblemsByClass(2)

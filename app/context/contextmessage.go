@@ -12,6 +12,6 @@ type ContextMessage struct {
 	Message           *discordgo.MessageCreate
 	DatabaseValidator *validators.ValidatorDB
 	DiscordValidator  *validators.ValidatorDiscord
-	Datastore         *data.DB
+	Datastore         data.DataStore
 	Args              []string
 }

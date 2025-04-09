@@ -1,6 +1,9 @@
 package data
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestDBConnection(t *testing.T) {
 	// Test for production database connection
@@ -20,6 +23,9 @@ func TestDBConnection(t *testing.T) {
 		// Test for successful ping
 		if err := db.conn.Ping(); err != nil {
 			t.Fatalf("Expected no error during ping, got %v", err)
+		}
+		if err := os.Remove(prodConfig.DBPath); err != nil {
+			t.Fatal("Someting wrong, db test file could not be deleted", err)
 		}
 	})
 
