@@ -13,7 +13,42 @@ type UserService struct {
 	DatabaseValidator *validators.ValidatorDB
 }
 
-func (service *UserService) RegisterUserIntoClass(userName, classCode string) error {
+// By UserID
+func (service *UserService) DeregisterUserIDFromClass(userID string, classCode string) error {
+	// Validate if user is registered in the class
+	isMyBoyEnrolled, err := service.DatabaseValidator.IsEnrolledByClassCode(userID, classCode)
+	if err != nil {
+		return err
+	} else if !isMyBoyEnrolled {
+		return fmt.Errorf("user %s is not registered in class %s", userID, classCode)
+	}
+
+	// Get Info
+	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		return err
+	}
+
+	// Deregister
+	err = service.Datastore.DeregisterUserFromClass(userID, classID)
+	return err
+}
+
+func (service *UserService) UndoACByProblemAndUserID(problemID int64, userID string) error {
+	// Validate user is registered in the class of the problem
+	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
+		return err
+	} else if !isBroAbleToAC {
+		return fmt.Errorf("bro %s cannot UndoAC the problem with id: %d", userID, problemID)
+	}
+
+	// Undo-ing
+	err := service.Datastore.RemoveAC(userID, problemID)
+	return err
+}
+
+// By UserName
+func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
 	// Get class
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
@@ -41,42 +76,21 @@ func (service *UserService) RegisterUserIntoClass(userName, classCode string) er
 		return fmt.Errorf("user has already registered to this class")
 	}
 
-	service.Datastore.RegisterUserIntoClass(discordID, class.ID)
-	return nil
-}
-
-func (service *UserService) DeregisterUserFromClass(userName, classCode string) error {
-	// Validate if user is registered in the class
-	isMyBoyEnrolled, err := service.DatabaseValidator.IsEnrolledByClassCode(userName, classCode)
-	if err != nil {
-		return err
-	} else if !isMyBoyEnrolled {
-		return fmt.Errorf("user %s is not registered in class %s", userName, classCode)
-	}
-
-	// Get Info
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
-	if err != nil {
-		return err
-	}
-
-	discordID, err := service.Datastore.GetDiscordIDByUserName(userName)
-	if err != nil {
-		return err
-	}
-
-	// Deregister
-	err = service.Datastore.DeregisterUserFromClass(discordID, classID)
+	err = service.Datastore.RegisterUserIntoClass(discordID, class.ID)
 	return err
 }
 
-func (service *UserService) UndoACByProblemAndUser(problemID int64, userName string) error {
-
-	discordID, err := service.Datastore.GetDiscordIDByUserName(userName)
+func (service *UserService) DeregisterUsernameFromClass(userName, classCode string) error {
+	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
 	if err != nil {
 		return err
 	}
 
+	err = service.DeregisterUserIDFromClass(userID, classCode)
+	return err
+}
+
+func (service *UserService) AddACToUser(userID string, problemID int64) error {
 	// Validate problem exists
 	if isProblemPresent, err := service.DatabaseValidator.ExistsProblem(problemID); err != nil {
 		return err
@@ -85,14 +99,24 @@ func (service *UserService) UndoACByProblemAndUser(problemID int64, userName str
 	}
 
 	// Validate user is registered in the class of the problem
-	if isBroAbleToAC, err := service.canBroACTheProblem(discordID, problemID); err != nil {
+	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return fmt.Errorf("bro %s cannot UndoAC the problem with id: %d", userName, problemID)
+		return fmt.Errorf("bro %s cannot AC the problem with id: %d", userID, problemID)
 	}
 
-	// Undo-ing
-	err = service.Datastore.RemoveAC(discordID, problemID)
+	// ACing
+	err := service.Datastore.AddAC(userID, problemID)
+	return err
+}
+
+func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName string) error {
+	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	if err != nil {
+		return err
+	}
+
+	err = service.UndoACByProblemAndUserID(problemID, userID)
 	return err
 }
 
@@ -110,10 +134,6 @@ func (service *UserService) CreateProblemIntoClass(problemName, classCode string
 	}
 
 	problemID, err := service.Datastore.AddProblem(problemName, classID)
-	if err != nil {
-		return 0, err
-	}
-
 	return problemID, err
 }
 

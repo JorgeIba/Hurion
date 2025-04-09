@@ -52,7 +52,7 @@ func routerRegister(c *context.ContextMessage) {
 func routerDeregister(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
-		enrolled.DeregisterUser(c)
+		enrolled.HandleDeregisterUser(c)
 	case 3:
 		mentor.HandleDeregisterUser(c)
 	default:
@@ -85,7 +85,7 @@ func routerAC(c *context.ContextMessage) {
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		enrolled.AddAC(c)
+		enrolled.HandleAddAC(c)
 	default:
 		fmt.Println(LimitExceed)
 	}

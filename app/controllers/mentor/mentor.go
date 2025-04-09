@@ -19,7 +19,7 @@ func HandleRegisterUser(c *context.ContextMessage) {
 
 	userName, classCode := c.Args[1], c.Args[2]
 
-	if err := c.Services.User.RegisterUserIntoClass(userName, classCode); err != nil {
+	if err := c.Services.User.RegisterUsernameIntoClass(userName, classCode); err != nil {
 		logger.Log.Error(err)
 		return
 	}
@@ -38,7 +38,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 
 	userName, classCode := c.Args[1], c.Args[2]
 
-	if err := c.Services.User.DeregisterUserFromClass(userName, classCode); err != nil {
+	if err := c.Services.User.DeregisterUsernameFromClass(userName, classCode); err != nil {
 		logger.Log.Error(err)
 		return
 	}
@@ -62,7 +62,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err = c.Services.User.UndoACByProblemAndUser(problemID, userName); err != nil {
+	if err = c.Services.User.UndoACByProblemAndUsername(problemID, userName); err != nil {
 		logger.Log.Error(err)
 		return
 	}
