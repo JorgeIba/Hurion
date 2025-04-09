@@ -47,21 +47,15 @@ func (service *UserService) UndoACByProblemAndUserID(problemID int64, userID str
 	return err
 }
 
-// By UserName
-func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
+func (service *UserService) RegisterUserIDIntoClass(userID, classCode string) error {
 	// Get class
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		return err
 	}
 
-	discordID, err := service.Datastore.GetDiscordIDByUserName(userName)
-	if err != nil {
-		return err
-	}
-
 	// Discord User should have binded a User Name
-	isUserBinded, err := service.Datastore.IsUserBinded(discordID)
+	isUserBinded, err := service.Datastore.IsUserBinded(userID)
 	if err != nil {
 		return err
 	} else if !isUserBinded {
@@ -69,14 +63,25 @@ func (service *UserService) RegisterUsernameIntoClass(userName, classCode string
 	}
 
 	// Check if user was already registered
-	isAlreadyRegistered, err := service.Datastore.IsUserRegisteredInClass(discordID, class.ID)
+	isAlreadyRegistered, err := service.Datastore.IsUserRegisteredInClass(userID, class.ID)
 	if err != nil {
 		return err
 	} else if isAlreadyRegistered {
 		return fmt.Errorf("user has already registered to this class")
 	}
 
-	err = service.Datastore.RegisterUserIntoClass(discordID, class.ID)
+	err = service.Datastore.RegisterUserIntoClass(userID, class.ID)
+	return err
+}
+
+// By UserName
+func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
+	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	if err != nil {
+		return err
+	}
+
+	err = service.RegisterUserIDIntoClass(userID, classCode)
 	return err
 }
 
@@ -169,6 +174,31 @@ func (service *UserService) CreateClass(classCode, className string) error {
 	_, err := service.Datastore.CreateClass(classCode, className)
 
 	return err
+}
+
+func (service *UserService) BindUser(userID, userName string) error {
+	err := service.Datastore.BindUser(userID, userName)
+	return err
+}
+
+func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]*data.Problem, error) {
+	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		return []*data.Problem{}, err
+	}
+
+	problems, err := service.Datastore.GetProblemsByClass(classID)
+	return problems, err
+}
+
+func (service *UserService) GetScoreByClassCode(classCode string) (map[*data.User][]*data.SolvedProblem, error) {
+	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		return map[*data.User][]*data.SolvedProblem{}, err
+	}
+
+	studentsScore, err := service.Datastore.GetAllSolvedProblemsByClass(classID)
+	return studentsScore, err
 }
 
 func (service *UserService) canBroACTheProblem(userID string, problemID int64) (bool, error) {

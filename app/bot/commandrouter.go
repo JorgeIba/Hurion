@@ -34,14 +34,14 @@ func routerBind(c *context.ContextMessage) {
 	case 1:
 		fmt.Println(NotEnough)
 	default:
-		general.BindUser(c)
+		general.HandleBindUser(c)
 	}
 }
 
 func routerRegister(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
-		general.RegisterUserInClass(c)
+		general.HandleRegisterUserInClass(c)
 	case 3:
 		mentor.HandleRegisterUser(c)
 	default:
@@ -65,7 +65,7 @@ func routerList(c *context.ContextMessage) {
 	case 1:
 		fmt.Println(NotEnough)
 	case 2:
-		general.GetListOfProblemsByClass(c)
+		general.HandleGetListOfProblemsByClass(c)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -74,7 +74,7 @@ func routerList(c *context.ContextMessage) {
 func routerScore(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
-		general.GetScoreByClass(c)
+		general.HandleGetScoreByClass(c)
 	case 3:
 		general.GetScoreByUserAndClass(c)
 	}
@@ -127,7 +127,7 @@ func routerRemoveProblem(c *context.ContextMessage) {
 func routerClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
-		admin.ClearClass(c)
+		admin.HandleClearClass(c)
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -138,6 +138,6 @@ func routerCreateClass(c *context.ContextMessage) {
 	case 2:
 		fmt.Println(NotEnough)
 	default:
-		admin.CreateClass(c)
+		admin.HandleCreateClass(c)
 	}
 }

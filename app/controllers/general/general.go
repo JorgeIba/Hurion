@@ -8,75 +8,43 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
 
-func BindUser(c *context.ContextMessage) {
+func HandleBindUser(c *context.ContextMessage) {
 	userName := c.Args[1]
 	discordID := c.Message.Author.ID
 	discordNickName := c.Message.Author.GlobalName
 
 	logger.Log.Infof("Binding %s to the user name %s...\n", discordNickName, userName)
 
-	err := c.Datastore.BindUser(discordID, userName)
-
-	if err != nil {
-		logger.Log.Infof("Some unexpected error happened: %v\n", err)
+	if err := c.Services.User.BindUser(discordID, userName); err != nil {
+		logger.Log.Error(err)
 		return
 	}
 
 	logger.Log.Infof("User %s binded to the user name %s\n", discordNickName, userName)
 }
 
-func RegisterUserInClass(c *context.ContextMessage) {
+func HandleRegisterUserInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
-
-	// Get class
-	class, err := c.Datastore.GetClassByClassCode(classCode)
-	className := class.Name
-	if err != nil {
-		logger.Log.Error(err)
-		return
-	}
-
 	discordID, discordNickName := c.Message.Author.ID, c.Message.Author.GlobalName
 
-	// Discord User should have binded a User Name
-	isUserBinded, err := c.Datastore.IsUserBinded(discordID)
-	if err != nil {
-		logger.Log.Errorln(err)
-		return
-	} else if !isUserBinded {
-		logger.Log.Infoln("User has not username binded yet")
+	if err := c.Services.User.RegisterUserIDIntoClass(discordID, classCode); err != nil {
+		logger.Log.Error(err)
 		return
 	}
 
-	// Check if user was already registered
-	isAlreadyRegistered, err := c.Datastore.IsUserRegisteredInClass(discordID, class.ID)
-	if err != nil {
-		logger.Log.Errorln(err)
-		return
-	} else if isAlreadyRegistered {
-		logger.Log.Infoln("User has already registered to this class")
-		return
-	}
-
-	c.Datastore.RegisterUserIntoClass(discordID, class.ID)
-	logger.Log.Infof("User %s has registered in the class %s\n", discordNickName, className)
+	logger.Log.Infof("User %s has registered in the class %s\n", discordNickName, classCode)
 }
 
-func GetListOfProblemsByClass(c *context.ContextMessage) {
+func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	classID, err := c.Datastore.GetClassIDByClassCode(classCode)
+	problems, err := c.Services.User.GetListOfProblemsByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 		return
 	}
 
-	problems, err := c.Datastore.GetProblemsByClass(classID)
-	if err != nil {
-		logger.Log.Error(err)
-		return
-	}
-
+	// Formatter
 	response := ""
 	for _, problem := range problems {
 		response += fmt.Sprintf("%d - %s\n", problem.ID, problem.Name)
@@ -84,21 +52,16 @@ func GetListOfProblemsByClass(c *context.ContextMessage) {
 	logger.Log.Infoln(response)
 }
 
-func GetScoreByClass(c *context.ContextMessage) {
+func HandleGetScoreByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	classID, err := c.Datastore.GetClassIDByClassCode(classCode)
+	studentsScore, err := c.Services.User.GetScoreByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 		return
 	}
 
-	studentsScore, err := c.Datastore.GetAllSolvedProblemsByClass(classID)
-	if err != nil {
-		logger.Log.Error(err)
-		return
-	}
-
+	// Formatter
 	response := ""
 	for user, solvedProblems := range studentsScore {
 		problemIDs := make([]string, 0)
@@ -114,5 +77,26 @@ func GetScoreByClass(c *context.ContextMessage) {
 }
 
 func GetScoreByUserAndClass(c *context.ContextMessage) {
+	classCode := c.Args[1]
 
+	studentsScore, err := c.Services.User.GetScoreByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	}
+
+	// Formatter
+	// TODO: Only retrieve user and neighborhood
+	response := ""
+	for user, solvedProblems := range studentsScore {
+		problemIDs := make([]string, 0)
+		for _, problem := range solvedProblems {
+			problemIDs = append(problemIDs, fmt.Sprint(problem.ProblemID))
+		}
+		responseByUser := fmt.Sprintf("%s: [%v]", user.UserName, strings.Join(problemIDs, ", "))
+
+		response += fmt.Sprintf("%v\n", responseByUser)
+	}
+
+	logger.Log.Info(response)
 }

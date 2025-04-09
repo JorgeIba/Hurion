@@ -7,7 +7,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
 
-func ClearClass(c *context.ContextMessage) {
+func HandleClearClass(c *context.ContextMessage) {
 	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v", err)
 		return
@@ -25,7 +25,7 @@ func ClearClass(c *context.ContextMessage) {
 	logger.Log.Infoln("Class has been removed")
 }
 
-func CreateClass(c *context.ContextMessage) {
+func HandleCreateClass(c *context.ContextMessage) {
 	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v\n", err)
 		return
