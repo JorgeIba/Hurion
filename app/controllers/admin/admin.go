@@ -17,15 +17,8 @@ func ClearClass(c *context.ContextMessage) {
 	}
 
 	classCode := c.Args[1]
-
-	classID, err := c.Datastore.GetClassIDByClassCode(classCode)
-	if err != nil {
-		logger.Log.Errorf("Error retrieving the classID: %v", err)
-		return
-	}
-
-	if err = c.Datastore.ClearClass(classID); err != nil {
-		logger.Log.Errorf("Error deleting the class: %v", err)
+	if err := c.Services.User.DeleteClassByClassCode(classCode); err != nil {
+		logger.Log.Error(err)
 		return
 	}
 
@@ -42,9 +35,8 @@ func CreateClass(c *context.ContextMessage) {
 	}
 
 	classCode, className := c.Args[1], strings.Join(c.Args[2:], " ")
-	_, err := c.Datastore.CreateClass(classCode, className)
-	if err != nil {
-		logger.Log.Errorf("Error creating the class: %v\n", err)
+	if err := c.Services.User.CreateClass(classCode, className); err != nil {
+		logger.Log.Error(err)
 		return
 	}
 

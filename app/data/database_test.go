@@ -6,11 +6,11 @@ import (
 )
 
 func TestDBConnection(t *testing.T) {
-	// Test for production database connection
 
 	prodConfig := &DBConfig{DBPath: "./db.sqlite", SchemaPath: "./schema.sql", DBType: Prod}
 	testConfig := &DBConfig{DBPath: ":memory:", SchemaPath: "./schema.sql", DBType: Test}
 
+	// Test for production database connection
 	t.Run("Prod", func(t *testing.T) {
 		db, err := NewDB(prodConfig)
 		if err != nil {

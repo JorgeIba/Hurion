@@ -69,8 +69,8 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 
 	cmd := args[0]
 	fmt.Println(cmd)
-	if handler, exists := commandMap[cmd]; exists {
-		handler(context)
+	if router, exists := commandMap[cmd]; exists {
+		router(context)
 	}
 }
 

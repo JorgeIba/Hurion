@@ -155,6 +155,22 @@ func (service *UserService) RemoveProblemFromClass(problemID int64) error {
 	return nil
 }
 
+func (service *UserService) DeleteClassByClassCode(classCode string) error {
+	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		return fmt.Errorf("error retrieving the classID: %v", err)
+	}
+
+	err = service.Datastore.ClearClass(classID)
+	return err
+}
+
+func (service *UserService) CreateClass(classCode, className string) error {
+	_, err := service.Datastore.CreateClass(classCode, className)
+
+	return err
+}
+
 func (service *UserService) canBroACTheProblem(userID string, problemID int64) (bool, error) {
 	problem, err := service.Datastore.GetProblemByID(problemID)
 	if err != nil {
