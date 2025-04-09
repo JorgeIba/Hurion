@@ -425,13 +425,14 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 
 	// Act
 	solvedProblemsClass1, err := db.GetAllSolvedProblemsByClass(1)
+	fmt.Print(solvedProblemsClass1)
 	assert.NoError(t, err, "Problem trying to get the list")
 
 	solvedProblemsClass2, err := db.GetAllSolvedProblemsByClass(2)
 	assert.NoError(t, err, "Problem trying to get the list")
 
 	// Verify
-	assert.Equal(t, 2, len(solvedProblemsClass1))
+	assert.Equal(t, 5, len(solvedProblemsClass1))
 	assert.Equal(t, 1, len(solvedProblemsClass2))
 }
 

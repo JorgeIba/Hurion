@@ -19,3 +19,8 @@ type Class struct {
 	ClassCode string
 	Name      string
 }
+
+type User struct {
+	DiscordID string
+	UserName  string
+}

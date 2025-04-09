@@ -1,6 +1,9 @@
 package general
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
@@ -60,11 +63,54 @@ func RegisterUserInClass(c *context.ContextMessage) {
 }
 
 func GetListOfProblemsByClass(c *context.ContextMessage) {
+	classCode := c.Args[1]
 
+	classID, err := c.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	}
+
+	problems, err := c.Datastore.GetProblemsByClass(classID)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	}
+
+	response := ""
+	for _, problem := range problems {
+		response += fmt.Sprintf("%d - %s\n", problem.ID, problem.Name)
+	}
+	logger.Log.Infoln(response)
 }
 
 func GetScoreByClass(c *context.ContextMessage) {
+	classCode := c.Args[1]
 
+	classID, err := c.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	}
+
+	studentsScore, err := c.Datastore.GetAllSolvedProblemsByClass(classID)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	}
+
+	response := ""
+	for user, solvedProblems := range studentsScore {
+		problemIDs := make([]string, 0)
+		for _, problem := range solvedProblems {
+			problemIDs = append(problemIDs, fmt.Sprint(problem.ProblemID))
+		}
+		responseByUser := fmt.Sprintf("%s: [%v]", user.UserName, strings.Join(problemIDs, ", "))
+
+		response += fmt.Sprintf("%v\n", responseByUser)
+	}
+
+	logger.Log.Info(response)
 }
 
 func GetScoreByUserAndClass(c *context.ContextMessage) {

@@ -113,9 +113,9 @@ func (db *DB) RemoveAC(discordID string, problemID int64) error {
 	return nil
 }
 
-func (db *DB) GetProblemsByClass(classID int64) ([]string, error) {
+func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
 	query := `
-		SELECT name
+		SELECT id, name
 		FROM problems
 		WHERE class_id = ?
 	`
@@ -126,13 +126,19 @@ func (db *DB) GetProblemsByClass(classID int64) ([]string, error) {
 	}
 	defer rows.Close()
 
-	var problems []string
+	problems := make([]*Problem, 0)
+
 	for rows.Next() {
+		var problemID int64
 		var problemName string
-		if err := rows.Scan(&problemName); err != nil {
+		if err := rows.Scan(&problemID, &problemName); err != nil {
 			return nil, fmt.Errorf("could not scan problem name: %v", err)
 		}
-		problems = append(problems, problemName)
+		problems = append(problems, &Problem{
+			ID:      problemID,
+			Name:    problemName,
+			ClassID: classID,
+		})
 	}
 
 	if err := rows.Err(); err != nil {
@@ -180,10 +186,15 @@ func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) (
 	return solvedProblems, nil
 }
 
-func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[string][]*SolvedProblem, error) {
+func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[*User][]*SolvedProblem, error) {
 	query := `
-		SELECT sp.user_id, sp.problem_id, sp.solved_at
+		SELECT 
+			sp.user_id,
+			COALESCE(u.user_name, 'Unknown') AS user_name,
+			sp.problem_id,
+			sp.solved_at
 		FROM solved_problems sp
+		LEFT JOIN users u ON sp.user_id = u.discord_id
 		JOIN problems p ON sp.problem_id = p.id
 		WHERE p.class_id = ?
 	`
@@ -194,18 +205,22 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[string][]*SolvedPr
 	}
 	defer rows.Close()
 
-	solvedProblemsIDByUser := make(map[string][]*SolvedProblem)
+	solvedProblemsIDByUser := make(map[*User][]*SolvedProblem)
 
 	for rows.Next() {
-		var userID string
+		var userID, userName string
 		var problemID int64
 		var solvedAt time.Time
 
-		if err := rows.Scan(&userID, &problemID, &solvedAt); err != nil {
+		if err := rows.Scan(&userID, &userName, &problemID, &solvedAt); err != nil {
 			return nil, fmt.Errorf("could not scan row: %v", err)
 		}
 
-		solvedProblemsIDByUser[userID] = append(solvedProblemsIDByUser[userID], &SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
+		user := &User{
+			DiscordID: userID,
+			UserName:  userName,
+		}
+		solvedProblemsIDByUser[user] = append(solvedProblemsIDByUser[user], &SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
 	}
 
 	if err := rows.Err(); err != nil {
