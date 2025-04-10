@@ -40,6 +40,8 @@ func routerBind(c *context.ContextMessage) {
 
 func routerRegister(c *context.ContextMessage) {
 	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
 	case 2:
 		general.HandleRegisterUserInClass(c)
 	case 3:
@@ -51,6 +53,8 @@ func routerRegister(c *context.ContextMessage) {
 
 func routerDeregister(c *context.ContextMessage) {
 	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
 	case 2:
 		enrolled.HandleDeregisterUser(c)
 	case 3:
@@ -73,6 +77,8 @@ func routerList(c *context.ContextMessage) {
 
 func routerScore(c *context.ContextMessage) {
 	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
 	case 2:
 		general.HandleGetScoreByClass(c)
 	case 3:
@@ -82,9 +88,9 @@ func routerScore(c *context.ContextMessage) {
 
 func routerProposeAC(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 2:
+	case 1:
 		fmt.Println(NotEnough)
-	case 3:
+	case 2:
 		enrolled.HandleProposeAC(c)
 	default:
 		fmt.Println(LimitExceed)
@@ -93,11 +99,11 @@ func routerProposeAC(c *context.ContextMessage) {
 
 func routerUndoAC(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 2:
+	case 1:
 		fmt.Println(NotEnough)
-	case 3:
+	case 2:
 		enrolled.UndoAC(c)
-	case 4:
+	case 3:
 		mentor.HandleUndoAC(c)
 	default:
 		fmt.Println(LimitExceed)
@@ -106,7 +112,7 @@ func routerUndoAC(c *context.ContextMessage) {
 
 func routerAddProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 2:
+	case 1, 2:
 		fmt.Println(NotEnough)
 	default:
 		mentor.HandleAddProblem(c)
@@ -115,7 +121,7 @@ func routerAddProblem(c *context.ContextMessage) {
 
 func routerRemoveProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 2:
+	case 1, 2:
 		fmt.Println(NotEnough)
 	case 3:
 		mentor.HandleRemoveProblem(c)
@@ -135,7 +141,7 @@ func routerClearClass(c *context.ContextMessage) {
 
 func routerCreateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 2:
+	case 1, 2:
 		fmt.Println(NotEnough)
 	default:
 		admin.HandleCreateClass(c)
