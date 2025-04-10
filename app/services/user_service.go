@@ -74,6 +74,25 @@ func (service *UserService) RegisterUserIDIntoClass(userID, classCode string) er
 	return err
 }
 
+func (service *UserService) AddPendingACOfUserID(messageID, userID string, problemID int64) error {
+	// Validate problem exists
+	if isProblemPresent, err := service.DatabaseValidator.ExistsProblem(problemID); err != nil {
+		return err
+	} else if !isProblemPresent {
+		return fmt.Errorf("are you sure problem %d exists?", problemID)
+	}
+
+	// Validate user is registered in the class of the problem
+	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
+		return err
+	} else if !isBroAbleToAC {
+		return fmt.Errorf("bro %s cannot AC the problem with id: %d", userID, problemID)
+	}
+
+	err := service.Datastore.AddPendingConfirmation(messageID, userID, problemID)
+	return err
+}
+
 // By UserName
 func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
 	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
@@ -199,6 +218,39 @@ func (service *UserService) GetScoreByClassCode(classCode string) (map[*data.Use
 
 	studentsScore, err := service.Datastore.GetAllSolvedProblemsByClass(classID)
 	return studentsScore, err
+}
+
+func (service *UserService) GetPendingConfirmationByMessageID(messageID string) (*data.PendingConfirmation, error) {
+	userID, problemID, err := service.Datastore.GetPendingConfirmation(messageID)
+	if err != nil {
+		return &data.PendingConfirmation{}, err
+	} else if problemID == -1 {
+		return &data.PendingConfirmation{}, fmt.Errorf("problem info could not be found")
+	}
+
+	return &data.PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID}, nil
+}
+
+func (service *UserService) AcceptACProposal(messageID string) error {
+	pendingConfirmation, err := service.GetPendingConfirmationByMessageID(messageID)
+	if err != nil {
+		return err
+	}
+
+	if err := service.Datastore.RemovePendingConfirmation(messageID); err != nil {
+		return err
+	}
+
+	if err := service.AddACToUser(pendingConfirmation.UserID, pendingConfirmation.ProblemID); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (service *UserService) RejectACProposal(messageID string) error {
+	err := service.Datastore.RemovePendingConfirmation(messageID)
+	return err
 }
 
 func (service *UserService) canBroACTheProblem(userID string, problemID int64) (bool, error) {

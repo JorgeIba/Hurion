@@ -18,7 +18,7 @@ var commandMap = map[string]CommandRouter{
 	"!deregister":     routerDeregister,
 	"!list":           routerList,
 	"!score":          routerScore,
-	"!ac":             routerAC,
+	"!ac":             routerProposeAC,
 	"!undo_ac":        routerUndoAC,
 	"!add_problem":    routerAddProblem,
 	"!remove_problem": routerRemoveProblem,
@@ -80,12 +80,12 @@ func routerScore(c *context.ContextMessage) {
 	}
 }
 
-func routerAC(c *context.ContextMessage) {
+func routerProposeAC(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
 		fmt.Println(NotEnough)
 	case 3:
-		enrolled.HandleAddAC(c)
+		enrolled.HandleProposeAC(c)
 	default:
 		fmt.Println(LimitExceed)
 	}

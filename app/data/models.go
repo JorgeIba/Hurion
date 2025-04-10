@@ -24,3 +24,9 @@ type User struct {
 	DiscordID string
 	UserName  string
 }
+
+type PendingConfirmation struct {
+	MessageID string
+	UserID    string
+	ProblemID int64
+}

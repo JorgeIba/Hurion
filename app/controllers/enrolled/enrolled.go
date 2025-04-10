@@ -29,7 +29,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 	logger.Log.Infof("User %s has registered to the class %s successfully", discordNickname, classCode)
 }
 
-func HandleAddAC(c *context.ContextMessage) {
+func HandleProposeAC(c *context.ContextMessage) {
 	problemIDs := c.Args[1]
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
@@ -37,7 +37,7 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
-	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
+	messageID, discordID, discordNickname := c.Message.ID, c.Message.Author.ID, c.Message.Author.GlobalName
 
 	// Validate user is registered in the class of the problem
 	if isBroAbleToAC, err := broCanACProblem(c, problemID); err != nil {
@@ -48,12 +48,12 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err = c.Services.User.AddACToUser(discordID, problemID); err != nil {
+	if err = c.Services.User.AddPendingACOfUserID(messageID, discordID, problemID); err != nil {
 		logger.Log.Error(err)
 		return
 	}
 
-	logger.Log.Infof("Good job bro, keep going. Problem %d has been AC-ed successfully by %s", problemID, discordNickname)
+	logger.Log.Info("Adding reactions...")
 }
 
 func UndoAC(c *context.ContextMessage) {

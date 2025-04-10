@@ -8,6 +8,9 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
 
+const REACTION_YES = "✅"
+const REACTION_NO = "❌"
+
 func HandleRegisterUser(c *context.ContextMessage) {
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v\n", err)
@@ -44,6 +47,43 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 	}
 
 	logger.Log.Infof("User %s has registered to the class %s successfully", userName, classCode)
+}
+
+func HandleAddAC(c *context.ContextMessage) {
+	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+		logger.Log.Errorf("Error checking if author is admin: %v", err)
+		return
+	} else if !IsMentor {
+		logger.Log.Infoln("Bro has not enough permissions (is not mentor)")
+		return
+	}
+
+	messageID := c.MessageReaction.MessageID
+
+	pendingConfirmation, err := c.Services.User.GetPendingConfirmationByMessageID(messageID)
+	if err != nil {
+		logger.Log.Infoln("MessageID not valid (or not found)")
+		return
+	}
+
+	switch c.MessageReaction.Emoji.Name {
+	case REACTION_NO:
+		err := c.Services.User.RejectACProposal(messageID)
+		if err != nil {
+			logger.Log.Errorf("Something happened: %v", err)
+			return
+		}
+
+		logger.Log.Info("Keep trying lil bro", pendingConfirmation)
+	case REACTION_YES:
+		err := c.Services.User.AcceptACProposal(messageID)
+		if err != nil {
+			logger.Log.Errorf("Something happened: %v", err)
+			return
+		}
+
+		logger.Log.Infof("Good job bro, keep going. Problem %d has been AC-ed", pendingConfirmation.ProblemID)
+	}
 }
 
 func HandleUndoAC(c *context.ContextMessage) {
