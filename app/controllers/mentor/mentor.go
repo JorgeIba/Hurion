@@ -4,12 +4,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
-
-const REACTION_YES = "✅"
-const REACTION_NO = "❌"
 
 func HandleRegisterUser(c *context.ContextMessage) {
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
@@ -67,7 +65,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 	}
 
 	switch c.MessageReaction.Emoji.Name {
-	case REACTION_NO:
+	case common.REACTION_NO:
 		err := c.Services.User.RejectACProposal(messageID)
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
@@ -75,7 +73,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		}
 
 		logger.Log.Info("Keep trying lil bro", pendingConfirmation)
-	case REACTION_YES:
+	case common.REACTION_YES:
 		err := c.Services.User.AcceptACProposal(messageID)
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
