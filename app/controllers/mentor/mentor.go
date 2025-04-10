@@ -49,7 +49,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 	logger.Log.Infof("User %s has registered to the class %s successfully", userName, classCode)
 }
 
-func HandleAddAC(c *context.ContextMessage) {
+func HandlePendingConfirmation(c *context.ContextMessage) {
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v", err)
 		return

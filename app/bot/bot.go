@@ -75,15 +75,16 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 }
 
 func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
-	message, err := s.ChannelMessage(r.ChannelID, r.MessageID)
-	if err != nil {
-		fmt.Println("Something happened when trying to get the message:", err)
-		return
+	context := &context.ContextMessage{
+		Session:           s,
+		MessageReaction:   r,
+		DatabaseValidator: validators.NewValidatorDB(bot.db),
+		DiscordValidator:  validators.NewValidatorDiscord(s),
+		Datastore:         bot.db,
 	}
+	context.Services, _ = services.NewServices(context.Datastore, context.DatabaseValidator)
 
-	if message.Author.ID != s.State.User.ID {
-		return
+	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
+		router(context)
 	}
-
-	// TODO: check here If messageID corresponds to a pending reaction
 }

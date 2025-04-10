@@ -76,7 +76,7 @@ func routerScore(c *context.ContextMessage) {
 	case 2:
 		general.HandleGetScoreByClass(c)
 	case 3:
-		general.GetScoreByUserAndClass(c)
+		general.HandleGetScoreByUserAndClass(c)
 	}
 }
 

@@ -76,7 +76,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	logger.Log.Info(response)
 }
 
-func GetScoreByUserAndClass(c *context.ContextMessage) {
+func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
 	studentsScore, err := c.Services.User.GetScoreByClassCode(classCode)
