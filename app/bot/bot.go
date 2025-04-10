@@ -10,18 +10,20 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
 )
 
 type Bot struct {
-	botToken string
-	db       *data.DB
+	botToken   string
+	db         *data.DB
+	dispatcher *dispatcher.Dispatcher
 }
 
 func CreateBot(botToken string, db *data.DB) (*Bot, error) {
-	return &Bot{botToken, db}, nil
+	return &Bot{botToken, db, nil}, nil
 }
 
 func (bot *Bot) Run() {
@@ -29,6 +31,9 @@ func (bot *Bot) Run() {
 	if err != nil {
 		log.Fatalln("Error creating the session,", err)
 	}
+
+	const bufferSize = 5
+	bot.dispatcher = dispatcher.NewDispatcher(dg, bufferSize)
 
 	dg.AddHandler(bot.messageHandler)
 	dg.AddHandler(bot.reactionHandler)
