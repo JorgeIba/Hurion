@@ -5,18 +5,16 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 )
 
 type UserService struct {
-	Datastore         data.DataStore
-	DatabaseValidator *validators.ValidatorDB
+	Datastore data.DataStore
 }
 
 // By UserID
 func (service *UserService) DeregisterUserIDFromClass(userID string, classCode string) error {
 	// Validate if user is registered in the class
-	isMyBoyEnrolled, err := service.DatabaseValidator.IsEnrolledByClassCode(userID, classCode)
+	isMyBoyEnrolled, err := service.IsUserIDEnrolledByClassCode(userID, classCode)
 	if err != nil {
 		return err
 	} else if !isMyBoyEnrolled {
@@ -76,7 +74,7 @@ func (service *UserService) RegisterUserIDIntoClass(userID, classCode string) er
 
 func (service *UserService) AddPendingACOfUserID(messageID, userID string, problemID int64) error {
 	// Validate problem exists
-	if isProblemPresent, err := service.DatabaseValidator.ExistsProblem(problemID); err != nil {
+	if isProblemPresent, err := service.ExistsProblem(problemID); err != nil {
 		return err
 	} else if !isProblemPresent {
 		return fmt.Errorf("are you sure problem %d exists?", problemID)
@@ -116,7 +114,7 @@ func (service *UserService) DeregisterUsernameFromClass(userName, classCode stri
 
 func (service *UserService) AddACToUser(userID string, problemID int64) error {
 	// Validate problem exists
-	if isProblemPresent, err := service.DatabaseValidator.ExistsProblem(problemID); err != nil {
+	if isProblemPresent, err := service.ExistsProblem(problemID); err != nil {
 		return err
 	} else if !isProblemPresent {
 		return fmt.Errorf("are you sure problem %d exists?", problemID)
@@ -146,7 +144,7 @@ func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName
 
 func (service *UserService) CreateProblemIntoClass(problemName, classCode string) (int64, error) {
 
-	if isClassCodeValid, err := service.DatabaseValidator.IsClassCodeValid(classCode); err != nil {
+	if isClassCodeValid, err := service.IsClassCodeValid(classCode); err != nil {
 		return 0, fmt.Errorf("error checking if class code was valid: %v", err)
 	} else if !isClassCodeValid {
 		return 0, fmt.Errorf("there's no class code: %v", err)
@@ -162,7 +160,7 @@ func (service *UserService) CreateProblemIntoClass(problemName, classCode string
 }
 
 func (service *UserService) RemoveProblemFromClass(problemID int64) error {
-	if isValidProblem, err := service.DatabaseValidator.ExistsProblem(problemID); err != nil {
+	if isValidProblem, err := service.ExistsProblem(problemID); err != nil {
 		return err
 	} else if !isValidProblem {
 		return fmt.Errorf("are you sure problem %d exists?", problemID)
@@ -253,13 +251,48 @@ func (service *UserService) RejectACProposal(messageID string) error {
 	return err
 }
 
+func (service *UserService) IsUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
+	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		return false, fmt.Errorf("could not get the class reference, are you sure it exists?: %v", err)
+	}
+
+	return service.IsUserIDEnrolledByClassID(userID, classID)
+}
+
+func (service *UserService) IsUserIDEnrolledByClassID(userID string, classID int64) (bool, error) {
+	isMyBoyEnrolled, err := service.Datastore.IsUserRegisteredInClass(userID, classID)
+	if err != nil {
+		return false, fmt.Errorf("error checking if user %s is enrolled in class %d: %v", userID, classID, err)
+	}
+
+	return isMyBoyEnrolled, nil
+}
+
+func (service *UserService) ExistsProblem(problemID int64) (bool, error) {
+	_, err := service.Datastore.GetProblemByID(problemID)
+	if err != nil {
+		return false, fmt.Errorf("could not check problem info")
+	}
+
+	return true, nil
+}
+
+func (service *UserService) IsClassCodeValid(classCode string) (bool, error) {
+	_, err := service.Datastore.GetClassIDByClassCode(classCode)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (service *UserService) canBroACTheProblem(userID string, problemID int64) (bool, error) {
 	problem, err := service.Datastore.GetProblemByID(problemID)
 	if err != nil {
 		return false, err
 	}
 
-	if isMyBoyEnrolled, err := service.DatabaseValidator.IsEnrolledByClassID(userID, problem.ClassID); err != nil {
+	if isMyBoyEnrolled, err := service.IsUserIDEnrolledByClassID(userID, problem.ClassID); err != nil {
 		return false, err
 	} else if !isMyBoyEnrolled {
 		return false, nil

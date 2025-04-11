@@ -1,7 +1,6 @@
 package validators
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
@@ -58,62 +57,6 @@ func TestIsEnrolledByClassCode_No(t *testing.T) {
 	isMyBoyEnrolled, err := validator.IsEnrolledByClassCode("Jorge", "1")
 	assert.NoError(t, err)
 	assert.False(t, isMyBoyEnrolled)
-}
-
-func TestExistsProblem_Yes(t *testing.T) {
-	mockedDataStore := &MockDatastore{
-		MockGetProblemByID: func(problemID int64) (*data.Problem, error) {
-			return &data.Problem{}, nil
-		},
-	}
-
-	validator := NewValidatorDB(mockedDataStore)
-
-	isProblemOK, err := validator.ExistsProblem(123)
-	assert.NoError(t, err)
-	assert.True(t, isProblemOK)
-}
-
-func TestExistsProblem_No(t *testing.T) {
-	mockedDataStore := &MockDatastore{
-		MockGetProblemByID: func(problemID int64) (*data.Problem, error) {
-			return &data.Problem{}, fmt.Errorf("Problem not found")
-		},
-	}
-
-	validator := NewValidatorDB(mockedDataStore)
-
-	isProblemOK, err := validator.ExistsProblem(123)
-	assert.Error(t, err)
-	assert.False(t, isProblemOK)
-}
-
-func TestExistsProblemInClass_Yes(t *testing.T) {
-	mockedDataStore := &MockDatastore{
-		MockGetProblemByID: func(problemID int64) (*data.Problem, error) {
-			return &data.Problem{ClassID: 123}, nil
-		},
-	}
-
-	validator := NewValidatorDB(mockedDataStore)
-
-	isProblemOK, err := validator.ExistsProblemInClass(1, 123)
-	assert.NoError(t, err)
-	assert.True(t, isProblemOK)
-}
-
-func TestExistsProblemInClass_No(t *testing.T) {
-	mockedDataStore := &MockDatastore{
-		MockGetProblemByID: func(problemID int64) (*data.Problem, error) {
-			return &data.Problem{ClassID: 777}, nil
-		},
-	}
-
-	validator := NewValidatorDB(mockedDataStore)
-
-	isProblemOK, err := validator.ExistsProblemInClass(1, 111)
-	assert.NoError(t, err)
-	assert.False(t, isProblemOK)
 }
 
 func TestIsEnrolledByClassID_Yes(t *testing.T) {

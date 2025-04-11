@@ -29,23 +29,6 @@ func (validator *ValidatorDB) IsEnrolledByClassCode(userID, classCode string) (b
 	return validator.IsEnrolledByClassID(userID, classID)
 }
 
-func (validator *ValidatorDB) ExistsProblem(problemID int64) (bool, error) {
-	_, err := validator.db.GetProblemByID(problemID)
-	if err != nil {
-		return false, fmt.Errorf("could not check problem info")
-	}
-
-	return true, nil
-}
-
-func (validator *ValidatorDB) ExistsProblemInClass(problemID, classID int64) (bool, error) {
-	problem, err := validator.db.GetProblemByID(problemID)
-	if err != nil {
-		return false, fmt.Errorf("could not check problem info")
-	}
-	return problem.ClassID == classID, nil
-}
-
 func (validator *ValidatorDB) IsEnrolledByClassID(userID string, classID int64) (bool, error) {
 	isMyBoyEnrolled, err := validator.db.IsUserRegisteredInClass(userID, classID)
 	if err != nil {
@@ -53,12 +36,4 @@ func (validator *ValidatorDB) IsEnrolledByClassID(userID string, classID int64) 
 	}
 
 	return isMyBoyEnrolled, nil
-}
-
-func (validator *ValidatorDB) IsClassCodeValid(classCode string) (bool, error) {
-	_, err := validator.db.GetClassIDByClassCode(classCode)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
 }

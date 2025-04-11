@@ -69,8 +69,8 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		DiscordValidator:  validators.NewValidatorDiscord(s),
 		Datastore:         bot.db,
 		Args:              args,
+		Services:          services.NewServices(bot.db),
 	}
-	context.Services, _ = services.NewServices(context.Datastore, context.DatabaseValidator)
 
 	cmd := args[0]
 	fmt.Println(cmd)
@@ -86,8 +86,8 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		DatabaseValidator: validators.NewValidatorDB(bot.db),
 		DiscordValidator:  validators.NewValidatorDiscord(s),
 		Datastore:         bot.db,
+		Services:          services.NewServices(bot.db),
 	}
-	context.Services, _ = services.NewServices(context.Datastore, context.DatabaseValidator)
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
 		router(context)

@@ -12,7 +12,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
 
 	// Validate if user is registered in the class
-	isMyBoyEnrolled, err := isEnrolledByClassCode(c, classCode)
+	isMyBoyEnrolled, err := isUserEnrolledInClassCode(c, classCode)
 	if err != nil {
 		logger.Log.Error(err)
 		return
@@ -83,7 +83,7 @@ func UndoAC(c *context.ContextMessage) {
 	logger.Log.Infof("Problem %d has been UnAC-ed successfully by %s (or it wasn't even ACed previously, but I didn't want to check it tbh)", problemID, discordNickname)
 }
 
-func isEnrolledByClassCode(c *context.ContextMessage, classCode string) (bool, error) {
+func isUserEnrolledInClassCode(c *context.ContextMessage, classCode string) (bool, error) {
 	userID := c.Message.Author.ID
 	return c.DatabaseValidator.IsEnrolledByClassCode(userID, classCode)
 }
