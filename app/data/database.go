@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -36,15 +36,15 @@ func (db *DB) CloseDB() {
 func NewDB(cfg *DBConfig) (*DB, error) {
 	conn, err := sql.Open("sqlite3", cfg.DBPath)
 	if err != nil {
-		return nil, customerr.NewInitializationError("could not open DB", err)
+		return nil, dataerr.NewInitializationError("could not open DB", err)
 	}
 
 	if err = conn.Ping(); err != nil {
-		return nil, customerr.NewInitializationError("could not ping DB", err)
+		return nil, dataerr.NewInitializationError("could not ping DB", err)
 	}
 
 	if err := applySchema(conn, cfg.SchemaPath); err != nil {
-		return nil, customerr.NewInitializationError("could not get the schema", err)
+		return nil, dataerr.NewInitializationError("could not get the schema", err)
 	}
 
 	return &DB{conn: conn, Config: cfg}, nil
@@ -54,11 +54,11 @@ func applySchema(conn *sql.DB, schemaPath string) error {
 
 	schema, err := os.ReadFile(schemaPath)
 	if err != nil {
-		return customerr.NewInitializationError("could not read schema file", err)
+		return dataerr.NewInitializationError("could not read schema file", err)
 	}
 
 	if _, err = conn.Exec(string(schema)); err != nil {
-		return customerr.NewInitializationError("could not apply schema", err)
+		return dataerr.NewInitializationError("could not apply schema", err)
 	}
 
 	fmt.Println("Schema applied successfully")

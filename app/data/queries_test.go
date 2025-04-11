@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 )
@@ -641,7 +641,7 @@ func TestGetPendingConfirmation_NotFound(t *testing.T) {
 	const messageID = "nonexistent"
 
 	gotUserID, gotProblemID, err := db.GetPendingConfirmation(messageID)
-	notFoundErrorType := &customerr.NotFoundError{}
+	notFoundErrorType := &dataerr.NotFoundError{}
 
 	assert.ErrorAs(t, err, &notFoundErrorType)
 	assert.Empty(t, gotUserID, "Should return empty userID for missing message_id")
