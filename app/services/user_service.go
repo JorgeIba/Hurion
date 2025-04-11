@@ -1,10 +1,17 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+)
+
+var (
+	dataNotFoundErr = &dataerr.NotFoundError{}
+	dataConflictErr = &dataerr.RowConflictError{}
 )
 
 type UserService struct {
@@ -14,22 +21,29 @@ type UserService struct {
 // By UserID
 func (service *UserService) DeregisterUserIDFromClass(userID string, classCode string) error {
 	// Validate if user is registered in the class
-	isMyBoyEnrolled, err := service.IsUserIDEnrolledByClassCode(userID, classCode)
+	isMyBoyEnrolled, err := service.isUserIDEnrolledByClassCode(userID, classCode)
 	if err != nil {
 		return err
 	} else if !isMyBoyEnrolled {
-		return fmt.Errorf("user %s is not registered in class %s", userID, classCode)
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("user %s is not registered in class %s", userID, classCode), nil)
 	}
 
 	// Get Info
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
 	if err != nil {
-		return err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	// Deregister
-	err = service.Datastore.DeregisterUserFromClass(userID, classID)
-	return err
+	if err = service.Datastore.DeregisterUserFromClass(userID, classID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
 }
 
 func (service *UserService) UndoACByProblemAndUserID(problemID int64, userID string) error {
@@ -37,65 +51,82 @@ func (service *UserService) UndoACByProblemAndUserID(problemID int64, userID str
 	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return fmt.Errorf("bro %s cannot UndoAC the problem with id: %d", userID, problemID)
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot UndoAC the problem with id: %d", userID, problemID), nil)
 	}
 
 	// Undo-ing
-	err := service.Datastore.RemoveAC(userID, problemID)
-	return err
+	if err := service.Datastore.RemoveAC(userID, problemID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
 }
 
 func (service *UserService) RegisterUserIDIntoClass(userID, classCode string) error {
 	// Get class
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
-		return err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	// Discord User should have binded a User Name
 	isUserBinded, err := service.Datastore.IsUserBinded(userID)
 	if err != nil {
-		return err
+		return serviceerr.MakeGeneralError(err)
 	} else if !isUserBinded {
-		return fmt.Errorf("user has not username binded yet")
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("user %s has not username binded yet", userID), nil)
 	}
 
 	// Check if user was already registered
 	isAlreadyRegistered, err := service.Datastore.IsUserRegisteredInClass(userID, class.ID)
 	if err != nil {
-		return err
+		return serviceerr.MakeGeneralError(err)
 	} else if isAlreadyRegistered {
-		return fmt.Errorf("user has already registered to this class")
+		return serviceerr.NewConflictError(fmt.Sprintf("user %s has already registered to this class", userID), nil)
 	}
 
-	err = service.Datastore.RegisterUserIntoClass(userID, class.ID)
-	return err
+	if err = service.Datastore.RegisterUserIntoClass(userID, class.ID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
 }
 
 func (service *UserService) AddPendingACOfUserID(messageID, userID string, problemID int64) error {
 	// Validate problem exists
-	if isProblemPresent, err := service.ExistsProblem(problemID); err != nil {
+	if isProblemPresent, err := service.existsProblem(problemID); err != nil {
 		return err
 	} else if !isProblemPresent {
-		return fmt.Errorf("are you sure problem %d exists?", problemID)
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
 	}
 
 	// Validate user is registered in the class of the problem
 	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return fmt.Errorf("bro %s cannot AC the problem with id: %d", userID, problemID)
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
-	err := service.Datastore.AddPendingConfirmation(messageID, userID, problemID)
-	return err
+	if err := service.Datastore.AddPendingConfirmation(messageID, userID, problemID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+
+	return nil
 }
 
 // By UserName
 func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
 	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
 	if err != nil {
-		return err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	err = service.RegisterUserIDIntoClass(userID, classCode)
@@ -105,7 +136,12 @@ func (service *UserService) RegisterUsernameIntoClass(userName, classCode string
 func (service *UserService) DeregisterUsernameFromClass(userName, classCode string) error {
 	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
 	if err != nil {
-		return err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	err = service.DeregisterUserIDFromClass(userID, classCode)
@@ -114,28 +150,36 @@ func (service *UserService) DeregisterUsernameFromClass(userName, classCode stri
 
 func (service *UserService) AddACToUser(userID string, problemID int64) error {
 	// Validate problem exists
-	if isProblemPresent, err := service.ExistsProblem(problemID); err != nil {
+	if isProblemPresent, err := service.existsProblem(problemID); err != nil {
 		return err
 	} else if !isProblemPresent {
-		return fmt.Errorf("are you sure problem %d exists?", problemID)
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
 	}
 
 	// Validate user is registered in the class of the problem
 	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return fmt.Errorf("bro %s cannot AC the problem with id: %d", userID, problemID)
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
 	// ACing
-	err := service.Datastore.AddAC(userID, problemID)
-	return err
+	if err := service.Datastore.AddAC(userID, problemID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+
+	return nil
 }
 
 func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName string) error {
 	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
 	if err != nil {
-		return err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	err = service.UndoACByProblemAndUserID(problemID, userID)
@@ -143,35 +187,41 @@ func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName
 }
 
 func (service *UserService) CreateProblemIntoClass(problemName, classCode string) (int64, error) {
-
-	if isClassCodeValid, err := service.IsClassCodeValid(classCode); err != nil {
-		return 0, fmt.Errorf("error checking if class code was valid: %v", err)
+	if isClassCodeValid, err := service.isClassCodeValid(classCode); err != nil {
+		return 0, err
 	} else if !isClassCodeValid {
-		return 0, fmt.Errorf("there's no class code: %v", err)
+		return 0, serviceerr.NewNotFoundInfoError(fmt.Sprintf("no info of class code %s", classCode), nil)
 	}
 
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
 	if err != nil {
-		return 0, err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return 0, serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return 0, serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	problemID, err := service.Datastore.AddProblem(problemName, classID)
-	return problemID, err
+	if err != nil {
+		return 0, serviceerr.MakeGeneralError(err)
+	} else if problemID == 0 {
+		return 0, serviceerr.NewConflictError("problem with the same name in the same class", nil)
+	}
+
+	return problemID, nil
 }
 
 func (service *UserService) RemoveProblemFromClass(problemID int64) error {
-	if isValidProblem, err := service.ExistsProblem(problemID); err != nil {
+	if isValidProblem, err := service.existsProblem(problemID); err != nil {
 		return err
 	} else if !isValidProblem {
-		return fmt.Errorf("are you sure problem %d exists?", problemID)
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
-	rows, err := service.Datastore.RemoveProblemByID(problemID)
-	if err != nil {
-		logger.Log.Error(err)
-		return err
-	} else if rows == 0 {
-		return fmt.Errorf("i think problem id was not existing, even tho it's already removed from this universe")
+	if _, err := service.Datastore.RemoveProblemByID(problemID); err != nil {
+		return serviceerr.MakeGeneralError(err)
 	}
 
 	return nil
@@ -180,50 +230,90 @@ func (service *UserService) RemoveProblemFromClass(problemID int64) error {
 func (service *UserService) DeleteClassByClassCode(classCode string) error {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
 	if err != nil {
-		return fmt.Errorf("error retrieving the classID: %v", err)
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
-	err = service.Datastore.ClearClass(classID)
-	return err
+	if err = service.Datastore.ClearClass(classID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
 }
 
 func (service *UserService) CreateClass(classCode, className string) error {
 	_, err := service.Datastore.CreateClass(classCode, className)
 
-	return err
+	if err != nil {
+		switch {
+		case errors.As(err, &dataConflictErr):
+			return serviceerr.NewConflictError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return nil
 }
 
 func (service *UserService) BindUser(userID, userName string) error {
-	err := service.Datastore.BindUser(userID, userName)
-	return err
+	if err := service.Datastore.BindUser(userID, userName); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
 }
 
 func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]*data.Problem, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	emptySlice := []*data.Problem{}
 	if err != nil {
-		return []*data.Problem{}, err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return emptySlice, serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return emptySlice, serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	problems, err := service.Datastore.GetProblemsByClass(classID)
-	return problems, err
+	if err != nil {
+		return emptySlice, serviceerr.MakeGeneralError(err)
+	}
+	return problems, nil
 }
 
 func (service *UserService) GetScoreByClassCode(classCode string) (map[*data.User][]*data.SolvedProblem, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	emptyMap := map[*data.User][]*data.SolvedProblem{}
 	if err != nil {
-		return map[*data.User][]*data.SolvedProblem{}, err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return emptyMap, serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return emptyMap, serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	studentsScore, err := service.Datastore.GetAllSolvedProblemsByClass(classID)
-	return studentsScore, err
+	if err != nil {
+		return emptyMap, serviceerr.MakeGeneralError(err)
+	}
+	return studentsScore, nil
 }
 
 func (service *UserService) GetPendingConfirmationByMessageID(messageID string) (*data.PendingConfirmation, error) {
 	userID, problemID, err := service.Datastore.GetPendingConfirmation(messageID)
+
 	if err != nil {
-		return &data.PendingConfirmation{}, err
-	} else if problemID == -1 {
-		return &data.PendingConfirmation{}, fmt.Errorf("problem info could not be found")
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return &data.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return &data.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	return &data.PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID}, nil
@@ -236,67 +326,89 @@ func (service *UserService) AcceptACProposal(messageID string) error {
 	}
 
 	if err := service.Datastore.RemovePendingConfirmation(messageID); err != nil {
-		return err
+		return serviceerr.MakeGeneralError(err)
 	}
 
 	if err := service.AddACToUser(pendingConfirmation.UserID, pendingConfirmation.ProblemID); err != nil {
 		return err
 	}
 
-	return err
+	return nil
 }
 
 func (service *UserService) RejectACProposal(messageID string) error {
-	err := service.Datastore.RemovePendingConfirmation(messageID)
-	return err
+	if err := service.Datastore.RemovePendingConfirmation(messageID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
 }
 
-func (service *UserService) IsUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
+// Private
+func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
 	if err != nil {
-		return false, fmt.Errorf("could not get the class reference, are you sure it exists?: %v", err)
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return false, serviceerr.NewNotFoundInfoError("classID doesn't match with any class", err)
+		default:
+			return false, serviceerr.MakeGeneralError(err)
+		}
 	}
 
-	return service.IsUserIDEnrolledByClassID(userID, classID)
+	return service.isUserIDEnrolledByClassID(userID, classID)
 }
 
-func (service *UserService) IsUserIDEnrolledByClassID(userID string, classID int64) (bool, error) {
-	isMyBoyEnrolled, err := service.Datastore.IsUserRegisteredInClass(userID, classID)
-	if err != nil {
-		return false, fmt.Errorf("error checking if user %s is enrolled in class %d: %v", userID, classID, err)
-	}
-
-	return isMyBoyEnrolled, nil
-}
-
-func (service *UserService) ExistsProblem(problemID int64) (bool, error) {
-	_, err := service.Datastore.GetProblemByID(problemID)
-	if err != nil {
-		return false, fmt.Errorf("could not check problem info")
+func (service *UserService) existsProblem(problemID int64) (bool, error) {
+	if _, err := service.Datastore.GetProblemByID(problemID); err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return false, nil
+		default:
+			return false, serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	return true, nil
 }
 
-func (service *UserService) IsClassCodeValid(classCode string) (bool, error) {
-	_, err := service.Datastore.GetClassIDByClassCode(classCode)
-	if err != nil {
-		return false, err
+func (service *UserService) isClassCodeValid(classCode string) (bool, error) {
+	if _, err := service.Datastore.GetClassIDByClassCode(classCode); err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return false, nil
+		default:
+			return false, serviceerr.MakeGeneralError(err)
+		}
 	}
+
 	return true, nil
 }
 
 func (service *UserService) canBroACTheProblem(userID string, problemID int64) (bool, error) {
 	problem, err := service.Datastore.GetProblemByID(problemID)
 	if err != nil {
-		return false, err
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return false, nil
+		default:
+			return false, serviceerr.MakeGeneralError(err)
+		}
 	}
 
-	if isMyBoyEnrolled, err := service.IsUserIDEnrolledByClassID(userID, problem.ClassID); err != nil {
+	if isMyBoyEnrolled, err := service.isUserIDEnrolledByClassID(userID, problem.ClassID); err != nil {
 		return false, err
 	} else if !isMyBoyEnrolled {
 		return false, nil
 	}
 
 	return true, nil
+}
+
+func (service *UserService) isUserIDEnrolledByClassID(userID string, classID int64) (bool, error) {
+	isMyBoyEnrolled, err := service.Datastore.IsUserRegisteredInClass(userID, classID)
+	if err != nil {
+		return false, serviceerr.NewInternalError(fmt.Sprintf("error checking if user %s is enrolled in class %d", userID, classID), err)
+	}
+
+	return isMyBoyEnrolled, nil
 }
