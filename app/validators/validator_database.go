@@ -1,8 +1,11 @@
 package validators
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/validatorerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 )
 
@@ -20,10 +23,22 @@ func NewValidatorDB(d ValidatorDatastore) *ValidatorDB {
 	return &ValidatorDB{db: d}
 }
 
+var (
+	notFoundErr = &dataerr.NotFoundError{}
+	queryErr    = &dataerr.QueryError{}
+)
+
 func (validator *ValidatorDB) IsEnrolledByClassCode(userID, classCode string) (bool, error) {
 	classID, err := validator.db.GetClassIDByClassCode(classCode)
 	if err != nil {
-		return false, fmt.Errorf("could not get the class reference, are you sure it exists?: %v", err)
+		switch {
+		case errors.As(err, &notFoundErr):
+			return false, validatorerr.NewNotFoundError("classID doesn't match with any class", err)
+		case errors.As(err, &queryErr):
+			return false, validatorerr.NewInternalError("error in DB", err)
+		default:
+			return false, validatorerr.NewInternalError("unexpected error", err)
+		}
 	}
 
 	return validator.IsEnrolledByClassID(userID, classID)
@@ -31,8 +46,14 @@ func (validator *ValidatorDB) IsEnrolledByClassCode(userID, classCode string) (b
 
 func (validator *ValidatorDB) IsEnrolledByClassID(userID string, classID int64) (bool, error) {
 	isMyBoyEnrolled, err := validator.db.IsUserRegisteredInClass(userID, classID)
+
 	if err != nil {
-		return false, fmt.Errorf("error checking if user %s is enrolled in class %d: %v", userID, classID, err)
+		switch {
+		case errors.As(err, &queryErr):
+			return false, validatorerr.NewInternalError(fmt.Sprintf("error checking if user %s is enrolled in class %d", userID, classID), err)
+		default:
+			return false, validatorerr.NewInternalError("unexpected error", err)
+		}
 	}
 
 	return isMyBoyEnrolled, nil

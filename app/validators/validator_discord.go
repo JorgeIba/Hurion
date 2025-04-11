@@ -1,8 +1,7 @@
 package validators
 
 import (
-	"fmt"
-
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/validatorerr"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -26,7 +25,7 @@ const (
 func (validator *ValidatorDiscord) hasRole(guildID, userID, roleID string) (bool, error) {
 	member, err := validator.session.GuildMember(guildID, userID)
 	if err != nil {
-		return false, fmt.Errorf("could not get member: %v", err)
+		return false, validatorerr.NewInternalError("could not get member", err)
 	}
 
 	for _, role := range member.Roles {
