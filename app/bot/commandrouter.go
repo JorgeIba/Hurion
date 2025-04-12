@@ -102,7 +102,7 @@ func routerUndoAC(c *context.ContextMessage) {
 	case 1:
 		fmt.Println(NotEnough)
 	case 2:
-		enrolled.UndoAC(c)
+		enrolled.HandleUndoAC(c)
 	case 3:
 		mentor.HandleUndoAC(c)
 	default:

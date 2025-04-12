@@ -56,7 +56,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 	logger.Log.Info("Adding reactions...")
 }
 
-func UndoAC(c *context.ContextMessage) {
+func HandleUndoAC(c *context.ContextMessage) {
 	problemIDs := c.Args[1]
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
@@ -75,7 +75,7 @@ func UndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err = c.Services.User.UndoACByProblemAndUsername(problemID, discordID); err != nil {
+	if err = c.Services.User.UndoACByProblemAndUserID(problemID, discordID); err != nil {
 		logger.Log.Error(err)
 		return
 	}

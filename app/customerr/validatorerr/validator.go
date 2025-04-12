@@ -10,9 +10,9 @@ type ValidatorError struct {
 
 func (e *ValidatorError) Error() string {
 	if e.WrappedError != nil {
-		return fmt.Sprintf("(code %d) %s: %v", e.Code, e.Message, e.WrappedError)
+		return fmt.Sprintf("Validator error: (code %d) %s: %v", e.Code, e.Message, e.WrappedError)
 	}
-	return fmt.Sprintf("(code %d) %s", e.Code, e.Message)
+	return fmt.Sprintf("Validator error: (code %d) %s", e.Code, e.Message)
 }
 
 type InternalError struct {

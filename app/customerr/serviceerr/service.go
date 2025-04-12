@@ -10,9 +10,9 @@ type ServiceError struct {
 
 func (e *ServiceError) Error() string {
 	if e.WrappedError != nil {
-		return fmt.Sprintf("(code %d) %s: %v", e.Code, e.Message, e.WrappedError)
+		return fmt.Sprintf("Service Error: (code %d) %s: %v", e.Code, e.Message, e.WrappedError)
 	}
-	return fmt.Sprintf("(code %d) %s", e.Code, e.Message)
+	return fmt.Sprintf("Service Error: (code %d) %s", e.Code, e.Message)
 }
 
 type InternalError struct {
