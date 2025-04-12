@@ -17,7 +17,7 @@ func (db *DB) BindUser(discordId, userName string) error {
 	`
 
 	if _, err := db.conn.Exec(query, discordId, userName); err != nil {
-		return dataerr.NewQueryError("could not bind user", err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not bind user %s with user name %s", discordId, userName), err)
 	}
 
 	return nil
@@ -31,7 +31,7 @@ func (db *DB) RegisterUserIntoClass(discordID string, classID int64) error {
 	`
 
 	if _, err := db.conn.Exec(query, discordID, classID); err != nil {
-		return dataerr.NewQueryError("could not register the user into class", err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not register the user %s into class id %d", discordID, classID), err)
 	}
 	return nil
 }
@@ -43,7 +43,7 @@ func (db *DB) DeregisterUserFromClass(discordID string, classID int64) error {
 	`
 
 	if _, err := db.conn.Exec(query, discordID, classID); err != nil {
-		return dataerr.NewQueryError("could not deregister the user into class", err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not deregister the user %s from class id %d", discordID, classID), err)
 	}
 	return nil
 }
@@ -56,7 +56,7 @@ func (db *DB) AddProblem(problemName string, classID int64) (int64, error) {
 	`
 	response, err := db.conn.Exec(query, problemName, classID)
 	if err != nil {
-		return 0, dataerr.NewQueryError("could not add the problem into the class", err)
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not add the problem %s into the class id %d", problemName, classID), err)
 	}
 
 	return response.LastInsertId()
@@ -69,7 +69,7 @@ func (db *DB) RemoveProblemByNameAndClassID(problemName string, classID int64) (
 	`
 	response, err := db.conn.Exec(query, problemName, classID)
 	if err != nil {
-		return 0, dataerr.NewQueryError("could not remove the problem from the class", err)
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove the problem %s from the class id %d", problemName, classID), err)
 	}
 
 	return response.RowsAffected()
@@ -82,7 +82,7 @@ func (db *DB) RemoveProblemByID(problemID int64) (int64, error) {
 	`
 	response, err := db.conn.Exec(query, problemID)
 	if err != nil {
-		return 0, dataerr.NewQueryError("could not remove the problem from the class", err)
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove %d the problem", problemID), err)
 	}
 
 	return response.RowsAffected()
@@ -96,7 +96,7 @@ func (db *DB) AddAC(discordID string, problemID int64) error {
 	`
 	_, err := db.conn.Exec(query, discordID, problemID)
 	if err != nil {
-		return dataerr.NewQueryError("could not AC the problem for the user in the class", err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not AC the problem for the user %s in the class %d", discordID, problemID), err)
 	}
 
 	return nil
@@ -109,7 +109,7 @@ func (db *DB) RemoveAC(discordID string, problemID int64) error {
 	`
 	_, err := db.conn.Exec(query, discordID, problemID)
 	if err != nil {
-		return dataerr.NewQueryError("could not remove the AC of problem for the user in the class", err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not remove the AC of problem for the user %s from the class %d", discordID, problemID), err)
 	}
 
 	return nil
@@ -124,7 +124,7 @@ func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
 
 	rows, err := db.conn.Query(query, classID)
 	if err != nil {
-		return nil, dataerr.NewQueryError("could not fetch problems", err)
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not fetch problems from class id %d", classID), err)
 	}
 	defer rows.Close()
 
@@ -134,7 +134,7 @@ func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
 		var problemID int64
 		var problemName string
 		if err := rows.Scan(&problemID, &problemName); err != nil {
-			return nil, dataerr.NewQueryError("could not scan problem name", err)
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan problem name when fetching problems from class id %d", classID), err)
 		}
 		problems = append(problems, &Problem{
 			ID:      problemID,
@@ -144,7 +144,7 @@ func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, dataerr.NewQueryError("error during rows iteration", err)
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error during rows iteration when fetching problems from class id %d", classID), err)
 	}
 
 	return problems, nil
@@ -171,7 +171,7 @@ func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) (
 		var solvedAt time.Time
 
 		if err := rows.Scan(&problemID, &solvedAt); err != nil {
-			return nil, dataerr.NewQueryError("could not scan row", err)
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan row for problems by user %s in class %d", discordID, classID), err)
 		}
 
 		solvedProblems = append(solvedProblems, &SolvedProblem{
@@ -182,7 +182,7 @@ func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) (
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, dataerr.NewQueryError("error iterating over rows", err)
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over rows for problems by user %s in class %d", discordID, classID), err)
 	}
 
 	return solvedProblems, nil
@@ -235,7 +235,7 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[*User][]*SolvedPro
 func (db *DB) ClearClass(classID int64) error {
 	tx, err := db.conn.Begin()
 	if err != nil {
-		return dataerr.NewTransactionError("could not begin transaction", err)
+		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to clear class %d", classID), err)
 	}
 
 	queries := []string{
@@ -248,12 +248,12 @@ func (db *DB) ClearClass(classID int64) error {
 	for _, query := range queries {
 		if _, err := tx.Exec(query, classID); err != nil {
 			tx.Rollback()
-			return dataerr.NewQueryError("could not execute query", err)
+			return dataerr.NewQueryError(fmt.Sprintf("could not execute query to clear class %d", classID), err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return dataerr.NewTransactionError("could not commit transaction", err)
+		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to clear class %d", classID), err)
 	}
 
 	return nil
@@ -268,7 +268,7 @@ func (db *DB) CreateClass(classCode, className string) (int64, error) {
 
 	res, err := db.conn.Exec(query, classCode, className)
 	if err != nil {
-		return 0, dataerr.NewQueryError("could not create class", err)
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not create class %s with name %s", classCode, className), err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
@@ -297,7 +297,7 @@ func (db *DB) GetDiscordIDByUserName(userName string) (string, error) {
 		if err == sql.ErrNoRows {
 			return "", dataerr.NewNotFoundError(fmt.Sprintf("no user found with name: %s", userName), nil)
 		}
-		return "", dataerr.NewQueryError("could not get discord ID", err)
+		return "", dataerr.NewQueryError(fmt.Sprintf("could not get discord ID from user %s", userName), err)
 	}
 
 	return discordID, nil
@@ -312,7 +312,7 @@ func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
 		if err == sql.ErrNoRows {
 			return 0, dataerr.NewNotFoundError(fmt.Sprintf("no class found with code: %s", classCode), nil)
 		}
-		return 0, dataerr.NewQueryError("could not get class ID", err)
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
 	}
 
 	return classID, nil
@@ -328,7 +328,7 @@ func (db *DB) GetClassByClassID(classID int64) (*Class, error) {
 		if err == sql.ErrNoRows {
 			return &Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with id: %d", classID), nil)
 		}
-		return &Class{}, dataerr.NewQueryError("could not get class", err)
+		return &Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class from class id %d", classID), err)
 	}
 
 	return &Class{ID: classID, ClassCode: classCode, Name: className}, nil
@@ -343,9 +343,9 @@ func (db *DB) GetClassByClassCode(classCode string) (*Class, error) {
 	err := db.conn.QueryRow(query, classCode).Scan(&classID, &className)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with code: %d", classID), nil)
+			return &Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with code: %s", classCode), nil)
 		}
-		return &Class{}, dataerr.NewQueryError("could not get class ID", err)
+		return &Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
 	}
 
 	return &Class{ID: classID, ClassCode: classCode, Name: className}, nil
@@ -361,7 +361,7 @@ func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error
 	var count int
 	err := db.conn.QueryRow(query, userID, classID).Scan(&count)
 	if err != nil {
-		return false, dataerr.NewQueryError("error checking user enrollment", err)
+		return false, dataerr.NewQueryError(fmt.Sprintf("error checking user enrollment from user %s in class %d", userID, classID), err)
 	}
 
 	return count > 0, nil
@@ -377,7 +377,7 @@ func (db *DB) IsUserBinded(userID string) (bool, error) {
 	var count int
 	err := db.conn.QueryRow(query, userID).Scan(&count)
 	if err != nil {
-		return false, dataerr.NewQueryError("error checking user binding", err)
+		return false, dataerr.NewQueryError(fmt.Sprintf("error checking user binding for user %s", userID), err)
 	}
 
 	return count > 0, nil
@@ -391,7 +391,7 @@ func (db *DB) AddPendingConfirmation(messageID, userID string, problemID int64) 
 	`
 	_, err := db.conn.Exec(query, messageID, userID, problemID)
 	if err != nil {
-		return dataerr.NewQueryError("could not add or update pending confirmation", err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not add or update pending confirmation for message id %s, user id %s and problem %d", messageID, userID, problemID), err)
 	}
 	return nil
 }
@@ -409,7 +409,7 @@ func (db *DB) GetPendingConfirmation(messageID string) (string, int64, error) {
 		if err == sql.ErrNoRows {
 			return "", -1, dataerr.NewNotFoundError(fmt.Sprintf("not pending confimation with message id %s", messageID), nil)
 		}
-		return "", 0, dataerr.NewQueryError("could not get pending confirmation", err)
+		return "", 0, dataerr.NewQueryError(fmt.Sprintf("could not get pending confirmation from message id %s", messageID), err)
 	}
 	return userID, problemID, nil
 }
@@ -420,7 +420,7 @@ func (db *DB) RemovePendingConfirmation(messageID string) error {
 	`
 	_, err := db.conn.Exec(query, messageID)
 	if err != nil {
-		return dataerr.NewQueryError("could not remove pending confirmation", err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not remove pending confirmation for message id %s", messageID), err)
 	}
 	return nil
 }
@@ -437,7 +437,7 @@ func (db *DB) GetUsernameByDiscordID(discordID string) (string, error) {
 		if err == sql.ErrNoRows {
 			return "", dataerr.NewNotFoundError(fmt.Sprintf("discordId %s has not any username binded", discordID), nil)
 		}
-		return "", dataerr.NewQueryError("could not get user_name", err)
+		return "", dataerr.NewQueryError(fmt.Sprintf("could not get user_name from discord id %s", discordID), err)
 	}
 	return userName, nil
 }
@@ -455,7 +455,7 @@ func (db *DB) GetProblemByID(problemID int64) (*Problem, error) {
 		if err == sql.ErrNoRows {
 			return &Problem{}, dataerr.NewNotFoundError(fmt.Sprintf("ProblemID %d not found", problemID), nil)
 		}
-		return &Problem{}, dataerr.NewQueryError("could not get problem info", err)
+		return &Problem{}, dataerr.NewQueryError(fmt.Sprintf("could not get problem info for problem id %d", problemID), err)
 	}
 	return &Problem{ID: problemID, Name: name, ClassID: class_id}, nil
 }
