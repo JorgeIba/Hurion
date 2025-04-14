@@ -34,6 +34,8 @@ func (bot *Bot) Run() {
 
 	const bufferSize = 5
 	bot.dispatcher = dispatcher.NewDispatcher(dg, bufferSize)
+	bot.dispatcher.Start()
+	defer bot.dispatcher.Stop()
 
 	dg.AddHandler(bot.messageHandler)
 	dg.AddHandler(bot.reactionHandler)
@@ -70,6 +72,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		Datastore:         bot.db,
 		Args:              args,
 		Services:          services.NewServices(bot.db),
+		Dispatcher:        bot.dispatcher,
 	}
 
 	cmd := args[0]
@@ -87,6 +90,7 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		DiscordValidator:  validators.NewValidatorDiscord(s),
 		Datastore:         bot.db,
 		Services:          services.NewServices(bot.db),
+		Dispatcher:        bot.dispatcher,
 	}
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {

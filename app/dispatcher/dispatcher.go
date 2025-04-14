@@ -8,7 +8,7 @@ import (
 
 type Dispatcher struct {
 	Session *discordgo.Session
-	Output  <-chan MessageResponse // Read-Only
+	Output  chan MessageResponse
 }
 
 func NewDispatcher(session *discordgo.Session, bufferSize int) *Dispatcher {
@@ -24,6 +24,10 @@ func (d *Dispatcher) Start() {
 			d.dispatch(response)
 		}
 	}()
+}
+
+func (d *Dispatcher) Stop() {
+	close(d.Output)
 }
 
 func (d *Dispatcher) dispatch(msg MessageResponse) {
@@ -48,5 +52,17 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 
 	default:
 		fmt.Println("Unknown message type:", msg.Type)
+	}
+}
+
+func (d *Dispatcher) Send(msg MessageResponse) {
+	d.Output <- msg
+}
+
+func MakeSimpleMessage(channelID, message string) MessageResponse {
+	return MessageResponse{
+		Type:      SimpleMessage,
+		ChannelID: channelID,
+		Content:   message,
 	}
 }

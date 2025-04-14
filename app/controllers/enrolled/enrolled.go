@@ -89,6 +89,7 @@ func isUserEnrolledInClassCode(c *context.ContextMessage, classCode string) (boo
 }
 
 func broCanACProblem(c *context.ContextMessage, problemID int64) (bool, error) {
+	// TODO: Remove Datastore interaction in Controllers Layer
 	problem, err := c.Datastore.GetProblemByID(problemID)
 	if err != nil {
 		return false, err
