@@ -10,6 +10,7 @@ type QueryDatastore interface {
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
 	GetProblemByID(problemID int64) (*Problem, error)
+	GetAllUsersByClassID(classID int64) ([]*User, error)
 }
 
 type UpdateDataStore interface {

@@ -343,6 +343,26 @@ func (service *UserService) RejectACProposal(messageID string) error {
 	return nil
 }
 
+func (service *UserService) GetUsersInClassCode(classCode string) ([]*data.User, error) {
+	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return []*data.User{}, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with classID", classCode), err)
+		default:
+			return []*data.User{}, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	users, err := service.Datastore.GetAllUsersByClassID(classID)
+	if err != nil {
+		return []*data.User{}, serviceerr.MakeGeneralError(err)
+	}
+
+	return users, nil
+}
+
 // Private
 func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)

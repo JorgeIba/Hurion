@@ -459,3 +459,35 @@ func (db *DB) GetProblemByID(problemID int64) (*Problem, error) {
 	}
 	return &Problem{ID: problemID, Name: name, ClassID: class_id}, nil
 }
+
+func (db *DB) GetAllUsersByClassID(classID int64) ([]*User, error) {
+	query := `
+		SELECT 
+			u.discord_id,
+			COALESCE(u.user_name, 'Unknown') AS user_name
+		FROM enrollments e
+		JOIN users u ON e.user_id = u.discord_id
+		WHERE e.class_id = ?
+	`
+
+	rows, err := db.conn.Query(query, classID)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get users for class %d", classID), err)
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.DiscordID, &user.UserName); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan user row for class %d", classID), err)
+		}
+		users = append(users, &user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over user rows for class %d", classID), err)
+	}
+
+	return users, nil
+}

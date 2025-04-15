@@ -830,3 +830,45 @@ func TestGetProblemByID(t *testing.T) {
 	assert.Equal(t, problem.ClassID, classID)
 	assert.Equal(t, problem.Name, problemName)
 }
+
+func TestGetAllUsersByClassID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const classCode = "basicos"
+	const className = "Basicos 2025"
+
+	users := []*User{
+		{
+			DiscordID: "1",
+			UserName:  "Jorge",
+		},
+		{
+			DiscordID: "2",
+			UserName:  "Luis",
+		},
+		{
+			DiscordID: "3",
+			UserName:  "Ibanez",
+		},
+	}
+
+	// Preconditions
+	classID, err := db.CreateClass(classCode, className)
+	assert.NoError(t, err)
+
+	for _, user := range users {
+		err = db.BindUser(user.DiscordID, user.UserName)
+		assert.NoError(t, err)
+		err = db.RegisterUserIntoClass(user.DiscordID, classID)
+		assert.NoError(t, err)
+	}
+
+	// Act
+	usersInClass, err := db.GetAllUsersByClassID(classID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.Equal(t, usersInClass, users)
+}
