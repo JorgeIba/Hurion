@@ -34,9 +34,10 @@ func HandleBindUser(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Infof("User %s binded to the user name %s\n", discordNickName, userName)
+	successMessage := fmt.Sprintf("User `%s` binded to the user name `%s`", discordNickName, userName)
+	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s binded to the user name %s", discordNickName, userName)),
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
 }
 
@@ -50,11 +51,11 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
 			)
 		case errors.As(err, &serviceConflictErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` already registered on class %s", discordNickName, classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` already registered on class `%s`", discordNickName, classCode)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -65,9 +66,10 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Infof("User %s has registered in the class %s\n", discordNickName, classCode)
+	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", discordNickName, classCode)
+	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s has registered in the class %s\n", discordNickName, classCode)),
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
 }
 
@@ -82,7 +84,7 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -100,13 +102,11 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		rows = append(rows, []any{p.ID, p.Name})
 	}
 
-	title := fmt.Sprintf("Problems for class `%s`", classCode)
-
 	// Markdown format
-	mdTable := formatter.FormatToMarkdownTable(title, headers, rows)
+	mdTable := formatter.FormatToMarkdownTable("", headers, rows)
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Class: %s", classCode),
+		Title:       fmt.Sprintf("List of problems for class `%s`", classCode),
 		Description: mdTable,
 		Color:       0x00bfff,
 	}
@@ -128,7 +128,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -146,7 +146,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -181,12 +181,10 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		rows = append(rows, row)
 	}
 
-	title := fmt.Sprintf("Score of class %s", classCode)
-
-	mdTable := formatter.FormatToMarkdownTable(title, headers, rows)
+	mdTable := formatter.FormatToMarkdownTable("", headers, rows)
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Class: %s", classCode),
+		Title:       fmt.Sprintf("Score of class `%s`", classCode),
 		Description: mdTable,
 		Color:       0x00bfff,
 	}
@@ -208,7 +206,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No userID is binded with userName %s", userName)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No userID is binded with userName `%s`", userName)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -263,7 +261,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	}
 
 	if idxUserName == -1 {
-		errMessage := fmt.Sprintf("User %s doesn't have any AC in class %s", userName, classCode)
+		errMessage := fmt.Sprintf("User `%s` doesn't have any AC in class `%s`", userName, classCode)
 		logger.Log.Error(errMessage)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, errMessage),
@@ -298,12 +296,12 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		rows = append(rows, row)
 	}
 
-	title := fmt.Sprintf("Score of class %s", classCode)
+	title := fmt.Sprintf("Score of class `%s`", classCode)
 
 	mdTable := formatter.FormatToMarkdownTable(title, headers, rows)
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Neighborhood of %s ", userName),
+		Title:       fmt.Sprintf("Neighborhood of `%s`", userName),
 		Description: mdTable,
 		Color:       0x00bfff,
 	}

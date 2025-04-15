@@ -26,7 +26,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s is not registered in class %s or class doesn't even exist", discordNickname, classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` is not registered in class `%s` or class doesn't even exist", discordNickname, classCode)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -37,7 +37,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 		return
 	}
 
-	successMessage := fmt.Sprintf("User %s has registered to the class %s successfully", discordNickname, classCode)
+	successMessage := fmt.Sprintf("User `%s` has registered to the class `%s` successfully", discordNickname, classCode)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
@@ -50,7 +50,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse %s to an integer wtf", problemIDs)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
 		)
 		return
 	}
@@ -63,7 +63,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Unexpected error, can you check if user %s is binded and registered on the same class of problem %d?", discordNickname, problemID)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Can you check if user `%s` is binded and registered on the same class of problem `%d`?", discordNickname, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -91,7 +91,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse %s to an integer wtf", problemIDs)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
 		)
 		return
 	}
@@ -104,7 +104,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Bro %s is not able to undo the AC for problem %d", discordNickname, problemID)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Bro `%s` is not able to undo the AC for problem %d", discordNickname, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -115,7 +115,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	successMessage := fmt.Sprintf("Problem %d has been UnAC-ed successfully by %s (or it wasn't even ACed previously, but I didn't want to check it tbh)", problemID, discordNickname)
+	successMessage := fmt.Sprintf("Problem `%d` has been UnAC-ed successfully by `%s` (or it wasn't even ACed previously, but I didn't want to check it tbh)", problemID, discordNickname)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),

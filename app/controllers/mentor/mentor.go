@@ -87,7 +87,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username %s or class code `%s` not found", userName, classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or class code `%s` not found", userName, classCode)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -98,9 +98,10 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Infof("User %s has registered to the class %s successfully", userName, classCode)
+	successMessage := fmt.Sprintf("User `%s` has registered to the class %s successfully", userName, classCode)
+	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s has registered to the class %s successfully", userName, classCode)),
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
 }
 
@@ -168,7 +169,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 				Type:      dispatcher.ReplyMessage,
 				ChannelID: c.MessageReaction.ChannelID,
 				ReplyTo:   messageID,
-				Content:   fmt.Sprintf("Good job bro, keep going. Problem %d has been AC-ed", pendingConfirmation.ProblemID),
+				Content:   fmt.Sprintf("Good job bro, keep going. Problem `%d` has been AC-ed", pendingConfirmation.ProblemID),
 			},
 		)
 	}
@@ -194,7 +195,7 @@ func HandleAddAC(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse %s to an integer wtf", problemIDs)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
 		)
 
 		return
@@ -206,7 +207,7 @@ func HandleAddAC(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username %s or problem id `%d` not found, probably you are not binded or registered in the same class problem lives", userName, problemID)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or problem id `%d` not found, probably you are not binded or registered in the same class problem lives", userName, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -223,7 +224,7 @@ func HandleAddAC(c *context.ContextMessage) {
 			Type:      dispatcher.ReplyMessage,
 			ChannelID: c.Message.ChannelID,
 			ReplyTo:   c.Message.ID,
-			Content:   fmt.Sprintf("Good job lil bro %s, keep going. Problem %d has been AC-ed", userName, problemID),
+			Content:   fmt.Sprintf("Good job lil bro `%s`, keep going. Problem `%d` has been AC-ed", userName, problemID),
 		},
 	)
 }
@@ -248,7 +249,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse %s to an integer wtf", problemIDs)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
 		)
 		return
 	}
@@ -259,7 +260,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username %s or problem id `%d` not found", userName, problemID)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or problem id `%d` not found", userName, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -272,7 +273,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	logger.Log.Infof("Problem %d has been UnAC-ed successfully by %s (or it wasn't even ACed previously, but I didn't want to check it tbh)", problemID, userName)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
-			"Problem %d has been UnAC-ed successfully by %s (or it wasn't even ACed previously, but I didn't want to check it tbh)",
+			"Problem `%d` has been UnAC-ed successfully by `%s` (or it wasn't even ACed previously, but I didn't want to check it tbh)",
 			problemID,
 			userName,
 		)),
@@ -307,7 +308,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 			)
 		case errors.As(err, &serviceConflictErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem %s already exists on class %s", problemName, classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem `%s` already exists on class `%s`", problemName, classCode)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -321,7 +322,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 	logger.Log.Infof("Problem %s was added correctly to the class %s, Problem ID: %d\n", problemName, classCode, problemID)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
-			"Problem %s was added correctly to the class %s, Problem ID: %d\n",
+			"Problem `%s` was added correctly to the class `%s`, Problem ID: %d\n",
 			problemName,
 			classCode,
 			problemID)),
@@ -348,7 +349,7 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse %s to an integer wtf", problemIDs)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
 		)
 		return
 	}
@@ -372,7 +373,7 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 	logger.Log.Infof("Problem with ID: %d has been removed from this earthly plane and has passed to the astral plane", problemID)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
-			"Problem with ID: %d has been removed from this earthly plane and has passed to the astral plane",
+			"Problem with ID: `%d` has been removed from this earthly plane and has passed to the astral plane",
 			problemID)),
 	)
 }
