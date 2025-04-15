@@ -12,7 +12,7 @@ import (
 type ValidatorDatastore interface {
 	GetClassIDByClassCode(classCode string) (int64, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
-	GetProblemByID(problemID int64) (*data.Problem, error)
+	GetProblemByID(problemID int64) (data.Problem, error)
 }
 
 type ValidatorDB struct {

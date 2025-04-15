@@ -266,9 +266,9 @@ func (service *UserService) BindUser(userID, userName string) error {
 	return nil
 }
 
-func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]*data.Problem, error) {
+func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]data.Problem, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
-	emptySlice := []*data.Problem{}
+	emptySlice := []data.Problem{}
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -285,9 +285,9 @@ func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]*d
 	return problems, nil
 }
 
-func (service *UserService) GetScoreByClassCode(classCode string) (map[*data.User][]*data.SolvedProblem, error) {
+func (service *UserService) GetScoreByClassCode(classCode string) (map[data.User][]data.SolvedProblem, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
-	emptyMap := map[*data.User][]*data.SolvedProblem{}
+	emptyMap := map[data.User][]data.SolvedProblem{}
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -343,21 +343,21 @@ func (service *UserService) RejectACProposal(messageID string) error {
 	return nil
 }
 
-func (service *UserService) GetUsersInClassCode(classCode string) ([]*data.User, error) {
+func (service *UserService) GetUsersInClassCode(classCode string) ([]data.User, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
 
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
-			return []*data.User{}, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with classID", classCode), err)
+			return []data.User{}, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with classID", classCode), err)
 		default:
-			return []*data.User{}, serviceerr.MakeGeneralError(err)
+			return []data.User{}, serviceerr.MakeGeneralError(err)
 		}
 	}
 
 	users, err := service.Datastore.GetAllUsersByClassID(classID)
 	if err != nil {
-		return []*data.User{}, serviceerr.MakeGeneralError(err)
+		return []data.User{}, serviceerr.MakeGeneralError(err)
 	}
 
 	return users, nil

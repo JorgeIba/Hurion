@@ -10,7 +10,7 @@ import (
 type MockDatastore struct {
 	MockGetClassIDByClassCode   func(classCode string) (int64, error)
 	MockIsUserRegisteredInClass func(userID string, classID int64) (bool, error)
-	MockGetProblemByID          func(problemID int64) (*data.Problem, error)
+	MockGetProblemByID          func(problemID int64) (data.Problem, error)
 }
 
 func (m *MockDatastore) GetClassIDByClassCode(classCode string) (int64, error) {
@@ -21,7 +21,7 @@ func (m *MockDatastore) IsUserRegisteredInClass(userID string, classID int64) (b
 	return m.MockIsUserRegisteredInClass(userID, classID)
 }
 
-func (m *MockDatastore) GetProblemByID(problemID int64) (*data.Problem, error) {
+func (m *MockDatastore) GetProblemByID(problemID int64) (data.Problem, error) {
 	return m.MockGetProblemByID(problemID)
 }
 

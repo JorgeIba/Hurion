@@ -1,16 +1,16 @@
 package data
 
 type QueryDatastore interface {
-	GetProblemsByClass(classID int64) ([]*Problem, error)
-	GetAllSolvedProblemsByClass(classID int64) (map[*User][]*SolvedProblem, error)
+	GetProblemsByClass(classID int64) ([]Problem, error)
+	GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error)
 	GetDiscordIDByUserName(userName string) (string, error)
-	GetClassByClassCode(classCode string) (*Class, error)
+	GetClassByClassCode(classCode string) (Class, error)
 	GetClassIDByClassCode(classCode string) (int64, error)
 	IsUserBinded(userID string) (bool, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
-	GetProblemByID(problemID int64) (*Problem, error)
-	GetAllUsersByClassID(classID int64) ([]*User, error)
+	GetProblemByID(problemID int64) (Problem, error)
+	GetAllUsersByClassID(classID int64) ([]User, error)
 }
 
 type UpdateDataStore interface {

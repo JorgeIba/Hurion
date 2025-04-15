@@ -115,7 +115,7 @@ func (db *DB) RemoveAC(discordID string, problemID int64) error {
 	return nil
 }
 
-func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
+func (db *DB) GetProblemsByClass(classID int64) ([]Problem, error) {
 	query := `
 		SELECT id, name
 		FROM problems
@@ -128,7 +128,7 @@ func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
 	}
 	defer rows.Close()
 
-	problems := make([]*Problem, 0)
+	problems := make([]Problem, 0)
 
 	for rows.Next() {
 		var problemID int64
@@ -136,7 +136,7 @@ func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
 		if err := rows.Scan(&problemID, &problemName); err != nil {
 			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan problem name when fetching problems from class id %d", classID), err)
 		}
-		problems = append(problems, &Problem{
+		problems = append(problems, Problem{
 			ID:      problemID,
 			Name:    problemName,
 			ClassID: classID,
@@ -150,7 +150,7 @@ func (db *DB) GetProblemsByClass(classID int64) ([]*Problem, error) {
 	return problems, nil
 }
 
-func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) ([]*SolvedProblem, error) {
+func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) ([]SolvedProblem, error) {
 	query := `
 		SELECT sp.problem_id, sp.solved_at
 		FROM solved_problems sp
@@ -164,7 +164,7 @@ func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) (
 	}
 	defer rows.Close()
 
-	solvedProblems := make([]*SolvedProblem, 0)
+	solvedProblems := make([]SolvedProblem, 0)
 
 	for rows.Next() {
 		var problemID int64
@@ -174,7 +174,7 @@ func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) (
 			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan row for problems by user %s in class %d", discordID, classID), err)
 		}
 
-		solvedProblems = append(solvedProblems, &SolvedProblem{
+		solvedProblems = append(solvedProblems, SolvedProblem{
 			ProblemID: problemID,
 			UserID:    discordID,
 			SolvedAt:  solvedAt,
@@ -188,7 +188,7 @@ func (db *DB) GetSolvedProblemsByUserAndClass(discordID string, classID int64) (
 	return solvedProblems, nil
 }
 
-func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[*User][]*SolvedProblem, error) {
+func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error) {
 	query := `
 		SELECT 
 			sp.user_id,
@@ -207,7 +207,7 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[*User][]*SolvedPro
 	}
 	defer rows.Close()
 
-	solvedProblemsIDByUser := make(map[*User][]*SolvedProblem)
+	solvedProblemsIDByUser := make(map[User][]SolvedProblem)
 
 	for rows.Next() {
 		var userID, userName string
@@ -218,11 +218,11 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[*User][]*SolvedPro
 			return nil, dataerr.NewQueryError("could not scan row", err)
 		}
 
-		user := &User{
+		user := User{
 			DiscordID: userID,
 			UserName:  userName,
 		}
-		solvedProblemsIDByUser[user] = append(solvedProblemsIDByUser[user], &SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
+		solvedProblemsIDByUser[user] = append(solvedProblemsIDByUser[user], SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
 	}
 
 	if err := rows.Err(); err != nil {
@@ -318,7 +318,7 @@ func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
 	return classID, nil
 }
 
-func (db *DB) GetClassByClassID(classID int64) (*Class, error) {
+func (db *DB) GetClassByClassID(classID int64) (Class, error) {
 	query := `SELECT class_code, name FROM classes WHERE id = ?`
 
 	var classCode, className string
@@ -326,15 +326,15 @@ func (db *DB) GetClassByClassID(classID int64) (*Class, error) {
 	err := db.conn.QueryRow(query, classID).Scan(&classCode, &className)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with id: %d", classID), nil)
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with id: %d", classID), nil)
 		}
-		return &Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class from class id %d", classID), err)
+		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class from class id %d", classID), err)
 	}
 
-	return &Class{ID: classID, ClassCode: classCode, Name: className}, nil
+	return Class{ID: classID, ClassCode: classCode, Name: className}, nil
 }
 
-func (db *DB) GetClassByClassCode(classCode string) (*Class, error) {
+func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
 	query := `SELECT id, name FROM classes WHERE class_code = ?`
 
 	var classID int64
@@ -343,12 +343,12 @@ func (db *DB) GetClassByClassCode(classCode string) (*Class, error) {
 	err := db.conn.QueryRow(query, classCode).Scan(&classID, &className)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with code: %s", classCode), nil)
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with code: %s", classCode), nil)
 		}
-		return &Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
+		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
 	}
 
-	return &Class{ID: classID, ClassCode: classCode, Name: className}, nil
+	return Class{ID: classID, ClassCode: classCode, Name: className}, nil
 }
 
 func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
@@ -442,7 +442,7 @@ func (db *DB) GetUsernameByDiscordID(discordID string) (string, error) {
 	return userName, nil
 }
 
-func (db *DB) GetProblemByID(problemID int64) (*Problem, error) {
+func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
 	query := `
 	SELECT name, class_id FROM problems
 	WHERE id = ?;
@@ -453,14 +453,14 @@ func (db *DB) GetProblemByID(problemID int64) (*Problem, error) {
 	err := db.conn.QueryRow(query, problemID).Scan(&name, &class_id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &Problem{}, dataerr.NewNotFoundError(fmt.Sprintf("ProblemID %d not found", problemID), nil)
+			return Problem{}, dataerr.NewNotFoundError(fmt.Sprintf("ProblemID %d not found", problemID), nil)
 		}
-		return &Problem{}, dataerr.NewQueryError(fmt.Sprintf("could not get problem info for problem id %d", problemID), err)
+		return Problem{}, dataerr.NewQueryError(fmt.Sprintf("could not get problem info for problem id %d", problemID), err)
 	}
-	return &Problem{ID: problemID, Name: name, ClassID: class_id}, nil
+	return Problem{ID: problemID, Name: name, ClassID: class_id}, nil
 }
 
-func (db *DB) GetAllUsersByClassID(classID int64) ([]*User, error) {
+func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
 	query := `
 		SELECT 
 			u.discord_id,
@@ -476,13 +476,13 @@ func (db *DB) GetAllUsersByClassID(classID int64) ([]*User, error) {
 	}
 	defer rows.Close()
 
-	var users []*User
+	var users []User
 	for rows.Next() {
 		var user User
 		if err := rows.Scan(&user.DiscordID, &user.UserName); err != nil {
 			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan user row for class %d", classID), err)
 		}
-		users = append(users, &user)
+		users = append(users, user)
 	}
 
 	if err := rows.Err(); err != nil {

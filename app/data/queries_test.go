@@ -355,25 +355,25 @@ func TestGetAllSolvedProblemsByUser(t *testing.T) {
 	// Act
 	listUser1Class1, err := db.GetSolvedProblemsByUserAndClass(discordID1, 1)
 	assert.NoError(t, err, "Problem trying to get the list")
-	listUser1Class1OnlyIDs := lo.Map(listUser1Class1, func(problem *SolvedProblem, _ int) int64 {
+	listUser1Class1OnlyIDs := lo.Map(listUser1Class1, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
 	})
 
 	listUser1Class2, err := db.GetSolvedProblemsByUserAndClass(discordID1, 2)
 	assert.NoError(t, err, "Problem trying to get the list")
-	listUser1Class2OnlyIDs := lo.Map(listUser1Class2, func(problem *SolvedProblem, _ int) int64 {
+	listUser1Class2OnlyIDs := lo.Map(listUser1Class2, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
 	})
 
 	listUser2Class1, err := db.GetSolvedProblemsByUserAndClass(discordID2, 1)
 	assert.NoError(t, err, "Problem trying to get the list")
-	listUser2Class1OnlyIDs := lo.Map(listUser2Class1, func(problem *SolvedProblem, _ int) int64 {
+	listUser2Class1OnlyIDs := lo.Map(listUser2Class1, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
 	})
 
 	listUser2Class2, err := db.GetSolvedProblemsByUserAndClass(discordID2, 2)
 	assert.NoError(t, err, "Problem trying to get the list")
-	listUser2Class2OnlyIDs := lo.Map(listUser2Class2, func(problem *SolvedProblem, _ int) int64 {
+	listUser2Class2OnlyIDs := lo.Map(listUser2Class2, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
 	})
 
