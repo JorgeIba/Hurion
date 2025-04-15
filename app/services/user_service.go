@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
@@ -117,6 +118,29 @@ func (service *UserService) AddPendingACOfUserID(messageID, userID string, probl
 	return nil
 }
 
+func (service *UserService) AddACToUser(userID string, problemID int64) error {
+	// Validate problem exists
+	if isProblemPresent, err := service.existsProblem(problemID); err != nil {
+		return err
+	} else if !isProblemPresent {
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
+	}
+
+	// Validate user is registered in the class of the problem
+	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
+		return err
+	} else if !isBroAbleToAC {
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
+	}
+
+	// ACing
+	if err := service.Datastore.AddAC(userID, problemID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+
+	return nil
+}
+
 // By UserName
 func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
 	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
@@ -148,27 +172,18 @@ func (service *UserService) DeregisterUsernameFromClass(userName, classCode stri
 	return err
 }
 
-func (service *UserService) AddACToUser(userID string, problemID int64) error {
-	// Validate problem exists
-	if isProblemPresent, err := service.existsProblem(problemID); err != nil {
-		return err
-	} else if !isProblemPresent {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
+func (service *UserService) AddACToUsername(userName string, problemID int64) error {
+	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
-	// Validate user is registered in the class of the problem
-	if isBroAbleToAC, err := service.canBroACTheProblem(userID, problemID); err != nil {
-		return err
-	} else if !isBroAbleToAC {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
-	}
-
-	// ACing
-	if err := service.Datastore.AddAC(userID, problemID); err != nil {
-		return serviceerr.MakeGeneralError(err)
-	}
-
-	return nil
+	return service.AddACToUser(userID, problemID)
 }
 
 func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName string) error {
@@ -363,6 +378,66 @@ func (service *UserService) GetUsersInClassCode(classCode string) ([]data.User, 
 	return users, nil
 }
 
+type PairUserSolvedProblems struct {
+	User           data.User
+	SolvedProblems []data.SolvedProblem
+}
+
+type PairProblemBool struct {
+	Problem  data.Problem
+	IsSolved bool
+}
+type PairUserProblemScore struct {
+	User     data.User
+	Problems []PairProblemBool
+}
+
+func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairUserProblemScore, error) {
+	solvedProblems, err := service.GetScoreByClassCode(classCode)
+	if err != nil {
+		return []PairUserProblemScore{}, err
+	}
+
+	sortedSolvedProblems := sortScore(solvedProblems)
+
+	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
+	if err != nil {
+		return []PairUserProblemScore{}, err
+	}
+
+	allScore := make([]PairUserProblemScore, 0)
+
+	for _, entry := range sortedSolvedProblems {
+		var scoreUser PairUserProblemScore
+		scoreUser.User = entry.User
+
+		solvedProblemsByUser := entry.SolvedProblems
+
+		// Set
+		problemIDContainerSolvedByUser := make(map[int64]struct{})
+		for _, problemUser := range solvedProblemsByUser {
+			problemIDContainerSolvedByUser[problemUser.ProblemID] = struct{}{}
+		}
+
+		for _, problem := range allProblems {
+			if _, exists := problemIDContainerSolvedByUser[problem.ID]; exists {
+				scoreUser.Problems = append(scoreUser.Problems, PairProblemBool{
+					Problem:  problem,
+					IsSolved: true,
+				})
+			} else {
+				scoreUser.Problems = append(scoreUser.Problems, PairProblemBool{
+					Problem:  problem,
+					IsSolved: false,
+				})
+			}
+		}
+
+		allScore = append(allScore, scoreUser)
+	}
+	return allScore, nil
+}
+
 // Private
 func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
@@ -376,6 +451,23 @@ func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string
 	}
 
 	return service.isUserIDEnrolledByClassID(userID, classID)
+}
+
+func sortScore(solvedProblemsByUsers map[data.User][]data.SolvedProblem) []PairUserSolvedProblems {
+	var userScores []PairUserSolvedProblems
+
+	for user, problems := range solvedProblemsByUsers {
+		userScores = append(userScores, PairUserSolvedProblems{
+			User:           user,
+			SolvedProblems: problems,
+		})
+	}
+
+	sort.Slice(userScores, func(i, j int) bool {
+		return len(userScores[i].SolvedProblems) > len(userScores[j].SolvedProblems)
+	})
+
+	return userScores
 }
 
 func (service *UserService) existsProblem(problemID int64) (bool, error) {

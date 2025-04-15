@@ -92,6 +92,8 @@ func routerProposeAC(c *context.ContextMessage) {
 		fmt.Println(NotEnough)
 	case 2:
 		enrolled.HandleProposeAC(c)
+	case 3:
+		mentor.HandleAddAC(c)
 	default:
 		fmt.Println(LimitExceed)
 	}

@@ -174,6 +174,60 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 	}
 }
 
+func HandleAddAC(c *context.ContextMessage) {
+	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrVerifying),
+		)
+		return
+	} else if !IsMentor {
+		logger.Log.Errorln(messageErrNotPermissions)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrNotPermissions),
+		)
+		return
+	}
+
+	userName, problemIDs := c.Args[1], c.Args[2]
+	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
+	if err != nil {
+		logger.Log.Error("Error parsing the ID", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse %s to an integer wtf", problemIDs)),
+		)
+
+		return
+	}
+
+	if err := c.Services.User.AddACToUsername(userName, problemID); err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username %s or problem id `%d` not found, probably you are not binded or registered in the same class problem lives", userName, problemID)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
+			)
+		}
+
+		return
+	}
+
+	logger.Log.Infof("Problem %d AC-ed by %s\n", problemID, userName)
+	c.Dispatcher.Send(
+		dispatcher.MessageResponse{
+			Type:      dispatcher.ReplyMessage,
+			ChannelID: c.Message.ChannelID,
+			ReplyTo:   c.Message.ID,
+			Content:   fmt.Sprintf("Good job lil bro %s, keep going. Problem %d has been AC-ed", userName, problemID),
+		},
+	)
+}
+
 func HandleUndoAC(c *context.ContextMessage) {
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
