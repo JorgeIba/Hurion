@@ -45,9 +45,8 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		d.Session.ChannelMessageSendEmbed(msg.ChannelID, msg.Embed)
 
 	case Reaction:
-		sent, _ := d.Session.ChannelMessageSend(msg.ChannelID, msg.Content)
 		for _, r := range msg.Reactions {
-			d.Session.MessageReactionAdd(msg.ChannelID, sent.ID, r)
+			d.Session.MessageReactionAdd(msg.ChannelID, msg.ReplyTo, r)
 		}
 
 	default:

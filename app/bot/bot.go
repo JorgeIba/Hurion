@@ -11,6 +11,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
@@ -76,13 +77,19 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 
 	cmd := args[0]
-	fmt.Println(cmd)
+	if cmd[0] == '!' {
+		logger.Log.Info(cmd)
+	}
 	if router, exists := commandMap[cmd]; exists {
 		router(context)
 	}
 }
 
 func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+	if r.UserID == s.State.User.ID {
+		return
+	}
+
 	context := &context.ContextMessage{
 		Session:           s,
 		MessageReaction:   r,

@@ -2,7 +2,6 @@ package validators
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/validatorerr"
@@ -48,12 +47,7 @@ func (validator *ValidatorDB) IsEnrolledByClassID(userID string, classID int64) 
 	isMyBoyEnrolled, err := validator.db.IsUserRegisteredInClass(userID, classID)
 
 	if err != nil {
-		switch {
-		case errors.As(err, &queryErr):
-			return false, validatorerr.NewInternalError(fmt.Sprintf("error checking if user %s is enrolled in class %d", userID, classID), err)
-		default:
-			return false, validatorerr.NewInternalError("unexpected error", err)
-		}
+		return false, validatorerr.NewInternalError("unexpected error", err)
 	}
 
 	return isMyBoyEnrolled, nil

@@ -25,7 +25,7 @@ const (
 )
 
 func HandleRegisterUser(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+	if IsMentor, err := checkIfUserIsMentor(c.Message.GuildID, c.Message.Author.ID); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
@@ -65,7 +65,7 @@ func HandleRegisterUser(c *context.ContextMessage) {
 }
 
 func HandleDeregisterUser(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+	if IsMentor, err := checkIfUserIsMentor(c.Message.GuildID, c.Message.Author.ID); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
@@ -105,17 +105,11 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 }
 
 func HandlePendingConfirmation(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+	if IsMentor, err := checkIfUserIsMentor(c.MessageReaction.GuildID, c.MessageReaction.UserID); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrVerifying),
-		)
 		return
 	} else if !IsMentor {
 		logger.Log.Errorln(messageErrNotPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrNotPermissions),
-		)
 		return
 	}
 
@@ -124,9 +118,15 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 	pendingConfirmation, err := c.Services.User.GetPendingConfirmationByMessageID(messageID)
 	if err != nil {
 		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
-		)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
+			)
+		}
 
 		return
 	}
@@ -175,7 +175,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 }
 
 func HandleAddAC(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+	if IsMentor, err := checkIfUserIsMentor(c.Message.GuildID, c.Message.Author.ID); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
@@ -229,7 +229,7 @@ func HandleAddAC(c *context.ContextMessage) {
 }
 
 func HandleUndoAC(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+	if IsMentor, err := checkIfUserIsMentor(c.Message.GuildID, c.Message.Author.ID); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
@@ -280,7 +280,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 }
 
 func HandleAddProblem(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+	if IsMentor, err := checkIfUserIsMentor(c.Message.GuildID, c.Message.Author.ID); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
@@ -329,7 +329,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 }
 
 func HandleRemoveProblem(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
+	if IsMentor, err := checkIfUserIsMentor(c.Message.GuildID, c.Message.Author.ID); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
@@ -377,10 +377,9 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 	)
 }
 
-func checkIfUserIsMentor(c *context.ContextMessage) (bool, error) {
+func checkIfUserIsMentor(guildID, userID string) (bool, error) {
 	// TODO: Remove this line after testing
 	return true, nil
 
-	// guildID, userID := c.Message.GuildID, c.Message.Author.ID
 	// return c.DiscordValidator.IsMentor(guildID, userID)
 }
