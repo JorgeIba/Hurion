@@ -178,13 +178,13 @@ func HandleAddAC(c *context.ContextMessage) {
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrVerifying),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
 		)
 		return
 	} else if !IsMentor {
 		logger.Log.Errorln(messageErrNotPermissions)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrNotPermissions),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
 		)
 		return
 	}

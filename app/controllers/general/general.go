@@ -1,11 +1,20 @@
 package general
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/formatter"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/bwmarrin/discordgo"
+)
+
+var (
+	serviceConflictErr     = &serviceerr.ConflictError{}
+	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
 )
 
 func HandleBindUser(c *context.ContextMessage) {
@@ -17,10 +26,18 @@ func HandleBindUser(c *context.ContextMessage) {
 
 	if err := c.Services.User.BindUser(discordID, userName); err != nil {
 		logger.Log.Error(err)
+
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+		)
+
 		return
 	}
 
 	logger.Log.Infof("User %s binded to the user name %s\n", discordNickName, userName)
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s binded to the user name %s", discordNickName, userName)),
+	)
 }
 
 func HandleRegisterUserInClass(c *context.ContextMessage) {
@@ -29,10 +46,29 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 
 	if err := c.Services.User.RegisterUserIDIntoClass(discordID, classCode); err != nil {
 		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+			)
+		case errors.As(err, &serviceConflictErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` already registered on class %s", discordNickName, classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
 		return
 	}
 
 	logger.Log.Infof("User %s has registered in the class %s\n", discordNickName, classCode)
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s has registered in the class %s\n", discordNickName, classCode)),
+	)
 }
 
 func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
@@ -40,63 +76,241 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 
 	problems, err := c.Services.User.GetListOfProblemsByClassCode(classCode)
 	if err != nil {
+
 		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
 		return
 	}
 
-	// Formatter
-	response := ""
-	for _, problem := range problems {
-		response += fmt.Sprintf("%d - %s\n", problem.ID, problem.Name)
+	// Get Table
+	headers := []any{"ID", "Problem Name"}
+	var rows [][]any
+	for _, p := range problems {
+		rows = append(rows, []any{p.ID, p.Name})
 	}
-	logger.Log.Infoln(response)
+
+	title := fmt.Sprintf("Problems for class `%s`", classCode)
+
+	// Markdown format
+	mdTable := formatter.FormatToMarkdownTable(title, headers, rows)
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("Class: %s", classCode),
+		Description: mdTable,
+		Color:       0x00bfff,
+	}
+
+	c.Dispatcher.Send(dispatcher.MessageResponse{
+		Type:      dispatcher.EmbedMessage,
+		ChannelID: c.Message.ChannelID,
+		Embed:     embed,
+	})
 }
 
 func HandleGetScoreByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	studentsScore, err := c.Services.User.GetScoreByClassCode(classCode)
+	score, err := c.Services.User.GetSortedScoreByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
 		return
 	}
 
-	// Formatter
-	response := ""
-	for user, solvedProblems := range studentsScore {
-		problemIDs := make([]string, 0)
-		for _, problem := range solvedProblems {
-			problemIDs = append(problemIDs, fmt.Sprint(problem.ProblemID))
-		}
-		responseByUser := fmt.Sprintf("%s: [%v]", user.UserName, strings.Join(problemIDs, ", "))
+	allProblems, err := c.Services.User.GetListOfProblemsByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
 
-		response += fmt.Sprintf("%v\n", responseByUser)
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
+		return
 	}
 
-	logger.Log.Info(response)
+	headers := []any{"User"}
+	for _, problem := range allProblems {
+		headers = append(headers, problem.Name)
+	}
+
+	var rows [][]any
+	for _, entry := range score {
+		user := entry.User
+		problemsOfUser := entry.Problems
+
+		var row []any
+		row = append(row, user.UserName)
+
+		for _, problem := range problemsOfUser {
+			if problem.IsSolved {
+				row = append(row, "X")
+			} else {
+				row = append(row, " ")
+			}
+		}
+
+		rows = append(rows, row)
+	}
+
+	title := fmt.Sprintf("Score of class %s", classCode)
+
+	mdTable := formatter.FormatToMarkdownTable(title, headers, rows)
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("Class: %s", classCode),
+		Description: mdTable,
+		Color:       0x00bfff,
+	}
+
+	c.Dispatcher.Send(dispatcher.MessageResponse{
+		Type:      dispatcher.EmbedMessage,
+		ChannelID: c.Message.ChannelID,
+		Embed:     embed,
+	})
 }
 
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
+	userName, classCode := c.Args[1], c.Args[2]
 
-	studentsScore, err := c.Services.User.GetScoreByClassCode(classCode)
+	userID, err := c.Datastore.GetDiscordIDByUserName(userName)
 	if err != nil {
 		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No userID is binded with userName %s", userName)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
 		return
 	}
 
-	// Formatter
-	// TODO: Only retrieve user and neighborhood
-	response := ""
-	for user, solvedProblems := range studentsScore {
-		problemIDs := make([]string, 0)
-		for _, problem := range solvedProblems {
-			problemIDs = append(problemIDs, fmt.Sprint(problem.ProblemID))
-		}
-		responseByUser := fmt.Sprintf("%s: [%v]", user.UserName, strings.Join(problemIDs, ", "))
+	score, err := c.Services.User.GetSortedScoreByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
 
-		response += fmt.Sprintf("%v\n", responseByUser)
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
+		return
 	}
 
-	logger.Log.Info(response)
+	allProblems, err := c.Services.User.GetListOfProblemsByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
+		return
+	}
+
+	idxUserName := -1
+	for idx, scoreUser := range score {
+		if scoreUser.User.DiscordID == userID {
+			idxUserName = idx
+		}
+	}
+
+	if idxUserName == -1 {
+		errMessage := fmt.Sprintf("User %s doesn't have any AC in class %s", userName, classCode)
+		logger.Log.Error(errMessage)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, errMessage),
+		)
+		return
+	}
+
+	headers := []any{"User"}
+	for _, problem := range allProblems {
+		headers = append(headers, problem.Name)
+	}
+
+	var rows [][]any
+	l, r := max(0, idxUserName-2), min(len(score)-1, idxUserName+2)
+	for idx := l; idx <= r; idx++ {
+		entry := score[idx]
+
+		user := entry.User
+		problemsOfUser := entry.Problems
+
+		var row []any
+		row = append(row, user.UserName)
+
+		for _, problem := range problemsOfUser {
+			if problem.IsSolved {
+				row = append(row, "X")
+			} else {
+				row = append(row, " ")
+			}
+		}
+
+		rows = append(rows, row)
+	}
+
+	title := fmt.Sprintf("Score of class %s", classCode)
+
+	mdTable := formatter.FormatToMarkdownTable(title, headers, rows)
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("Neighborhood of %s ", userName),
+		Description: mdTable,
+		Color:       0x00bfff,
+	}
+
+	c.Dispatcher.Send(dispatcher.MessageResponse{
+		Type:      dispatcher.EmbedMessage,
+		ChannelID: c.Message.ChannelID,
+		Embed:     embed,
+	})
 }
