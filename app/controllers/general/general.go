@@ -170,8 +170,8 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		var row []any
 		row = append(row, user.UserName)
 
-		for _, problem := range problemsOfUser {
-			if problem.IsSolved {
+		for _, problem := range allProblems {
+			if v, exists := problemsOfUser[problem]; exists && v {
 				row = append(row, "X")
 			} else {
 				row = append(row, " ")
@@ -285,8 +285,8 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		var row []any
 		row = append(row, user.UserName)
 
-		for _, problem := range problemsOfUser {
-			if problem.IsSolved {
+		for _, problem := range allProblems {
+			if v, exists := problemsOfUser[problem]; exists && v {
 				row = append(row, "X")
 			} else {
 				row = append(row, " ")

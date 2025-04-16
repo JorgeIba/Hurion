@@ -383,13 +383,9 @@ type PairUserSolvedProblems struct {
 	SolvedProblems []data.SolvedProblem
 }
 
-type PairProblemBool struct {
-	Problem  data.Problem
-	IsSolved bool
-}
 type PairUserProblemScore struct {
 	User     data.User
-	Problems []PairProblemBool
+	Problems map[data.Problem]bool
 }
 
 func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairUserProblemScore, error) {
@@ -410,6 +406,7 @@ func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairU
 	for _, entry := range sortedSolvedProblems {
 		var scoreUser PairUserProblemScore
 		scoreUser.User = entry.User
+		scoreUser.Problems = make(map[data.Problem]bool)
 
 		solvedProblemsByUser := entry.SolvedProblems
 
@@ -421,15 +418,9 @@ func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairU
 
 		for _, problem := range allProblems {
 			if _, exists := problemIDContainerSolvedByUser[problem.ID]; exists {
-				scoreUser.Problems = append(scoreUser.Problems, PairProblemBool{
-					Problem:  problem,
-					IsSolved: true,
-				})
+				scoreUser.Problems[problem] = true
 			} else {
-				scoreUser.Problems = append(scoreUser.Problems, PairProblemBool{
-					Problem:  problem,
-					IsSolved: false,
-				})
+				scoreUser.Problems[problem] = false
 			}
 		}
 
