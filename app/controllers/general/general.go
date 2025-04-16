@@ -1,6 +1,7 @@
 package general
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -96,25 +97,37 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	}
 
 	// Get Table
-	headers := []any{"ID", "Problem Name"}
-	var rows [][]any
+	title := fmt.Sprintf("List of problems of class `%s`", classCode)
+	headers := []string{"ID", "Problem Name"}
+	var rows [][]string
 	for _, p := range problems {
-		rows = append(rows, []any{p.ID, p.Name})
+		rows = append(rows, []string{fmt.Sprintf("%d", p.ID), p.Name})
 	}
 
-	// Markdown format
-	mdTable := formatter.FormatToMarkdownTable("", headers, rows)
+	// Get Table as Image
+	imgByte, err := formatter.GenerateTableImage(headers, rows)
+	if err != nil {
+		logger.Log.Error(err)
+	}
+
+	file := &discordgo.File{
+		Name:   "tabla.png",
+		Reader: bytes.NewReader(imgByte),
+	}
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("List of problems for class `%s`", classCode),
-		Description: mdTable,
-		Color:       0x00bfff,
+		Title: title,
+		Image: &discordgo.MessageEmbedImage{
+			URL: "attachment://tabla.png",
+		},
+		Color: 0x00bfff,
 	}
 
 	c.Dispatcher.Send(dispatcher.MessageResponse{
-		Type:      dispatcher.EmbedMessage,
+		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
 		Embed:     embed,
+		Files:     []*discordgo.File{file},
 	})
 }
 
@@ -157,42 +170,54 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		return
 	}
 
-	headers := []any{"User"}
-	for _, problem := range allProblems {
-		headers = append(headers, problem.Name)
+	title := fmt.Sprintf("Score of class `%s`", classCode)
+	headers := []string{"Problem \\ Username"}
+	for _, entry := range score {
+		headers = append(headers, entry.User.UserName)
 	}
 
-	var rows [][]any
-	for _, entry := range score {
-		user := entry.User
-		problemsOfUser := entry.Problems
-
-		var row []any
-		row = append(row, user.UserName)
-
-		for _, problem := range allProblems {
-			if v, exists := problemsOfUser[problem]; exists && v {
+	var table [][]string
+	for _, problem := range allProblems {
+		row := []string{problem.Name}
+		for _, entry := range score {
+			if v, exists := entry.Problems[problem]; exists && v {
 				row = append(row, "X")
 			} else {
 				row = append(row, " ")
 			}
 		}
 
-		rows = append(rows, row)
+		table = append(table, row)
 	}
 
-	mdTable := formatter.FormatToMarkdownTable("", headers, rows)
+	// Get Table as Image
+	imgByte, err := formatter.GenerateTableImage(headers, table)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+		)
+		return
+	}
+
+	file := &discordgo.File{
+		Name:   "tabla.png",
+		Reader: bytes.NewReader(imgByte),
+	}
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Score of class `%s`", classCode),
-		Description: mdTable,
-		Color:       0x00bfff,
+		Title: title,
+		Image: &discordgo.MessageEmbedImage{
+			URL: "attachment://tabla.png",
+		},
+		Color: 0x00bfff,
 	}
 
 	c.Dispatcher.Send(dispatcher.MessageResponse{
-		Type:      dispatcher.EmbedMessage,
+		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
 		Embed:     embed,
+		Files:     []*discordgo.File{file},
 	})
 }
 
@@ -269,46 +294,54 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		return
 	}
 
-	headers := []any{"User"}
-	for _, problem := range allProblems {
-		headers = append(headers, problem.Name)
+	headers := []string{"Problem \\ Username"}
+	for _, entry := range score {
+		headers = append(headers, entry.User.UserName)
 	}
 
-	var rows [][]any
+	var table [][]string
 	l, r := max(0, idxUserName-2), min(len(score)-1, idxUserName+2)
-	for idx := l; idx <= r; idx++ {
-		entry := score[idx]
-
-		user := entry.User
-		problemsOfUser := entry.Problems
-
-		var row []any
-		row = append(row, user.UserName)
-
-		for _, problem := range allProblems {
-			if v, exists := problemsOfUser[problem]; exists && v {
+	for _, problem := range allProblems {
+		row := []string{problem.Name}
+		for idxUser := l; idxUser <= r; idxUser++ {
+			entry := score[idxUser]
+			if v, exists := entry.Problems[problem]; exists && v {
 				row = append(row, "X")
 			} else {
 				row = append(row, " ")
 			}
 		}
 
-		rows = append(rows, row)
+		table = append(table, row)
 	}
 
-	title := fmt.Sprintf("Score of class `%s`", classCode)
+	// Get Table as Image
+	imgByte, err := formatter.GenerateTableImage(headers, table)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+		)
+		return
+	}
 
-	mdTable := formatter.FormatToMarkdownTable(title, headers, rows)
+	file := &discordgo.File{
+		Name:   "tabla.png",
+		Reader: bytes.NewReader(imgByte),
+	}
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Neighborhood of `%s`", userName),
-		Description: mdTable,
-		Color:       0x00bfff,
+		Title: fmt.Sprintf("Score of `%s` in the class `%s`", userName, classCode),
+		Image: &discordgo.MessageEmbedImage{
+			URL: "attachment://tabla.png",
+		},
+		Color: 0x00bfff,
 	}
 
 	c.Dispatcher.Send(dispatcher.MessageResponse{
-		Type:      dispatcher.EmbedMessage,
+		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
 		Embed:     embed,
+		Files:     []*discordgo.File{file},
 	})
 }

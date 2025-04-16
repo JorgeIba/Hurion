@@ -49,6 +49,14 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 			d.Session.MessageReactionAdd(msg.ChannelID, msg.ReplyTo, r)
 		}
 
+	case FileMessage:
+		if msg.Embed != nil && len(msg.Files) > 0 {
+			d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+				Embed: msg.Embed,
+				Files: msg.Files,
+			})
+		}
+
 	default:
 		fmt.Println("Unknown message type:", msg.Type)
 	}

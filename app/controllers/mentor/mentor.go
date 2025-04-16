@@ -319,10 +319,10 @@ func HandleAddProblem(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Infof("Problem %s was added correctly to the class %s, Problem ID: %d\n", problemName, classCode, problemID)
+	logger.Log.Infof("Problem %s was added correctly to the class %s, Problem ID: `%d`\n", problemName, classCode, problemID)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
-			"Problem `%s` was added correctly to the class `%s`, Problem ID: %d\n",
+			"Problem `%s` was added correctly to the class `%s`, Problem ID: `%d`\n",
 			problemName,
 			classCode,
 			problemID)),

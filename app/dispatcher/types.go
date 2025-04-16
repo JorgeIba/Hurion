@@ -9,6 +9,7 @@ const (
 	ReplyMessage
 	EmbedMessage
 	Reaction
+	FileMessage
 )
 
 type MessageResponse struct {
@@ -18,4 +19,5 @@ type MessageResponse struct {
 	ReplyTo   string                  // optional
 	Embed     *discordgo.MessageEmbed // optional
 	Reactions []string                // optional
+	Files     []*discordgo.File       // optional
 }
