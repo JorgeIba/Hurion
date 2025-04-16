@@ -59,7 +59,18 @@ func (db *DB) AddProblem(problemName string, classID int64) (int64, error) {
 		return 0, dataerr.NewQueryError(fmt.Sprintf("could not add the problem %s into the class id %d", problemName, classID), err)
 	}
 
-	return response.LastInsertId()
+	problemID, err := response.LastInsertId()
+	if err != nil {
+		return 0, dataerr.NewQueryError("could not fetch last insert id", err)
+	}
+
+	if rowsAffected, err := response.RowsAffected(); err != nil {
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when inserting problem %s into class %d", problemName, classID), err)
+	} else if rowsAffected == 0 {
+		return problemID, dataerr.NewRowConflictError(fmt.Sprintf("Problem %s already exists on class %d with ID %d", problemName, classID, problemID), nil)
+	}
+
+	return problemID, nil
 }
 
 func (db *DB) RemoveProblemByNameAndClassID(problemName string, classID int64) (int64, error) {

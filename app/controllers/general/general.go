@@ -52,7 +52,7 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found or user `%s` not binded yet", classCode, discordNickName)),
 			)
 		case errors.As(err, &serviceConflictErr):
 			c.Dispatcher.Send(

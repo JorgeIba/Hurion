@@ -220,9 +220,12 @@ func (service *UserService) CreateProblemIntoClass(problemName, classCode string
 
 	problemID, err := service.Datastore.AddProblem(problemName, classID)
 	if err != nil {
-		return 0, serviceerr.MakeGeneralError(err)
-	} else if problemID == 0 {
-		return 0, serviceerr.NewConflictError("problem with the same name in the same class", nil)
+		switch {
+		case errors.As(err, &dataConflictErr):
+			return problemID, serviceerr.NewConflictError("problem with the same name in the same class", nil)
+		default:
+			return 0, serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	return problemID, nil

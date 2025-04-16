@@ -308,7 +308,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 			)
 		case errors.As(err, &serviceConflictErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem `%s` already exists on class `%s`", problemName, classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem `%s` already exists on class `%s` with the ID: `%d`", problemName, classCode, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
