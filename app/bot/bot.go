@@ -66,14 +66,13 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 
 	context := &context.ContextMessage{
-		Session:           s,
-		Message:           m,
-		DatabaseValidator: validators.NewValidatorDB(bot.db),
-		DiscordValidator:  validators.NewValidatorDiscord(s),
-		Datastore:         bot.db,
-		Args:              args,
-		Services:          services.NewServices(bot.db),
-		Dispatcher:        bot.dispatcher,
+		Session:          s,
+		Message:          m,
+		DiscordValidator: validators.NewValidatorDiscord(s),
+		Datastore:        bot.db,
+		Args:             args,
+		Services:         services.NewServices(bot.db),
+		Dispatcher:       bot.dispatcher,
 	}
 
 	cmd := args[0]
@@ -91,13 +90,12 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 	}
 
 	context := &context.ContextMessage{
-		Session:           s,
-		MessageReaction:   r,
-		DatabaseValidator: validators.NewValidatorDB(bot.db),
-		DiscordValidator:  validators.NewValidatorDiscord(s),
-		Datastore:         bot.db,
-		Services:          services.NewServices(bot.db),
-		Dispatcher:        bot.dispatcher,
+		Session:          s,
+		MessageReaction:  r,
+		DiscordValidator: validators.NewValidatorDiscord(s),
+		Datastore:        bot.db,
+		Services:         services.NewServices(bot.db),
+		Dispatcher:       bot.dispatcher,
 	}
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {

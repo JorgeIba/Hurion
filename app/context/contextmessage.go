@@ -9,13 +9,12 @@ import (
 )
 
 type ContextMessage struct {
-	Session           *discordgo.Session
-	MessageReaction   *discordgo.MessageReactionAdd
-	Message           *discordgo.MessageCreate
-	DatabaseValidator *validators.ValidatorDB
-	DiscordValidator  *validators.ValidatorDiscord
-	Datastore         data.DataStore
-	Dispatcher        *dispatcher.Dispatcher
-	Args              []string
-	Services          *services.Services
+	Session          *discordgo.Session
+	MessageReaction  *discordgo.MessageReactionAdd
+	Message          *discordgo.MessageCreate
+	DiscordValidator *validators.ValidatorDiscord
+	Datastore        data.DataStore
+	Dispatcher       *dispatcher.Dispatcher
+	Args             []string
+	Services         *services.Services
 }
