@@ -123,9 +123,9 @@ func routerAddProblem(c *context.ContextMessage) {
 
 func routerRemoveProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1, 2:
+	case 1:
 		fmt.Println(NotEnough)
-	case 3:
+	case 2:
 		mentor.HandleRemoveProblem(c)
 	default:
 		fmt.Println(LimitExceed)
