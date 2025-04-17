@@ -449,6 +449,7 @@ func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairU
 }
 
 type TableScore struct {
+	Class  string
 	Header []string
 	Table  [][]string
 }
@@ -537,6 +538,33 @@ func (service *UserService) GetNeighborsScoreTableForUsername(userName, classCod
 		table = append(table, row)
 	}
 	return TableScore{Header: headers, Table: table}, nil
+}
+
+func (service *UserService) GetAllClasses() ([]data.Class, error) {
+	classes, err := service.Datastore.GetAllClasses()
+	if err != nil {
+		return []data.Class{}, serviceerr.MakeGeneralError(err)
+	}
+	return classes, nil
+}
+
+func (service *UserService) GetScoreAllClasses() ([]TableScore, error) {
+	classes, err := service.GetAllClasses()
+	if err != nil {
+		return []TableScore{}, err
+	}
+
+	var scores []TableScore
+	for _, class := range classes {
+		scoreTable, err := service.GetSortedScoreByClassCodeAsTable(class.ClassCode)
+		if err != nil {
+			return []TableScore{}, err
+		}
+		scoreTable.Class = class.Name
+		scores = append(scores, scoreTable)
+	}
+
+	return scores, nil
 }
 
 // Private

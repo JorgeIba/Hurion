@@ -79,7 +79,7 @@ func routerList(c *context.ContextMessage) {
 func routerScore(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1:
-		fmt.Println(NotEnough)
+		general.HandleGetScoreAllClasses(c)
 	case 2:
 		general.HandleGetScoreByClass(c)
 	case 3:

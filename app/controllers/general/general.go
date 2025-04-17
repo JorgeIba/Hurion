@@ -183,7 +183,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
-		Embed:     embed,
+		Embeds:    []*discordgo.MessageEmbed{embed},
 		Files:     []*discordgo.File{file},
 	})
 }
@@ -209,6 +209,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s is registered in %s? I didn't find any AC", userName, classCode)),
 			)
 		}
+		return
 	}
 
 	// Get Table as Image
@@ -238,7 +239,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
-		Embed:     embed,
+		Embeds:    []*discordgo.MessageEmbed{embed},
 		Files:     []*discordgo.File{file},
 	})
 }
@@ -281,4 +282,56 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 			Embed:     embed,
 		},
 	)
+}
+
+func HandleGetScoreAllClasses(c *context.ContextMessage) {
+
+	scoreTables, err := c.Services.User.GetScoreAllClasses()
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected internal error."),
+		)
+		return
+	}
+
+	var embeds []*discordgo.MessageEmbed
+	var files []*discordgo.File
+	for idx, scoreTable := range scoreTables {
+		// Get Table as Image
+		imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
+		if err != nil {
+			logger.Log.Error(err)
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+			return
+		}
+
+		fileName := fmt.Sprintf("tabla_%d.png", idx)
+
+		file := &discordgo.File{
+			Name:   fileName,
+			Reader: bytes.NewReader(imgByte),
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Title: fmt.Sprintf("Score of class %s", scoreTable.Class),
+			Image: &discordgo.MessageEmbedImage{
+				URL: fmt.Sprintf("attachment://%s", fileName),
+			},
+			Color: 0x00bfff,
+		}
+
+		files = append(files, file)
+		embeds = append(embeds, embed)
+		logger.Log.Debug(scoreTable.Class, scoreTable.Header, scoreTable.Table)
+	}
+
+	c.Dispatcher.Send(dispatcher.MessageResponse{
+		Type:      dispatcher.FileMessage,
+		ChannelID: c.Message.ChannelID,
+		Embeds:    embeds,
+		Files:     files,
+	})
 }

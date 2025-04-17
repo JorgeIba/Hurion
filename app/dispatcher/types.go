@@ -16,8 +16,9 @@ type MessageResponse struct {
 	Type      MessageType
 	ChannelID string
 	Content   string
-	ReplyTo   string                  // optional
-	Embed     *discordgo.MessageEmbed // optional
-	Reactions []string                // optional
-	Files     []*discordgo.File       // optional
+	ReplyTo   string                    // optional
+	Embed     *discordgo.MessageEmbed   // optional
+	Embeds    []*discordgo.MessageEmbed // optional
+	Reactions []string                  // optional
+	Files     []*discordgo.File         // optional
 }

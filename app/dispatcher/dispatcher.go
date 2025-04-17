@@ -50,10 +50,10 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		}
 
 	case FileMessage:
-		if msg.Embed != nil && len(msg.Files) > 0 {
+		if len(msg.Embeds) > 0 && len(msg.Files) > 0 {
 			d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
-				Embed: msg.Embed,
-				Files: msg.Files,
+				Embeds: msg.Embeds,
+				Files:  msg.Files,
 			})
 		}
 
