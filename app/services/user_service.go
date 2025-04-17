@@ -401,8 +401,9 @@ type PairUserSolvedProblems struct {
 }
 
 type PairUserProblemScore struct {
-	User     data.User
-	Problems map[data.Problem]bool
+	User          data.User
+	CountProblems int
+	Problems      map[data.Problem]bool
 }
 
 func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairUserProblemScore, error) {
@@ -436,6 +437,7 @@ func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairU
 		for _, problem := range allProblems {
 			if _, exists := problemIDContainerSolvedByUser[problem.ID]; exists {
 				scoreUser.Problems[problem] = true
+				scoreUser.CountProblems++
 			} else {
 				scoreUser.Problems[problem] = false
 			}

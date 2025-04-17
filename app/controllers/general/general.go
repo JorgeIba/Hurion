@@ -175,7 +175,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	title := fmt.Sprintf("Score of class `%s`", classCode)
 	headers := []string{"Problem \\ Username"}
 	for _, entry := range score {
-		headers = append(headers, entry.User.UserName)
+		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
 	}
 
 	var table [][]string
@@ -298,17 +298,19 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		return
 	}
 
+	l, r := max(0, idxUserName-2), min(len(score)-1, idxUserName+2)
+	score = score[l : r+1]
+
 	headers := []string{"Problem \\ Username"}
 	for _, entry := range score {
-		headers = append(headers, entry.User.UserName)
+		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
 	}
 
 	var table [][]string
-	l, r := max(0, idxUserName-2), min(len(score)-1, idxUserName+2)
+
 	for _, problem := range allProblems {
 		row := []string{problem.Name}
-		for idxUser := l; idxUser <= r; idxUser++ {
-			entry := score[idxUser]
+		for _, entry := range score {
 			if v, exists := entry.Problems[problem]; exists && v {
 				row = append(row, "X")
 			} else {
