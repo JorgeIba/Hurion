@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
@@ -123,6 +124,7 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		Color: 0x00bfff,
 	}
 
+	logger.Log.Info(title, headers, rows)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
@@ -213,6 +215,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		Color: 0x00bfff,
 	}
 
+	logger.Log.Info(title, headers, table)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
@@ -339,10 +342,51 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		Color: 0x00bfff,
 	}
 
+	logger.Log.Infof("Score of %s in class %s\n%v\n%v", userName, classCode, headers, table)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
 		Embed:     embed,
 		Files:     []*discordgo.File{file},
 	})
+}
+
+func HandleGetUsersInClass(c *context.ContextMessage) {
+	classCode := c.Args[1]
+
+	users, err := c.Services.User.GetUsersInClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No class was found with class code %s", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+	}
+
+	var stringBuilder strings.Builder
+
+	for _, user := range users {
+		stringBuilder.WriteString(fmt.Sprintf("<@%s>: %s", user.DiscordID, user.UserName))
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("List of users registered in class %s", classCode),
+		Description: stringBuilder.String(),
+		Color:       0x00ffcc,
+	}
+
+	logger.Log.Infof("Users in class %s\n%s", classCode, stringBuilder.String())
+	c.Dispatcher.Send(
+		dispatcher.MessageResponse{
+			Type:      dispatcher.EmbedMessage,
+			ChannelID: c.Message.ChannelID,
+			Embed:     embed,
+		},
+	)
 }

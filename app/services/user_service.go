@@ -381,7 +381,7 @@ func (service *UserService) GetUsersInClassCode(classCode string) ([]data.User, 
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
-			return []data.User{}, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with classID", classCode), err)
+			return []data.User{}, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return []data.User{}, serviceerr.MakeGeneralError(err)
 		}

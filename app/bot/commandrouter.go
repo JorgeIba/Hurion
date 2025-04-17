@@ -24,6 +24,7 @@ var commandMap = map[string]CommandRouter{
 	"!remove_problem": routerRemoveProblem,
 	"!clear_class":    routerClearClass,
 	"!create_class":   routerCreateClass,
+	"!users":          routerGetUsersInClass,
 }
 
 const NotEnough = "Not enough parameters bro"
@@ -145,6 +146,17 @@ func routerCreateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1, 2:
 		fmt.Println(NotEnough)
+	default:
+		admin.HandleCreateClass(c)
+	}
+}
+
+func routerGetUsersInClass(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
+	case 2:
+		general.HandleGetUsersInClass(c)
 	default:
 		admin.HandleCreateClass(c)
 	}
