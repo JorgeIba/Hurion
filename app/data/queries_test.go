@@ -403,21 +403,35 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	problemID4, err := db.AddProblem("Problem 4", 2)
 	assert.NoError(t, err)
 
-	const discordID1 = "user1"
-	const discordID2 = "user2"
+	user1 := User{
+		DiscordID: "user1",
+		UserName:  "name1",
+	}
+
+	user2 := User{
+		DiscordID: "user2",
+		UserName:  "name2",
+	}
+
 	var updates = []struct {
 		discordID string
 		problemID int64
 		classID   int64
 	}{
-		{discordID: discordID1, problemID: problemID1},
-		{discordID: discordID1, problemID: problemID2},
-		{discordID: discordID1, problemID: problemID3},
-		{discordID: discordID1, problemID: problemID4},
+		{discordID: user1.DiscordID, problemID: problemID1},
+		{discordID: user1.DiscordID, problemID: problemID2},
+		{discordID: user1.DiscordID, problemID: problemID3},
+		{discordID: user1.DiscordID, problemID: problemID4},
 
-		{discordID: discordID2, problemID: problemID2},
-		{discordID: discordID2, problemID: problemID3},
+		{discordID: user2.DiscordID, problemID: problemID2},
+		{discordID: user2.DiscordID, problemID: problemID3},
 	}
+
+	err = db.BindUser(user1.DiscordID, user1.UserName)
+	assert.NoError(t, err)
+
+	err = db.BindUser(user2.DiscordID, user2.UserName)
+	assert.NoError(t, err)
 
 	for _, update := range updates {
 		err = db.AddAC(update.discordID, update.problemID)
@@ -432,8 +446,13 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	assert.NoError(t, err, "Problem trying to get the list")
 
 	// Verify
-	assert.Equal(t, 5, len(solvedProblemsClass1))
+	assert.Equal(t, 2, len(solvedProblemsClass1))
+	assert.Equal(t, 3, len(solvedProblemsClass1[user1]))
+	assert.Equal(t, 2, len(solvedProblemsClass1[user2]))
+
 	assert.Equal(t, 1, len(solvedProblemsClass2))
+	assert.Equal(t, 1, len(solvedProblemsClass2[user1]))
+	assert.Equal(t, 0, len(solvedProblemsClass2[user2]))
 }
 
 func TestClearClass(t *testing.T) {
@@ -839,7 +858,7 @@ func TestGetAllUsersByClassID(t *testing.T) {
 	const classCode = "basicos"
 	const className = "Basicos 2025"
 
-	users := []*User{
+	users := []User{
 		{
 			DiscordID: "1",
 			UserName:  "Jorge",
