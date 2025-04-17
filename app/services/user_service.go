@@ -448,6 +448,97 @@ func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairU
 	return allScore, nil
 }
 
+type TableScore struct {
+	Header []string
+	Table  [][]string
+}
+
+func (service *UserService) GetSortedScoreByClassCodeAsTable(classCode string) (TableScore, error) {
+	score, err := service.GetSortedScoreByClassCode(classCode)
+	if err != nil {
+		return TableScore{}, err
+	}
+
+	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
+	if err != nil {
+		return TableScore{}, err
+	}
+
+	headers := []string{"Problem \\ Username"}
+	for _, entry := range score {
+		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
+	}
+
+	var table [][]string
+	for _, problem := range allProblems {
+		row := []string{problem.Name}
+		for _, entry := range score {
+			if v, exists := entry.Problems[problem]; exists && v {
+				row = append(row, "AC")
+			} else {
+				row = append(row, " ")
+			}
+		}
+		table = append(table, row)
+	}
+	return TableScore{Header: headers, Table: table}, nil
+}
+
+func (service *UserService) GetNeighborsScoreTableForUsername(userName, classCode string) (TableScore, error) {
+	userID, err := service.GetUserIDByUsername(userName)
+
+	if err != nil {
+		return TableScore{}, err
+	}
+
+	score, err := service.GetSortedScoreByClassCode(classCode)
+	if err != nil {
+		return TableScore{}, err
+	}
+
+	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
+	if err != nil {
+		return TableScore{}, err
+	}
+
+	idxUserName := -1
+	for idx, scoreUser := range score {
+		if scoreUser.User.DiscordID == userID {
+			idxUserName = idx
+			break
+		}
+	}
+
+	if idxUserName == -1 {
+		err := fmt.Errorf("user `%s` doesn't have any AC in class `%s`", userName, classCode)
+		return TableScore{}, err
+	}
+
+	l, r := max(0, idxUserName-2), min(len(score)-1, idxUserName+2)
+	score = score[l : r+1]
+
+	headers := []string{"Problem \\ Username"}
+	for _, entry := range score {
+		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
+	}
+
+	var table [][]string
+
+	for _, problem := range allProblems {
+		row := []string{problem.Name}
+		for _, entry := range score {
+			if v, exists := entry.Problems[problem]; exists && v {
+				row = append(row, "AC")
+			} else {
+				row = append(row, " ")
+			}
+		}
+
+		table = append(table, row)
+	}
+	return TableScore{Header: headers, Table: table}, nil
+}
+
 // Private
 func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
 	classID, err := service.Datastore.GetClassIDByClassCode(classCode)

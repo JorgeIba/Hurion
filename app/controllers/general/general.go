@@ -17,6 +17,7 @@ import (
 var (
 	serviceConflictErr     = &serviceerr.ConflictError{}
 	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
+	serviceInternalErr     = &serviceerr.InternalError{}
 )
 
 func HandleBindUser(c *context.ContextMessage) {
@@ -136,64 +137,27 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 func HandleGetScoreByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	score, err := c.Services.User.GetSortedScoreByClassCode(classCode)
-	if err != nil {
-		logger.Log.Error(err)
-
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
-
-		return
-	}
-
-	allProblems, err := c.Services.User.GetListOfProblemsByClassCode(classCode)
-	if err != nil {
-		logger.Log.Error(err)
-
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
-
-		return
-	}
-
 	title := fmt.Sprintf("Score of class `%s`", classCode)
-	headers := []string{"Problem \\ Username"}
-	for _, entry := range score {
-		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
-	}
+	scoreTable, err := c.Services.User.GetSortedScoreByClassCodeAsTable(classCode)
+	if err != nil {
+		logger.Log.Error(err)
 
-	var table [][]string
-	for _, problem := range allProblems {
-		row := []string{problem.Name}
-		for _, entry := range score {
-			if v, exists := entry.Problems[problem]; exists && v {
-				row = append(row, "X")
-			} else {
-				row = append(row, " ")
-			}
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s doesn't match with any class", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
 		}
 
-		table = append(table, row)
+		return
 	}
 
 	// Get Table as Image
-	imgByte, err := formatter.GenerateTableImage(headers, table)
+	imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -215,7 +179,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		Color: 0x00bfff,
 	}
 
-	logger.Log.Info(title, headers, table)
+	logger.Log.Debug(title, scoreTable.Header, scoreTable.Table)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
@@ -227,102 +191,28 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	userName, classCode := c.Args[1], c.Args[2]
 
-	userID, err := c.Services.User.GetUserIDByUsername(userName)
-
+	scoreTable, err := c.Services.User.GetNeighborsScoreTableForUsername(userName, classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No userID is binded with userName `%s`", userName)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Not found info for class code %s or userName %s", classCode, userName)),
+			)
+		case errors.As(err, &serviceInternalErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected internal error."),
 			)
 		default:
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s is registered in %s? I didn't find any AC", userName, classCode)),
 			)
 		}
-
-		return
-	}
-
-	score, err := c.Services.User.GetSortedScoreByClassCode(classCode)
-	if err != nil {
-		logger.Log.Error(err)
-
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
-
-		return
-	}
-
-	allProblems, err := c.Services.User.GetListOfProblemsByClassCode(classCode)
-	if err != nil {
-		logger.Log.Error(err)
-
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
-
-		return
-	}
-
-	idxUserName := -1
-	for idx, scoreUser := range score {
-		if scoreUser.User.DiscordID == userID {
-			idxUserName = idx
-		}
-	}
-
-	if idxUserName == -1 {
-		errMessage := fmt.Sprintf("User `%s` doesn't have any AC in class `%s`", userName, classCode)
-		logger.Log.Error(errMessage)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, errMessage),
-		)
-		return
-	}
-
-	l, r := max(0, idxUserName-2), min(len(score)-1, idxUserName+2)
-	score = score[l : r+1]
-
-	headers := []string{"Problem \\ Username"}
-	for _, entry := range score {
-		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
-	}
-
-	var table [][]string
-
-	for _, problem := range allProblems {
-		row := []string{problem.Name}
-		for _, entry := range score {
-			if v, exists := entry.Problems[problem]; exists && v {
-				row = append(row, "X")
-			} else {
-				row = append(row, " ")
-			}
-		}
-
-		table = append(table, row)
 	}
 
 	// Get Table as Image
-	imgByte, err := formatter.GenerateTableImage(headers, table)
+	imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -344,7 +234,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		Color: 0x00bfff,
 	}
 
-	logger.Log.Infof("Score of %s in class %s\n%v\n%v", userName, classCode, headers, table)
+	logger.Log.Infof("Score of %s in class %s\n%v\n%v", userName, classCode, scoreTable.Header, scoreTable.Table)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
