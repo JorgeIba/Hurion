@@ -502,3 +502,35 @@ func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
 
 	return users, nil
 }
+
+func (db *DB) GetAllClasses() ([]Class, error) {
+	query := `
+		SELECT id, class_code, name from classes
+	`
+
+	rows, err := db.conn.Query(query)
+	if err != nil {
+		return nil, dataerr.NewQueryError("could not run query to get info for all classes", err)
+	}
+	defer rows.Close()
+
+	var classes []Class
+	for rows.Next() {
+		var classID int64
+		var classCode, className string
+		if err := rows.Scan(&classID, &classCode, &className); err != nil {
+			return nil, dataerr.NewQueryError("could not scan info for one of the classes", err)
+		}
+		classes = append(classes, Class{
+			ID:        classID,
+			ClassCode: classCode,
+			Name:      className,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError("error iterating over rows to get info from all classes", err)
+	}
+
+	return classes, nil
+}

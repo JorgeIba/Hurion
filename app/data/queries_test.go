@@ -891,3 +891,41 @@ func TestGetAllUsersByClassID(t *testing.T) {
 	// Verify
 	assert.Equal(t, usersInClass, users)
 }
+
+func TestGetAllClases(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	classes := []Class{
+		{
+			ClassCode: "code1",
+			Name:      "name1",
+		},
+		{
+			ClassCode: "code2",
+			Name:      "name2",
+		},
+		{
+			ClassCode: "code3",
+			Name:      "name3",
+		},
+	}
+
+	// Preconditions
+	for i := range len(classes) {
+		class := &classes[i]
+
+		id, err := db.CreateClass(class.ClassCode, class.Name)
+		assert.NoError(t, err)
+		class.ID = id
+	}
+
+	// Act
+	allClasses, err := db.GetAllClasses()
+	assert.NoError(t, err)
+
+	// Verify
+	fmt.Println(allClasses)
+	assert.Equal(t, 3, len(allClasses))
+}
