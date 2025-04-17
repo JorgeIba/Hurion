@@ -69,7 +69,6 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		Session:          s,
 		Message:          m,
 		DiscordValidator: validators.NewValidatorDiscord(s),
-		Datastore:        bot.db,
 		Args:             args,
 		Services:         services.NewServices(bot.db),
 		Dispatcher:       bot.dispatcher,
@@ -93,7 +92,6 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		Session:          s,
 		MessageReaction:  r,
 		DiscordValidator: validators.NewValidatorDiscord(s),
-		Datastore:        bot.db,
 		Services:         services.NewServices(bot.db),
 		Dispatcher:       bot.dispatcher,
 	}

@@ -201,6 +201,20 @@ func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName
 	return err
 }
 
+func (service *UserService) GetUserIDByUsername(userName string) (string, error) {
+	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return "", serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return "", serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return userID, nil
+}
+
 func (service *UserService) CreateProblemIntoClass(problemName, classCode string) (int64, error) {
 	if isClassCodeValid, err := service.isClassCodeValid(classCode); err != nil {
 		return 0, err

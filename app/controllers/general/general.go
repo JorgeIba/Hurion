@@ -224,7 +224,8 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	userName, classCode := c.Args[1], c.Args[2]
 
-	userID, err := c.Datastore.GetDiscordIDByUserName(userName)
+	userID, err := c.Services.User.GetUserIDByUsername(userName)
+
 	if err != nil {
 		logger.Log.Error(err)
 
