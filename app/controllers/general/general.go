@@ -265,7 +265,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 	var stringBuilder strings.Builder
 
 	for _, user := range users {
-		stringBuilder.WriteString(fmt.Sprintf("<@%s>: %s", user.DiscordID, user.UserName))
+		stringBuilder.WriteString(fmt.Sprintf("* <@%s>: %s\n", user.DiscordID, user.UserName))
 	}
 
 	embed := &discordgo.MessageEmbed{
@@ -334,4 +334,35 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 		Embeds:    embeds,
 		Files:     files,
 	})
+}
+
+func HandleGetAllClasses(c *context.ContextMessage) {
+	classes, err := c.Services.User.GetAllClasses()
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected internal error"),
+		)
+		return
+	}
+
+	var stringBuilder strings.Builder
+	for _, class := range classes {
+		stringBuilder.WriteString(fmt.Sprintf("* `%s`: %s\n", class.ClassCode, class.Name))
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "All classes I found:",
+		Description: stringBuilder.String(),
+		Color:       0x00ffcc,
+	}
+
+	logger.Log.Info(stringBuilder.String())
+	c.Dispatcher.Send(
+		dispatcher.MessageResponse{
+			Type:      dispatcher.EmbedMessage,
+			ChannelID: c.Message.ChannelID,
+			Embed:     embed,
+		},
+	)
 }
