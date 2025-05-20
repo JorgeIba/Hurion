@@ -110,6 +110,10 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	imgByte, err := formatter.GenerateTableImage(headers, rows)
 	if err != nil {
 		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+		)
+		return
 	}
 
 	file := &discordgo.File{
@@ -129,7 +133,7 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
-		Embed:     embed,
+		Embeds:    []*discordgo.MessageEmbed{embed},
 		Files:     []*discordgo.File{file},
 	})
 }
