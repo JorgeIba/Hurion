@@ -215,7 +215,7 @@ func (service *UserService) GetUserIDByUsername(userName string) (string, error)
 	return userID, nil
 }
 
-func (service *UserService) CreateProblemIntoClass(problemName, classCode string) (int64, error) {
+func (service *UserService) CreateProblemIntoClass(problemName, url, classCode string) (int64, error) {
 	if isClassCodeValid, err := service.isClassCodeValid(classCode); err != nil {
 		return 0, err
 	} else if !isClassCodeValid {
@@ -232,7 +232,7 @@ func (service *UserService) CreateProblemIntoClass(problemName, classCode string
 		}
 	}
 
-	problemID, err := service.Datastore.AddProblem(problemName, classID)
+	problemID, err := service.Datastore.AddProblem(problemName, url, classID)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataConflictErr):

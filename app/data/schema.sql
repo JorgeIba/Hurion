@@ -13,15 +13,15 @@ CREATE TABLE IF NOT EXISTS classes (
 CREATE TABLE IF NOT EXISTS problems (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
+    url TEXT,
     class_id INTEGER,
-    UNIQUE(name, class_id),  -- Same problem should not exist in the same class
+    UNIQUE(name, class_id),
     FOREIGN KEY (class_id) REFERENCES classes(id)
 );
 
 CREATE TABLE IF NOT EXISTS enrollments (
     user_id TEXT,
     class_id INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, class_id),
     FOREIGN KEY (user_id) REFERENCES users(discord_id),
     FOREIGN KEY (class_id) REFERENCES classes(id)

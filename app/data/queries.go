@@ -48,13 +48,13 @@ func (db *DB) DeregisterUserFromClass(discordID string, classID int64) error {
 	return nil
 }
 
-func (db *DB) AddProblem(problemName string, classID int64) (int64, error) {
+func (db *DB) AddProblem(problemName, url string, classID int64) (int64, error) {
 	query := `
-		INSERT INTO problems (name, class_id)
-		VALUES (?,?)
+		INSERT INTO problems (name, url, class_id)
+		VALUES (?,?,?)
 		ON CONFLICT(name, class_id) DO NOTHING;
 	`
-	response, err := db.conn.Exec(query, problemName, classID)
+	response, err := db.conn.Exec(query, problemName, url, classID)
 	if err != nil {
 		return 0, dataerr.NewQueryError(fmt.Sprintf("could not add the problem %s into the class id %d", problemName, classID), err)
 	}
@@ -128,7 +128,7 @@ func (db *DB) RemoveAC(discordID string, problemID int64) error {
 
 func (db *DB) GetProblemsByClass(classID int64) ([]Problem, error) {
 	query := `
-		SELECT id, name
+		SELECT id, name, url
 		FROM problems
 		WHERE class_id = ?
 	`
@@ -144,13 +144,15 @@ func (db *DB) GetProblemsByClass(classID int64) ([]Problem, error) {
 	for rows.Next() {
 		var problemID int64
 		var problemName string
-		if err := rows.Scan(&problemID, &problemName); err != nil {
+		var url string
+		if err := rows.Scan(&problemID, &problemName, &url); err != nil {
 			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan problem name when fetching problems from class id %d", classID), err)
 		}
 		problems = append(problems, Problem{
 			ID:      problemID,
 			Name:    problemName,
 			ClassID: classID,
+			URL:     url,
 		})
 	}
 
@@ -455,20 +457,21 @@ func (db *DB) GetUsernameByDiscordID(discordID string) (string, error) {
 
 func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
 	query := `
-	SELECT name, class_id FROM problems
+	SELECT name, url, class_id FROM problems
 	WHERE id = ?;
 	`
 	var name string
+	var url string
 	var class_id int64
 
-	err := db.conn.QueryRow(query, problemID).Scan(&name, &class_id)
+	err := db.conn.QueryRow(query, problemID).Scan(&name, &url, &class_id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Problem{}, dataerr.NewNotFoundError(fmt.Sprintf("ProblemID %d not found", problemID), nil)
 		}
 		return Problem{}, dataerr.NewQueryError(fmt.Sprintf("could not get problem info for problem id %d", problemID), err)
 	}
-	return Problem{ID: problemID, Name: name, ClassID: class_id}, nil
+	return Problem{ID: problemID, URL: url, Name: name, ClassID: class_id}, nil
 }
 
 func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
@@ -533,4 +536,19 @@ func (db *DB) GetAllClasses() ([]Class, error) {
 	}
 
 	return classes, nil
+}
+
+func (db *DB) SetURLByProblemID(problemID int64, url string) error {
+	query := `
+		UPDATE problems
+		SET url = ?
+		where id = ?
+	`
+	_, err := db.conn.Exec(query, url, problemID)
+	if err != nil {
+		return dataerr.NewQueryError("Could not set the url %s for problem %d", err)
+	}
+
+	return nil
+
 }

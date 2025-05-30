@@ -1,11 +1,14 @@
 package data
 
-import "time"
+import (
+	"time"
+)
 
 type Problem struct {
 	ID      int64
 	Name    string
 	ClassID int64
+	URL     string
 }
 
 type SolvedProblem struct {

@@ -162,7 +162,7 @@ func TestAddProblem_New(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add a problem
-	problemID, err := db.AddProblem("Sorting Algorithms", classID)
+	problemID, err := db.AddProblem("Sorting Algorithms", "url", classID)
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 }
@@ -182,7 +182,7 @@ func RemoveProblemByNameAndClassID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add a problem
-	problemID, err := db.AddProblem(problemName, classID)
+	problemID, err := db.AddProblem(problemName, "url", classID)
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 
@@ -207,7 +207,7 @@ func TestRemoveProblemByID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add a problem
-	problemID, err := db.AddProblem(problemName, classID)
+	problemID, err := db.AddProblem(problemName, "url", classID)
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 
@@ -227,7 +227,7 @@ func TestAddAC(t *testing.T) {
 	const classID = int64(1)
 
 	// Preconditions
-	problemID, err := db.AddProblem("Sorting", classID)
+	problemID, err := db.AddProblem("Sorting", "url", classID)
 	assert.NoError(t, err, "Problem trying to adding the problem")
 
 	// Verify
@@ -264,7 +264,7 @@ func TestRemoveAC(t *testing.T) {
 	`, discordID, classID)
 
 	// Preconditions
-	problemID, err := db.AddProblem("Sorting", classID)
+	problemID, err := db.AddProblem("Sorting", "url", classID)
 	assert.NoError(t, err, "Precondition failed, problem could not be added")
 
 	err = db.AddAC(discordID, problemID)
@@ -292,13 +292,13 @@ func TestGetProblemsByClass(t *testing.T) {
 	const classID2 = int64(2)
 
 	// Preconditions
-	_, err = db.AddProblem("Sorting Stuff 1", classID)
+	_, err = db.AddProblem("Sorting Stuff 1", "url1", classID)
 	assert.NoError(t, err, "Precondition failed, problem 1 could not be added")
 
-	_, err = db.AddProblem("Sorting Stuff 2", classID)
+	_, err = db.AddProblem("Sorting Stuff 2", "url2", classID)
 	assert.NoError(t, err, "Precondition failed, problem 2 could not be added")
 
-	_, err = db.AddProblem("Sorting Stuff 3", classID2)
+	_, err = db.AddProblem("Sorting Stuff 3", "url3", classID2)
 	assert.NoError(t, err, "Precondition failed, problem 3 could not be added")
 
 	// Do
@@ -319,16 +319,16 @@ func TestGetAllSolvedProblemsByUser(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	problemID1, err := db.AddProblem("Problem 1", 1)
+	problemID1, err := db.AddProblem("Problem 1", "url", 1)
 	assert.NoError(t, err)
 
-	problemID2, err := db.AddProblem("Problem 2", 1)
+	problemID2, err := db.AddProblem("Problem 2", "url", 1)
 	assert.NoError(t, err)
 
-	problemID3, err := db.AddProblem("Problem 3", 2)
+	problemID3, err := db.AddProblem("Problem 3", "url", 2)
 	assert.NoError(t, err)
 
-	problemID4, err := db.AddProblem("Problem 4", 2)
+	problemID4, err := db.AddProblem("Problem 4", "url", 2)
 	assert.NoError(t, err)
 
 	const discordID1 = "user1"
@@ -391,16 +391,16 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	problemID1, err := db.AddProblem("Problem 1", 1)
+	problemID1, err := db.AddProblem("Problem 1", "url", 1)
 	assert.NoError(t, err)
 
-	problemID2, err := db.AddProblem("Problem 2", 1)
+	problemID2, err := db.AddProblem("Problem 2", "url", 1)
 	assert.NoError(t, err)
 
-	problemID3, err := db.AddProblem("Problem 3", 1)
+	problemID3, err := db.AddProblem("Problem 3", "url", 1)
 	assert.NoError(t, err)
 
-	problemID4, err := db.AddProblem("Problem 4", 2)
+	problemID4, err := db.AddProblem("Problem 4", "url", 2)
 	assert.NoError(t, err)
 
 	user1 := User{
@@ -834,19 +834,21 @@ func TestGetProblemByID(t *testing.T) {
 
 	const classCode = "basicos"
 	const className = "Basicos 2025"
+	const url = "url"
 	const problemName = "Sorting"
 
 	// Preconditions
 	classID, err := db.CreateClass(classCode, className)
 	assert.NoError(t, err)
 
-	problemID, err := db.AddProblem(problemName, classID)
+	problemID, err := db.AddProblem(problemName, url, classID)
 	assert.NoError(t, err)
 
 	// Act
 	problem, err := db.GetProblemByID(problemID)
 	assert.NoError(t, err)
 	assert.Equal(t, problem.ClassID, classID)
+	assert.Equal(t, problem.URL, url)
 	assert.Equal(t, problem.Name, problemName)
 }
 
@@ -928,4 +930,32 @@ func TestGetAllClases(t *testing.T) {
 	// Verify
 	fmt.Println(allClasses)
 	assert.Equal(t, 3, len(allClasses))
+}
+
+func TestSetURLByProblemID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	previousUrl := "url_1"
+	newUrl := "url_2"
+
+	// Preconditions
+	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
+	assert.NoError(t, err)
+	classID, err := classResult.LastInsertId()
+	assert.NoError(t, err)
+
+	problemID, err := db.AddProblem("Sorting Algorithms", previousUrl, classID)
+	assert.NoError(t, err)
+	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
+
+	// Act
+	err = db.SetURLByProblemID(problemID, newUrl)
+	assert.NoError(t, err, "Unable to set db")
+
+	// Verify
+	problem, err := db.GetProblemByID(problemID)
+	assert.NoError(t, err)
+	assert.Equal(t, newUrl, problem.URL)
 }

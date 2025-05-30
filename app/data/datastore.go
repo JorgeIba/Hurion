@@ -18,7 +18,7 @@ type UpdateDataStore interface {
 	BindUser(discordId, userName string) error
 	RegisterUserIntoClass(discordID string, classID int64) error
 	DeregisterUserFromClass(discordID string, classID int64) error
-	AddProblem(problemName string, classID int64) (int64, error)
+	AddProblem(problemName, url string, classID int64) (int64, error)
 	RemoveProblemByID(problemID int64) (int64, error)
 	AddAC(discordID string, problemID int64) error
 	RemoveAC(discordID string, problemID int64) error

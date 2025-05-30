@@ -295,8 +295,8 @@ func HandleAddProblem(c *context.ContextMessage) {
 		return
 	}
 
-	classCode, problemName := c.Args[1], strings.Join(c.Args[2:], " ")
-	problemID, err := c.Services.User.CreateProblemIntoClass(problemName, classCode)
+	classCode, url, problemName := c.Args[1], c.Args[2], strings.Join(c.Args[3:], " ")
+	problemID, err := c.Services.User.CreateProblemIntoClass(problemName, url, classCode)
 
 	if err != nil {
 		logger.Log.Error(err)
