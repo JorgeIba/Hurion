@@ -98,44 +98,36 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		return
 	}
 
-	// Get Table
-	title := fmt.Sprintf("List of problems of class `%s`", classCode)
-	headers := []string{"ID", "Problem Name"}
-	var rows [][]string
-	for _, p := range problems {
-		rows = append(rows, []string{fmt.Sprintf("%d", p.ID), p.Name})
+	var embeds []*discordgo.MessageEmbed
+
+	const LENGTH_PAGE = 5
+	x, y := len(problems), LENGTH_PAGE
+	totalPages := (x + y - 1) / y
+
+	title := fmt.Sprintf("List of problems for class %s", classCode)
+	for page := range totalPages {
+		body := ""
+
+		for index := page * LENGTH_PAGE; index < min(LENGTH_PAGE*(page+1), len(problems)); index++ {
+			problem := problems[index]
+			body += fmt.Sprintf("%d.- [%s](%s)\n", problem.ID, problem.Name, problem.URL)
+		}
+
+		embeds = append(embeds, &discordgo.MessageEmbed{
+			Title:       title,
+			Description: body,
+		})
 	}
 
-	// Get Table as Image
-	imgByte, err := formatter.GenerateTableImage(headers, rows)
-	if err != nil {
-		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-		)
-		return
-	}
-
-	file := &discordgo.File{
-		Name:   "tabla.png",
-		Reader: bytes.NewReader(imgByte),
-	}
-
-	embed := &discordgo.MessageEmbed{
-		Title: title,
-		Image: &discordgo.MessageEmbedImage{
-			URL: "attachment://tabla.png",
+	logger.Log.Info("Sending info")
+	c.Dispatcher.Send(
+		dispatcher.MessageResponse{
+			Type:      dispatcher.PaginationEmbed,
+			Session:   c.Session,
+			ChannelID: c.Message.ChannelID,
+			Embeds:    embeds,
 		},
-		Color: 0x00bfff,
-	}
-
-	logger.Log.Info(title, headers, rows)
-	c.Dispatcher.Send(dispatcher.MessageResponse{
-		Type:      dispatcher.FileMessage,
-		ChannelID: c.Message.ChannelID,
-		Embeds:    []*discordgo.MessageEmbed{embed},
-		Files:     []*discordgo.File{file},
-	})
+	)
 }
 
 func HandleGetScoreByClass(c *context.ContextMessage) {

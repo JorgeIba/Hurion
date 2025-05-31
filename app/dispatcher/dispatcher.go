@@ -2,8 +2,14 @@ package dispatcher
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/Necroforger/dgwidgets"
 	"github.com/bwmarrin/discordgo"
+)
+
+const (
+	TIME_ACTIVE_PROBLEMS_LIST = time.Minute * 2
 )
 
 type Dispatcher struct {
@@ -56,7 +62,14 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 				Files:  msg.Files,
 			})
 		}
+	case PaginationEmbed:
+		paginator := dgwidgets.NewPaginator(msg.Session, msg.ChannelID)
+		paginator.Add(msg.Embeds...)
 
+		paginator.SetPageFooters()
+		paginator.ColourWhenDone = 0xffff
+		paginator.Widget.Timeout = TIME_ACTIVE_PROBLEMS_LIST
+		go paginator.Spawn()
 	default:
 		fmt.Println("Unknown message type:", msg.Type)
 	}
