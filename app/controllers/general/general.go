@@ -261,7 +261,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 	var stringBuilder strings.Builder
 
 	for _, user := range users {
-		stringBuilder.WriteString(fmt.Sprintf("* <@%s>: %s\n", user.DiscordID, user.UserName))
+		stringBuilder.WriteString(fmt.Sprintf("* <@%s>: %s\n", user.UserID, user.UserName))
 	}
 
 	embed := &discordgo.MessageEmbed{

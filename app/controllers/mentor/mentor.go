@@ -325,7 +325,8 @@ func HandleAddProblem(c *context.ContextMessage) {
 			"Problem `%s` was added correctly to the class `%s`, Problem ID: `%d`\n",
 			problemName,
 			classCode,
-			problemID)),
+			problemID),
+		),
 	)
 }
 

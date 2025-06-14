@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-    discord_id TEXT PRIMARY KEY,
+    user_id TEXT PRIMARY KEY,
     user_name TEXT,
     FOREIGN KEY (user_name) REFERENCES user_names(user_name)
 );
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS enrollments (
     user_id TEXT,
     class_id INTEGER,
     PRIMARY KEY (user_id, class_id),
-    FOREIGN KEY (user_id) REFERENCES users(discord_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (class_id) REFERENCES classes(id)
 );
 
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS solved_problems (
     problem_id INTEGER,
     solved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, problem_id),
-    FOREIGN KEY (user_id) REFERENCES users(discord_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (problem_id) REFERENCES problems(id)
 );
 

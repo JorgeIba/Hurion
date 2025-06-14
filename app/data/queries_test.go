@@ -17,15 +17,15 @@ func TestBindUser_NewUser(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "12345"
+	const userID = "12345"
 	const nameQuery = "Jorge"
 	const nameExpected = "Jorge"
 
-	err = db.BindUser(discordID, nameQuery)
+	err = db.BindUser(userID, nameQuery)
 	assert.NoError(t, err, "Error inserting")
 
 	var userName string
-	err = db.conn.QueryRow("SELECT user_name FROM users WHERE discord_id = ?", discordID).Scan(&userName)
+	err = db.conn.QueryRow("SELECT user_name FROM users WHERE user_id = ?", userID).Scan(&userName)
 	assert.NoError(t, err, "User not found")
 	assert.Equal(t, nameExpected, userName, "Username doesn't match")
 }
@@ -35,22 +35,22 @@ func TestBindUser_UpdateUser(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "12345"
+	const userID = "12345"
 	const nameFirst = "Jorge"
 	const nameUpdated = "JorgeLuis"
 	const nameExpected = "JorgeLuis"
 
 	// Create a new entry
-	err = db.BindUser(discordID, nameFirst)
+	err = db.BindUser(userID, nameFirst)
 	assert.NoError(t, err, "Error inserting")
 
 	// Update entry
-	err = db.BindUser(discordID, nameUpdated)
+	err = db.BindUser(userID, nameUpdated)
 	assert.NoError(t, err, "Error updating")
 
 	// Verify
 	var userName string
-	err = db.conn.QueryRow("SELECT user_name FROM users WHERE discord_id = ?", discordID).Scan(&userName)
+	err = db.conn.QueryRow("SELECT user_name FROM users WHERE user_id = ?", userID).Scan(&userName)
 	assert.NoError(t, err, "User not found")
 	assert.Equal(t, nameExpected, userName, "Username doesn't match")
 }
@@ -61,25 +61,25 @@ func TestRegisterUserIntoClass_NewUser(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "12345"
+	const userID = "12345"
 	const userName = "Jorge"
 
 	// Preconditions
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
 	assert.NoError(t, err, "Could not insert class")
 
-	_, err = db.conn.Exec("INSERT INTO users (discord_id, user_name) VALUES (?, ?)", discordID, userName)
+	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
 	assert.NoError(t, err, "Could not insert class")
 
 	classID, _ := response.LastInsertId()
 
 	// Register a user
-	err = db.RegisterUserIntoClass(discordID, classID)
+	err = db.RegisterUserIntoClass(userID, classID)
 	assert.NoError(t, err, "Expected not error, but got: ")
 
 	// Verify
 	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", discordID, classID).Scan(&count)
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
 	assert.NoError(t, err, "Could not query enrollments correctly")
 
 	assert.Equal(t, 1, count, "User should be registered in the class")
@@ -90,29 +90,29 @@ func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "12345"
+	const userID = "12345"
 	const userName = "Jorge"
 
 	// Preconditions
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
 	assert.NoError(t, err, "Could not insert class")
 
-	_, err = db.conn.Exec("INSERT INTO users (discord_id, user_name) VALUES (?, ?)", discordID, userName)
+	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
 	assert.NoError(t, err, "Could not insert class")
 
 	classID, _ := response.LastInsertId()
 
 	// Register a user
-	err = db.RegisterUserIntoClass(discordID, classID)
+	err = db.RegisterUserIntoClass(userID, classID)
 	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Try to register it again
-	err = db.RegisterUserIntoClass(discordID, classID)
+	err = db.RegisterUserIntoClass(userID, classID)
 	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Verify
 	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", discordID, classID).Scan(&count)
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
 	assert.NoError(t, err, "Could not query enrollments correctly: ")
 
 	assert.Equal(t, 1, count, "User should be registered in the class")
@@ -124,12 +124,12 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "12345"
+	const userID = "12345"
 	const classID = 1
-	queryEnrollment := fmt.Sprintf("SELECT COUNT(*) FROM enrollments WHERE user_id = '%s' AND class_id = %d", discordID, classID)
+	queryEnrollment := fmt.Sprintf("SELECT COUNT(*) FROM enrollments WHERE user_id = '%s' AND class_id = %d", userID, classID)
 
 	// Register a user
-	err = db.RegisterUserIntoClass(discordID, classID)
+	err = db.RegisterUserIntoClass(userID, classID)
 	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Verify
@@ -139,7 +139,7 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 	assert.Equal(t, 1, count, "User should be registered")
 
 	// Deregister
-	err = db.DeregisterUserFromClass(discordID, classID)
+	err = db.DeregisterUserFromClass(userID, classID)
 	assert.NoError(t, err, "Expected no error, but got: ")
 
 	// Verify
@@ -223,7 +223,7 @@ func TestAddAC(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "user123"
+	const userID = "user123"
 	const classID = int64(1)
 
 	// Preconditions
@@ -231,10 +231,10 @@ func TestAddAC(t *testing.T) {
 	assert.NoError(t, err, "Problem trying to adding the problem")
 
 	// Verify
-	err = db.AddAC(discordID, problemID)
+	err = db.AddAC(userID, problemID)
 	assert.NoError(t, err, "Problem trying to ACing the problem for the user")
 
-	err = db.AddAC(discordID, problemID)
+	err = db.AddAC(userID, problemID)
 	assert.NoError(t, err, "Re-adding the same AC should not fail")
 
 	var count int64
@@ -243,7 +243,7 @@ func TestAddAC(t *testing.T) {
 		FROM solved_problems sp
 		JOIN problems p ON sp.problem_id = p.id
 		WHERE sp.user_id = ? AND p.class_id = ?;
-	`, discordID, classID).Scan(&count)
+	`, userID, classID).Scan(&count)
 	assert.NoError(t, err, "Cannot check the count for problems solved")
 
 	assert.Equal(t, int64(1), count, "A single problem should have been solved")
@@ -254,20 +254,20 @@ func TestRemoveAC(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "user123"
+	const userID = "user123"
 	const classID = int64(1)
 	queryCount := fmt.Sprintf(`
 		SELECT COUNT(*) 
 		FROM solved_problems sp 
 		JOIN problems p ON sp.problem_id = p.id 
 		WHERE sp.user_id = '%s' AND p.class_id = %d;
-	`, discordID, classID)
+	`, userID, classID)
 
 	// Preconditions
 	problemID, err := db.AddProblem("Sorting", "url", classID)
 	assert.NoError(t, err, "Precondition failed, problem could not be added")
 
-	err = db.AddAC(discordID, problemID)
+	err = db.AddAC(userID, problemID)
 	assert.NoError(t, err, "Precondition failed, problem could not be checked as solved")
 
 	var count int64
@@ -276,7 +276,7 @@ func TestRemoveAC(t *testing.T) {
 	assert.Equal(t, int64(1), count, "A problem should have been added to solved list")
 
 	// Verify
-	err = db.RemoveAC(discordID, problemID)
+	err = db.RemoveAC(userID, problemID)
 	assert.NoError(t, err, "Problem trying to remove the AC of the problem for the user")
 	err = db.conn.QueryRow(queryCount).Scan(&count)
 	assert.NoError(t, err, "Cannot check the count for problems solved")
@@ -331,47 +331,47 @@ func TestGetAllSolvedProblemsByUser(t *testing.T) {
 	problemID4, err := db.AddProblem("Problem 4", "url", 2)
 	assert.NoError(t, err)
 
-	const discordID1 = "user1"
-	const discordID2 = "user2"
+	const userID1 = "user1"
+	const userID2 = "user2"
 	var updates = []struct {
-		discordID string
+		userID    string
 		problemID int64
 		classID   int64
 	}{
-		{discordID: discordID1, problemID: problemID1},
-		{discordID: discordID1, problemID: problemID2},
-		{discordID: discordID1, problemID: problemID3},
-		{discordID: discordID1, problemID: problemID4},
+		{userID: userID1, problemID: problemID1},
+		{userID: userID1, problemID: problemID2},
+		{userID: userID1, problemID: problemID3},
+		{userID: userID1, problemID: problemID4},
 
-		{discordID: discordID2, problemID: problemID2},
-		{discordID: discordID2, problemID: problemID3},
+		{userID: userID2, problemID: problemID2},
+		{userID: userID2, problemID: problemID3},
 	}
 
 	for _, update := range updates {
-		err = db.AddAC(update.discordID, update.problemID)
+		err = db.AddAC(update.userID, update.problemID)
 		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
 	}
 
 	// Act
-	listUser1Class1, err := db.GetSolvedProblemsByUserAndClass(discordID1, 1)
+	listUser1Class1, err := db.GetSolvedProblemsByUserAndClass(userID1, 1)
 	assert.NoError(t, err, "Problem trying to get the list")
 	listUser1Class1OnlyIDs := lo.Map(listUser1Class1, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
 	})
 
-	listUser1Class2, err := db.GetSolvedProblemsByUserAndClass(discordID1, 2)
+	listUser1Class2, err := db.GetSolvedProblemsByUserAndClass(userID1, 2)
 	assert.NoError(t, err, "Problem trying to get the list")
 	listUser1Class2OnlyIDs := lo.Map(listUser1Class2, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
 	})
 
-	listUser2Class1, err := db.GetSolvedProblemsByUserAndClass(discordID2, 1)
+	listUser2Class1, err := db.GetSolvedProblemsByUserAndClass(userID2, 1)
 	assert.NoError(t, err, "Problem trying to get the list")
 	listUser2Class1OnlyIDs := lo.Map(listUser2Class1, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
 	})
 
-	listUser2Class2, err := db.GetSolvedProblemsByUserAndClass(discordID2, 2)
+	listUser2Class2, err := db.GetSolvedProblemsByUserAndClass(userID2, 2)
 	assert.NoError(t, err, "Problem trying to get the list")
 	listUser2Class2OnlyIDs := lo.Map(listUser2Class2, func(problem SolvedProblem, _ int) int64 {
 		return problem.ProblemID
@@ -404,37 +404,37 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	assert.NoError(t, err)
 
 	user1 := User{
-		DiscordID: "user1",
-		UserName:  "name1",
+		UserID:   "user1",
+		UserName: "name1",
 	}
 
 	user2 := User{
-		DiscordID: "user2",
-		UserName:  "name2",
+		UserID:   "user2",
+		UserName: "name2",
 	}
 
 	var updates = []struct {
-		discordID string
+		userID    string
 		problemID int64
 		classID   int64
 	}{
-		{discordID: user1.DiscordID, problemID: problemID1},
-		{discordID: user1.DiscordID, problemID: problemID2},
-		{discordID: user1.DiscordID, problemID: problemID3},
-		{discordID: user1.DiscordID, problemID: problemID4},
+		{userID: user1.UserID, problemID: problemID1},
+		{userID: user1.UserID, problemID: problemID2},
+		{userID: user1.UserID, problemID: problemID3},
+		{userID: user1.UserID, problemID: problemID4},
 
-		{discordID: user2.DiscordID, problemID: problemID2},
-		{discordID: user2.DiscordID, problemID: problemID3},
+		{userID: user2.UserID, problemID: problemID2},
+		{userID: user2.UserID, problemID: problemID3},
 	}
 
-	err = db.BindUser(user1.DiscordID, user1.UserName)
+	err = db.BindUser(user1.UserID, user1.UserName)
 	assert.NoError(t, err)
 
-	err = db.BindUser(user2.DiscordID, user2.UserName)
+	err = db.BindUser(user2.UserID, user2.UserName)
 	assert.NoError(t, err)
 
 	for _, update := range updates {
-		err = db.AddAC(update.discordID, update.problemID)
+		err = db.AddAC(update.userID, update.problemID)
 		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
 	}
 
@@ -518,35 +518,53 @@ func TestCreateClass(t *testing.T) {
 	assert.Equal(t, className, dbClassName, "Class Name should match")
 }
 
-func TestGetDiscordIDByUserName_Success(t *testing.T) {
+func TestGetUserIDByUserName_Success(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const discordID = "12345"
+	const userID = "12345"
 	const userName = "Jorge"
 
-	// Act
-	err = db.BindUser(discordID, userName)
-	assert.NoError(t, err)
+	// Preconditions
+	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
+	assert.NoError(t, err, "Could not insert user")
 
-	// Verify
-	responseDiscordID, err := db.GetDiscordIDByUserName(userName)
-	assert.NoError(t, err)
-	assert.Equal(t, discordID, responseDiscordID)
+	// Test
+	result, err := db.GetUserIDByUserName(userName)
+	assert.NoError(t, err, "Expected no error, but got: ")
+	assert.Equal(t, userID, result, "User ID doesn't match")
 }
 
-func TestGetDiscordIDByUserName_NotFound(t *testing.T) {
+func TestGetUserIDByUserName_NotFound(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	// Act
-	_, err = db.GetDiscordIDByUserName("nonexistent")
-	assert.Error(t, err)
+	const userName = "NonExistentUser"
 
-	// Verify
-	assert.Contains(t, err.Error(), "no user found")
+	// Test
+	_, err = db.GetUserIDByUserName(userName)
+	assert.Error(t, err, "Expected error, but got nil")
+	assert.IsType(t, &dataerr.NotFoundError{}, err, "Expected NotFoundError")
+}
+
+func TestGetUsernameByUserID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+	const userName = "Jorge"
+
+	// Preconditions
+	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
+	assert.NoError(t, err, "Could not insert user")
+
+	// Test
+	result, err := db.GetUsernameByUserID(userID)
+	assert.NoError(t, err, "Expected no error, but got: ")
+	assert.Equal(t, userName, result, "Username doesn't match")
 }
 
 func TestGetClassIDByClassCode_Success(t *testing.T) {
@@ -770,25 +788,6 @@ func TestIsUserBinded_No(t *testing.T) {
 	assert.NoError(t, err, "Should check binding without error")
 	assert.False(t, binded, "User should have binded some username")
 }
-
-func TestGetUsernameByDiscordID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const discordID = "123"
-	const userName = "Jorge"
-
-	// Preconditions
-	db.BindUser(discordID, userName)
-
-	// Act
-	userNameResponse, err := db.GetUsernameByDiscordID(discordID)
-
-	assert.NoError(t, err, "Should get Username without error")
-	assert.Equal(t, userNameResponse, userName, "User names should match")
-}
-
 func TestGetClassNameByClassID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -862,16 +861,16 @@ func TestGetAllUsersByClassID(t *testing.T) {
 
 	users := []User{
 		{
-			DiscordID: "1",
-			UserName:  "Jorge",
+			UserID:   "1",
+			UserName: "Jorge",
 		},
 		{
-			DiscordID: "2",
-			UserName:  "Luis",
+			UserID:   "2",
+			UserName: "Luis",
 		},
 		{
-			DiscordID: "3",
-			UserName:  "Ibanez",
+			UserID:   "3",
+			UserName: "Ibanez",
 		},
 	}
 
@@ -880,9 +879,9 @@ func TestGetAllUsersByClassID(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, user := range users {
-		err = db.BindUser(user.DiscordID, user.UserName)
+		err = db.BindUser(user.UserID, user.UserName)
 		assert.NoError(t, err)
-		err = db.RegisterUserIntoClass(user.DiscordID, classID)
+		err = db.RegisterUserIntoClass(user.UserID, classID)
 		assert.NoError(t, err)
 	}
 

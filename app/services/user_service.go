@@ -143,7 +143,7 @@ func (service *UserService) AddACToUser(userID string, problemID int64) error {
 
 // By UserName
 func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
-	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	userID, err := service.Datastore.GetUserIDByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -158,7 +158,7 @@ func (service *UserService) RegisterUsernameIntoClass(userName, classCode string
 }
 
 func (service *UserService) DeregisterUsernameFromClass(userName, classCode string) error {
-	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	userID, err := service.Datastore.GetUserIDByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -173,7 +173,7 @@ func (service *UserService) DeregisterUsernameFromClass(userName, classCode stri
 }
 
 func (service *UserService) AddACToUsername(userName string, problemID int64) error {
-	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	userID, err := service.Datastore.GetUserIDByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -187,7 +187,7 @@ func (service *UserService) AddACToUsername(userName string, problemID int64) er
 }
 
 func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName string) error {
-	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	userID, err := service.Datastore.GetUserIDByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -202,7 +202,7 @@ func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName
 }
 
 func (service *UserService) GetUserIDByUsername(userName string) (string, error) {
-	userID, err := service.Datastore.GetDiscordIDByUserName(userName)
+	userID, err := service.Datastore.GetUserIDByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -487,7 +487,6 @@ func (service *UserService) GetSortedScoreByClassCodeAsTable(classCode string) (
 
 func (service *UserService) GetNeighborsScoreTableForUsername(userName, classCode string) (TableScore, error) {
 	userID, err := service.GetUserIDByUsername(userName)
-
 	if err != nil {
 		return TableScore{}, err
 	}
@@ -497,26 +496,27 @@ func (service *UserService) GetNeighborsScoreTableForUsername(userName, classCod
 		return TableScore{}, err
 	}
 
-	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
-	if err != nil {
-		return TableScore{}, err
-	}
-
-	idxUserName := -1
-	for idx, scoreUser := range score {
-		if scoreUser.User.DiscordID == userID {
-			idxUserName = idx
+	// Find the user's position
+	var userIndex int
+	for i, scoreUser := range score {
+		if scoreUser.User.UserID == userID {
+			userIndex = i
 			break
 		}
 	}
 
-	if idxUserName == -1 {
-		err := fmt.Errorf("user `%s` doesn't have any AC in class `%s`", userName, classCode)
+	if userIndex == -1 {
+		err := serviceerr.NewNotFoundInfoError(fmt.Sprintf("user `%s` doesn't have any AC in class `%s`", userName, classCode), nil)
 		return TableScore{}, err
 	}
 
-	l, r := max(0, idxUserName-2), min(len(score)-1, idxUserName+2)
+	l, r := max(0, userIndex-2), min(len(score)-1, userIndex+2)
 	score = score[l : r+1]
+
+	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
+	if err != nil {
+		return TableScore{}, err
+	}
 
 	headers := []string{"Problem \\ Username"}
 	for _, entry := range score {

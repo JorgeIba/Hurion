@@ -8,16 +8,16 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 )
 
-// Binds an existing (or not) discord id to a single user name.
-func (db *DB) BindUser(discordId, userName string) error {
+// Binds an existing (or not) user id to a single user name.
+func (db *DB) BindUser(userID, userName string) error {
 	query := `
-		INSERT INTO users (discord_id, user_name)
+		INSERT INTO users (user_id, user_name)
 		VALUES (?, ?)
-		ON CONFLICT(discord_id) DO UPDATE SET user_name = excluded.user_name;
+		ON CONFLICT(user_id) DO UPDATE SET user_name = excluded.user_name;
 	`
 
-	if _, err := db.conn.Exec(query, discordId, userName); err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not bind user %s with user name %s", discordId, userName), err)
+	if _, err := db.conn.Exec(query, userID, userName); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not bind user %s with user name %s", userID, userName), err)
 	}
 
 	return nil
@@ -209,7 +209,7 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 			sp.problem_id,
 			sp.solved_at
 		FROM solved_problems sp
-		LEFT JOIN users u ON sp.user_id = u.discord_id
+		LEFT JOIN users u ON sp.user_id = u.user_id
 		JOIN problems p ON sp.problem_id = p.id
 		WHERE p.class_id = ?
 	`
@@ -232,8 +232,8 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 		}
 
 		user := User{
-			DiscordID: userID,
-			UserName:  userName,
+			UserID:   userID,
+			UserName: userName,
 		}
 		solvedProblemsIDByUser[user] = append(solvedProblemsIDByUser[user], SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
 	}
@@ -301,19 +301,23 @@ func (db *DB) CreateClass(classCode, className string) (int64, error) {
 	return classID, nil
 }
 
-func (db *DB) GetDiscordIDByUserName(userName string) (string, error) {
-	query := `SELECT discord_id FROM users WHERE user_name = ?`
+// GetUserIDByUserName gets the user ID for a given username
+func (db *DB) GetUserIDByUserName(userName string) (string, error) {
+	query := `
+		SELECT user_id
+		FROM users
+		WHERE user_name = ?
+	`
 
-	var discordID string
-	err := db.conn.QueryRow(query, userName).Scan(&discordID)
-	if err != nil {
+	var userID string
+	if err := db.conn.QueryRow(query, userName).Scan(&userID); err != nil {
 		if err == sql.ErrNoRows {
-			return "", dataerr.NewNotFoundError(fmt.Sprintf("no user found with name: %s", userName), nil)
+			return "", dataerr.NewNotFoundError(fmt.Sprintf("no user found with name %s", userName), nil)
 		}
-		return "", dataerr.NewQueryError(fmt.Sprintf("could not get discord ID from user %s", userName), err)
+		return "", dataerr.NewQueryError(fmt.Sprintf("could not get user id for user name %s", userName), err)
 	}
 
-	return discordID, nil
+	return userID, nil
 }
 
 func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
@@ -382,18 +386,19 @@ func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error
 
 func (db *DB) IsUserBinded(userID string) (bool, error) {
 	query := `
-		SELECT COUNT(*)
-		FROM users
-		WHERE discord_id = ?;
+		SELECT EXISTS(
+			SELECT 1
+			FROM users
+			WHERE user_id = ?
+		)
 	`
 
-	var count int
-	err := db.conn.QueryRow(query, userID).Scan(&count)
-	if err != nil {
-		return false, dataerr.NewQueryError(fmt.Sprintf("error checking user binding for user %s", userID), err)
+	var exists bool
+	if err := db.conn.QueryRow(query, userID).Scan(&exists); err != nil {
+		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if user %s is binded", userID), err)
 	}
 
-	return count > 0, nil
+	return exists, nil
 }
 
 func (db *DB) AddPendingConfirmation(messageID, userID string, problemID int64) error {
@@ -438,20 +443,21 @@ func (db *DB) RemovePendingConfirmation(messageID string) error {
 	return nil
 }
 
-func (db *DB) GetUsernameByDiscordID(discordID string) (string, error) {
+func (db *DB) GetUsernameByUserID(userID string) (string, error) {
 	query := `
-		SELECT user_name FROM users
-		WHERE discord_id = ?;
+		SELECT user_name
+		FROM users
+		WHERE user_id = ?
 	`
-	var userName string
 
-	err := db.conn.QueryRow(query, discordID).Scan(&userName)
-	if err != nil {
+	var userName string
+	if err := db.conn.QueryRow(query, userID).Scan(&userName); err != nil {
 		if err == sql.ErrNoRows {
-			return "", dataerr.NewNotFoundError(fmt.Sprintf("discordId %s has not any username binded", discordID), nil)
+			return "", dataerr.NewNotFoundError(fmt.Sprintf("no user found with id %s", userID), nil)
 		}
-		return "", dataerr.NewQueryError(fmt.Sprintf("could not get user_name from discord id %s", discordID), err)
+		return "", dataerr.NewQueryError(fmt.Sprintf("could not get user name for user id %s", userID), err)
 	}
+
 	return userName, nil
 }
 
@@ -477,30 +483,30 @@ func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
 func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
 	query := `
 		SELECT 
-			u.discord_id,
+			u.user_id,
 			COALESCE(u.user_name, 'Unknown') AS user_name
 		FROM enrollments e
-		JOIN users u ON e.user_id = u.discord_id
+		JOIN users u ON e.user_id = u.user_id
 		WHERE e.class_id = ?
 	`
 
 	rows, err := db.conn.Query(query, classID)
 	if err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get users for class %d", classID), err)
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get users from class id %d", classID), err)
 	}
 	defer rows.Close()
 
-	var users []User
+	users := make([]User, 0)
 	for rows.Next() {
 		var user User
-		if err := rows.Scan(&user.DiscordID, &user.UserName); err != nil {
-			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan user row for class %d", classID), err)
+		if err := rows.Scan(&user.UserID, &user.UserName); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan user from class id %d", classID), err)
 		}
 		users = append(users, user)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over user rows for class %d", classID), err)
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over users from class id %d", classID), err)
 	}
 
 	return users, nil

@@ -24,8 +24,8 @@ type Class struct {
 }
 
 type User struct {
-	DiscordID string
-	UserName  string
+	UserID   string
+	UserName string
 }
 
 type PendingConfirmation struct {
