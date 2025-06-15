@@ -3,9 +3,8 @@ package data
 type QueryDatastore interface {
 	GetProblemsByClass(classID int64) ([]Problem, error)
 	GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error)
-	GetUserIDByUserName(userName string) (string, error)
+	GetUserByUserName(userName string) (User, error)
 	GetClassByClassCode(classCode string) (Class, error)
-	GetClassIDByClassCode(classCode string) (int64, error)
 	IsUserBinded(userID string) (bool, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)

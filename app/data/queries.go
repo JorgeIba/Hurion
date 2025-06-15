@@ -301,71 +301,66 @@ func (db *DB) CreateClass(classCode, className string) (int64, error) {
 	return classID, nil
 }
 
-// GetUserIDByUserName gets the user ID for a given username
-func (db *DB) GetUserIDByUserName(userName string) (string, error) {
-	query := `
-		SELECT user_id
-		FROM users
-		WHERE user_name = ?
-	`
+func (db *DB) GetUserByUserName(userName string) (User, error) {
+	query := `SELECT user_id, user_name FROM users WHERE user_name = ?`
 
-	var userID string
-	if err := db.conn.QueryRow(query, userName).Scan(&userID); err != nil {
-		if err == sql.ErrNoRows {
-			return "", dataerr.NewNotFoundError(fmt.Sprintf("no user found with name %s", userName), nil)
-		}
-		return "", dataerr.NewQueryError(fmt.Sprintf("could not get user id for user name %s", userName), err)
-	}
-
-	return userID, nil
-}
-
-func (db *DB) GetClassIDByClassCode(classCode string) (int64, error) {
-	query := `SELECT id FROM classes WHERE class_code = ?`
-
-	var classID int64
-	err := db.conn.QueryRow(query, classCode).Scan(&classID)
+	var user User
+	err := db.conn.QueryRow(query, userName).Scan(&user.UserID, &user.UserName)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, dataerr.NewNotFoundError(fmt.Sprintf("no class found with code: %s", classCode), nil)
+			return User{}, dataerr.NewNotFoundError(fmt.Sprintf("user with name %s not found", userName), nil)
 		}
-		return 0, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
+		return User{}, dataerr.NewQueryError(fmt.Sprintf("could not get user by name %s", userName), err)
+	}
+	return user, nil
+}
+
+func (db *DB) GetUserByUserID(userID string) (User, error) {
+	query := `
+		SELECT user_name, user_id
+		FROM users
+		WHERE user_id = ?
+	`
+
+	var user User
+	err := db.conn.QueryRow(query, userID).Scan(&user.UserName, &user.UserID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return User{}, dataerr.NewNotFoundError(fmt.Sprintf("no user found with id %s", userID), nil)
+		}
+		return User{}, dataerr.NewQueryError(fmt.Sprintf("could not get user name for user id %s", userID), err)
 	}
 
-	return classID, nil
+	return user, nil
 }
 
 func (db *DB) GetClassByClassID(classID int64) (Class, error) {
-	query := `SELECT class_code, name FROM classes WHERE id = ?`
+	query := `SELECT id, class_code, name FROM classes WHERE id = ?`
 
-	var classCode, className string
-
-	err := db.conn.QueryRow(query, classID).Scan(&classCode, &className)
+	var class Class
+	err := db.conn.QueryRow(query, classID).Scan(&class.ID, &class.ClassCode, &class.Name)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with id: %d", classID), nil)
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with id %d not found", classID), nil)
 		}
 		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class from class id %d", classID), err)
 	}
-
-	return Class{ID: classID, ClassCode: classCode, Name: className}, nil
+	return class, nil
 }
 
 func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
-	query := `SELECT id, name FROM classes WHERE class_code = ?`
+	query := `SELECT id, class_code, name FROM classes WHERE class_code = ?`
 
-	var classID int64
-	var className string
-
-	err := db.conn.QueryRow(query, classCode).Scan(&classID, &className)
+	var class Class
+	err := db.conn.QueryRow(query, classCode).Scan(&class.ID, &class.ClassCode, &class.Name)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("no class found with code: %s", classCode), nil)
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with code %s not found", classCode), nil)
 		}
 		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
 	}
-
-	return Class{ID: classID, ClassCode: classCode, Name: className}, nil
+	return class, nil
 }
 
 func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
@@ -441,24 +436,6 @@ func (db *DB) RemovePendingConfirmation(messageID string) error {
 		return dataerr.NewQueryError(fmt.Sprintf("could not remove pending confirmation for message id %s", messageID), err)
 	}
 	return nil
-}
-
-func (db *DB) GetUsernameByUserID(userID string) (string, error) {
-	query := `
-		SELECT user_name
-		FROM users
-		WHERE user_id = ?
-	`
-
-	var userName string
-	if err := db.conn.QueryRow(query, userID).Scan(&userName); err != nil {
-		if err == sql.ErrNoRows {
-			return "", dataerr.NewNotFoundError(fmt.Sprintf("no user found with id %s", userID), nil)
-		}
-		return "", dataerr.NewQueryError(fmt.Sprintf("could not get user name for user id %s", userID), err)
-	}
-
-	return userName, nil
 }
 
 func (db *DB) GetProblemByID(problemID int64) (Problem, error) {

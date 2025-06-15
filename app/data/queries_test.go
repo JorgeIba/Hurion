@@ -518,56 +518,37 @@ func TestCreateClass(t *testing.T) {
 	assert.Equal(t, className, dbClassName, "Class Name should match")
 }
 
-func TestGetUserIDByUserName_Success(t *testing.T) {
+func TestGetUserByUserID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const userID = "12345"
+	const userID = "123"
 	const userName = "Jorge"
 
 	// Preconditions
-	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
+	err = db.BindUser(userID, userName)
 	assert.NoError(t, err, "Could not insert user")
 
 	// Test
-	result, err := db.GetUserIDByUserName(userName)
+	user, err := db.GetUserByUserID(userID)
 	assert.NoError(t, err, "Expected no error, but got: ")
-	assert.Equal(t, userID, result, "User ID doesn't match")
+	assert.Equal(t, userID, user.UserID, "UserID doesn't match")
+	assert.Equal(t, userName, user.UserName, "UserName doesn't match")
 }
 
-func TestGetUserIDByUserName_NotFound(t *testing.T) {
+func TestGetUserByUserName_NotFound(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	const userName = "NonExistentUser"
-
 	// Test
-	_, err = db.GetUserIDByUserName(userName)
+	_, err = db.GetUserByUserName("NONEXISTENT")
 	assert.Error(t, err, "Expected error, but got nil")
 	assert.IsType(t, &dataerr.NotFoundError{}, err, "Expected NotFoundError")
 }
 
-func TestGetUsernameByUserID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-	const userName = "Jorge"
-
-	// Preconditions
-	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
-	assert.NoError(t, err, "Could not insert user")
-
-	// Test
-	result, err := db.GetUsernameByUserID(userID)
-	assert.NoError(t, err, "Expected no error, but got: ")
-	assert.Equal(t, userName, result, "Username doesn't match")
-}
-
-func TestGetClassIDByClassCode_Success(t *testing.T) {
+func TestGetClassByClassCode_Success(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
@@ -580,22 +561,57 @@ func TestGetClassIDByClassCode_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify
-	retrievedID, err := db.GetClassIDByClassCode(classCode)
+	class, err := db.GetClassByClassCode(classCode)
 	assert.NoError(t, err)
-	assert.Equal(t, classID, retrievedID)
+	assert.Equal(t, classID, class.ID)
+	assert.Equal(t, classCode, class.ClassCode)
+	assert.Equal(t, className, class.Name)
 }
 
-func TestGetClassIDByClassCode_NotFound(t *testing.T) {
+func TestGetClassByClassCode_NotFound(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
 	// Act
-	_, err = db.GetClassIDByClassCode("UNKNOWN")
+	_, err = db.GetClassByClassCode("UNKNOWN")
 	assert.Error(t, err)
 
 	// Verify
-	assert.Contains(t, err.Error(), "no class found")
+	assert.Contains(t, err.Error(), "class with code UNKNOWN not found")
+}
+
+func TestGetClassByClassID_Success(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const classCode = "basicos"
+	const className = "Basicos 2024"
+
+	// Act
+	classID, err := db.CreateClass(classCode, className)
+	assert.NoError(t, err)
+
+	// Verify
+	class, err := db.GetClassByClassID(classID)
+	assert.NoError(t, err)
+	assert.Equal(t, classID, class.ID)
+	assert.Equal(t, classCode, class.ClassCode)
+	assert.Equal(t, className, class.Name)
+}
+
+func TestGetClassByClassID_NotFound(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	// Act
+	_, err = db.GetClassByClassID(999999)
+	assert.Error(t, err)
+
+	// Verify
+	assert.Contains(t, err.Error(), "class with id 999999 not found")
 }
 
 func TestAddPendingConfirmation(t *testing.T) {
@@ -788,6 +804,7 @@ func TestIsUserBinded_No(t *testing.T) {
 	assert.NoError(t, err, "Should check binding without error")
 	assert.False(t, binded, "User should have binded some username")
 }
+
 func TestGetClassNameByClassID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -927,7 +944,6 @@ func TestGetAllClases(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify
-	fmt.Println(allClasses)
 	assert.Equal(t, 3, len(allClasses))
 }
 

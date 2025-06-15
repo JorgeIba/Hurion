@@ -30,7 +30,7 @@ func (service *UserService) DeregisterUserIDFromClass(userID string, classCode s
 	}
 
 	// Get Info
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -41,7 +41,7 @@ func (service *UserService) DeregisterUserIDFromClass(userID string, classCode s
 	}
 
 	// Deregister
-	if err = service.Datastore.DeregisterUserFromClass(userID, classID); err != nil {
+	if err = service.Datastore.DeregisterUserFromClass(userID, class.ID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
@@ -143,7 +143,7 @@ func (service *UserService) AddACToUser(userID string, problemID int64) error {
 
 // By UserName
 func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
-	userID, err := service.Datastore.GetUserIDByUserName(userName)
+	user, err := service.Datastore.GetUserByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -153,12 +153,12 @@ func (service *UserService) RegisterUsernameIntoClass(userName, classCode string
 		}
 	}
 
-	err = service.RegisterUserIDIntoClass(userID, classCode)
+	err = service.RegisterUserIDIntoClass(user.UserID, classCode)
 	return err
 }
 
 func (service *UserService) DeregisterUsernameFromClass(userName, classCode string) error {
-	userID, err := service.Datastore.GetUserIDByUserName(userName)
+	user, err := service.Datastore.GetUserByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -168,12 +168,12 @@ func (service *UserService) DeregisterUsernameFromClass(userName, classCode stri
 		}
 	}
 
-	err = service.DeregisterUserIDFromClass(userID, classCode)
+	err = service.DeregisterUserIDFromClass(user.UserID, classCode)
 	return err
 }
 
 func (service *UserService) AddACToUsername(userName string, problemID int64) error {
-	userID, err := service.Datastore.GetUserIDByUserName(userName)
+	user, err := service.Datastore.GetUserByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -183,11 +183,11 @@ func (service *UserService) AddACToUsername(userName string, problemID int64) er
 		}
 	}
 
-	return service.AddACToUser(userID, problemID)
+	return service.AddACToUser(user.UserID, problemID)
 }
 
 func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName string) error {
-	userID, err := service.Datastore.GetUserIDByUserName(userName)
+	user, err := service.Datastore.GetUserByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -197,12 +197,12 @@ func (service *UserService) UndoACByProblemAndUsername(problemID int64, userName
 		}
 	}
 
-	err = service.UndoACByProblemAndUserID(problemID, userID)
+	err = service.UndoACByProblemAndUserID(problemID, user.UserID)
 	return err
 }
 
 func (service *UserService) GetUserIDByUsername(userName string) (string, error) {
-	userID, err := service.Datastore.GetUserIDByUserName(userName)
+	user, err := service.Datastore.GetUserByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -212,7 +212,7 @@ func (service *UserService) GetUserIDByUsername(userName string) (string, error)
 		}
 	}
 
-	return userID, nil
+	return user.UserID, nil
 }
 
 func (service *UserService) CreateProblemIntoClass(problemName, url, classCode string) (int64, error) {
@@ -222,7 +222,7 @@ func (service *UserService) CreateProblemIntoClass(problemName, url, classCode s
 		return 0, serviceerr.NewNotFoundInfoError(fmt.Sprintf("no info of class code %s", classCode), nil)
 	}
 
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -232,7 +232,7 @@ func (service *UserService) CreateProblemIntoClass(problemName, url, classCode s
 		}
 	}
 
-	problemID, err := service.Datastore.AddProblem(problemName, url, classID)
+	problemID, err := service.Datastore.AddProblem(problemName, url, class.ID)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataConflictErr):
@@ -260,7 +260,7 @@ func (service *UserService) RemoveProblemFromClass(problemID int64) error {
 }
 
 func (service *UserService) DeleteClassByClassCode(classCode string) error {
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -270,7 +270,7 @@ func (service *UserService) DeleteClassByClassCode(classCode string) error {
 		}
 	}
 
-	if err = service.Datastore.ClearClass(classID); err != nil {
+	if err = service.Datastore.ClearClass(class.ID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
@@ -299,7 +299,7 @@ func (service *UserService) BindUser(userID, userName string) error {
 }
 
 func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]data.Problem, error) {
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	class, err := service.Datastore.GetClassByClassCode(classCode)
 	emptySlice := []data.Problem{}
 	if err != nil {
 		switch {
@@ -310,15 +310,16 @@ func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]da
 		}
 	}
 
-	problems, err := service.Datastore.GetProblemsByClass(classID)
+	problems, err := service.Datastore.GetProblemsByClass(class.ID)
 	if err != nil {
 		return emptySlice, serviceerr.MakeGeneralError(err)
 	}
+
 	return problems, nil
 }
 
 func (service *UserService) GetScoreByClassCode(classCode string) (map[data.User][]data.SolvedProblem, error) {
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	class, err := service.Datastore.GetClassByClassCode(classCode)
 	emptyMap := map[data.User][]data.SolvedProblem{}
 	if err != nil {
 		switch {
@@ -329,10 +330,11 @@ func (service *UserService) GetScoreByClassCode(classCode string) (map[data.User
 		}
 	}
 
-	studentsScore, err := service.Datastore.GetAllSolvedProblemsByClass(classID)
+	studentsScore, err := service.Datastore.GetAllSolvedProblemsByClass(class.ID)
 	if err != nil {
 		return emptyMap, serviceerr.MakeGeneralError(err)
 	}
+
 	return studentsScore, nil
 }
 
@@ -375,9 +377,8 @@ func (service *UserService) RejectACProposal(messageID string) error {
 	return nil
 }
 
-func (service *UserService) GetUsersInClassCode(classCode string) ([]data.User, error) {
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
-
+func (service *UserService) GetListOfUsersByClassCode(classCode string) ([]data.User, error) {
+	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -387,7 +388,7 @@ func (service *UserService) GetUsersInClassCode(classCode string) ([]data.User, 
 		}
 	}
 
-	users, err := service.Datastore.GetAllUsersByClassID(classID)
+	users, err := service.Datastore.GetAllUsersByClassID(class.ID)
 	if err != nil {
 		return []data.User{}, serviceerr.MakeGeneralError(err)
 	}
@@ -569,7 +570,7 @@ func (service *UserService) GetScoreAllClasses() ([]TableScore, error) {
 
 // Private
 func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
-	classID, err := service.Datastore.GetClassIDByClassCode(classCode)
+	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -579,7 +580,7 @@ func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string
 		}
 	}
 
-	return service.isUserIDEnrolledByClassID(userID, classID)
+	return service.isUserIDEnrolledByClassID(userID, class.ID)
 }
 
 func sortScore(solvedProblemsByUsers map[data.User][]data.SolvedProblem) []PairUserSolvedProblems {
@@ -613,7 +614,7 @@ func (service *UserService) existsProblem(problemID int64) (bool, error) {
 }
 
 func (service *UserService) isClassCodeValid(classCode string) (bool, error) {
-	if _, err := service.Datastore.GetClassIDByClassCode(classCode); err != nil {
+	if _, err := service.Datastore.GetClassByClassCode(classCode); err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
 			return false, nil

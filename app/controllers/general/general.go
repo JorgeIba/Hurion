@@ -243,7 +243,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 func HandleGetUsersInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	users, err := c.Services.User.GetUsersInClassCode(classCode)
+	users, err := c.Services.User.GetListOfUsersByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 		switch {
