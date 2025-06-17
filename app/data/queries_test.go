@@ -21,7 +21,7 @@ func TestBindUser_NewUser(t *testing.T) {
 	const nameQuery = "Jorge"
 	const nameExpected = "Jorge"
 
-	err = db.BindUser(userID, nameQuery)
+	err = db.BindUser(User{UserID: userID, UserName: nameQuery})
 	assert.NoError(t, err, "Error inserting")
 
 	var userName string
@@ -41,11 +41,11 @@ func TestBindUser_UpdateUser(t *testing.T) {
 	const nameExpected = "JorgeLuis"
 
 	// Create a new entry
-	err = db.BindUser(userID, nameFirst)
+	err = db.BindUser(User{UserID: userID, UserName: nameFirst})
 	assert.NoError(t, err, "Error inserting")
 
 	// Update entry
-	err = db.BindUser(userID, nameUpdated)
+	err = db.BindUser(User{UserID: userID, UserName: nameUpdated})
 	assert.NoError(t, err, "Error updating")
 
 	// Verify
@@ -162,7 +162,7 @@ func TestAddProblem_New(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add a problem
-	problemID, err := db.AddProblem("Sorting Algorithms", "url", classID)
+	problemID, err := db.AddProblem(Problem{Name: "Sorting Algorithms", URL: "url", ClassID: classID})
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 }
@@ -182,7 +182,7 @@ func RemoveProblemByNameAndClassID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add a problem
-	problemID, err := db.AddProblem(problemName, "url", classID)
+	problemID, err := db.AddProblem(Problem{Name: problemName, URL: "url", ClassID: classID})
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 
@@ -207,7 +207,7 @@ func TestRemoveProblemByID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add a problem
-	problemID, err := db.AddProblem(problemName, "url", classID)
+	problemID, err := db.AddProblem(Problem{Name: problemName, URL: "url", ClassID: classID})
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 
@@ -227,7 +227,7 @@ func TestAddAC(t *testing.T) {
 	const classID = int64(1)
 
 	// Preconditions
-	problemID, err := db.AddProblem("Sorting", "url", classID)
+	problemID, err := db.AddProblem(Problem{Name: "Sorting", URL: "url", ClassID: classID})
 	assert.NoError(t, err, "Problem trying to adding the problem")
 
 	// Verify
@@ -264,7 +264,7 @@ func TestRemoveAC(t *testing.T) {
 	`, userID, classID)
 
 	// Preconditions
-	problemID, err := db.AddProblem("Sorting", "url", classID)
+	problemID, err := db.AddProblem(Problem{Name: "Sorting", URL: "url", ClassID: classID})
 	assert.NoError(t, err, "Precondition failed, problem could not be added")
 
 	err = db.AddAC(userID, problemID)
@@ -292,13 +292,13 @@ func TestGetProblemsByClass(t *testing.T) {
 	const classID2 = int64(2)
 
 	// Preconditions
-	_, err = db.AddProblem("Sorting Stuff 1", "url1", classID)
+	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 1", URL: "url1", ClassID: classID})
 	assert.NoError(t, err, "Precondition failed, problem 1 could not be added")
 
-	_, err = db.AddProblem("Sorting Stuff 2", "url2", classID)
+	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 2", URL: "url2", ClassID: classID})
 	assert.NoError(t, err, "Precondition failed, problem 2 could not be added")
 
-	_, err = db.AddProblem("Sorting Stuff 3", "url3", classID2)
+	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 3", URL: "url3", ClassID: classID2})
 	assert.NoError(t, err, "Precondition failed, problem 3 could not be added")
 
 	// Do
@@ -319,16 +319,16 @@ func TestGetAllSolvedProblemsByUser(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	problemID1, err := db.AddProblem("Problem 1", "url", 1)
+	problemID1, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: 1})
 	assert.NoError(t, err)
 
-	problemID2, err := db.AddProblem("Problem 2", "url", 1)
+	problemID2, err := db.AddProblem(Problem{Name: "Problem 2", URL: "url", ClassID: 1})
 	assert.NoError(t, err)
 
-	problemID3, err := db.AddProblem("Problem 3", "url", 2)
+	problemID3, err := db.AddProblem(Problem{Name: "Problem 3", URL: "url", ClassID: 2})
 	assert.NoError(t, err)
 
-	problemID4, err := db.AddProblem("Problem 4", "url", 2)
+	problemID4, err := db.AddProblem(Problem{Name: "Problem 4", URL: "url", ClassID: 2})
 	assert.NoError(t, err)
 
 	const userID1 = "user1"
@@ -391,16 +391,16 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	problemID1, err := db.AddProblem("Problem 1", "url", 1)
+	problemID1, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: 1})
 	assert.NoError(t, err)
 
-	problemID2, err := db.AddProblem("Problem 2", "url", 1)
+	problemID2, err := db.AddProblem(Problem{Name: "Problem 2", URL: "url", ClassID: 1})
 	assert.NoError(t, err)
 
-	problemID3, err := db.AddProblem("Problem 3", "url", 1)
+	problemID3, err := db.AddProblem(Problem{Name: "Problem 3", URL: "url", ClassID: 1})
 	assert.NoError(t, err)
 
-	problemID4, err := db.AddProblem("Problem 4", "url", 2)
+	problemID4, err := db.AddProblem(Problem{Name: "Problem 4", URL: "url", ClassID: 2})
 	assert.NoError(t, err)
 
 	user1 := User{
@@ -427,10 +427,10 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 		{userID: user2.UserID, problemID: problemID3},
 	}
 
-	err = db.BindUser(user1.UserID, user1.UserName)
+	err = db.BindUser(user1)
 	assert.NoError(t, err)
 
-	err = db.BindUser(user2.UserID, user2.UserName)
+	err = db.BindUser(user2)
 	assert.NoError(t, err)
 
 	for _, update := range updates {
@@ -501,7 +501,7 @@ func TestCreateClass(t *testing.T) {
 	className := "Avanzados 2025"
 
 	// Act
-	classID, err := db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err, "Unexpected error")
 
 	// Verify
@@ -527,7 +527,7 @@ func TestGetUserByUserID(t *testing.T) {
 	const userName = "Jorge"
 
 	// Preconditions
-	err = db.BindUser(userID, userName)
+	err = db.BindUser(User{UserID: userID, UserName: userName})
 	assert.NoError(t, err, "Could not insert user")
 
 	// Test
@@ -557,7 +557,7 @@ func TestGetClassByClassCode_Success(t *testing.T) {
 	const className = "Basicos 2024"
 
 	// Act
-	classID, err := db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
 	// Verify
@@ -590,7 +590,7 @@ func TestGetClassByClassID_Success(t *testing.T) {
 	const className = "Basicos 2024"
 
 	// Act
-	classID, err := db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
 	// Verify
@@ -624,7 +624,7 @@ func TestAddPendingConfirmation(t *testing.T) {
 	const problemID = int64(1)
 
 	// Act
-	err = db.AddPendingConfirmation(messageID, userID, problemID)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID})
 	assert.NoError(t, err, "Should insert pending confirmation without error")
 
 	// Verify
@@ -646,7 +646,7 @@ func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
 	query := fmt.Sprintf("SELECT message_id FROM pending_confirmations WHERE user_id = %s AND problem_id = %d", userID, problemID)
 
 	// Precondition
-	err = db.AddPendingConfirmation(messageIDPrevious, userID, problemID)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageIDPrevious, UserID: userID, ProblemID: problemID})
 	assert.NoError(t, err, "Expected no error on first insertion")
 
 	var messageID string
@@ -655,7 +655,7 @@ func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
 	assert.Equal(t, messageIDPrevious, messageID, "Expected message_id to be 'msg1'")
 
 	// Act
-	err = db.AddPendingConfirmation(messageIDUpdated, userID, problemID)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageIDUpdated, UserID: userID, ProblemID: problemID})
 	assert.NoError(t, err, "Expected no error on update")
 
 	// Verify
@@ -674,7 +674,7 @@ func TestGetPendingConfirmation_Found(t *testing.T) {
 	const problemID = int64(1)
 
 	// Precondition
-	err = db.AddPendingConfirmation(messageID, userID, problemID)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID})
 	assert.NoError(t, err, "Should insert test data without error")
 
 	// Act
@@ -711,7 +711,7 @@ func TestRemovePendingConfirmation(t *testing.T) {
 	const problemID = int64(1)
 
 	// Precondition
-	err = db.AddPendingConfirmation(messageID, userID, problemID)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID})
 	assert.NoError(t, err, "Should insert test data without error")
 
 	var count int
@@ -748,7 +748,7 @@ func TestIsUserRegisteredInClass_Enrolled(t *testing.T) {
 	const userID = "user123"
 
 	// Precondition:
-	classID, err := db.CreateClass("basicos", "Basicos 2024")
+	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2024"})
 	assert.NoError(t, err, "Should insert class without error")
 
 	db.RegisterUserIntoClass(userID, classID)
@@ -768,7 +768,7 @@ func TestIsUserRegisteredInClass_NotEnrolled(t *testing.T) {
 	const userID = "user123"
 
 	// Precondition: insertar solo clase
-	classID, err := db.CreateClass("basicos", "Basicos 2024")
+	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2024"})
 	assert.NoError(t, err, "Should insert class without error")
 
 	// Act
@@ -785,7 +785,7 @@ func TestIsUserBinded_Yes(t *testing.T) {
 	const userID = "user123"
 
 	// Precondition:
-	db.BindUser(userID, "Jorge")
+	db.BindUser(User{UserID: userID, UserName: "Jorge"})
 	assert.NoError(t, err, "Should insert enrollment without error")
 
 	// Act
@@ -814,7 +814,7 @@ func TestGetClassNameByClassID(t *testing.T) {
 	const className = "Basicos 2025"
 
 	// Preconditions
-	classID, err := db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
 	// Act
@@ -833,7 +833,7 @@ func TestGetClassNameByClassCode(t *testing.T) {
 	const className = "Basicos 2025"
 
 	// Preconditions
-	classID, err := db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
 	// Act
@@ -854,10 +854,10 @@ func TestGetProblemByID(t *testing.T) {
 	const problemName = "Sorting"
 
 	// Preconditions
-	classID, err := db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
-	problemID, err := db.AddProblem(problemName, url, classID)
+	problemID, err := db.AddProblem(Problem{Name: problemName, URL: url, ClassID: classID})
 	assert.NoError(t, err)
 
 	// Act
@@ -892,11 +892,11 @@ func TestGetAllUsersByClassID(t *testing.T) {
 	}
 
 	// Preconditions
-	classID, err := db.CreateClass(classCode, className)
+	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
 	for _, user := range users {
-		err = db.BindUser(user.UserID, user.UserName)
+		err = db.BindUser(user)
 		assert.NoError(t, err)
 		err = db.RegisterUserIntoClass(user.UserID, classID)
 		assert.NoError(t, err)
@@ -932,9 +932,9 @@ func TestGetAllClases(t *testing.T) {
 
 	// Preconditions
 	for i := range len(classes) {
-		class := &classes[i]
+		class := classes[i]
 
-		id, err := db.CreateClass(class.ClassCode, class.Name)
+		id, err := db.CreateClass(class)
 		assert.NoError(t, err)
 		class.ID = id
 	}
@@ -961,7 +961,7 @@ func TestSetURLByProblemID(t *testing.T) {
 	classID, err := classResult.LastInsertId()
 	assert.NoError(t, err)
 
-	problemID, err := db.AddProblem("Sorting Algorithms", previousUrl, classID)
+	problemID, err := db.AddProblem(Problem{Name: "Sorting Algorithms", URL: previousUrl, ClassID: classID})
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 

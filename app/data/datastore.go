@@ -14,16 +14,16 @@ type QueryDatastore interface {
 }
 
 type UpdateDataStore interface {
-	BindUser(userID, userName string) error
+	BindUser(user User) error
 	RegisterUserIntoClass(userID string, classID int64) error
 	DeregisterUserFromClass(userID string, classID int64) error
-	AddProblem(problemName, url string, classID int64) (int64, error)
+	AddProblem(problem Problem) (int64, error)
 	RemoveProblemByID(problemID int64) (int64, error)
 	AddAC(userID string, problemID int64) error
 	RemoveAC(userID string, problemID int64) error
 	ClearClass(classID int64) error
-	CreateClass(classCode, className string) (int64, error)
-	AddPendingConfirmation(messageID, userID string, problemID int64) error
+	CreateClass(class Class) (int64, error)
+	AddPendingConfirmation(confirmation PendingConfirmation) error
 	RemovePendingConfirmation(messageID string) error
 }
 

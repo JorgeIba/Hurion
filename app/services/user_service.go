@@ -111,7 +111,11 @@ func (service *UserService) AddPendingACOfUserID(messageID, userID string, probl
 		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
-	if err := service.Datastore.AddPendingConfirmation(messageID, userID, problemID); err != nil {
+	if err := service.Datastore.AddPendingConfirmation(data.PendingConfirmation{
+		MessageID: messageID,
+		UserID:    userID,
+		ProblemID: problemID,
+	}); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 
@@ -232,7 +236,11 @@ func (service *UserService) CreateProblemIntoClass(problemName, url, classCode s
 		}
 	}
 
-	problemID, err := service.Datastore.AddProblem(problemName, url, class.ID)
+	problemID, err := service.Datastore.AddProblem(data.Problem{
+		Name:    problemName,
+		URL:     url,
+		ClassID: class.ID,
+	})
 	if err != nil {
 		switch {
 		case errors.As(err, &dataConflictErr):
@@ -277,7 +285,10 @@ func (service *UserService) DeleteClassByClassCode(classCode string) error {
 }
 
 func (service *UserService) CreateClass(classCode, className string) error {
-	_, err := service.Datastore.CreateClass(classCode, className)
+	_, err := service.Datastore.CreateClass(data.Class{
+		ClassCode: classCode,
+		Name:      className,
+	})
 
 	if err != nil {
 		switch {
@@ -292,7 +303,10 @@ func (service *UserService) CreateClass(classCode, className string) error {
 }
 
 func (service *UserService) BindUser(userID, userName string) error {
-	if err := service.Datastore.BindUser(userID, userName); err != nil {
+	if err := service.Datastore.BindUser(data.User{
+		UserID:   userID,
+		UserName: userName,
+	}); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
