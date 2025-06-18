@@ -119,6 +119,14 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		})
 	}
 
+	if len(embeds) == 0 {
+		logger.Log.Infof("No problems found for class %s", classCode)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No problems found for class `%s`", classCode)),
+		)
+		return
+	}
+
 	logger.Log.Info("Sending info")
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
