@@ -521,17 +521,20 @@ func (db *DB) GetAllClasses() ([]Class, error) {
 	return classes, nil
 }
 
-func (db *DB) SetURLByProblemID(problemID int64, url string) error {
+func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	query := `
 		UPDATE problems
-		SET url = ?
-		where id = ?
+		SET name = ?, url = ?, class_id = ?
+		WHERE id = ?;
 	`
-	_, err := db.conn.Exec(query, url, problemID)
-	if err != nil {
-		return dataerr.NewQueryError("Could not set the url %s for problem %d", err)
+
+	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problemID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not update problem with ID %d", problemID), err)
+	} else if rowsAffected, err := result.RowsAffected(); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when updating problem with ID %d", problemID), err)
+	} else if rowsAffected == 0 {
+		return dataerr.NewNotFoundError(fmt.Sprintf("problem with ID %d not found", problemID), nil)
 	}
 
 	return nil
-
 }

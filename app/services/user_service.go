@@ -582,6 +582,34 @@ func (service *UserService) GetScoreAllClasses() ([]TableScore, error) {
 	return scores, nil
 }
 
+func (service *UserService) UpdateProblemByProblemID(problemID int64, problem data.Problem) error {
+	if isValidProblem, err := service.existsProblem(problemID); err != nil {
+		return err
+	} else if !isValidProblem {
+		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+	}
+
+	if err := service.Datastore.UpdateProblemByProblemID(problemID, problem); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("something happened trying to update problem %d with problem: %v", problemID, problem))
+	}
+
+	return nil
+}
+
+func (service *UserService) GetClassIDByClassCode(classCode string) (int64, error) {
+	class, err := service.Datastore.GetClassByClassCode(classCode)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return 0, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
+		default:
+			return 0, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return class.ID, nil
+}
+
 // Private
 func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)

@@ -9,6 +9,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
@@ -376,6 +377,74 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
 			"Problem with ID: `%d` has been removed from this earthly plane and has passed to the astral plane",
 			problemID)),
+	)
+}
+
+func HandleUpdateProblem(c *context.ContextMessage) {
+	if IsMentor, err := checkIfUserIsMentor(c.Message.GuildID, c.Message.Author.ID); err != nil {
+		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
+		)
+		return
+	} else if !IsMentor {
+		logger.Log.Errorln(messageErrNotPermissions)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
+		)
+		return
+	}
+
+	problemIDStr, classCode, url, problemName := c.Args[1], c.Args[2], c.Args[3], strings.Join(c.Args[4:], " ")
+	problemID, err := strconv.ParseInt(problemIDStr, 10, 64)
+	if err != nil {
+		logger.Log.Error("Error parsing the ID", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDStr)),
+		)
+		return
+	}
+
+	classID, err := c.Services.User.GetClassIDByClassCode(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
+			)
+		}
+		return
+	}
+
+	if err = c.Services.User.UpdateProblemByProblemID(problemID, data.Problem{
+		ID:      problemID,
+		Name:    problemName,
+		ClassID: classID,
+		URL:     url,
+	}); err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem with ID: `%d` not found", problemID)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
+			)
+		}
+		return
+	}
+
+	logger.Log.Infof("Problem with ID: %d has been updated successfully", problemID)
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem with ID: `%d` has been updated successfully", problemID)),
 	)
 }
 

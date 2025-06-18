@@ -947,30 +947,65 @@ func TestGetAllClases(t *testing.T) {
 	assert.Equal(t, 3, len(allClasses))
 }
 
-func TestSetURLByProblemID(t *testing.T) {
+// UpdateByProblemID Tests
+func TestUpdateByProblemID_Success(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	previousUrl := "url_1"
-	newUrl := "url_2"
-
 	// Preconditions
-	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
-	assert.NoError(t, err)
-	classID, err := classResult.LastInsertId()
+	classID1, err := db.CreateClass(Class{ClassCode: "intermedios", Name: "Intermedios 2024"})
 	assert.NoError(t, err)
 
-	problemID, err := db.AddProblem(Problem{Name: "Sorting Algorithms", URL: previousUrl, ClassID: classID})
+	classID2, err := db.CreateClass(Class{ClassCode: "avanzados", Name: "Avanzados 2024"})
 	assert.NoError(t, err)
-	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
+
+	originalProblem := Problem{
+		Name:    "Original Problem",
+		URL:     "url",
+		ClassID: classID1,
+	}
+	problemID, err := db.AddProblem(originalProblem)
+	assert.NoError(t, err)
 
 	// Act
-	err = db.SetURLByProblemID(problemID, newUrl)
-	assert.NoError(t, err, "Unable to set db")
+	updatedProblem := Problem{
+		Name:    "Updated Problem Name",
+		URL:     "url2",
+		ClassID: classID2,
+	}
+	err = db.UpdateProblemByProblemID(problemID, updatedProblem)
+	assert.NoError(t, err, "Should update problem without error")
 
 	// Verify
-	problem, err := db.GetProblemByID(problemID)
+	retrievedProblem, err := db.GetProblemByID(problemID)
+	assert.NoError(t, err, "Should retrieve updated problem")
+	assert.Equal(t, updatedProblem.Name, retrievedProblem.Name, "Name should be updated")
+	assert.Equal(t, updatedProblem.URL, retrievedProblem.URL, "URL should be updated")
+	assert.Equal(t, updatedProblem.ClassID, retrievedProblem.ClassID, "ClassID should be updated")
+	assert.Equal(t, problemID, retrievedProblem.ID, "ID should remain the same")
+}
+
+func TestUpdateByProblemID_NotFound(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	// Preconditions
+	classID, err := db.CreateClass(Class{ClassCode: "test", Name: "Test Class"})
 	assert.NoError(t, err)
-	assert.Equal(t, newUrl, problem.URL)
+
+	// Act
+	nonExistentProblemID := int64(99999)
+	updateProblem := Problem{
+		Name:    "Updated Problem",
+		URL:     "url",
+		ClassID: classID,
+	}
+	err = db.UpdateProblemByProblemID(nonExistentProblemID, updateProblem)
+
+	// Verify
+	assert.Error(t, err, "Should return error for non-existent problem")
+	var notFoundErr *dataerr.NotFoundError
+	assert.ErrorAs(t, err, &notFoundErr, "Should return NotFoundError type")
 }
