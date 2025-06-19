@@ -568,3 +568,20 @@ func (db *DB) GetClassesByUserID(userID string) ([]Class, error) {
 
 	return classes, nil
 }
+
+func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM solved_problems
+			WHERE user_id = ? AND problem_id = ?
+		)
+	`
+
+	var exists bool
+	if err := db.conn.QueryRow(query, userID, problemID).Scan(&exists); err != nil {
+		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if user %s has solved problem %d", userID, problemID), err)
+	}
+
+	return exists, nil
+}

@@ -1051,3 +1051,54 @@ func TestGetClassesByUserID(t *testing.T) {
 	// Verify
 	assert.Len(t, classes_response, 3, "Should return two classes for the user")
 }
+
+func TestHasUserSolvedProblem_ReturnsTrue(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	// Preconditions
+	user := User{UserID: "user123", UserName: "TestUser"}
+	err = db.BindUser(user)
+	assert.NoError(t, err)
+
+	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+	assert.NoError(t, err)
+
+	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "url", ClassID: classID})
+	assert.NoError(t, err)
+
+	err = db.AddAC(user.UserID, problemID)
+	assert.NoError(t, err)
+
+	// Act
+	solved, err := db.HasUserSolvedProblem(user.UserID, problemID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.True(t, solved)
+}
+
+func TestHasUserSolvedProblem_ReturnsFalse(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	// Preconditions
+	user := User{UserID: "user123", UserName: "TestUser"}
+	err = db.BindUser(user)
+	assert.NoError(t, err)
+
+	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+	assert.NoError(t, err)
+
+	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "url", ClassID: classID})
+	assert.NoError(t, err)
+
+	// Act
+	solved, err := db.HasUserSolvedProblem(user.UserID, problemID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.False(t, solved)
+}

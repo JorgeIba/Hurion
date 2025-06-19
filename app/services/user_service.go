@@ -706,6 +706,12 @@ func (service *UserService) canBroACTheProblem(userID string, problemID int64) (
 		return false, nil
 	}
 
+	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(userID, problemID); err != nil {
+		return false, serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
+	} else if hasUserSolvedAlready {
+		return false, serviceerr.NewConflictError(fmt.Sprintf("user %s has already solved problem %d", userID, problemID), nil)
+	}
+
 	return true, nil
 }
 

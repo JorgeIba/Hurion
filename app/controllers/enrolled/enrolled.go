@@ -14,6 +14,7 @@ import (
 
 var (
 	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
+	serviceConflictErr     = &serviceerr.ConflictError{}
 )
 
 func HandleDeregisterUser(c *context.ContextMessage) {
@@ -64,6 +65,10 @@ func HandleProposeAC(c *context.ContextMessage) {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
 				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Can you check if user `%s` is binded and registered on the same class of problem `%d`?", discordNickname, problemID)),
+			)
+		case errors.As(err, &serviceConflictErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has already solved problem `%d`", discordNickname, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
