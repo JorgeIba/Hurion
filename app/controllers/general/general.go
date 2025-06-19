@@ -466,3 +466,27 @@ func HandleGetClassesOfUsername(c *context.ContextMessage) {
 		},
 	)
 }
+
+func HandleGetMyUsername(c *context.ContextMessage) {
+	discordID := c.Message.Author.ID
+
+	userName, err := c.Services.User.GetUsernameByUserID(discordID)
+	if err != nil {
+		logger.Log.Error(err)
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "You are not binded to any username. Use `!bind <username>` to bind your account."),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+		return
+	}
+
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Your username is `%s`", userName)),
+	)
+}

@@ -4,6 +4,7 @@ type QueryDatastore interface {
 	GetProblemsByClass(classID int64) ([]Problem, error)
 	GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error)
 	GetUserByUserName(userName string) (User, error)
+	GetUserByUserID(userID string) (User, error)
 	GetClassByClassCode(classCode string) (Class, error)
 	IsUserBinded(userID string) (bool, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)

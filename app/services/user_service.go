@@ -145,6 +145,19 @@ func (service *UserService) AddACToUser(userID string, problemID int64) error {
 	return nil
 }
 
+func (service *UserService) GetUsernameByUserID(userID string) (string, error) {
+	user, err := service.Datastore.GetUserByUserID(userID)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return "", serviceerr.NewNotFoundInfoError(fmt.Sprintf("userID %s doesn't match with any user", userID), err)
+		default:
+			return "", serviceerr.MakeGeneralError(err)
+		}
+	}
+	return user.UserName, nil
+}
+
 // By UserName
 func (service *UserService) RegisterUsernameIntoClass(userName, classCode string) error {
 	user, err := service.Datastore.GetUserByUserName(userName)
