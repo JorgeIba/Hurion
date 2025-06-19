@@ -1009,3 +1009,45 @@ func TestUpdateByProblemID_NotFound(t *testing.T) {
 	var notFoundErr *dataerr.NotFoundError
 	assert.ErrorAs(t, err, &notFoundErr, "Should return NotFoundError type")
 }
+
+func TestGetClassesByUserID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	class1 := Class{
+		ClassCode: "class1",
+		Name:      "Class 1",
+	}
+	class2 := Class{
+		ClassCode: "class2",
+		Name:      "Class 2",
+	}
+	class3 := Class{
+		ClassCode: "class3",
+		Name:      "Class 3",
+	}
+
+	classes := []Class{class1, class2, class3}
+
+	const userID = "user123"
+
+	// Precondition
+	for i := range len(classes) {
+		class := &classes[i]
+		class.ID, err = db.CreateClass(*class)
+		assert.NoError(t, err)
+	}
+
+	for _, class := range classes {
+		err = db.RegisterUserIntoClass(userID, class.ID)
+		assert.NoError(t, err, "Should register user into class without error")
+	}
+
+	// Act
+	classes_response, err := db.GetClassesByUserID(userID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.Len(t, classes_response, 3, "Should return two classes for the user")
+}

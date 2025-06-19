@@ -610,6 +610,14 @@ func (service *UserService) GetClassIDByClassCode(classCode string) (int64, erro
 	return class.ID, nil
 }
 
+func (service *UserService) GetClassesByUserID(userID string) ([]data.Class, error) {
+	classes, err := service.Datastore.GetClassesByUserID(userID)
+	if err != nil {
+		return []data.Class{}, serviceerr.MakeGeneralError(fmt.Errorf("something happened trying to get classes by userID: %s: %v", userID, err))
+	}
+	return classes, nil
+}
+
 // Private
 func (service *UserService) isUserIDEnrolledByClassCode(userID, classCode string) (bool, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)

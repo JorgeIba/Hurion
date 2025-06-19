@@ -11,6 +11,7 @@ type QueryDatastore interface {
 	GetProblemByID(problemID int64) (Problem, error)
 	GetAllUsersByClassID(classID int64) ([]User, error)
 	GetAllClasses() ([]Class, error)
+	GetClassesByUserID(userID string) ([]Class, error)
 }
 
 type UpdateDataStore interface {

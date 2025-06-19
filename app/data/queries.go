@@ -538,3 +538,33 @@ func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 
 	return nil
 }
+
+func (db *DB) GetClassesByUserID(userID string) ([]Class, error) {
+	query := `
+		SELECT c.id, c.class_code, c.name
+		FROM enrollments e
+		JOIN classes c ON e.class_id = c.id
+		WHERE e.user_id = ?;
+	`
+
+	rows, err := db.conn.Query(query, userID)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get classes for user %s", userID), err)
+	}
+	defer rows.Close()
+
+	var classes []Class
+	for rows.Next() {
+		var class Class
+		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class for user %s", userID), err)
+		}
+		classes = append(classes, class)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over classes for user %s", userID), err)
+	}
+
+	return classes, nil
+}

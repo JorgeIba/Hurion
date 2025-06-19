@@ -370,3 +370,43 @@ func HandleGetAllClasses(c *context.ContextMessage) {
 		},
 	)
 }
+
+func HandleGetMyClasses(c *context.ContextMessage) {
+	discordID := c.Message.Author.ID
+
+	classes, err := c.Services.User.GetClassesByUserID(discordID)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected internal error"),
+		)
+		return
+	}
+
+	if len(classes) == 0 {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "You are not registered in any class"),
+		)
+		return
+	}
+
+	var stringBuilder strings.Builder
+	for _, class := range classes {
+		stringBuilder.WriteString(fmt.Sprintf("* `%s`: %s\n", class.ClassCode, class.Name))
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Your classes:",
+		Description: stringBuilder.String(),
+		Color:       0x00ffcc,
+	}
+
+	logger.Log.Info(stringBuilder.String())
+	c.Dispatcher.Send(
+		dispatcher.MessageResponse{
+			Type:      dispatcher.EmbedMessage,
+			ChannelID: c.Message.ChannelID,
+			Embed:     embed,
+		},
+	)
+}
