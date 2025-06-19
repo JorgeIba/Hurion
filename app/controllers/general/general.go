@@ -410,3 +410,59 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 		},
 	)
 }
+
+func HandleGetClassesOfUsername(c *context.ContextMessage) {
+	userName := c.Args[1]
+
+	userID, err := c.Services.User.GetUserIDByUsername(userName)
+	if err != nil {
+		logger.Log.Error(err)
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` not found", userName)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+		return
+	}
+
+	classes, err := c.Services.User.GetClassesByUserID(userID)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+		)
+		return
+	}
+
+	if len(classes) == 0 {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` not registered in any class", userName)),
+		)
+		return
+	}
+
+	var stringBuilder strings.Builder
+	for _, class := range classes {
+		stringBuilder.WriteString(fmt.Sprintf("* `%s`: %s\n", class.ClassCode, class.Name))
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("Classes of user %s:", userName),
+		Description: stringBuilder.String(),
+		Color:       0x00ffcc,
+	}
+
+	logger.Log.Info(stringBuilder.String())
+	c.Dispatcher.Send(
+		dispatcher.MessageResponse{
+			Type:      dispatcher.EmbedMessage,
+			ChannelID: c.Message.ChannelID,
+			Embed:     embed,
+		},
+	)
+}
