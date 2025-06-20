@@ -8,11 +8,13 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 )
 
 type CommandRouter func(c *context.ContextMessage)
 
 var commandMap = map[string]CommandRouter{
+	"!help":           routerHelp,
 	"!bind":           routerBind,
 	"!register":       routerRegister,
 	"!deregister":     routerDeregister,
@@ -213,5 +215,30 @@ func routerGetMyUsername(c *context.ContextMessage) {
 		general.HandleGetMyUsername(c)
 	default:
 		fmt.Println(LimitExceed)
+	}
+}
+
+// routerHelp handles the !help command, showing all commands or details for a specific command
+func routerHelp(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1:
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, buildGeneralHelpMessage()),
+		)
+	case 2:
+		command := c.Args[1]
+		if info, exists := commandInfoMap["!"+command]; exists {
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, buildCommandHelpMessage(info)),
+			)
+		} else {
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Unknown command: %s\nUse `!help` to see all available commands.", command)),
+			)
+		}
+	default:
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Usage: `!help [command]`"),
+		)
 	}
 }
