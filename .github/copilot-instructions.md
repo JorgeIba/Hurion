@@ -122,6 +122,7 @@ When a use case is requested, it should be provided with the following info:
 * Description, what the use case is about (e.g., "Add a new problem", "Register a user")
 * Any specific requirements or constraints could be read (e.g., "Use struct parameters", "Follow error handling patterns")
 * Use case format (e.g. !register <user_name> <class_code>).
+* If use case is already implemented, provide the file and function name where it can be found.
 
 ### REFACTORING GUIDANCE
 When refactoring large files:
