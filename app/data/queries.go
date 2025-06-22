@@ -602,3 +602,20 @@ func (db *DB) IsUsernameAvailable(userName string, excludeUserID string) (bool, 
 
 	return !exists, nil
 }
+
+func (db *DB) HasUsernameBound(userID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM users
+			WHERE user_id = ?
+		)
+	`
+
+	var exists bool
+	if err := db.conn.QueryRow(query, userID).Scan(&exists); err != nil {
+		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if user %s has username bound", userID), err)
+	}
+
+	return exists, nil
+}

@@ -734,3 +734,29 @@ func (service *UserService) isUserIDEnrolledByClassID(userID string, classID int
 
 	return isMyBoyEnrolled, nil
 }
+
+func (service *UserService) ChangeUsername(userID, newUserName string) error {
+	// Check if the new username is available
+	isAvailable, err := service.Datastore.IsUsernameAvailable(newUserName, userID)
+	if err != nil {
+		return serviceerr.MakeGeneralError(err)
+	} else if !isAvailable {
+		return serviceerr.NewConflictError(fmt.Sprintf("username '%s' is already taken by another user", newUserName), nil)
+	}
+
+	if err := service.Datastore.BindUser(data.User{
+		UserID:   userID,
+		UserName: newUserName,
+	}); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
+}
+
+func (service *UserService) HasUsernameBound(userID string) (bool, error) {
+	hasBound, err := service.Datastore.HasUsernameBound(userID)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+	return hasBound, nil
+}

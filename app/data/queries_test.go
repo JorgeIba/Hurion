@@ -1181,3 +1181,38 @@ func TestIsUsernameAvailable_EmptyDatabase(t *testing.T) {
 	// Verify
 	assert.True(t, isAvailable, "Username should be available in empty database")
 }
+
+func TestHasUsernameBound_UserWithUsername(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+	const userName = "jorge_test"
+
+	// Preconditions
+	err = db.BindUser(User{UserID: userID, UserName: userName})
+	assert.NoError(t, err)
+
+	// Act
+	hasBound, err := db.HasUsernameBound(userID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.True(t, hasBound, "User should have username bound")
+}
+
+func TestHasUsernameBound_UserWithoutUsername(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+
+	// Act
+	hasBound, err := db.HasUsernameBound(userID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.False(t, hasBound, "User should not have username bound")
+}

@@ -27,6 +27,13 @@ var commandInfoMap = map[string]commandInfo{
 		UserType:    "All",
 		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\")",
 	},
+	"!change_username": {
+		Command:     "!change_username",
+		Usage:       "!change_username <user_name>",
+		Description: "Change your current username to a new one",
+		UserType:    "All",
+		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\"). If you don't have a username bound yet, this will bind the new username to your account.",
+	},
 	"!register": {
 		Command:     "!register",
 		Usage:       "!register <class_code>",

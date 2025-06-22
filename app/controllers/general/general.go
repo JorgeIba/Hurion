@@ -497,3 +497,48 @@ func HandleGetMyUsername(c *context.ContextMessage) {
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Your username is `%s`", userName)),
 	)
 }
+
+func HandleChangeUsername(c *context.ContextMessage) {
+	newUserName := c.Args[1]
+	discordID := c.Message.Author.ID
+	discordNickName := c.Message.Author.GlobalName
+
+	// Check if user currently has a username bound
+	hasUsernameBound, err := c.Services.User.HasUsernameBound(discordID)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+		)
+		return
+	}
+
+	if err := c.Services.User.ChangeUsername(discordID, newUserName); err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceConflictErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` is already taken by another user. Please choose a different username.", newUserName)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
+
+		return
+	}
+
+	var successMessage string
+	if !hasUsernameBound {
+		successMessage = fmt.Sprintf("User `%s` bound to the username `%s` (no previous username found)", discordNickName, newUserName)
+	} else {
+		successMessage = fmt.Sprintf("User `%s` changed username to `%s`", discordNickName, newUserName)
+	}
+
+	logger.Log.Info(successMessage)
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
+	)
+}

@@ -14,24 +14,25 @@ import (
 type CommandRouter func(c *context.ContextMessage)
 
 var commandMap = map[string]CommandRouter{
-	"!help":           routerHelp,
-	"!bind":           routerBind,
-	"!register":       routerRegister,
-	"!deregister":     routerDeregister,
-	"!list":           routerList,
-	"!score":          routerScore,
-	"!ac":             routerProposeAC,
-	"!undo_ac":        routerUndoAC,
-	"!add_problem":    routerAddProblem,
-	"!remove_problem": routerRemoveProblem,
-	"!clear_class":    routerClearClass,
-	"!create_class":   routerCreateClass,
-	"!users":          routerGetUsersInClass,
-	"!classes":        routerGetAllClasses,
-	"!update_problem": routerUpdateProblem,
-	"!my_classes":     routerGetMyClasses,
-	"!classes_of":     routerGetClassesOfUser,
-	"!me":             routerGetMyUsername,
+	"!help":            routerHelp,
+	"!bind":            routerBind,
+	"!register":        routerRegister,
+	"!deregister":      routerDeregister,
+	"!list":            routerList,
+	"!score":           routerScore,
+	"!ac":              routerProposeAC,
+	"!undo_ac":         routerUndoAC,
+	"!add_problem":     routerAddProblem,
+	"!remove_problem":  routerRemoveProblem,
+	"!clear_class":     routerClearClass,
+	"!create_class":    routerCreateClass,
+	"!users":           routerGetUsersInClass,
+	"!classes":         routerGetAllClasses,
+	"!update_problem":  routerUpdateProblem,
+	"!my_classes":      routerGetMyClasses,
+	"!classes_of":      routerGetClassesOfUser,
+	"!me":              routerGetMyUsername,
+	"!change_username": routerChangeUsername,
 }
 
 const NotEnough = "Not enough parameters bro"
@@ -213,6 +214,17 @@ func routerGetMyUsername(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1:
 		general.HandleGetMyUsername(c)
+	default:
+		fmt.Println(LimitExceed)
+	}
+}
+
+func routerChangeUsername(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
+	case 2:
+		general.HandleChangeUsername(c)
 	default:
 		fmt.Println(LimitExceed)
 	}
