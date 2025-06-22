@@ -8,6 +8,7 @@ type QueryDatastore interface {
 	GetClassByClassCode(classCode string) (Class, error)
 	IsUserBinded(userID string) (bool, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
+	IsUsernameAvailable(userName string, excludeUserID string) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
 	GetProblemByID(problemID int64) (Problem, error)
 	GetAllUsersByClassID(classID int64) ([]User, error)

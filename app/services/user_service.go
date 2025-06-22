@@ -316,6 +316,17 @@ func (service *UserService) CreateClass(classCode, className string) error {
 }
 
 func (service *UserService) BindUser(userID, userName string) error {
+	// Check if the username is available for this user
+	isAvailable, err := service.Datastore.IsUsernameAvailable(userName, userID)
+	if err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+
+	if !isAvailable {
+		return serviceerr.NewConflictError(fmt.Sprintf("username '%s' is already taken by another user", userName), nil)
+	}
+
+	// Proceed with binding the user
 	if err := service.Datastore.BindUser(data.User{
 		UserID:   userID,
 		UserName: userName,

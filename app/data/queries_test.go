@@ -1102,3 +1102,82 @@ func TestHasUserSolvedProblem_ReturnsFalse(t *testing.T) {
 	// Verify
 	assert.False(t, solved)
 }
+
+// IsUsernameAvailable
+func TestIsUsernameAvailable_AvailableUsername(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+	const userName = "jorge_test"
+	const availableUsername = "maria_test"
+
+	// Preconditions
+	err = db.BindUser(User{UserID: userID, UserName: userName})
+	assert.NoError(t, err)
+
+	// Act
+	isAvailable, err := db.IsUsernameAvailable(availableUsername, userID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.True(t, isAvailable, "Username should be available")
+}
+
+func TestIsUsernameAvailable_TakenUsername(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID1 = "12345"
+	const userID2 = "67890"
+	const userName = "jorge_test"
+
+	// Preconditions
+	err = db.BindUser(User{UserID: userID1, UserName: userName})
+	assert.NoError(t, err)
+
+	// Act
+	isAvailable, err := db.IsUsernameAvailable(userName, userID2)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.False(t, isAvailable, "Username should not be available")
+}
+
+func TestIsUsernameAvailable_SameUserCanKeepUsername(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+	const userName = "jorge_test"
+
+	// Preconditions
+	err = db.BindUser(User{UserID: userID, UserName: userName})
+	assert.NoError(t, err)
+
+	// Act
+	isAvailable, err := db.IsUsernameAvailable(userName, userID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.True(t, isAvailable, "User should be able to keep their own username")
+}
+
+func TestIsUsernameAvailable_EmptyDatabase(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+	const userName = "jorge_test"
+
+	// Act
+	isAvailable, err := db.IsUsernameAvailable(userName, userID)
+	assert.NoError(t, err)
+
+	// Verify
+	assert.True(t, isAvailable, "Username should be available in empty database")
+}

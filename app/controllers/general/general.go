@@ -30,9 +30,16 @@ func HandleBindUser(c *context.ContextMessage) {
 	if err := c.Services.User.BindUser(discordID, userName); err != nil {
 		logger.Log.Error(err)
 
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-		)
+		switch {
+		case errors.As(err, &serviceConflictErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` is already taken by another user. Please choose a different username.", userName)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			)
+		}
 
 		return
 	}

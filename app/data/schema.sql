@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
-    user_name TEXT,
+    user_name TEXT UNIQUE NOT NULL,
     FOREIGN KEY (user_name) REFERENCES user_names(user_name)
 );
 

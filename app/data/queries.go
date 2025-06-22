@@ -585,3 +585,20 @@ func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error)
 
 	return exists, nil
 }
+
+func (db *DB) IsUsernameAvailable(userName string, excludeUserID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM users
+			WHERE user_name = ? AND user_id != ?
+		)
+	`
+
+	var exists bool
+	if err := db.conn.QueryRow(query, userName, excludeUserID).Scan(&exists); err != nil {
+		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if username %s is available", userName), err)
+	}
+
+	return !exists, nil
+}
