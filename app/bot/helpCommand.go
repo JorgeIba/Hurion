@@ -106,6 +106,12 @@ var commandInfoMap = map[string]commandInfo{
 		Description: "Create a new class with the specified code and name",
 		UserType:    "Admin",
 		ExtraInfo:   "The `class_code` should be one word, while `ClassName` can include multiple words (e.g., \"basicos_1 Basicos 2025\")",
+	}, "!exterminate": {
+		Command:     "!exterminate",
+		Usage:       "!exterminate <user_id>",
+		Description: "Remove user from all system data including bindings, enrollments, solved problems and pending confirmations",
+		UserType:    "Admin",
+		ExtraInfo:   "The `user_id` should be the Discord user ID (e.g., \"123456789012345678\"). This action cannot be undone.",
 	}, "!users": {
 		Command:     "!users",
 		Usage:       "!users <class_code>",

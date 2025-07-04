@@ -31,6 +31,7 @@ type UpdateDataStore interface {
 	AddPendingConfirmation(confirmation PendingConfirmation) error
 	RemovePendingConfirmation(messageID string) error
 	UpdateProblemByProblemID(problemID int64, problem Problem) error
+	ExterminateUser(userID string) error
 }
 
 type DataStore interface {

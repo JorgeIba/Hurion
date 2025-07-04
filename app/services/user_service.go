@@ -760,3 +760,20 @@ func (service *UserService) HasUsernameBound(userID string) (bool, error) {
 	}
 	return hasBound, nil
 }
+
+func (service *UserService) ExterminateUser(userID string) error {
+	_, err := service.Datastore.GetUserByUserID(userID)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	if err = service.Datastore.ExterminateUser(userID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
+}

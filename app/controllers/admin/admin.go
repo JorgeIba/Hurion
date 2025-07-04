@@ -94,6 +94,45 @@ func HandleCreateClass(c *context.ContextMessage) {
 	)
 }
 
+func HandleExterminate(c *context.ContextMessage) {
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
+		logger.Log.Errorf("Error checking if author is admin: %v", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
+		)
+		return
+	} else if !isAdmin {
+		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
+		)
+		return
+	}
+
+	userID := c.Args[1]
+	if err := c.Services.User.ExterminateUser(userID); err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` not found in the system", userID)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error while exterminating user."),
+			)
+		}
+
+		return
+	}
+
+	logger.Log.Infof("User %s exterminated successfully!", userID)
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has been completely removed from the system.", userID)),
+	)
+}
+
 func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
 	// TODO: Remove this line after testing
 	return true, nil

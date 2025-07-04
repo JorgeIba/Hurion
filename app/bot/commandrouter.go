@@ -33,6 +33,7 @@ var commandMap = map[string]CommandRouter{
 	"!classes_of":      routerGetClassesOfUser,
 	"!me":              routerGetMyUsername,
 	"!change_username": routerChangeUsername,
+	"!exterminate":     routerExterminate,
 }
 
 const NotEnough = "Not enough parameters bro"
@@ -225,6 +226,17 @@ func routerChangeUsername(c *context.ContextMessage) {
 		fmt.Println(NotEnough)
 	case 2:
 		general.HandleChangeUsername(c)
+	default:
+		fmt.Println(LimitExceed)
+	}
+}
+
+func routerExterminate(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
+	case 2:
+		admin.HandleExterminate(c)
 	default:
 		fmt.Println(LimitExceed)
 	}

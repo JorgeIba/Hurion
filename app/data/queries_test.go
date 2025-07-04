@@ -1216,3 +1216,125 @@ func TestHasUsernameBound_UserWithoutUsername(t *testing.T) {
 	// Verify
 	assert.False(t, hasBound, "User should not have username bound")
 }
+
+func TestExterminateUser_CompleteRemoval(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+	const userName = "Jorge"
+
+	// Preconditions
+	classID, err := db.CreateClass(Class{ClassCode: "test_class", Name: "Test Class"})
+	assert.NoError(t, err)
+
+	err = db.BindUser(User{UserID: userID, UserName: userName})
+	assert.NoError(t, err)
+
+	err = db.RegisterUserIntoClass(userID, classID)
+	assert.NoError(t, err)
+
+	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "http://test.com", ClassID: classID})
+	assert.NoError(t, err)
+
+	err = db.AddAC(userID, problemID)
+	assert.NoError(t, err)
+
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg123", UserID: userID, ProblemID: problemID})
+	assert.NoError(t, err)
+
+	// Act
+	err = db.ExterminateUser(userID)
+	assert.NoError(t, err)
+
+	// Verify
+	var count int
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", userID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "User should be removed from users table")
+
+	// Check enrollments table
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ?", userID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "User should be removed from enrollments table")
+
+	// Check solved_problems table
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = ?", userID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "User should be removed from solved_problems table")
+
+	// Check pending_confirmations table
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = ?", userID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "User should be removed from pending_confirmations table")
+}
+
+func TestExterminateUser_NonexistentUser(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "nonexistent"
+
+	// Act
+	err = db.ExterminateUser(userID)
+
+	// Verify
+	assert.NoError(t, err, "Exterminating nonexistent user should not return error")
+}
+
+func TestExterminateUser_MultipleUsers(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	users := []User{
+		{UserID: "user1", UserName: "Jorge"},
+		{UserID: "user2", UserName: "Luis"},
+	}
+
+	// Preconditions
+	classID, err := db.CreateClass(Class{ClassCode: "test_class", Name: "Test Class"})
+	assert.NoError(t, err)
+
+	for _, user := range users {
+		err = db.BindUser(user)
+		assert.NoError(t, err)
+		err = db.RegisterUserIntoClass(user.UserID, classID)
+		assert.NoError(t, err)
+	}
+
+	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "url", ClassID: classID})
+	assert.NoError(t, err)
+
+	for _, user := range users {
+		err = db.AddAC(user.UserID, problemID)
+		assert.NoError(t, err)
+	}
+
+	// Act
+	err = db.ExterminateUser(users[0].UserID)
+	assert.NoError(t, err)
+
+	// Verify
+	var count int
+
+	// User1 should be completely removed
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", users[0].UserID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count)
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ?", users[0].UserID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count)
+
+	// User2 should still exist
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", users[1].UserID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count)
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ?", users[1].UserID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count)
+}

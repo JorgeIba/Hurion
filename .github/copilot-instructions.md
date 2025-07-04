@@ -52,26 +52,28 @@ Data is stored in SQLite with a clean layered architecture.
 
 ### Error Handling
 These are the common error types used across the application, organized by layer, if you need to add a new error type (none of those can be used), please follow the same pattern and add it to the corresponding layer.
-```go
-## Data layer
+
+Data layer: 
 * Initialization Error
 * Query Error
 * Transaction Error
 * Row Conflict Error
 * Not Found Error
-## Service Layer
+
+Service Layer:
 * Internal Error
 * Conflict Error
 * Not Found Error
 
-## Validation Layer
+Validation Layer:
 * Internal Error
 * Not Found Error
-## Controllers Layer
+
+Controllers Layer:
 * Validation Error
 * Internal Error
 * Parsing Error
-```
+
 
 Errors can be seen as links betweehn layers, so if you need to add a new error type, please make sure to add it in the corresponding layer and follow the same pattern, e.g error from data layer should not
 be used in the controller layer.

@@ -619,3 +619,30 @@ func (db *DB) HasUsernameBound(userID string) (bool, error) {
 
 	return exists, nil
 }
+
+func (db *DB) ExterminateUser(userID string) error {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to exterminate user %s", userID), err)
+	}
+
+	queries := []string{
+		"DELETE FROM pending_confirmations WHERE user_id = ?",
+		"DELETE FROM solved_problems WHERE user_id = ?",
+		"DELETE FROM enrollments WHERE user_id = ?",
+		"DELETE FROM users WHERE user_id = ?",
+	}
+
+	for _, query := range queries {
+		if _, err := tx.Exec(query, userID); err != nil {
+			tx.Rollback()
+			return dataerr.NewQueryError(fmt.Sprintf("could not execute query to exterminate user %s", userID), err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to exterminate user %s", userID), err)
+	}
+
+	return nil
+}
