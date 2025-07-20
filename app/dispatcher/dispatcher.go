@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/Necroforger/dgwidgets"
 	"github.com/bwmarrin/discordgo"
 )
@@ -70,6 +71,24 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		paginator.ColourWhenDone = 0xffff
 		paginator.Widget.Timeout = TIME_ACTIVE_PROBLEMS_LIST
 		go paginator.Spawn()
+
+	case ConfirmationMessage:
+		embed := &discordgo.MessageEmbed{
+			Title:       "CONFIRMATION",
+			Description: msg.Content,
+			Color:       0xff6b35, // Orange
+		}
+
+		sentMsg, err := d.Session.ChannelMessageSendEmbedReply(msg.ChannelID, embed, &discordgo.MessageReference{
+			MessageID: msg.ReplyTo,
+			ChannelID: msg.ChannelID,
+		})
+
+		if err == nil {
+			d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_UP)
+			d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_DOWN)
+		}
+
 	default:
 		fmt.Println("Unknown message type:", msg.Type)
 	}
@@ -84,5 +103,14 @@ func MakeSimpleMessage(channelID, message string) MessageResponse {
 		Type:      SimpleMessage,
 		ChannelID: channelID,
 		Content:   message,
+	}
+}
+
+func MakeConfirmationMessage(channelID, replyToMessageID, warningMessage string) MessageResponse {
+	return MessageResponse{
+		Type:      ConfirmationMessage,
+		ChannelID: channelID,
+		ReplyTo:   replyToMessageID,
+		Content:   warningMessage,
 	}
 }

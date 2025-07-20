@@ -11,6 +11,7 @@ const (
 	Reaction
 	FileMessage
 	PaginationEmbed
+	ConfirmationMessage
 )
 
 type MessageResponse struct {

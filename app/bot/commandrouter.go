@@ -236,7 +236,16 @@ func routerExterminate(c *context.ContextMessage) {
 	case 1:
 		fmt.Println(NotEnough)
 	case 2:
-		admin.HandleExterminate(c)
+		// Send confirmation message instead of executing directly
+		warningMessage := fmt.Sprintf("⚠️ **DANGEROUS OPERATION**\n\n"+
+			"This will **PERMANENTLY DELETE** all data for user `%s'\n"+
+			"**This action CANNOT be undone!**", c.Args[1])
+
+		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
+			c.Message.ChannelID,
+			c.Message.ID,
+			warningMessage,
+		))
 	default:
 		fmt.Println(LimitExceed)
 	}

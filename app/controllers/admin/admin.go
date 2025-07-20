@@ -94,19 +94,19 @@ func HandleCreateClass(c *context.ContextMessage) {
 	)
 }
 
-func HandleExterminate(c *context.ContextMessage) {
+func HandleExterminate(c *context.ContextMessage) error {
 	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
 		)
-		return
+		return err
 	} else if !isAdmin {
 		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return
+		return err
 	}
 
 	userID := c.Args[1]
@@ -124,13 +124,15 @@ func HandleExterminate(c *context.ContextMessage) {
 			)
 		}
 
-		return
+		return fmt.Errorf("error exterminating user %s: %w", userID, err)
 	}
 
 	logger.Log.Infof("User %s exterminated successfully!", userID)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has been completely removed from the system.", userID)),
 	)
+
+	return nil
 }
 
 func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
