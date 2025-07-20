@@ -69,6 +69,13 @@ func routerConfirmationThumbsUpReaction(c *context.ContextMessage) {
 			setMessageAsExecuted(c, fmt.Sprintf("User %s has been exterminated", args[1]))
 		}
 		return
+	case "!clear_class":
+		if err := admin.HandleClearClass(originalContext); err != nil {
+			setMessageAsError(c)
+		} else {
+			setMessageAsExecuted(c, fmt.Sprintf("Class %s has been cleared", args[1]))
+		}
+		return
 	}
 }
 
@@ -81,7 +88,7 @@ func setMessageAsCancelled(c *context.ContextMessage) {
 	cancelledEmbed := &discordgo.MessageEmbed{
 		Title:       "CANCELLED",
 		Description: "❌ Operation was cancelled by user.",
-		Color:       0xff0000,
+		Color:       0xff0000, // Red
 	}
 	c.Session.ChannelMessageEditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, cancelledEmbed)
 
@@ -95,9 +102,10 @@ func setMessageAsExecuted(c *context.ContextMessage, message string) {
 	successEmbed := &discordgo.MessageEmbed{
 		Title:       "EXECUTED",
 		Description: fmt.Sprintf("✅ %s.", message),
-		Color:       0x00ff00,
+		Color:       0x00ff00, // Green
 	}
 	c.Session.ChannelMessageEditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, successEmbed)
+
 	// Remove reactions
 	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_UP, c.Session.State.User.ID)
 	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_DOWN, c.Session.State.User.ID)
@@ -108,7 +116,7 @@ func setMessageAsError(c *context.ContextMessage) {
 	errorEmbed := &discordgo.MessageEmbed{
 		Title:       "ERROR",
 		Description: "Something went wrong while processing your request.",
-		Color:       0xff0000, // Red color for errors
+		Color:       0xff0000, // Red
 	}
 	c.Session.ChannelMessageEditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, errorEmbed)
 

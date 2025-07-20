@@ -16,19 +16,19 @@ var (
 	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
 )
 
-func HandleClearClass(c *context.ContextMessage) {
+func HandleClearClass(c *context.ContextMessage) error {
 	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
 		logger.Log.Errorf("Error checking if author is admin: %v", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
 		)
-		return
+		return err
 	} else if !isAdmin {
 		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return
+		return err
 	}
 
 	classCode := c.Args[1]
@@ -46,13 +46,15 @@ func HandleClearClass(c *context.ContextMessage) {
 			)
 		}
 
-		return
+		return fmt.Errorf("error deleting class %s: %w", classCode, err)
 	}
 
 	logger.Log.Infof("Class %s has been removed\n", classCode)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class `%s` has bee removed successfully", classCode)),
 	)
+
+	return nil
 }
 
 func HandleCreateClass(c *context.ContextMessage) {

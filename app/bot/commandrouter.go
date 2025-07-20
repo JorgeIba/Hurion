@@ -145,7 +145,13 @@ func routerRemoveProblem(c *context.ContextMessage) {
 func routerClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
-		admin.HandleClearClass(c)
+		// Send confirmation message instead of directly executing
+		classCode := c.Args[1]
+		warningMessage := fmt.Sprintf("⚠️ **DANGER!** This will permanently delete class `%s` and all its data. This action cannot be undone!", classCode)
+		
+		c.Dispatcher.Send(
+			dispatcher.MakeConfirmationMessage(c.Message.ChannelID, c.Message.ID, warningMessage),
+		)
 	default:
 		fmt.Println(LimitExceed)
 	}
