@@ -434,17 +434,6 @@ func (service *UserService) GetListOfUsersByClassCode(classCode string) ([]data.
 	return users, nil
 }
 
-type PairUserSolvedProblems struct {
-	User           data.User
-	SolvedProblems []data.SolvedProblem
-}
-
-type PairUserProblemScore struct {
-	User          data.User
-	CountProblems int
-	Problems      map[data.Problem]bool
-}
-
 func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairUserProblemScore, error) {
 	solvedProblems, err := service.GetScoreByClassCode(classCode)
 	if err != nil {
@@ -485,12 +474,6 @@ func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairU
 		allScore = append(allScore, scoreUser)
 	}
 	return allScore, nil
-}
-
-type TableScore struct {
-	Class  string
-	Header []string
-	Table  [][]string
 }
 
 func (service *UserService) GetSortedScoreByClassCodeAsTable(classCode string) (TableScore, error) {
