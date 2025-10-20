@@ -112,6 +112,12 @@ var commandInfoMap = map[string]commandInfo{
 		Description: "Remove user from all system data including bindings, enrollments, solved problems and pending confirmations",
 		UserType:    "Admin",
 		ExtraInfo:   "The `user_id` should be the Discord user ID (e.g., \"123456789012345678\"). This action cannot be undone.",
+	}, "!export": {
+		Command:     "!export",
+		Usage:       "!export <class_code>",
+		Description: "Export all class data (users, problems, scores) to an Excel file",
+		UserType:    "Admin",
+		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\"). The Excel file will contain three sheets: Users, Problems, and Scores.",
 	}, "!users": {
 		Command:     "!users",
 		Usage:       "!users <class_code>",

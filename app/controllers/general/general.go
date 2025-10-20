@@ -209,7 +209,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Not found info for class code %s or userName %s", classCode, userName)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Not found info for class code `%s` or user name `%s`", classCode, userName)),
 			)
 		case errors.As(err, &serviceInternalErr):
 			c.Dispatcher.Send(
@@ -217,7 +217,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 			)
 		default:
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User %s is registered in %s? I didn't find any AC", userName, classCode)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` is registered in `%s`? I didn't find any AC", userName, classCode)),
 			)
 		}
 		return

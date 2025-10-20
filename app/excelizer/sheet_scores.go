@@ -3,43 +3,26 @@ package excelizer
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/xuri/excelize/v2"
 )
 
-func writeScoresData(f *excelize.File, sheetName string, userScores []services.PairUserProblemScore) ([]data.Problem, error) {
-	// Collect all problems from all users
-	problemsMap := make(map[data.Problem]bool)
-	for _, userScore := range userScores {
-		for problem := range userScore.Problems {
-			problemsMap[problem] = true
-		}
-	}
-
-	// Convert to slice for consistent ordering
-	var problems []data.Problem
-	for problem := range problemsMap {
-		problems = append(problems, problem)
-	}
-
+func writeScoresData(f *excelize.File, sheetName string, scores []UserScore, problems []Problem) error {
 	// Row 1: User names (starting from column B)
 	f.SetCellValue(sheetName, fmt.Sprintf("A%d", ScoresHeaderRow), "") // Empty cell A1
-	for i, userScore := range userScores {
+	for i, userScore := range scores {
 		col := SecondColumn + i // Start from column B
 		cell := fmt.Sprintf("%c%d", col, ScoresHeaderRow)
-		f.SetCellValue(sheetName, cell, userScore.User.UserName)
+		f.SetCellValue(sheetName, cell, userScore.User.Name)
 	}
 
 	// Row 2: Total problems solved by each user (starting from column B)
 	f.SetCellValue(sheetName, fmt.Sprintf("A%d", ScoresTotalsRow), TotalSolvedLabel)
-	for i, userScore := range userScores {
+	for i, userScore := range scores {
 		col := SecondColumn + i // Start from column B
 		cell := fmt.Sprintf("%c%d", col, ScoresTotalsRow)
 		f.SetCellValue(sheetName, cell, userScore.CountProblems)
 	}
 
-	// From row 3 onwards: Problem names in column A, AC/empty for each user
 	for i, problem := range problems {
 		row := i + ScoresFirstDataRow
 
@@ -48,7 +31,7 @@ func writeScoresData(f *excelize.File, sheetName string, userScores []services.P
 		f.SetCellValue(sheetName, cellProblemName, problem.Name)
 
 		// User columns (B onwards) - show AC if solved, leave empty if not
-		for j, userScore := range userScores {
+		for j, userScore := range scores {
 			col := SecondColumn + j // Start from column B
 			cell := fmt.Sprintf("%c%d", col, row)
 
@@ -60,26 +43,21 @@ func writeScoresData(f *excelize.File, sheetName string, userScores []services.P
 		}
 	}
 
-	return problems, nil
+	return nil
 }
 
-// AddScoresSheet adds a new sheet with user scores using PairUserProblemScore model with custom structure
-func AddScoresSheet(f *excelize.File, sheetName string, userScores []services.PairUserProblemScore) error {
-	// Create new sheet
+func AddScoresSheet(f *excelize.File, sheetName string, scores []UserScore, problems []Problem) error {
 	index, err := f.NewSheet(sheetName)
 	if err != nil {
 		return fmt.Errorf("failed to create sheet %s: %w", sheetName, err)
 	}
 
-	// Set the sheet as active
 	f.SetActiveSheet(index)
 
-	// Write data
-	problems, err := writeScoresData(f, sheetName, userScores)
+	err = writeScoresData(f, sheetName, scores, problems)
 	if err != nil {
 		return fmt.Errorf("failed to write scores data: %w", err)
 	}
 
-	// Apply formatting
-	return formatScore(f, sheetName, len(problems), len(userScores))
+	return formatScore(f, sheetName, len(problems), len(scores))
 }

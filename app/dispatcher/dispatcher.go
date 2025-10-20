@@ -57,10 +57,11 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		}
 
 	case FileMessage:
-		if len(msg.Embeds) > 0 && len(msg.Files) > 0 {
+		if len(msg.Files) > 0 {
 			d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
-				Embeds: msg.Embeds,
-				Files:  msg.Files,
+				Content: msg.Content,
+				Embeds:  msg.Embeds,
+				Files:   msg.Files,
 			})
 		}
 	case PaginationEmbed:
@@ -112,5 +113,14 @@ func MakeConfirmationMessage(channelID, replyToMessageID, warningMessage string)
 		ChannelID: channelID,
 		ReplyTo:   replyToMessageID,
 		Content:   warningMessage,
+	}
+}
+
+func MakeFileMessage(channelID, message string, files []*discordgo.File) MessageResponse {
+	return MessageResponse{
+		Type:      FileMessage,
+		ChannelID: channelID,
+		Content:   message,
+		Files:     files,
 	}
 }

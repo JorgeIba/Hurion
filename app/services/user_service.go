@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/excelizer"
 )
 
 var (
@@ -759,4 +760,70 @@ func (service *UserService) ExterminateUser(userID string) error {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
+}
+
+// Generates an Excel file with class data (users, problems, scores)
+// Returns file bytes, filename, and error
+func (service *UserService) ExportClassToExcel(classCode string) ([]byte, string, error) {
+	class, err := service.Datastore.GetClassByClassCode(classCode)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErr):
+			return nil, "", serviceerr.NewNotFoundInfoError("", err)
+		default:
+			return nil, "", serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	// Retrieve users, problems, and score
+	users, err := service.Datastore.GetAllUsersByClassID(class.ID)
+	if err != nil {
+		return nil, "", serviceerr.MakeGeneralError(err)
+	}
+
+	problems, err := service.GetListOfProblemsByClassCode(classCode)
+	if err != nil {
+		return nil, "", err
+	}
+
+	userScores, err := service.GetSortedScoreByClassCode(classCode)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// transform data layer types to excelizer types
+	excelizerUsers := TransformToExcelizerUsers(users)
+	excelizerProblems := TransformToExcelizerProblems(problems)
+	excelizerScores := TransformToExcelizerScores(userScores, problems)
+
+	excelizer.SortUsersAlphabetically(excelizerUsers)
+	excelizer.SortScoresByTotalDescending(excelizerScores)
+
+	// Create Excel file
+	excel := excelizer.CreateExcel()
+	defer excel.Close()
+
+	if err := excelizer.AddUsersSheet(excel, "Users", excelizerUsers); err != nil {
+		return nil, "", serviceerr.MakeGeneralError(fmt.Errorf("error adding users sheet: %w", err))
+	}
+
+	if err := excelizer.AddProblemsSheet(excel, "Problems", excelizerProblems); err != nil {
+		return nil, "", serviceerr.MakeGeneralError(fmt.Errorf("error adding problems sheet: %w", err))
+	}
+
+	if err := excelizer.AddScoresSheet(excel, "Scores", excelizerScores, excelizerProblems); err != nil {
+		return nil, "", serviceerr.MakeGeneralError(fmt.Errorf("error adding scores sheet: %w", err))
+	}
+
+	// Remove default sheet
+	excel.DeleteSheet("Sheet1")
+
+	// Convert to bytes
+	buffer, err := excel.WriteToBuffer()
+	if err != nil {
+		return nil, "", serviceerr.MakeGeneralError(fmt.Errorf("error writing excel to buffer: %w", err))
+	}
+
+	filename := fmt.Sprintf("%s_export.xlsx", classCode)
+	return buffer.Bytes(), filename, nil
 }

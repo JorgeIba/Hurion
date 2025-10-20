@@ -34,6 +34,7 @@ var commandMap = map[string]CommandRouter{
 	"!me":              routerGetMyUsername,
 	"!change_username": routerChangeUsername,
 	"!exterminate":     routerExterminate,
+	"!export":          routerExport,
 }
 
 const NotEnough = "Not enough parameters bro"
@@ -254,6 +255,15 @@ func routerExterminate(c *context.ContextMessage) {
 		))
 	default:
 		fmt.Println(LimitExceed)
+	}
+}
+
+func routerExport(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1:
+		fmt.Println(NotEnough)
+	default:
+		admin.HandleExportClass(c)
 	}
 }
 

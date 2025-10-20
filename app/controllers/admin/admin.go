@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/bwmarrin/discordgo"
 )
 
 var (
@@ -132,6 +134,63 @@ func HandleExterminate(c *context.ContextMessage) error {
 	logger.Log.Infof("User %s exterminated successfully!", userID)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has been completely removed from the system.", userID)),
+	)
+
+	return nil
+}
+
+func HandleExportClass(c *context.ContextMessage) error {
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
+		logger.Log.Errorf("Error checking if author is admin: %v", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
+		)
+		return err
+	} else if !isAdmin {
+		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
+		)
+		return nil
+	}
+
+	// Extract class_code from args
+	classCode := c.Args[1]
+
+	// Call service to generate Excel file
+	excelBytes, filename, err := c.Services.User.ExportClassToExcel(classCode)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case errors.As(err, &serviceNotFoundInfoErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error while exporting class data."),
+			)
+		}
+
+		return fmt.Errorf("error exporting class %s: %w", classCode, err)
+	}
+
+	// Create Discord file attachment
+	file := &discordgo.File{
+		Name:        filename,
+		ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		Reader:      bytes.NewReader(excelBytes),
+	}
+
+	// Send file via dispatcher
+	logger.Log.Infof("Sending Excel export for class %s (`%s`)", classCode, filename)
+	c.Dispatcher.Send(
+		dispatcher.MakeFileMessage(
+			c.Message.ChannelID,
+			fmt.Sprintf("Excel export for class `%s`", classCode),
+			[]*discordgo.File{file},
+		),
 	)
 
 	return nil
