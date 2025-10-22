@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS problems (
     name TEXT,
     url TEXT,
     class_id INTEGER,
+    difficulty TEXT,
+    topic TEXT,
     UNIQUE(name, class_id),
     FOREIGN KEY (class_id) REFERENCES classes(id)
 );

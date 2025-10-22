@@ -161,10 +161,31 @@ func TestAddProblem_New(t *testing.T) {
 	classID, err := classResult.LastInsertId()
 	assert.NoError(t, err)
 
-	// Add a problem
-	problemID, err := db.AddProblem(Problem{Name: "Sorting Algorithms", URL: "url", ClassID: classID})
+	// Test 1: Add a problem without difficulty and topic
+	problemID1, err := db.AddProblem(Problem{Name: "Sorting Algorithms", URL: "url", ClassID: classID})
 	assert.NoError(t, err)
-	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
+	assert.Greater(t, problemID1, int64(0), "Problem ID should be greater than 0")
+
+	// Test 2: Add a problem with difficulty and topic
+	difficulty := string(DifficultyMedium)
+	topic := "Sorting"
+	problemID2, err := db.AddProblem(Problem{
+		Name:       "Binary Search",
+		URL:        "url2",
+		ClassID:    classID,
+		Difficulty: &difficulty,
+		Topic:      &topic,
+	})
+	assert.NoError(t, err)
+	assert.Greater(t, problemID2, int64(0), "Problem ID should be greater than 0")
+
+	// Verify the problem with difficulty and topic
+	problem, err := db.GetProblemByID(problemID2)
+	assert.NoError(t, err)
+	assert.NotNil(t, problem.Difficulty)
+	assert.Equal(t, "Medium", *problem.Difficulty)
+	assert.NotNil(t, problem.Topic)
+	assert.Equal(t, "Sorting", *problem.Topic)
 }
 
 // Remove problem
@@ -292,10 +313,19 @@ func TestGetProblemsByClass(t *testing.T) {
 	const classID2 = int64(2)
 
 	// Preconditions
+	difficulty := string(DifficultyHard)
+	topic := "Algorithms"
+	
 	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 1", URL: "url1", ClassID: classID})
 	assert.NoError(t, err, "Precondition failed, problem 1 could not be added")
 
-	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 2", URL: "url2", ClassID: classID})
+	_, err = db.AddProblem(Problem{
+		Name:       "Sorting Stuff 2",
+		URL:        "url2",
+		ClassID:    classID,
+		Difficulty: &difficulty,
+		Topic:      &topic,
+	})
 	assert.NoError(t, err, "Precondition failed, problem 2 could not be added")
 
 	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 3", URL: "url3", ClassID: classID2})
@@ -311,6 +341,16 @@ func TestGetProblemsByClass(t *testing.T) {
 	// Verify
 	assert.Equal(t, 2, len(problemsList1), "Length are not the same")
 	assert.Equal(t, 1, len(problemsList2), "Length are not the same")
+
+	// Verify problem with difficulty and topic
+	assert.NotNil(t, problemsList1[1].Difficulty, "Difficulty should not be nil")
+	assert.Equal(t, "Hard", *problemsList1[1].Difficulty)
+	assert.NotNil(t, problemsList1[1].Topic, "Topic should not be nil")
+	assert.Equal(t, "Algorithms", *problemsList1[1].Topic)
+
+	// Verify problem without difficulty and topic
+	assert.Nil(t, problemsList1[0].Difficulty, "Difficulty should be nil")
+	assert.Nil(t, problemsList1[0].Topic, "Topic should be nil")
 }
 
 func TestGetAllSolvedProblemsByUser(t *testing.T) {
@@ -857,15 +897,30 @@ func TestGetProblemByID(t *testing.T) {
 	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
-	problemID, err := db.AddProblem(Problem{Name: problemName, URL: url, ClassID: classID})
+	difficulty := string(DifficultyEasy)
+	topic := "Data Structures"
+
+	problemID, err := db.AddProblem(Problem{
+		Name:       problemName,
+		URL:        url,
+		ClassID:    classID,
+		Difficulty: &difficulty,
+		Topic:      &topic,
+	})
 	assert.NoError(t, err)
 
 	// Act
 	problem, err := db.GetProblemByID(problemID)
 	assert.NoError(t, err)
-	assert.Equal(t, problem.ClassID, classID)
-	assert.Equal(t, problem.URL, url)
-	assert.Equal(t, problem.Name, problemName)
+	
+	// Verify
+	assert.Equal(t, classID, problem.ClassID)
+	assert.Equal(t, url, problem.URL)
+	assert.Equal(t, problemName, problem.Name)
+	assert.NotNil(t, problem.Difficulty, "Difficulty should not be nil")
+	assert.Equal(t, "Easy", *problem.Difficulty)
+	assert.NotNil(t, problem.Topic, "Topic should not be nil")
+	assert.Equal(t, "Data Structures", *problem.Topic)
 }
 
 func TestGetAllUsersByClassID(t *testing.T) {
