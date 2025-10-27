@@ -16,6 +16,41 @@ var (
 	dataConflictErr = &dataerr.RowConflictError{}
 )
 
+// getDifficultyOrder returns the sort order for a difficulty
+// Easy=1, Medium=2, Hard=3, Not specified=4
+func getDifficultyOrder(difficulty data.Difficulty) int {
+	switch difficulty {
+	case data.DifficultyEasy:
+		return 1
+	case data.DifficultyMedium:
+		return 2
+	case data.DifficultyHard:
+		return 3
+	case data.DifficultyDefault:
+		return 4
+	default:
+		return 5 // Unknown difficulties go last
+	}
+}
+
+// sortProblemsByTopicAndDifficulty sorts problems by topic (alphabetically) and then by difficulty
+func sortProblemsByTopicAndDifficulty(problems []data.Problem) {
+	sort.Slice(problems, func(i, j int) bool {
+		topicI := problems[i].GetTopic()
+		topicJ := problems[j].GetTopic()
+
+		// First, sort by topic (alphabetically)
+		if topicI != topicJ {
+			return topicI < topicJ
+		}
+
+		// If topics are the same, sort by difficulty
+		diffI := problems[i].GetDifficulty()
+		diffJ := problems[j].GetDifficulty()
+		return getDifficultyOrder(diffI) < getDifficultyOrder(diffJ)
+	})
+}
+
 type UserService struct {
 	Datastore data.DataStore
 }
@@ -233,14 +268,14 @@ func (service *UserService) GetUserIDByUsername(userName string) (string, error)
 	return user.UserID, nil
 }
 
-func (service *UserService) CreateProblemIntoClass(problemName, url, classCode string) (int64, error) {
-	if isClassCodeValid, err := service.isClassCodeValid(classCode); err != nil {
+func (service *UserService) CreateProblemIntoClass(params CreateProblemParams) (int64, error) {
+	if isClassCodeValid, err := service.isClassCodeValid(params.ClassCode); err != nil {
 		return 0, err
 	} else if !isClassCodeValid {
-		return 0, serviceerr.NewNotFoundInfoError(fmt.Sprintf("no info of class code %s", classCode), nil)
+		return 0, serviceerr.NewNotFoundInfoError(fmt.Sprintf("no info of class code %s", params.ClassCode), nil)
 	}
 
-	class, err := service.Datastore.GetClassByClassCode(classCode)
+	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -251,9 +286,11 @@ func (service *UserService) CreateProblemIntoClass(problemName, url, classCode s
 	}
 
 	problemID, err := service.Datastore.AddProblem(data.Problem{
-		Name:    problemName,
-		URL:     url,
-		ClassID: class.ID,
+		Name:       params.Name,
+		URL:        params.URL,
+		ClassID:    class.ID,
+		Difficulty: params.Difficulty,
+		Topic:      params.Topic,
 	})
 	if err != nil {
 		switch {
@@ -353,6 +390,9 @@ func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]da
 	if err != nil {
 		return emptySlice, serviceerr.MakeGeneralError(err)
 	}
+
+	// Sort problems by topic and difficulty
+	sortProblemsByTopicAndDifficulty(problems)
 
 	return problems, nil
 }

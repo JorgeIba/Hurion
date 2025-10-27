@@ -12,6 +12,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 )
 
 var (
@@ -296,8 +297,33 @@ func HandleAddProblem(c *context.ContextMessage) {
 		return
 	}
 
-	classCode, url, problemName := c.Args[1], c.Args[2], strings.Join(c.Args[3:], " ")
-	problemID, err := c.Services.User.CreateProblemIntoClass(problemName, url, classCode)
+	// Parse: !add_problem <class_code> <url> <difficulty> <topic> <ProblemName...>
+	// Args[0] = command, Args[1] = class_code, Args[2] = url, Args[3] = difficulty, Args[4] = topic, Args[5+] = name
+	classCode := c.Args[1]
+	url := c.Args[2]
+	difficultyStr := c.Args[3]
+	topicStr := c.Args[4]
+	problemName := strings.Join(c.Args[5:], " ")
+
+	// Parse difficulty (case-insensitive)
+	difficulty, err := parseDifficulty(difficultyStr)
+	if err != nil {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, err.Error()),
+		)
+		return
+	}
+
+	// Parse topic
+	topic := parseTopic(topicStr)
+
+	problemID, err := c.Services.User.CreateProblemIntoClass(services.CreateProblemParams{
+		Name:       problemName,
+		URL:        url,
+		ClassCode:  classCode,
+		Difficulty: difficulty,
+		Topic:      topic,
+	})
 
 	if err != nil {
 		logger.Log.Error(err)
@@ -395,7 +421,13 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 		return
 	}
 
-	problemIDStr, classCode, url, problemName := c.Args[1], c.Args[2], c.Args[3], strings.Join(c.Args[4:], " ")
+	problemIDStr := c.Args[1]
+	classCode := c.Args[2]
+	url := c.Args[3]
+	difficultyStr := c.Args[4]
+	topicStr := c.Args[5]
+	problemName := strings.Join(c.Args[6:], " ")
+
 	problemID, err := strconv.ParseInt(problemIDStr, 10, 64)
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
@@ -421,11 +453,25 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 		return
 	}
 
+	// Parse difficulty (case-insensitive)
+	difficulty, err := parseDifficulty(difficultyStr)
+	if err != nil {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, err.Error()),
+		)
+		return
+	}
+
+	// Parse topic
+	topic := parseTopic(topicStr)
+
 	if err = c.Services.User.UpdateProblemByProblemID(problemID, data.Problem{
-		ID:      problemID,
-		Name:    problemName,
-		ClassID: classID,
-		URL:     url,
+		ID:         problemID,
+		Name:       problemName,
+		ClassID:    classID,
+		URL:        url,
+		Difficulty: difficulty,
+		Topic:      topic,
 	}); err != nil {
 		logger.Log.Error(err)
 
@@ -446,6 +492,35 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem with ID: `%d` has been updated successfully", problemID)),
 	)
+}
+
+var difficultyMap = map[string]string{
+	"easy":   "Easy",
+	"medium": "Medium",
+	"hard":   "Hard",
+}
+
+func parseDifficulty(input string) (*string, error) {
+	if input == "-" {
+		return nil, nil
+	}
+
+	// Convert to lowercase for case-insensitive comparison
+	lowerInput := strings.ToLower(input)
+
+	if canonical, ok := difficultyMap[lowerInput]; ok {
+		return &canonical, nil
+	}
+
+	validDifficulties := []string{"easy", "medium", "hard"}
+	return nil, fmt.Errorf("invalid difficulty '%s'. Valid options: %s", input, strings.Join(validDifficulties, ", "))
+}
+
+func parseTopic(input string) *string {
+	if input == "-" {
+		return nil
+	}
+	return &input
 }
 
 func checkIfUserIsMentor(guildID, userID string) (bool, error) {

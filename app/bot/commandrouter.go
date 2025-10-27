@@ -125,7 +125,7 @@ func routerUndoAC(c *context.ContextMessage) {
 
 func routerAddProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1, 2:
+	case 1, 2, 3, 4:
 		fmt.Println(NotEnough)
 	default:
 		mentor.HandleAddProblem(c)
@@ -149,7 +149,7 @@ func routerClearClass(c *context.ContextMessage) {
 		// Send confirmation message instead of directly executing
 		classCode := c.Args[1]
 		warningMessage := fmt.Sprintf("⚠️ **DANGER!** This will permanently delete class `%s` and all its data. This action cannot be undone!", classCode)
-		
+
 		c.Dispatcher.Send(
 			dispatcher.MakeConfirmationMessage(c.Message.ChannelID, c.Message.ID, warningMessage),
 		)
@@ -189,12 +189,10 @@ func routerGetAllClasses(c *context.ContextMessage) {
 
 func routerUpdateProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1, 2, 3, 4:
+	case 1, 2, 3, 4, 5, 6:
 		fmt.Println(NotEnough)
-	case 5:
-		mentor.HandleUpdateProblem(c)
 	default:
-		fmt.Println(LimitExceed)
+		mentor.HandleUpdateProblem(c)
 	}
 }
 

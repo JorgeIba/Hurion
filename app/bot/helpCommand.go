@@ -76,11 +76,18 @@ var commandInfoMap = map[string]commandInfo{
 	},
 	"!add_problem": {
 		Command:     "!add_problem",
-		Usage:       "!add_problem <class_code> <url> <ProblemName>",
-		Description: "Add a new problem to a class with a URL and name",
+		Usage:       "!add_problem <class_code> <url> [difficulty] [topic] <ProblemName>",
+		Description: "Add a new problem to a class with URL, optional difficulty and topic, and name",
 		UserType:    "Mentor",
 		ExtraInfo: "The `class_code` should be one word, url should have 'http://' prefix (Discord policies I guess), " +
-			"and `ProblemName` can include multiple words (e.g., \"basicos http://example.com Gosha Is Hunting\")",
+			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (No case sensitive). " +
+			"`topic` can be any text, one word, use '-' to skip (No case sensitive). " +
+			"`ProblemName` can include multiple words.\n" +
+			"Examples:\n" +
+			"  !add_problem basicos http://example.com - - Two Sum (no difficulty, no topic)\n" +
+			"  !add_problem basicos http://example.com Easy - Two Sum (only difficulty)\n" +
+			"  !add_problem basicos http://example.com - DP Two Sum (only topic)\n" +
+			"  !add_problem basicos http://example.com Medium Graphs Binary Tree Problem (both)",
 	},
 	"!remove_problem": {
 		Command:     "!remove_problem",
@@ -90,10 +97,18 @@ var commandInfoMap = map[string]commandInfo{
 	},
 	"!update_problem": {
 		Command:     "!update_problem",
-		Usage:       "!update_problem <problem_id> <class_code> <url> <ProblemName>",
+		Usage:       "!update_problem <problem_id> <class_code> <url> [difficulty] [topic] <ProblemName>",
 		Description: "Update a problem's details while preserving its ID for AC records",
 		UserType:    "Mentor",
-		ExtraInfo:   "The `problem_id` and `class_code` should be one word, while `ProblemName` can include multiple words (e.g., \"3 basicos_1 http://updated_url.com Gosha Is Hunting 2\")",
+		ExtraInfo: "The `problem_id` and `class_code` should be one word, url should have 'http://' prefix (Discord policies I guess), " +
+			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (No case sensitive). " +
+			"`topic` can be any text, one word, use '-' to skip (No case sensitive). " +
+			"`ProblemName` can include multiple words.\n" +
+			"Examples:\n" +
+			"  !update_problem 3 basicos http://example.com - - Updated Name (no difficulty, no topic)\n" +
+			"  !update_problem 3 basicos http://example.com Hard - Updated Name (only difficulty)\n" +
+			"  !update_problem 3 basicos http://example.com - DP Updated Name (only topic)\n" +
+			"  !update_problem 3 basicos http://example.com Easy Graphs Updated Problem Name (both)",
 	}, "!clear_class": {
 		Command:     "!clear_class",
 		Usage:       "!clear_class <class_code>",

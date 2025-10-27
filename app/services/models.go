@@ -2,6 +2,15 @@ package services
 
 import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 
+// CreateProblemParams represents the parameters needed to create a new problem
+type CreateProblemParams struct {
+	Name       string
+	URL        string
+	ClassCode  string
+	Difficulty *string
+	Topic      *string
+}
+
 // PairUserSolvedProblems represents a user and their solved problems
 type PairUserSolvedProblems struct {
 	User           data.User
