@@ -8,9 +8,11 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/formatter"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -86,7 +88,7 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	problems, err := c.Services.User.GetListOfProblemsByClassCode(classCode)
+	groupedProblems, err := c.Services.User.GetProblemsGroupedByTopic(classCode)
 	if err != nil {
 
 		logger.Log.Error(err)
@@ -105,33 +107,52 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		return
 	}
 
-	var embeds []*discordgo.MessageEmbed
-
-	const LENGTH_PAGE = 5
-	x, y := len(problems), LENGTH_PAGE
-	totalPages := (x + y - 1) / y
-
-	title := fmt.Sprintf("List of problems for class %s", classCode)
-	for page := range totalPages {
-		body := ""
-
-		for index := page * LENGTH_PAGE; index < min(LENGTH_PAGE*(page+1), len(problems)); index++ {
-			problem := problems[index]
-			body += fmt.Sprintf("%d.- [%s](%s)\n", problem.ID, problem.Name, problem.URL)
-		}
-
-		embeds = append(embeds, &discordgo.MessageEmbed{
-			Title:       title,
-			Description: body,
-		})
-	}
-
-	if len(embeds) == 0 {
+	if len(groupedProblems) == 0 {
 		logger.Log.Infof("No problems found for class %s", classCode)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No problems found for class `%s`", classCode)),
 		)
 		return
+	}
+
+	var embeds []*discordgo.MessageEmbed
+	title := fmt.Sprintf("List of problems for class %s", classCode)
+
+	// Build content by iterating through grouped problems
+	body := ""
+	problemCount := 0
+	const LENGTH_PAGE = 5
+
+	for _, group := range groupedProblems {
+		// Add topic header
+		if body != "" {
+			body += "\n"
+		}
+		body += fmt.Sprintf("**%s**\n", group.Topic)
+
+		// Add problems in this topic
+		for _, problem := range group.Problems {
+			difficultyEmoji := getDifficultyEmoji(problem.GetDifficulty())
+			body += fmt.Sprintf("%d. %s - [%s](%s)\n", problem.ID, difficultyEmoji, problem.Name, problem.URL)
+			problemCount++
+
+			// Create a new page every LENGTH_PAGE problems
+			if problemCount%LENGTH_PAGE == 0 {
+				embeds = append(embeds, &discordgo.MessageEmbed{
+					Title:       title,
+					Description: body,
+				})
+				body = ""
+			}
+		}
+	}
+
+	// Add any remaining content as the last page
+	if body != "" {
+		embeds = append(embeds, &discordgo.MessageEmbed{
+			Title:       title,
+			Description: body,
+		})
 	}
 
 	logger.Log.Info("Sending info")
@@ -149,7 +170,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
 	title := fmt.Sprintf("Score of class `%s`", classCode)
-	scoreTable, err := c.Services.User.GetSortedScoreByClassCodeAsTable(classCode)
+	score, err := c.Services.User.GetScoreByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
@@ -166,6 +187,9 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 
 		return
 	}
+
+	// Format score as table
+	scoreTable := services.FormatScoreAsTable(score)
 
 	// Get Table as Image
 	imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
@@ -202,7 +226,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	userName, classCode := c.Args[1], c.Args[2]
 
-	scoreTable, err := c.Services.User.GetNeighborsScoreTableForUsername(userName, classCode)
+	score, err := c.Services.User.GetNeighborsScoreForUsername(userName, classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
@@ -222,6 +246,9 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		}
 		return
 	}
+
+	// Format score as table
+	scoreTable := services.FormatScoreAsTable(score)
 
 	// Get Table as Image
 	imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
@@ -297,7 +324,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 
 func HandleGetScoreAllClasses(c *context.ContextMessage) {
 
-	scoreTables, err := c.Services.User.GetScoreAllClasses()
+	scoresMap, err := c.Services.User.GetScoreAllClasses()
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -308,7 +335,11 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 
 	var embeds []*discordgo.MessageEmbed
 	var files []*discordgo.File
-	for idx, scoreTable := range scoreTables {
+	idx := 0
+	for className, score := range scoresMap {
+		// Format score to table
+		scoreTable := services.FormatScoreAsTable(score)
+		
 		// Get Table as Image
 		imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
 		if err != nil {
@@ -327,7 +358,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 		}
 
 		embed := &discordgo.MessageEmbed{
-			Title: fmt.Sprintf("Score of class %s", scoreTable.Class),
+			Title: fmt.Sprintf("Score of class %s", className),
 			Image: &discordgo.MessageEmbedImage{
 				URL: fmt.Sprintf("attachment://%s", fileName),
 			},
@@ -336,7 +367,8 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 
 		files = append(files, file)
 		embeds = append(embeds, embed)
-		logger.Log.Debug(scoreTable.Class, scoreTable.Header, scoreTable.Table)
+		logger.Log.Debug(className, scoreTable.Header, scoreTable.Table)
+		idx++
 	}
 
 	c.Dispatcher.Send(dispatcher.MessageResponse{
@@ -541,4 +573,17 @@ func HandleChangeUsername(c *context.ContextMessage) {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
+}
+
+func getDifficultyEmoji(difficulty data.Difficulty) string {
+	switch difficulty {
+	case data.DifficultyEasy:
+		return "🟩"
+	case data.DifficultyMedium:
+		return "🟨"
+	case data.DifficultyHard:
+		return "🟥"
+	default:
+		return "⬜"
+	}
 }

@@ -11,6 +11,12 @@ const (
 	ColorBlueLink    = "0563C1" // Blue for hyperlinks
 	ColorWhite       = "FFFFFF"
 	ColorBlack       = "000000"
+
+	// Difficulty colors
+	ColorDifficultyEasy   = "4CAF50" // Green for Easy
+	ColorDifficultyMedium = "FFC107" // Yellow for Medium
+	ColorDifficultyHard   = "F44336" // Red for Hard
+	ColorDifficultyNone   = "E0E0E0" // Gray for Not specified
 )
 
 var (
@@ -146,6 +152,25 @@ var (
 			Vertical:   "center",
 		},
 	}
+
+	// Creates a style for topic header rows (green background, centered, merged)
+	TopicHeaderStyleDef = excelize.Style{
+		Font: &excelize.Font{
+			Bold:   true,
+			Size:   11,
+			Color:  ColorBlack,
+			Family: "Arial",
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{ColorGreenPastel},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+	}
 )
 
 func CreateHeaderStyle(f *excelize.File) (int, error) {
@@ -178,4 +203,35 @@ func CreateHyperlinkStyle(f *excelize.File) (int, error) {
 
 func CreatePastelColumnStyle(f *excelize.File) (int, error) {
 	return f.NewStyle(&PastelColumnStyleDef)
+}
+
+func CreateTopicHeaderStyle(f *excelize.File) (int, error) {
+	return f.NewStyle(&TopicHeaderStyleDef)
+}
+
+// Creates a style for difficulty cells based on the difficulty level
+func CreateDifficultyStyle(f *excelize.File, difficulty string) (int, error) {
+	var color string
+	switch difficulty {
+	case "Easy":
+		color = ColorDifficultyEasy
+	case "Medium":
+		color = ColorDifficultyMedium
+	case "Hard":
+		color = ColorDifficultyHard
+	default:
+		color = ColorDifficultyNone
+	}
+
+	return f.NewStyle(&excelize.Style{
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{color},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+	})
 }

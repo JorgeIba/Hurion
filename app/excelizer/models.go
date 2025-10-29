@@ -6,9 +6,11 @@ type User struct {
 }
 
 type Problem struct {
-	ID   int64
-	Name string
-	URL  string
+	ID         int64
+	Name       string
+	URL        string
+	Difficulty string
+	Topic      string
 }
 
 type UserScore struct {

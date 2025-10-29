@@ -374,9 +374,9 @@ func (service *UserService) BindUser(userID, userName string) error {
 	return nil
 }
 
-func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]data.Problem, error) {
+func (service *UserService) GetProblemsGroupedByTopic(classCode string) ([]ProblemsByTopic, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
-	emptySlice := []data.Problem{}
+	emptySlice := []ProblemsByTopic{}
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
@@ -394,10 +394,31 @@ func (service *UserService) GetListOfProblemsByClassCode(classCode string) ([]da
 	// Sort problems by topic and difficulty
 	sortProblemsByTopicAndDifficulty(problems)
 
-	return problems, nil
+	// Group problems in map
+	topicMap := make(map[string][]data.Problem)
+	var topicOrder []string
+
+	for _, problem := range problems {
+		topic := problem.GetTopic()
+		if _, exists := topicMap[topic]; !exists {
+			topicOrder = append(topicOrder, topic)
+		}
+		topicMap[topic] = append(topicMap[topic], problem)
+	}
+
+	// Convert map to []ProblemsByTopic maintaining order
+	grouped := make([]ProblemsByTopic, 0, len(topicMap))
+	for _, topic := range topicOrder {
+		grouped = append(grouped, ProblemsByTopic{
+			Topic:    topic,
+			Problems: topicMap[topic],
+		})
+	}
+
+	return grouped, nil
 }
 
-func (service *UserService) GetScoreByClassCode(classCode string) (map[data.User][]data.SolvedProblem, error) {
+func (service *UserService) getRawScoreByClassCode(classCode string) (map[data.User][]data.SolvedProblem, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	emptyMap := map[data.User][]data.SolvedProblem{}
 	if err != nil {
@@ -475,17 +496,23 @@ func (service *UserService) GetListOfUsersByClassCode(classCode string) ([]data.
 	return users, nil
 }
 
-func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairUserProblemScore, error) {
-	solvedProblems, err := service.GetScoreByClassCode(classCode)
+func (service *UserService) GetScoreByClassCode(classCode string) (Score, error) {
+	solvedProblems, err := service.getRawScoreByClassCode(classCode)
 	if err != nil {
-		return []PairUserProblemScore{}, err
+		return Score{}, err
 	}
 
 	sortedSolvedProblems := sortScore(solvedProblems)
 
-	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
+	groupedProblems, err := service.GetProblemsGroupedByTopic(classCode)
 	if err != nil {
-		return []PairUserProblemScore{}, err
+		return Score{}, err
+	}
+
+	// Build all problems list from grouped (flattened and ordered)
+	allProblems := []data.Problem{}
+	for _, group := range groupedProblems {
+		allProblems = append(allProblems, group.Problems...)
 	}
 
 	allScore := make([]PairUserProblemScore, 0)
@@ -514,54 +541,27 @@ func (service *UserService) GetSortedScoreByClassCode(classCode string) ([]PairU
 
 		allScore = append(allScore, scoreUser)
 	}
-	return allScore, nil
+
+	return Score{
+		UserScores:      allScore,
+		ProblemsByTopic: groupedProblems,
+	}, nil
 }
 
-func (service *UserService) GetSortedScoreByClassCodeAsTable(classCode string) (TableScore, error) {
-	score, err := service.GetSortedScoreByClassCode(classCode)
-	if err != nil {
-		return TableScore{}, err
-	}
-
-	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
-	if err != nil {
-		return TableScore{}, err
-	}
-
-	headers := []string{"Problem \\ Username"}
-	for _, entry := range score {
-		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
-	}
-
-	var table [][]string
-	for _, problem := range allProblems {
-		row := []string{problem.Name}
-		for _, entry := range score {
-			if v, exists := entry.Problems[problem]; exists && v {
-				row = append(row, "AC")
-			} else {
-				row = append(row, " ")
-			}
-		}
-		table = append(table, row)
-	}
-	return TableScore{Header: headers, Table: table}, nil
-}
-
-func (service *UserService) GetNeighborsScoreTableForUsername(userName, classCode string) (TableScore, error) {
+func (service *UserService) GetNeighborsScoreForUsername(userName, classCode string) (Score, error) {
 	userID, err := service.GetUserIDByUsername(userName)
 	if err != nil {
-		return TableScore{}, err
+		return Score{}, err
 	}
 
-	score, err := service.GetSortedScoreByClassCode(classCode)
+	score, err := service.GetScoreByClassCode(classCode)
 	if err != nil {
-		return TableScore{}, err
+		return Score{}, err
 	}
 
 	// Find the user's position
-	var userIndex int
-	for i, scoreUser := range score {
+	var userIndex int = -1
+	for i, scoreUser := range score.UserScores {
 		if scoreUser.User.UserID == userID {
 			userIndex = i
 			break
@@ -570,37 +570,18 @@ func (service *UserService) GetNeighborsScoreTableForUsername(userName, classCod
 
 	if userIndex == -1 {
 		err := serviceerr.NewNotFoundInfoError(fmt.Sprintf("user `%s` doesn't have any AC in class `%s`", userName, classCode), nil)
-		return TableScore{}, err
+		return Score{}, err
 	}
 
-	l, r := max(0, userIndex-2), min(len(score)-1, userIndex+2)
-	score = score[l : r+1]
+	// Get neighbors (2 before, user, 2 after)
+	l, r := max(0, userIndex-2), min(len(score.UserScores)-1, userIndex+2)
+	neighborScores := score.UserScores[l : r+1]
 
-	allProblems, err := service.GetListOfProblemsByClassCode(classCode)
-	if err != nil {
-		return TableScore{}, err
-	}
-
-	headers := []string{"Problem \\ Username"}
-	for _, entry := range score {
-		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
-	}
-
-	var table [][]string
-
-	for _, problem := range allProblems {
-		row := []string{problem.Name}
-		for _, entry := range score {
-			if v, exists := entry.Problems[problem]; exists && v {
-				row = append(row, "AC")
-			} else {
-				row = append(row, " ")
-			}
-		}
-
-		table = append(table, row)
-	}
-	return TableScore{Header: headers, Table: table}, nil
+	// Return Score with filtered UserScores but same ProblemsByTopic
+	return Score{
+		UserScores:      neighborScores,
+		ProblemsByTopic: score.ProblemsByTopic,
+	}, nil
 }
 
 func (service *UserService) GetAllClasses() ([]data.Class, error) {
@@ -611,20 +592,19 @@ func (service *UserService) GetAllClasses() ([]data.Class, error) {
 	return classes, nil
 }
 
-func (service *UserService) GetScoreAllClasses() ([]TableScore, error) {
+func (service *UserService) GetScoreAllClasses() (map[string]Score, error) {
 	classes, err := service.GetAllClasses()
 	if err != nil {
-		return []TableScore{}, err
+		return nil, err
 	}
 
-	var scores []TableScore
+	scores := make(map[string]Score)
 	for _, class := range classes {
-		scoreTable, err := service.GetSortedScoreByClassCodeAsTable(class.ClassCode)
+		score, err := service.GetScoreByClassCode(class.ClassCode)
 		if err != nil {
-			return []TableScore{}, err
+			return nil, err
 		}
-		scoreTable.Class = class.Name
-		scores = append(scores, scoreTable)
+		scores[class.Name] = score
 	}
 
 	return scores, nil
@@ -821,20 +801,21 @@ func (service *UserService) ExportClassToExcel(classCode string) ([]byte, string
 		return nil, "", serviceerr.MakeGeneralError(err)
 	}
 
-	problems, err := service.GetListOfProblemsByClassCode(classCode)
+	score, err := service.GetScoreByClassCode(classCode)
 	if err != nil {
 		return nil, "", err
 	}
 
-	userScores, err := service.GetSortedScoreByClassCode(classCode)
-	if err != nil {
-		return nil, "", err
+	// Flatten problems for excelizer (maintains order from ProblemsByTopic)
+	var problems []data.Problem
+	for _, group := range score.ProblemsByTopic {
+		problems = append(problems, group.Problems...)
 	}
 
 	// transform data layer types to excelizer types
 	excelizerUsers := TransformToExcelizerUsers(users)
 	excelizerProblems := TransformToExcelizerProblems(problems)
-	excelizerScores := TransformToExcelizerScores(userScores, problems)
+	excelizerScores := TransformToExcelizerScores(score.UserScores, problems)
 
 	excelizer.SortUsersAlphabetically(excelizerUsers)
 	excelizer.SortScoresByTotalDescending(excelizerScores)

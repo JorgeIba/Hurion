@@ -50,19 +50,29 @@ func formatUsersList(f *excelize.File, sheetName string, userCount int) error {
 	return nil
 }
 
-// formatProblemsList applies formatting to a problems list sheet
-func formatProblemsList(f *excelize.File, sheetName string, problemCount int) error {
+func formatProblemsList(f *excelize.File, sheetName string, problems []Problem, topicRows []int) error {
+	// Apply header style to first row (A1:D1)
 	headerStyle, err := CreateHeaderStyle(f)
 	if err != nil {
 		return fmt.Errorf("failed to create header style: %w", err)
 	}
+	f.SetCellStyle(sheetName, "A1", "D1", headerStyle)
 
-	f.SetCellStyle(sheetName, fmt.Sprintf("A%d", HeaderRow), fmt.Sprintf("C%d", HeaderRow), headerStyle)
-
-	// First column with pastel green, name column left aligned, URL column with hyperlink style
-	firstColumnStyle, err := CreatePastelColumnStyle(f)
+	// Apply topic header style to all topic rows
+	topicHeaderStyle, err := CreateTopicHeaderStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create first column style: %w", err)
+		return fmt.Errorf("failed to create topic header style: %w", err)
+	}
+	topicRowMap := make(map[int]bool)
+	for _, row := range topicRows {
+		topicRowMap[row] = true
+		f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("D%d", row), topicHeaderStyle)
+	}
+
+	// Styles for ID, Name, URL, Difficulty columns
+	idStyle, err := CreatePlainCenteredStyle(f)
+	if err != nil {
+		return fmt.Errorf("failed to create ID style: %w", err)
 	}
 
 	nameStyle, err := CreatePlainLeftAlignedStyle(f)
@@ -75,17 +85,43 @@ func formatProblemsList(f *excelize.File, sheetName string, problemCount int) er
 		return fmt.Errorf("failed to create URL style: %w", err)
 	}
 
-	endRow := problemCount + HeaderRow
-	f.SetCellStyle(sheetName, fmt.Sprintf("A%d", FirstDataRow), fmt.Sprintf("A%d", endRow), firstColumnStyle)
-	f.SetCellStyle(sheetName, fmt.Sprintf("B%d", FirstDataRow), fmt.Sprintf("B%d", endRow), nameStyle)
-	f.SetCellStyle(sheetName, fmt.Sprintf("C%d", FirstDataRow), fmt.Sprintf("C%d", endRow), urlStyle)
+	currentRow := FirstDataRow
+	var currentTopic string
 
-	err = autoFitColumns(f, sheetName, []string{"A", "B", "C"})
+	for _, problem := range problems {
+		// Check if we need to skip a topic header row
+		if problem.Topic != currentTopic {
+			currentTopic = problem.Topic
+			currentRow++
+		}
+
+		// ID (centered)
+		f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("A%d", currentRow), idStyle)
+
+		// Name (left aligned)
+		f.SetCellStyle(sheetName, fmt.Sprintf("B%d", currentRow), fmt.Sprintf("B%d", currentRow), nameStyle)
+
+		// URL (hyperlink style
+		f.SetCellStyle(sheetName, fmt.Sprintf("C%d", currentRow), fmt.Sprintf("C%d", currentRow), urlStyle)
+
+		// Difficulty (colored background)
+		difficultyStyle, err := CreateDifficultyStyle(f, problem.Difficulty)
+		if err != nil {
+			return fmt.Errorf("failed to create difficulty style: %w", err)
+		}
+		f.SetCellStyle(sheetName, fmt.Sprintf("D%d", currentRow), fmt.Sprintf("D%d", currentRow), difficultyStyle)
+
+		currentRow++
+	}
+
+	// Auto-fit columns
+	err = autoFitColumns(f, sheetName, []string{"A", "B", "C", "D"})
 	if err != nil {
 		return fmt.Errorf("failed to auto-fit columns: %w", err)
 	}
 
-	err = setFreezePanes(f, sheetName, FreezeFirstColumn, FreezeFirstRow, TopLeftCellOneColumn, ActivePaneBottomRight)
+	// Freeze first row (headers)
+	err = setFreezePanes(f, sheetName, NoFreeze, FreezeFirstRow, TopLeftCellOneRow, ActivePaneBottom)
 	if err != nil {
 		return fmt.Errorf("failed to set freeze panes: %w", err)
 	}

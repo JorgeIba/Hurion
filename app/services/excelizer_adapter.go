@@ -22,9 +22,11 @@ func TransformToExcelizerProblems(problems []data.Problem) []excelizer.Problem {
 	result := make([]excelizer.Problem, len(problems))
 	for i, p := range problems {
 		result[i] = excelizer.Problem{
-			ID:   p.ID,
-			Name: p.Name,
-			URL:  p.URL,
+			ID:         p.ID,
+			Name:       p.Name,
+			URL:        p.URL,
+			Difficulty: string(p.GetDifficulty()),
+			Topic:      p.GetTopic(),
 		}
 	}
 	return result
@@ -36,9 +38,11 @@ func TransformToExcelizerScores(scores []PairUserProblemScore, problems []data.P
 	problemMap := make(map[data.Problem]excelizer.Problem)
 	for _, p := range problems {
 		problemMap[p] = excelizer.Problem{
-			ID:   p.ID,
-			Name: p.Name,
-			URL:  p.URL,
+			ID:         p.ID,
+			Name:       p.Name,
+			URL:        p.URL,
+			Difficulty: string(p.GetDifficulty()),
+			Topic:      p.GetTopic(),
 		}
 	}
 
