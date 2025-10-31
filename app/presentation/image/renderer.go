@@ -1,15 +1,15 @@
-package formatter
+package image
 
 import (
 	"bytes"
 	"image/color"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/fogleman/gg"
 )
 
-// GenerateTableImage generates a table image interpreting semantic metadata
-func GenerateTableImage(tableScore services.TableScore) ([]byte, error) {
+// GenerateScoreImage generates a table image from a TableScore interpreting semantic metadata
+func GenerateScoreImage(tableScore presentation.TableScore) ([]byte, error) {
 	const (
 		fontSize      = 25
 		rowHeight     = 35

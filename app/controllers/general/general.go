@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/formatter"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/image"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -189,10 +189,10 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	}
 
 	// Format score as table
-	scoreTable := services.ScoreToTableScore(score)
+	scoreTable := adapters.ScoreToTableScore(score)
 
 	// Get Table as Image
-	imgByte, err := formatter.GenerateTableImage(scoreTable)
+	imgByte, err := image.GenerateScoreImage(scoreTable)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -248,10 +248,10 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	}
 
 	// Format score as table
-	scoreTable := services.ScoreToTableScore(score)
+	scoreTable := adapters.ScoreToTableScore(score)
 
 	// Get Table as Image
-	imgByte, err := formatter.GenerateTableImage(scoreTable)
+	imgByte, err := image.GenerateScoreImage(scoreTable)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -338,10 +338,10 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 	idx := 0
 	for className, score := range scoresMap {
 		// Format score to table
-		scoreTable := services.ScoreToTableScore(score)
+		scoreTable := adapters.ScoreToTableScore(score)
 		
 		// Get Table as Image
-		imgByte, err := formatter.GenerateTableImage(scoreTable)
+		imgByte, err := image.GenerateScoreImage(scoreTable)
 		if err != nil {
 			logger.Log.Error(err)
 			c.Dispatcher.Send(

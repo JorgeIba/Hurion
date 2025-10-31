@@ -7,9 +7,11 @@ import (
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -157,8 +159,8 @@ func HandleExportClass(c *context.ContextMessage) error {
 	// Extract class_code from args
 	classCode := c.Args[1]
 
-	// Call service to generate Excel file
-	excelBytes, filename, err := c.Services.User.ExportClassToExcel(classCode)
+	// Get data from service (users, problems by topic, and score)
+	users, problemsByTopic, score, err := c.Services.User.GetClassExportData(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
@@ -169,11 +171,26 @@ func HandleExportClass(c *context.ContextMessage) error {
 			)
 		default:
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error while exporting class data."),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error while retrieving class data."),
 			)
 		}
 
-		return fmt.Errorf("error exporting class %s: %w", classCode, err)
+		return fmt.Errorf("error getting data for class %s: %w", classCode, err)
+	}
+
+	// Transform to presentation layer types
+	excelizerUsers := adapters.TransformToExcelizerUsers(users)
+	excelizerProblemsByTopic := adapters.TransformToExcelizerProblemsByTopic(problemsByTopic)
+	tableScore := adapters.ScoreToTableScore(score)
+
+	// Generate Excel file
+	excelBytes, filename, err := excelizer.ExportClassToExcel(excelizerUsers, excelizerProblemsByTopic, tableScore, classCode)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error while generating Excel file."),
+		)
+		return fmt.Errorf("error generating excel for class %s: %w", classCode, err)
 	}
 
 	// Create Discord file attachment
