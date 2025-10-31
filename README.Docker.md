@@ -3,6 +3,16 @@
 When you're ready, start your application by running:
 `docker compose up --build`.
 
+### Data Persistence
+
+The SQLite database is persisted using Docker volumes. The database file is stored in `./app/data/db.sqlite` on your host machine and is mounted to `/app/data` in the container.
+
+**Important notes:**
+- The database will persist across container restarts and rebuilds
+- To reset the database, simply delete `./app/data/db.sqlite` and restart the container
+- The `app/data` directory must exist on your host (a `.gitkeep` file maintains it in git)
+- Database files are ignored by git (see `.gitignore`)
+
 
 ### Deploying your application to the cloud
 

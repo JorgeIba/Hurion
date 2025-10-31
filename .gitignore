@@ -1,2 +1,6 @@
 **/*.env
 /git-credential-manager
+
+# SQLite database files
+app/data/*.sqlite
+app/data/*.db

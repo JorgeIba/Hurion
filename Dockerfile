@@ -13,6 +13,8 @@ RUN go mod download
 
 WORKDIR /app/app
 
-RUN go build -o run
+RUN go build -o /app/run
+
+WORKDIR /app
 
 CMD ["./run"]
