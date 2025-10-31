@@ -124,3 +124,11 @@ func MakeFileMessage(channelID, message string, files []*discordgo.File) Message
 		Files:     files,
 	}
 }
+
+func MakeEmbedMessage(channelID string, embed *discordgo.MessageEmbed) MessageResponse {
+	return MessageResponse{
+		Type:      EmbedMessage,
+		ChannelID: channelID,
+		Embed:     embed,
+	}
+}

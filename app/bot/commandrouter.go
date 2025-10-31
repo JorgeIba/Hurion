@@ -9,6 +9,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
 
 type CommandRouter func(c *context.ContextMessage)
@@ -269,18 +270,22 @@ func routerExport(c *context.ContextMessage) {
 func routerHelp(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1:
+		embed := buildGeneralHelpMessage()
+		logger.Log.Debugf("Help embed built with %d fields", len(embed.Fields))
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, buildGeneralHelpMessage()),
+			dispatcher.MakeEmbedMessage(c.Message.ChannelID, embed),
 		)
 	case 2:
 		command := c.Args[1]
 		if info, exists := commandInfoMap["!"+command]; exists {
+			embed := buildCommandHelpMessage(info)
+			logger.Log.Debugf("Help embed built with %d fields", len(embed.Fields))
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, buildCommandHelpMessage(info)),
+				dispatcher.MakeEmbedMessage(c.Message.ChannelID, embed),
 			)
 		} else {
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Unknown command: %s\nUse `!help` to see all available commands.", command)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("❌ Unknown command: `%s`\nUse `!help` to see all available commands.", command)),
 			)
 		}
 	default:

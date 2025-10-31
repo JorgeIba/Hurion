@@ -3,6 +3,8 @@ package bot
 import (
 	"fmt"
 	"strings"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 type commandInfo struct {
@@ -168,10 +170,7 @@ var commandInfoMap = map[string]commandInfo{
 }
 
 // buildGeneralHelpMessage creates the general help message listing all commands
-func buildGeneralHelpMessage() string {
-	var sb strings.Builder
-	sb.WriteString("**📚 Huron Problem Checker Bot - Available Commands**\n\n")
-
+func buildGeneralHelpMessage() *discordgo.MessageEmbed {
 	allCommands := []string{}
 	enrolledCommands := []string{}
 	mentorCommands := []string{}
@@ -180,61 +179,97 @@ func buildGeneralHelpMessage() string {
 	for cmd, info := range commandInfoMap {
 		switch info.UserType {
 		case "All":
-			allCommands = append(allCommands, fmt.Sprintf("`%s` - %s", cmd, info.Description))
+			allCommands = append(allCommands, fmt.Sprintf("• `%s` - %s", cmd, info.Description))
 		case "Enrolled":
-			enrolledCommands = append(enrolledCommands, fmt.Sprintf("`%s` - %s", cmd, info.Description))
+			enrolledCommands = append(enrolledCommands, fmt.Sprintf("• `%s` - %s", cmd, info.Description))
 		case "Mentor":
-			mentorCommands = append(mentorCommands, fmt.Sprintf("`%s` - %s", cmd, info.Description))
+			mentorCommands = append(mentorCommands, fmt.Sprintf("• `%s` - %s", cmd, info.Description))
 		case "Admin":
-			adminCommands = append(adminCommands, fmt.Sprintf("`%s` - %s", cmd, info.Description))
+			adminCommands = append(adminCommands, fmt.Sprintf("• `%s` - %s", cmd, info.Description))
 		}
 	}
 
-	// Basic commands
-	sb.WriteString("**General Commands:**\n")
-	for _, cmd := range allCommands {
-		sb.WriteString("• " + cmd + "\n")
+	embed := &discordgo.MessageEmbed{
+		Title:       "📚 Huron Problem Checker Bot - Available Commands",
+		Description: "Use `!help <command>` for detailed information about a specific command",
+		Color:       0x5865F2, // Discord Blurple
+		Fields:      []*discordgo.MessageEmbedField{},
 	}
 
-	// Enrolled user commands
-	sb.WriteString("\n**Enrolled User Commands:**\n")
-	for _, cmd := range enrolledCommands {
-		sb.WriteString("• " + cmd + "\n")
+	// General commands field
+	if len(allCommands) > 0 {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   "🌐 General Commands",
+			Value:  strings.Join(allCommands, "\n"),
+			Inline: false,
+		})
 	}
 
-	// Mentor commands
-	sb.WriteString("\n**Mentor Commands:**\n")
-	for _, cmd := range mentorCommands {
-		sb.WriteString("• " + cmd + "\n")
+	// Enrolled commands field
+	if len(enrolledCommands) > 0 {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   "👤 Enrolled User Commands",
+			Value:  strings.Join(enrolledCommands, "\n"),
+			Inline: false,
+		})
 	}
 
-	// Admin commands
-	sb.WriteString("\n**Admin Commands:**\n")
-	for _, cmd := range adminCommands {
-		sb.WriteString("• " + cmd + "\n")
+	// Mentor commands field
+	if len(mentorCommands) > 0 {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   "👨‍🏫 Mentor Commands",
+			Value:  strings.Join(mentorCommands, "\n"),
+			Inline: false,
+		})
 	}
-	sb.WriteString("\nFor detailed help on a specific command, use `!help <command>`")
 
-	// Extra information
-	sb.WriteString("\n\n**📝 Parameter Naming Conventions:**\n")
-	sb.WriteString("• `CamelUpperCase` parameters (like `ProblemName`) can include spaces (e.g., \"Problem Name 4\")\n")
-	sb.WriteString("• Parameters starting with lowercase (like `class_code`, `user_name`) should be one word\n")
+	// Admin commands field
+	if len(adminCommands) > 0 {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   "⚙️ Admin Commands",
+			Value:  strings.Join(adminCommands, "\n"),
+			Inline: false,
+		})
+	}
 
-	return sb.String()
+	// Parameter naming convention footer
+	embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+		Name: "📝 Parameter Naming Conventions",
+		Value: "• `CamelUpperCase` parameters can include spaces (e.g., \"Problem Name 4\")\n" +
+			"• lowercase parameters should be one word (e.g., `class_code`, `user_name`)",
+		Inline: false,
+	})
+
+	return embed
 }
 
 // buildCommandHelpMessage creates a detailed help message for a specific command
-func buildCommandHelpMessage(info commandInfo) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("**Command: %s**\n\n", info.Command))
-	sb.WriteString(fmt.Sprintf("**Usage:** `%s`\n", info.Usage))
-	sb.WriteString(fmt.Sprintf("**Description:** %s\n", info.Description))
-	sb.WriteString(fmt.Sprintf("**User Type:** %s\n", info.UserType))
-
-	if info.ExtraInfo != "" {
-		sb.WriteString(fmt.Sprintf("\n**Format Notes:** %s\n", info.ExtraInfo))
+func buildCommandHelpMessage(info commandInfo) *discordgo.MessageEmbed {
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("Command: %s", info.Command),
+		Description: info.Description,
+		Color:       0x57F287, // Discord Green
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "📋 Usage",
+				Value:  fmt.Sprintf("`%s`", info.Usage),
+				Inline: false,
+			},
+			{
+				Name:   "👥 User Type",
+				Value:  info.UserType,
+				Inline: true,
+			},
+		},
 	}
 
-	return sb.String()
+	if info.ExtraInfo != "" {
+		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+			Name:   "ℹ️ Additional Information",
+			Value:  info.ExtraInfo,
+			Inline: false,
+		})
+	}
+
+	return embed
 }
