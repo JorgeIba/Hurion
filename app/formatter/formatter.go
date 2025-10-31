@@ -2,13 +2,14 @@ package formatter
 
 import (
 	"bytes"
-
 	"image/color"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/fogleman/gg"
 )
 
-func GenerateTableImage(headers []string, rows [][]string) ([]byte, error) {
+// GenerateTableImage generates a table image interpreting semantic metadata
+func GenerateTableImage(tableScore services.TableScore) ([]byte, error) {
 	const (
 		fontSize      = 25
 		rowHeight     = 35
@@ -16,6 +17,10 @@ func GenerateTableImage(headers []string, rows [][]string) ([]byte, error) {
 		columnSpacing = 15
 	)
 	measureDC := gg.NewContext(1, 1) // Placeholder
+
+	headers := tableScore.Header
+	rows := tableScore.Table
+	rowMetadata := tableScore.RowMetadata
 
 	// Calculate width and height
 	numCols := len(headers)
@@ -44,9 +49,11 @@ func GenerateTableImage(headers []string, rows [][]string) ([]byte, error) {
 	dc.SetRGB(1, 1, 1)
 	dc.Clear()
 
-	// Colors
-	headerBg := color.RGBA{200, 200, 255, 255}
-	altBg := color.RGBA{245, 245, 245, 255}
+	// Visual style colors
+	headerBg := color.RGBA{150, 180, 230, 255}      // Softer blue for header
+	topicHeaderBg := color.RGBA{180, 200, 240, 255} // Even lighter blue for topic headers
+	acBg := color.RGBA{180, 231, 206, 255}          // Pastel green for AC cells (#B4E7CE)
+	altBg := color.RGBA{245, 245, 245, 255}         // Alternating row background
 
 	// Draw header
 	x := float64(padding)
@@ -64,15 +71,44 @@ func GenerateTableImage(headers []string, rows [][]string) ([]byte, error) {
 	for ri, row := range rows {
 		y += rowHeight
 		x = float64(padding)
-		if ri%2 == 0 {
-			dc.SetColor(altBg)
+
+		metadata := rowMetadata[ri]
+
+		if metadata.IsTopicHeader {
+			// Topic header row - full width lighter blue background
+			dc.SetColor(topicHeaderBg)
 			dc.DrawRectangle(float64(padding), y, float64(totalW-2*padding), rowHeight)
 			dc.Fill()
-		}
-		dc.SetRGB(0, 0, 0)
-		for ci, cell := range row {
-			dc.DrawStringAnchored(cell, x+colWidths[ci]/2, y+rowHeight/2, 0.5, 0.5)
-			x += colWidths[ci]
+			dc.SetRGB(0, 0, 0)
+			for ci, cell := range row {
+				dc.DrawStringAnchored(cell, x+colWidths[ci]/2, y+rowHeight/2, 0.5, 0.5)
+				x += colWidths[ci]
+			}
+		} else {
+			// Problem row - draw each cell with appropriate background
+			cellX := float64(padding)
+			for ci, cell := range row {
+				// Determine cell background color
+				var cellBg color.RGBA
+				if ci < len(metadata.CellMetadata) && metadata.CellMetadata[ci].IsAC {
+					cellBg = acBg // Green for AC
+				} else if ri%2 == 0 {
+					cellBg = altBg // Alternating gray
+				} else {
+					cellBg = color.RGBA{255, 255, 255, 255} // White
+				}
+
+				// Draw cell background
+				dc.SetColor(cellBg)
+				dc.DrawRectangle(cellX, y, colWidths[ci], rowHeight)
+				dc.Fill()
+
+				// Draw cell text (always black)
+				dc.SetRGB(0, 0, 0)
+				dc.DrawStringAnchored(cell, cellX+colWidths[ci]/2, y+rowHeight/2, 0.5, 0.5)
+
+				cellX += colWidths[ci]
+			}
 		}
 	}
 

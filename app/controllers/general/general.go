@@ -189,10 +189,10 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	}
 
 	// Format score as table
-	scoreTable := services.FormatScoreAsTable(score)
+	scoreTable := services.ScoreToTableScore(score)
 
 	// Get Table as Image
-	imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
+	imgByte, err := formatter.GenerateTableImage(scoreTable)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -248,10 +248,10 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	}
 
 	// Format score as table
-	scoreTable := services.FormatScoreAsTable(score)
+	scoreTable := services.ScoreToTableScore(score)
 
 	// Get Table as Image
-	imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
+	imgByte, err := formatter.GenerateTableImage(scoreTable)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -338,10 +338,10 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 	idx := 0
 	for className, score := range scoresMap {
 		// Format score to table
-		scoreTable := services.FormatScoreAsTable(score)
+		scoreTable := services.ScoreToTableScore(score)
 		
 		// Get Table as Image
-		imgByte, err := formatter.GenerateTableImage(scoreTable.Header, scoreTable.Table)
+		imgByte, err := formatter.GenerateTableImage(scoreTable)
 		if err != nil {
 			logger.Log.Error(err)
 			c.Dispatcher.Send(
