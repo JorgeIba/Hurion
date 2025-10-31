@@ -14,7 +14,8 @@ const (
 var (
 	// Background colors
 	ColorHeaderBg      = color.RGBA{150, 180, 230, 255} // Softer blue for header
-	ColorTopicHeaderBg = color.RGBA{180, 200, 240, 255} // Even lighter blue for topic headers
+	ColorTotalsBg      = color.RGBA{180, 200, 240, 255} // Lighter blue for totals (was topic header)
+	ColorTopicHeaderBg = color.RGBA{100, 181, 246, 255} // Pastel blue for topic headers (was totals)
 	ColorACBg          = color.RGBA{180, 231, 206, 255} // Pastel green for AC cells (#B4E7CE)
 	ColorAltRowBg      = color.RGBA{245, 245, 245, 255} // Alternating row background
 	ColorWhiteBg       = color.RGBA{255, 255, 255, 255} // White background

@@ -10,7 +10,7 @@ func writeProblemsData(f *excelize.File, sheetName string, problemsByTopic []Pro
 	// Write headers in row 1
 	headers := []string{"ID", "Nombre", "URL", "Dificultad"}
 	for i, header := range headers {
-		cell := fmt.Sprintf("%c%d", FirstColumn+i, HeaderRow)
+		cell := makeCellRef(i, HeaderRow)
 		f.SetCellValue(sheetName, cell, header)
 	}
 
@@ -19,31 +19,31 @@ func writeProblemsData(f *excelize.File, sheetName string, problemsByTopic []Pro
 	// Iterate through topics
 	for _, topicGroup := range problemsByTopic {
 		// Add topic header row
-		topicCell := fmt.Sprintf("A%d", currentRow)
+		topicCell := makeCellRef(0, currentRow)
 		f.SetCellValue(sheetName, topicCell, topicGroup.Topic)
 
 		// Merge cells from A to D for this row
-		f.MergeCell(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("D%d", currentRow))
+		f.MergeCell(sheetName, makeCellRef(0, currentRow), makeCellRef(3, currentRow))
 
 		currentRow++
 
 		// Write problems for this topic
 		for _, problem := range topicGroup.Problems {
 			// Column A: Problem ID
-			cellProblemID := fmt.Sprintf("A%d", currentRow)
+			cellProblemID := makeCellRef(0, currentRow)
 			f.SetCellValue(sheetName, cellProblemID, problem.ID)
 
 			// Column B: Problem Name
-			cellProblemName := fmt.Sprintf("B%d", currentRow)
+			cellProblemName := makeCellRef(1, currentRow)
 			f.SetCellValue(sheetName, cellProblemName, problem.Name)
 
 			// Column C: URL with hyperlink
-			cellURL := fmt.Sprintf("C%d", currentRow)
+			cellURL := makeCellRef(2, currentRow)
 			f.SetCellValue(sheetName, cellURL, problem.URL)
 			f.SetCellHyperLink(sheetName, cellURL, problem.URL, "External")
 
 			// Column D: Difficulty (empty, will be colored)
-			cellDifficulty := fmt.Sprintf("D%d", currentRow)
+			cellDifficulty := makeCellRef(3, currentRow)
 			f.SetCellValue(sheetName, cellDifficulty, "")
 
 			currentRow++

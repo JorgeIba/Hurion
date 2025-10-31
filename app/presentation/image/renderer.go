@@ -62,7 +62,17 @@ func GenerateScoreImage(tableScore presentation.TableScore) ([]byte, error) {
 
 		metadata := rowMetadata[ri]
 
-		if metadata.IsTopicHeader {
+		if metadata.IsTotalsRow {
+			// Totals row - full width medium green background
+			dc.SetColor(ColorTotalsBg)
+			dc.DrawRectangle(float64(Padding), y, float64(totalW-2*Padding), RowHeight)
+			dc.Fill()
+			dc.SetRGB(RGBBlack[0], RGBBlack[1], RGBBlack[2])
+			for ci, cell := range row {
+				dc.DrawStringAnchored(cell, x+colWidths[ci]/2, y+RowHeight/2, 0.5, 0.5)
+				x += colWidths[ci]
+			}
+		} else if metadata.IsTopicHeader {
 			// Topic header row - full width lighter blue background
 			dc.SetColor(ColorTopicHeaderBg)
 			dc.DrawRectangle(float64(Padding), y, float64(totalW-2*Padding), RowHeight)
@@ -79,7 +89,7 @@ func GenerateScoreImage(tableScore presentation.TableScore) ([]byte, error) {
 				// Determine cell background color
 				var cellBg color.RGBA
 				if ci < len(metadata.CellMetadata) && metadata.CellMetadata[ci].IsAC {
-					cellBg = ColorACBg // Green for AC
+					cellBg = ColorACBg // Medium blue for AC
 				} else if ri%2 == 0 {
 					cellBg = ColorAltRowBg // Alternating gray
 				} else {

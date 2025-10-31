@@ -10,8 +10,7 @@ import (
 func writeScoresData(f *excelize.File, sheetName string, tableScore presentation.TableScore) error {
 	// Write headers (first row)
 	for colIdx, header := range tableScore.Header {
-		col := FirstColumn + colIdx
-		cell := fmt.Sprintf("%c%d", col, 1)
+		cell := makeCellRef(colIdx, 1)
 		f.SetCellValue(sheetName, cell, header)
 	}
 
@@ -19,8 +18,7 @@ func writeScoresData(f *excelize.File, sheetName string, tableScore presentation
 	for rowIdx, row := range tableScore.Table {
 		excelRow := rowIdx + 2 // Excel rows are 1-indexed, and we start from row 2
 		for colIdx, cellValue := range row {
-			col := FirstColumn + colIdx
-			cell := fmt.Sprintf("%c%d", col, excelRow)
+			cell := makeCellRef(colIdx, excelRow)
 			f.SetCellValue(sheetName, cell, cellValue)
 		}
 	}

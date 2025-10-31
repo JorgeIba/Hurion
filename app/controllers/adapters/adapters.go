@@ -51,16 +51,38 @@ func TransformToExcelizerProblemsByTopic(problemsByTopic []services.ProblemsByTo
 // Adapters to Presentation Layer (TableScore)
 // ============================================================================
 
-// ScoreToTableScore converts a Score struct into a TableScore with semantic metadata
+// Converts a Score struct into a TableScore with semantic metadata
 func ScoreToTableScore(score services.Score) presentation.TableScore {
-	// Build headers: "Problem \\ Username" followed by usernames with counts
+	// Build headers: "Problem \\ Username" followed by usernames
 	headers := []string{"Problem \\ Username"}
 	for _, entry := range score.UserScores {
-		headers = append(headers, fmt.Sprintf("%s (%d)", entry.User.UserName, entry.CountProblems))
+		headers = append(headers, entry.User.UserName)
 	}
 
 	var table [][]string
 	var rowMetadata []presentation.RowMetadata
+
+	// Add Total row (second row in the sheet)
+	totalsRow := []string{"Total"}
+	totalsCellMetadata := []presentation.CellMetadata{
+		{IsProblemName: false, IsAC: false, IsUsername: false, IsTotal: true},
+	}
+	for _, entry := range score.UserScores {
+		totalsRow = append(totalsRow, fmt.Sprintf("%d", entry.CountProblems))
+		totalsCellMetadata = append(totalsCellMetadata, presentation.CellMetadata{
+			IsAC:          false,
+			IsProblemName: false,
+			IsUsername:    false,
+			IsTotal:       true,
+		})
+	}
+	table = append(table, totalsRow)
+	rowMetadata = append(rowMetadata, presentation.RowMetadata{
+		IsTopicHeader: false,
+		IsTotalsRow:   true,
+		Problem:       nil,
+		CellMetadata:  totalsCellMetadata,
+	})
 
 	// Iterate through problems grouped by topic
 	for _, topicGroup := range score.ProblemsByTopic {
@@ -75,6 +97,7 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 		// Topic header metadata - no cell metadata needed, whole row is special
 		rowMetadata = append(rowMetadata, presentation.RowMetadata{
 			IsTopicHeader: true,
+			IsTotalsRow:   false,
 			Problem:       nil,
 			CellMetadata:  nil,
 		})
@@ -83,7 +106,7 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 		for _, problem := range topicGroup.Problems {
 			row := []string{problem.Name}
 			cellMetadata := []presentation.CellMetadata{
-				{IsProblemName: true, IsAC: false, IsUsername: false}, // First cell is problem name
+				{IsProblemName: true, IsAC: false, IsUsername: false, IsTotal: false}, // First cell is problem name
 			}
 
 			for _, userScore := range score.UserScores {
@@ -93,6 +116,7 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 						IsAC:          true,
 						IsProblemName: false,
 						IsUsername:    false,
+						IsTotal:       false,
 					})
 				} else {
 					row = append(row, " ")
@@ -100,6 +124,7 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 						IsAC:          false,
 						IsProblemName: false,
 						IsUsername:    false,
+						IsTotal:       false,
 					})
 				}
 			}
@@ -108,6 +133,7 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 			// Problem row metadata with reference to the problem
 			rowMetadata = append(rowMetadata, presentation.RowMetadata{
 				IsTopicHeader: false,
+				IsTotalsRow:   false,
 				Problem:       &problem, // Reference to problem (can access difficulty, etc.)
 				CellMetadata:  cellMetadata,
 			})

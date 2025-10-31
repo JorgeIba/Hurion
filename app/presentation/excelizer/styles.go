@@ -12,10 +12,10 @@ const (
 	ColorWhite       = "FFFFFF"
 	ColorBlack       = "000000"
 
-	// Difficulty colors
-	ColorDifficultyEasy   = "4CAF50" // Green for Easy
-	ColorDifficultyMedium = "FFC107" // Yellow for Medium
-	ColorDifficultyHard   = "F44336" // Red for Hard
+	// Difficulty colors - Pastel versions
+	ColorDifficultyEasy   = "A5D6A7" // Pastel green for Easy
+	ColorDifficultyMedium = "FFF59D" // Pastel yellow for Medium
+	ColorDifficultyHard   = "EF9A9A" // Pastel red for Hard
 	ColorDifficultyNone   = "E0E0E0" // Gray for Not specified
 )
 
@@ -39,7 +39,7 @@ var (
 		},
 	}
 
-	// TotalsStyleDef is the totals style (Medium green with black text)
+	// TotalsStyleDef is the totals style (Pastel green with black text)
 	TotalsStyleDef = excelize.Style{
 		Font: &excelize.Font{
 			Bold:   false,
@@ -49,7 +49,7 @@ var (
 		},
 		Fill: excelize.Fill{
 			Type:    "pattern",
-			Color:   []string{ColorGreenMedium},
+			Color:   []string{ColorGreenPastel},
 			Pattern: 1,
 		},
 		Alignment: &excelize.Alignment{
@@ -58,7 +58,7 @@ var (
 		},
 	}
 
-	// ACStyleDef is the AC cell style (Light green with black text)
+	// ACStyleDef is the AC cell style (Pastel green with black text - same as totals)
 	ACStyleDef = excelize.Style{
 		Font: &excelize.Font{
 			Bold:   false,
@@ -68,7 +68,7 @@ var (
 		},
 		Fill: excelize.Fill{
 			Type:    "pattern",
-			Color:   []string{ColorGreenLight},
+			Color:   []string{ColorGreenPastel},
 			Pattern: 1,
 		},
 		Alignment: &excelize.Alignment{
@@ -153,17 +153,17 @@ var (
 		},
 	}
 
-	// Creates a style for topic header rows (green background, centered, merged)
+	// Creates a style for topic header rows (medium green background, centered, no bold)
 	TopicHeaderStyleDef = excelize.Style{
 		Font: &excelize.Font{
-			Bold:   true,
+			Bold:   false,
 			Size:   11,
 			Color:  ColorBlack,
 			Family: "Arial",
 		},
 		Fill: excelize.Fill{
 			Type:    "pattern",
-			Color:   []string{ColorGreenPastel},
+			Color:   []string{ColorGreenMedium},
 			Pattern: 1,
 		},
 		Alignment: &excelize.Alignment{

@@ -15,7 +15,7 @@ func formatUsersList(f *excelize.File, sheetName string, userCount int) error {
 	}
 
 	// Apply header style to first row
-	f.SetCellStyle(sheetName, fmt.Sprintf("A%d", HeaderRow), fmt.Sprintf("B%d", HeaderRow), headerStyle)
+	f.SetCellStyle(sheetName, makeCellRef(0, HeaderRow), makeCellRef(1, HeaderRow), headerStyle)
 
 	if userCount > 0 {
 		coloredRowStyle, err := CreatePastelRowStyle(f)
@@ -31,9 +31,9 @@ func formatUsersList(f *excelize.File, sheetName string, userCount int) error {
 		endRow := userCount + HeaderRow
 		for row := FirstDataRow; row <= endRow; row++ {
 			if row%2 == 0 {
-				f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), coloredRowStyle)
+				f.SetCellStyle(sheetName, makeCellRef(0, row), makeCellRef(1, row), coloredRowStyle)
 			} else {
-				f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("B%d", row), plainRowStyle)
+				f.SetCellStyle(sheetName, makeCellRef(0, row), makeCellRef(1, row), plainRowStyle)
 			}
 		}
 	}
@@ -57,7 +57,7 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 	if err != nil {
 		return fmt.Errorf("failed to create header style: %w", err)
 	}
-	f.SetCellStyle(sheetName, "A1", "D1", headerStyle)
+	f.SetCellStyle(sheetName, makeCellRef(0, 1), makeCellRef(3, 1), headerStyle)
 
 	// Styles for topic header, ID, Name, URL, Difficulty columns
 	topicHeaderStyle, err := CreateTopicHeaderStyle(f)
@@ -85,26 +85,26 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 	// Iterate through topics
 	for _, topicGroup := range problemsByTopic {
 		// Apply topic header style
-		f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("D%d", currentRow), topicHeaderStyle)
+		f.SetCellStyle(sheetName, makeCellRef(0, currentRow), makeCellRef(3, currentRow), topicHeaderStyle)
 		currentRow++
 
 		// Apply styles to problems in this topic
 		for _, problem := range topicGroup.Problems {
 			// ID (centered)
-			f.SetCellStyle(sheetName, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("A%d", currentRow), idStyle)
+			f.SetCellStyle(sheetName, makeCellRef(0, currentRow), makeCellRef(0, currentRow), idStyle)
 
 			// Name (left aligned)
-			f.SetCellStyle(sheetName, fmt.Sprintf("B%d", currentRow), fmt.Sprintf("B%d", currentRow), nameStyle)
+			f.SetCellStyle(sheetName, makeCellRef(1, currentRow), makeCellRef(1, currentRow), nameStyle)
 
 			// URL (hyperlink style)
-			f.SetCellStyle(sheetName, fmt.Sprintf("C%d", currentRow), fmt.Sprintf("C%d", currentRow), urlStyle)
+			f.SetCellStyle(sheetName, makeCellRef(2, currentRow), makeCellRef(2, currentRow), urlStyle)
 
 			// Difficulty (colored background)
 			difficultyStyle, err := CreateDifficultyStyle(f, problem.Difficulty)
 			if err != nil {
 				return fmt.Errorf("failed to create difficulty style: %w", err)
 			}
-			f.SetCellStyle(sheetName, fmt.Sprintf("D%d", currentRow), fmt.Sprintf("D%d", currentRow), difficultyStyle)
+			f.SetCellStyle(sheetName, makeCellRef(3, currentRow), makeCellRef(3, currentRow), difficultyStyle)
 
 			currentRow++
 		}
@@ -127,36 +127,35 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 
 // formatScoresSheet applies styling to the scores sheet based on metadata
 func formatScoresSheet(f *excelize.File, sheetName string, tableScore presentation.TableScore) error {
-	// Style for headers
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true},
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"#D3D3D3"}, Pattern: 1},
-	})
+	// Create styles
+	headerStyle, err := CreateHeaderStyle(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create header style: %w", err)
 	}
 
-	// Style for topic headers
-	topicStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true},
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"#B4C8F0"}, Pattern: 1},
-	})
+	topicStyle, err := CreateTopicHeaderStyle(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create topic header style: %w", err)
 	}
 
-	// Style for AC cells
-	acStyle, err := f.NewStyle(&excelize.Style{
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"#B4E7CE"}, Pattern: 1},
-	})
+	acStyle, err := CreateACStyle(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create AC style: %w", err)
 	}
 
-	// Apply header style to first row
+	totalsStyle, err := CreateTotalsStyle(f)
+	if err != nil {
+		return fmt.Errorf("failed to create totals style: %w", err)
+	}
+
+	plainStyle, err := CreatePlainCenteredStyle(f)
+	if err != nil {
+		return fmt.Errorf("failed to create plain style: %w", err)
+	}
+
+	// Apply header style to first row (usernames)
 	for colIdx := range tableScore.Header {
-		col := FirstColumn + colIdx
-		cell := fmt.Sprintf("%c%d", col, 1)
+		cell := makeCellRef(colIdx, 1)
 		f.SetCellStyle(sheetName, cell, cell, headerStyle)
 	}
 
@@ -164,23 +163,49 @@ func formatScoresSheet(f *excelize.File, sheetName string, tableScore presentati
 	for rowIdx, metadata := range tableScore.RowMetadata {
 		excelRow := rowIdx + 2
 
-		if metadata.IsTopicHeader {
+		if metadata.IsTotalsRow {
+			// Apply totals style to entire row (green medium)
+			for colIdx := range tableScore.Table[rowIdx] {
+				cell := makeCellRef(colIdx, excelRow)
+				f.SetCellStyle(sheetName, cell, cell, totalsStyle)
+			}
+		} else if metadata.IsTopicHeader {
 			// Apply topic header style to entire row
 			for colIdx := range tableScore.Table[rowIdx] {
-				col := FirstColumn + colIdx
-				cell := fmt.Sprintf("%c%d", col, excelRow)
+				cell := makeCellRef(colIdx, excelRow)
 				f.SetCellStyle(sheetName, cell, cell, topicStyle)
 			}
 		} else {
-			// Apply cell-specific styles based on cell metadata
+			// Problem rows: apply styles based on cell metadata
 			for colIdx, cellMeta := range metadata.CellMetadata {
+				cell := makeCellRef(colIdx, excelRow)
+
 				if cellMeta.IsAC {
-					col := FirstColumn + colIdx
-					cell := fmt.Sprintf("%c%d", col, excelRow)
+					// AC cells - medium green
 					f.SetCellStyle(sheetName, cell, cell, acStyle)
+				} else {
+					// Regular cells (including problem names)
+					f.SetCellStyle(sheetName, cell, cell, plainStyle)
 				}
 			}
 		}
+	}
+
+	// Auto-fit columns
+	numCols := len(tableScore.Header)
+	columns := make([]string, numCols)
+	for i := 0; i < numCols; i++ {
+		columns[i] = columnIndexToLetter(i)
+	}
+	err = autoFitColumns(f, sheetName, columns)
+	if err != nil {
+		return fmt.Errorf("failed to auto-fit columns: %w", err)
+	}
+
+	// Freeze first row and first column (headers and problem names)
+	err = setFreezePanes(f, sheetName, FreezeFirstColumn, FreezeFirstRow, TopLeftCellOneRowOneCol, ActivePaneBottomRight)
+	if err != nil {
+		return fmt.Errorf("failed to set freeze panes: %w", err)
 	}
 
 	return nil

@@ -9,7 +9,7 @@ import (
 func writeUsersData(f *excelize.File, sheetName string, users []User) error {
 	headers := []string{"User ID", "User Name"}
 	for i, header := range headers {
-		cell := fmt.Sprintf("%c%d", FirstColumn+i, HeaderRow)
+		cell := makeCellRef(i, HeaderRow)
 		f.SetCellValue(sheetName, cell, header)
 	}
 
@@ -17,11 +17,11 @@ func writeUsersData(f *excelize.File, sheetName string, users []User) error {
 		row := i + FirstDataRow
 
 		// User ID column (A)
-		cellUserID := fmt.Sprintf("A%d", row)
+		cellUserID := makeCellRef(0, row)
 		f.SetCellValue(sheetName, cellUserID, user.ID)
 
 		// User Name column (B)
-		cellUserName := fmt.Sprintf("B%d", row)
+		cellUserName := makeCellRef(1, row)
 		f.SetCellValue(sheetName, cellUserName, user.Name)
 	}
 

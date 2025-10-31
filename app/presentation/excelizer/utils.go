@@ -31,6 +31,12 @@ func columnIndexToLetter(index int) string {
 	return result
 }
 
+// makeCellRef creates an Excel cell reference from column index and row number
+// Examples: (0, 1) -> "A1", (1, 2) -> "B2", (26, 3) -> "AA3"
+func makeCellRef(colIdx, row int) string {
+	return fmt.Sprintf("%s%d", columnIndexToLetter(colIdx), row)
+}
+
 // autoFitColumns automatically adjusts column width based on content
 func autoFitColumns(f *excelize.File, sheetName string, columns []string) error {
 	for _, col := range columns {

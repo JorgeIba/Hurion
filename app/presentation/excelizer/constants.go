@@ -59,6 +59,9 @@ const (
 	// TopLeftCellOneRow is used when freezing first row only
 	TopLeftCellOneRow = "A2"
 
+	// TopLeftCellOneRowOneCol is used when freezing first row and first column
+	TopLeftCellOneRowOneCol = "B2"
+
 	// TopLeftCellOneColumn is used when freezing first row and first column
 	TopLeftCellOneColumn = "B2"
 
