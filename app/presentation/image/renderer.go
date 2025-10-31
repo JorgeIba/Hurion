@@ -10,12 +10,6 @@ import (
 
 // GenerateScoreImage generates a table image from a TableScore interpreting semantic metadata
 func GenerateScoreImage(tableScore presentation.TableScore) ([]byte, error) {
-	const (
-		fontSize      = 25
-		rowHeight     = 35
-		padding       = 40
-		columnSpacing = 15
-	)
 	measureDC := gg.NewContext(1, 1) // Placeholder
 
 	headers := tableScore.Header
@@ -27,85 +21,79 @@ func GenerateScoreImage(tableScore presentation.TableScore) ([]byte, error) {
 	colWidths := make([]float64, numCols)
 	for i, h := range headers {
 		w, _ := measureDC.MeasureString(h)
-		colWidths[i] = w + columnSpacing
+		colWidths[i] = w + ColumnSpacing
 	}
 	for _, row := range rows {
 		for i, cell := range row {
 			w, _ := measureDC.MeasureString(cell)
-			if w+columnSpacing > colWidths[i] {
-				colWidths[i] = w + columnSpacing
+			if w+ColumnSpacing > colWidths[i] {
+				colWidths[i] = w + ColumnSpacing
 			}
 		}
 	}
 
-	totalW := padding * 2
+	totalW := Padding * 2
 	for _, w := range colWidths {
 		totalW += int(w)
 	}
-	totalH := padding*2 + rowHeight*(len(rows)+1)
+	totalH := Padding*2 + RowHeight*(len(rows)+1)
 
 	// Canvas
 	dc := gg.NewContext(totalW, totalH)
-	dc.SetRGB(1, 1, 1)
+	dc.SetRGB(RGBWhite[0], RGBWhite[1], RGBWhite[2])
 	dc.Clear()
 
-	// Visual style colors
-	headerBg := color.RGBA{150, 180, 230, 255}      // Softer blue for header
-	topicHeaderBg := color.RGBA{180, 200, 240, 255} // Even lighter blue for topic headers
-	acBg := color.RGBA{180, 231, 206, 255}          // Pastel green for AC cells (#B4E7CE)
-	altBg := color.RGBA{245, 245, 245, 255}         // Alternating row background
-
 	// Draw header
-	x := float64(padding)
-	y := float64(padding)
-	dc.SetColor(headerBg)
-	dc.DrawRectangle(float64(padding), y, float64(totalW-2*padding), rowHeight)
+	x := float64(Padding)
+	y := float64(Padding)
+	dc.SetColor(ColorHeaderBg)
+	dc.DrawRectangle(float64(Padding), y, float64(totalW-2*Padding), RowHeight)
 	dc.Fill()
-	dc.SetRGB(0, 0, 0)
+	dc.SetRGB(RGBBlack[0], RGBBlack[1], RGBBlack[2])
 	for i, h := range headers {
-		dc.DrawStringAnchored(h, x+colWidths[i]/2, y+rowHeight/2, 0.5, 0.5)
+		dc.DrawStringAnchored(h, x+colWidths[i]/2, y+RowHeight/2, 0.5, 0.5)
 		x += colWidths[i]
 	}
 
 	// Draw rows
 	for ri, row := range rows {
-		y += rowHeight
-		x = float64(padding)
+		y += RowHeight
+		x = float64(Padding)
 
 		metadata := rowMetadata[ri]
 
 		if metadata.IsTopicHeader {
 			// Topic header row - full width lighter blue background
-			dc.SetColor(topicHeaderBg)
-			dc.DrawRectangle(float64(padding), y, float64(totalW-2*padding), rowHeight)
+			dc.SetColor(ColorTopicHeaderBg)
+			dc.DrawRectangle(float64(Padding), y, float64(totalW-2*Padding), RowHeight)
 			dc.Fill()
-			dc.SetRGB(0, 0, 0)
+			dc.SetRGB(RGBBlack[0], RGBBlack[1], RGBBlack[2])
 			for ci, cell := range row {
-				dc.DrawStringAnchored(cell, x+colWidths[ci]/2, y+rowHeight/2, 0.5, 0.5)
+				dc.DrawStringAnchored(cell, x+colWidths[ci]/2, y+RowHeight/2, 0.5, 0.5)
 				x += colWidths[ci]
 			}
 		} else {
 			// Problem row - draw each cell with appropriate background
-			cellX := float64(padding)
+			cellX := float64(Padding)
 			for ci, cell := range row {
 				// Determine cell background color
 				var cellBg color.RGBA
 				if ci < len(metadata.CellMetadata) && metadata.CellMetadata[ci].IsAC {
-					cellBg = acBg // Green for AC
+					cellBg = ColorACBg // Green for AC
 				} else if ri%2 == 0 {
-					cellBg = altBg // Alternating gray
+					cellBg = ColorAltRowBg // Alternating gray
 				} else {
-					cellBg = color.RGBA{255, 255, 255, 255} // White
+					cellBg = ColorWhiteBg // White
 				}
 
 				// Draw cell background
 				dc.SetColor(cellBg)
-				dc.DrawRectangle(cellX, y, colWidths[ci], rowHeight)
+				dc.DrawRectangle(cellX, y, colWidths[ci], RowHeight)
 				dc.Fill()
 
 				// Draw cell text (always black)
-				dc.SetRGB(0, 0, 0)
-				dc.DrawStringAnchored(cell, cellX+colWidths[ci]/2, y+rowHeight/2, 0.5, 0.5)
+				dc.SetRGB(RGBBlack[0], RGBBlack[1], RGBBlack[2])
+				dc.DrawStringAnchored(cell, cellX+colWidths[ci]/2, y+RowHeight/2, 0.5, 0.5)
 
 				cellX += colWidths[ci]
 			}
