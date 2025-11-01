@@ -1,8 +1,7 @@
 package excelizer
 
 import (
-	"fmt"
-
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/presentationerr"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -57,14 +56,14 @@ func writeProblemsData(f *excelize.File, sheetName string, problemsByTopic []Pro
 func AddProblemsSheet(f *excelize.File, sheetName string, problemsByTopic []ProblemsByTopic) error {
 	index, err := f.NewSheet(sheetName)
 	if err != nil {
-		return fmt.Errorf("failed to create sheet %s: %w", sheetName, err)
+		return presentationerr.NewDataWritingError("failed to create sheet "+sheetName, err)
 	}
 
 	f.SetActiveSheet(index)
 
 	err = writeProblemsData(f, sheetName, problemsByTopic)
 	if err != nil {
-		return fmt.Errorf("failed to write problems data: %w", err)
+		return presentationerr.NewDataWritingError("failed to write problems data", err)
 	}
 
 	return formatProblemsList(f, sheetName, problemsByTopic)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/presentationerr"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -45,7 +46,7 @@ func autoFitColumns(f *excelize.File, sheetName string, columns []string) error 
 		// Get all rows in the sheet
 		rows, err := f.GetRows(sheetName)
 		if err != nil {
-			return fmt.Errorf("failed to get rows: %w", err)
+			return presentationerr.NewDataWritingError("failed to get rows", err)
 		}
 
 		colIndex := columnLetterToIndex(col)

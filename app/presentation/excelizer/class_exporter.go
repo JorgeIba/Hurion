@@ -1,8 +1,7 @@
 package excelizer
 
 import (
-	"fmt"
-
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/presentationerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/xuri/excelize/v2"
 )
@@ -12,7 +11,7 @@ func CreateExcel() *excelize.File {
 	return f
 }
 
-// ExportClassToExcel generates an Excel file with class data
+// Generates an Excel file with class data
 // Takes users, problems grouped by topic, and a TableScore for rendering
 // Returns file bytes, filename, and error
 func ExportClassToExcel(users []User, problemsByTopic []ProblemsByTopic, tableScore presentation.TableScore, classCode string) ([]byte, string, error) {
@@ -24,17 +23,17 @@ func ExportClassToExcel(users []User, problemsByTopic []ProblemsByTopic, tableSc
 	defer excel.Close()
 
 	if err := AddUsersSheet(excel, "Users", users); err != nil {
-		return nil, "", fmt.Errorf("error adding users sheet: %w", err)
+		return nil, "", presentationerr.NewDataWritingError("error adding users sheet", err)
 	}
 
 	// Pass problemsByTopic directly - AddProblemsSheet handles the structure
 	if err := AddProblemsSheet(excel, "Problems", problemsByTopic); err != nil {
-		return nil, "", fmt.Errorf("error adding problems sheet: %w", err)
+		return nil, "", presentationerr.NewDataWritingError("error adding problems sheet", err)
 	}
 
 	// Use TableScore to render scores sheet with metadata
 	if err := AddScoresSheetFromTableScore(excel, "Scores", tableScore); err != nil {
-		return nil, "", fmt.Errorf("error adding scores sheet: %w", err)
+		return nil, "", presentationerr.NewDataWritingError("error adding scores sheet", err)
 	}
 
 	// Remove default sheet
@@ -43,9 +42,9 @@ func ExportClassToExcel(users []User, problemsByTopic []ProblemsByTopic, tableSc
 	// Convert to bytes
 	buffer, err := excel.WriteToBuffer()
 	if err != nil {
-		return nil, "", fmt.Errorf("error writing excel to buffer: %w", err)
+		return nil, "", presentationerr.NewFormatError("error writing excel to buffer", err)
 	}
 
-	filename := fmt.Sprintf("%s_export.xlsx", classCode)
+	filename := classCode + "_export.xlsx"
 	return buffer.Bytes(), filename, nil
 }

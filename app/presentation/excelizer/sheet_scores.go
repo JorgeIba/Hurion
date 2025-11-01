@@ -1,8 +1,7 @@
 package excelizer
 
 import (
-	"fmt"
-
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/presentationerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/xuri/excelize/v2"
 )
@@ -30,14 +29,14 @@ func writeScoresData(f *excelize.File, sheetName string, tableScore presentation
 func AddScoresSheetFromTableScore(f *excelize.File, sheetName string, tableScore presentation.TableScore) error {
 	index, err := f.NewSheet(sheetName)
 	if err != nil {
-		return fmt.Errorf("failed to create sheet %s: %w", sheetName, err)
+		return presentationerr.NewDataWritingError("failed to create sheet "+sheetName, err)
 	}
 
 	f.SetActiveSheet(index)
 
 	err = writeScoresData(f, sheetName, tableScore)
 	if err != nil {
-		return fmt.Errorf("failed to write scores data: %w", err)
+		return presentationerr.NewDataWritingError("failed to write scores data", err)
 	}
 
 	return formatScoresSheet(f, sheetName, tableScore)

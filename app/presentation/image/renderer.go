@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image/color"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/presentationerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/fogleman/gg"
 )
@@ -112,7 +113,7 @@ func GenerateScoreImage(tableScore presentation.TableScore) ([]byte, error) {
 
 	var buf bytes.Buffer
 	if err := dc.EncodePNG(&buf); err != nil {
-		return nil, err
+		return nil, presentationerr.NewRenderingError("failed to encode PNG image", err)
 	}
 	return buf.Bytes(), nil
 }

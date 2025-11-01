@@ -74,8 +74,14 @@ Controllers Layer:
 * Internal Error
 * Parsing Error
 
+Presentation Layer:
+* Rendering Error
+* Style Creation Error
+* Data Writing Error
+* Format Error
 
-Errors can be seen as links betweehn layers, so if you need to add a new error type, please make sure to add it in the corresponding layer and follow the same pattern, e.g error from data layer should not
+
+Errors can be seen as links between layers, so if you need to add a new error type, please make sure to add it in the corresponding layer and follow the same pattern, e.g error from data layer should not
 be used in the controller layer.
 
 ### Database Schema Notes

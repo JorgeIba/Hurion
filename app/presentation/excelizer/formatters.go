@@ -1,8 +1,7 @@
 package excelizer
 
 import (
-	"fmt"
-
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/presentationerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/xuri/excelize/v2"
 )
@@ -11,7 +10,7 @@ import (
 func formatUsersList(f *excelize.File, sheetName string, userCount int) error {
 	headerStyle, err := CreateHeaderStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create header style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create header style", err)
 	}
 
 	// Apply header style to first row
@@ -20,12 +19,12 @@ func formatUsersList(f *excelize.File, sheetName string, userCount int) error {
 	if userCount > 0 {
 		coloredRowStyle, err := CreatePastelRowStyle(f)
 		if err != nil {
-			return fmt.Errorf("failed to create colored row style: %w", err)
+			return presentationerr.NewStyleCreationError("failed to create colored row style", err)
 		}
 
 		plainRowStyle, err := CreatePlainCenteredStyle(f)
 		if err != nil {
-			return fmt.Errorf("failed to create plain row style: %w", err)
+			return presentationerr.NewStyleCreationError("failed to create plain row style", err)
 		}
 
 		endRow := userCount + HeaderRow
@@ -40,12 +39,12 @@ func formatUsersList(f *excelize.File, sheetName string, userCount int) error {
 
 	err = autoFitColumns(f, sheetName, []string{"A", "B"})
 	if err != nil {
-		return fmt.Errorf("failed to auto-fit columns: %w", err)
+		return presentationerr.NewFormatError("failed to auto-fit columns", err)
 	}
 
 	err = setFreezePanes(f, sheetName, NoFreeze, FreezeFirstRow, TopLeftCellOneRow, ActivePaneBottom)
 	if err != nil {
-		return fmt.Errorf("failed to set freeze panes: %w", err)
+		return presentationerr.NewFormatError("failed to set freeze panes", err)
 	}
 
 	return nil
@@ -55,29 +54,29 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 	// Apply header style to first row (A1:D1)
 	headerStyle, err := CreateHeaderStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create header style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create header style", err)
 	}
 	f.SetCellStyle(sheetName, makeCellRef(0, 1), makeCellRef(3, 1), headerStyle)
 
 	// Styles for topic header, ID, Name, URL, Difficulty columns
 	topicHeaderStyle, err := CreateTopicHeaderStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create topic header style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create topic header style", err)
 	}
 
 	idStyle, err := CreatePlainCenteredStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create ID style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create ID style", err)
 	}
 
 	nameStyle, err := CreatePlainLeftAlignedStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create name style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create name style", err)
 	}
 
 	urlStyle, err := CreateHyperlinkStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create URL style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create URL style", err)
 	}
 
 	currentRow := FirstDataRow
@@ -102,7 +101,7 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 			// Difficulty (colored background)
 			difficultyStyle, err := CreateDifficultyStyle(f, problem.Difficulty)
 			if err != nil {
-				return fmt.Errorf("failed to create difficulty style: %w", err)
+				return presentationerr.NewStyleCreationError("failed to create difficulty style", err)
 			}
 			f.SetCellStyle(sheetName, makeCellRef(3, currentRow), makeCellRef(3, currentRow), difficultyStyle)
 
@@ -113,13 +112,13 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 	// Auto-fit columns
 	err = autoFitColumns(f, sheetName, []string{"A", "B", "C", "D"})
 	if err != nil {
-		return fmt.Errorf("failed to auto-fit columns: %w", err)
+		return presentationerr.NewFormatError("failed to auto-fit columns", err)
 	}
 
 	// Freeze first row (headers)
 	err = setFreezePanes(f, sheetName, NoFreeze, FreezeFirstRow, TopLeftCellOneRow, ActivePaneBottom)
 	if err != nil {
-		return fmt.Errorf("failed to set freeze panes: %w", err)
+		return presentationerr.NewFormatError("failed to set freeze panes", err)
 	}
 
 	return nil
@@ -130,27 +129,27 @@ func formatScoresSheet(f *excelize.File, sheetName string, tableScore presentati
 	// Create styles
 	headerStyle, err := CreateHeaderStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create header style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create header style", err)
 	}
 
 	topicStyle, err := CreateTopicHeaderStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create topic header style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create topic header style", err)
 	}
 
 	acStyle, err := CreateACStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create AC style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create AC style", err)
 	}
 
 	totalsStyle, err := CreateTotalsStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create totals style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create totals style", err)
 	}
 
 	plainStyle, err := CreatePlainCenteredStyle(f)
 	if err != nil {
-		return fmt.Errorf("failed to create plain style: %w", err)
+		return presentationerr.NewStyleCreationError("failed to create plain style", err)
 	}
 
 	// Apply header style to first row (usernames)
@@ -199,13 +198,13 @@ func formatScoresSheet(f *excelize.File, sheetName string, tableScore presentati
 	}
 	err = autoFitColumns(f, sheetName, columns)
 	if err != nil {
-		return fmt.Errorf("failed to auto-fit columns: %w", err)
+		return presentationerr.NewFormatError("failed to auto-fit columns", err)
 	}
 
 	// Freeze first row and first column (headers and problem names)
 	err = setFreezePanes(f, sheetName, FreezeFirstColumn, FreezeFirstRow, TopLeftCellOneRowOneCol, ActivePaneBottomRight)
 	if err != nil {
-		return fmt.Errorf("failed to set freeze panes: %w", err)
+		return presentationerr.NewFormatError("failed to set freeze panes", err)
 	}
 
 	return nil
