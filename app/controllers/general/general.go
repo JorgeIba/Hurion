@@ -121,7 +121,7 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	// Build content by iterating through grouped problems
 	body := ""
 	problemCount := 0
-	const LENGTH_PAGE = 5
+	const LENGTH_PAGE = 15
 
 	for _, group := range groupedProblems {
 		// Add topic header
@@ -339,7 +339,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 	for className, score := range scoresMap {
 		// Format score to table
 		scoreTable := adapters.ScoreToTableScore(score)
-		
+
 		// Get Table as Image
 		imgByte, err := image.GenerateScoreImage(scoreTable)
 		if err != nil {
