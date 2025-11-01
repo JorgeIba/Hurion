@@ -36,7 +36,7 @@ func HandleClearClass(c *context.ContextMessage) error {
 	}
 
 	classCode := c.Args[1]
-	if err := c.Services.User.DeleteClassByClassCode(classCode); err != nil {
+	if err := c.Services.Class.DeleteClassByClassCode(classCode); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -77,7 +77,7 @@ func HandleCreateClass(c *context.ContextMessage) {
 	}
 
 	classCode, className := c.Args[1], strings.Join(c.Args[2:], " ")
-	if err := c.Services.User.CreateClass(classCode, className); err != nil {
+	if err := c.Services.Class.CreateClass(classCode, className); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -160,7 +160,7 @@ func HandleExportClass(c *context.ContextMessage) error {
 	classCode := c.Args[1]
 
 	// Get data from service (users, problems by topic, and score)
-	users, problemsByTopic, score, err := c.Services.User.GetClassExportData(classCode)
+	users, problemsByTopic, score, err := c.Services.Score.GetClassExportData(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 

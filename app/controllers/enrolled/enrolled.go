@@ -21,7 +21,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 	classCode := c.Args[1]
 	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
 
-	if err := c.Services.User.DeregisterUserIDFromClass(discordID, classCode); err != nil {
+	if err := c.Services.Enrollment.DeregisterUserIDFromClass(discordID, classCode); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -58,7 +58,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 
 	messageID, discordID, discordNickname := c.Message.ID, c.Message.Author.ID, c.Message.Author.GlobalName
 
-	if err = c.Services.User.AddPendingACOfUserID(messageID, discordID, problemID); err != nil {
+	if err = c.Services.Solution.AddPendingACOfUserID(messageID, discordID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -103,13 +103,17 @@ func HandleUndoAC(c *context.ContextMessage) {
 
 	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
 
-	if err = c.Services.User.UndoACByProblemAndUserID(problemID, discordID); err != nil {
+	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, discordID); err != nil {
 		logger.Log.Error(err)
 
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Bro `%s` is not able to undo the AC for problem %d", discordNickname, problemID)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem `%d` not found or you're not enrolled in the class", problemID)),
+			)
+		case errors.As(err, &serviceConflictErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Bro `%s`, you haven't solved problem `%d` yet, so you can't undo it", discordNickname, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -120,7 +124,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	successMessage := fmt.Sprintf("Problem `%d` has been UnAC-ed successfully by `%s` (or it wasn't even ACed previously, but I didn't want to check it tbh)", problemID, discordNickname)
+	successMessage := fmt.Sprintf("Problem `%d` has been UnAC-ed successfully by `%s`", problemID, discordNickname)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),

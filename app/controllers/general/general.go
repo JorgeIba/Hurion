@@ -57,7 +57,7 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 	discordID, discordNickName := c.Message.Author.ID, c.Message.Author.GlobalName
 
-	if err := c.Services.User.RegisterUserIDIntoClass(discordID, classCode); err != nil {
+	if err := c.Services.Enrollment.RegisterUserIDIntoClass(discordID, classCode); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -88,7 +88,7 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	groupedProblems, err := c.Services.User.GetProblemsGroupedByTopic(classCode)
+	groupedProblems, err := c.Services.Problem.GetProblemsGroupedByTopic(classCode)
 	if err != nil {
 
 		logger.Log.Error(err)
@@ -170,7 +170,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
 	title := fmt.Sprintf("Score of class `%s`", classCode)
-	score, err := c.Services.User.GetScoreByClassCode(classCode)
+	score, err := c.Services.Score.GetScoreByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
@@ -226,7 +226,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	userName, classCode := c.Args[1], c.Args[2]
 
-	score, err := c.Services.User.GetNeighborsScoreForUsername(userName, classCode)
+	score, err := c.Services.Score.GetNeighborsScoreForUsername(userName, classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
@@ -285,7 +285,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 func HandleGetUsersInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 
-	users, err := c.Services.User.GetListOfUsersByClassCode(classCode)
+	users, err := c.Services.Enrollment.GetListOfUsersByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 		switch {
@@ -324,7 +324,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 
 func HandleGetScoreAllClasses(c *context.ContextMessage) {
 
-	scoresMap, err := c.Services.User.GetScoreAllClasses()
+	scoresMap, err := c.Services.Score.GetScoreAllClasses()
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -380,7 +380,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 }
 
 func HandleGetAllClasses(c *context.ContextMessage) {
-	classes, err := c.Services.User.GetAllClasses()
+	classes, err := c.Services.Class.GetAllClasses()
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(

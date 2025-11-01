@@ -43,7 +43,7 @@ func HandleRegisterUser(c *context.ContextMessage) {
 
 	userName, classCode := c.Args[1], c.Args[2]
 
-	if err := c.Services.User.RegisterUsernameIntoClass(userName, classCode); err != nil {
+	if err := c.Services.Enrollment.RegisterUsernameIntoClass(userName, classCode); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -83,7 +83,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 
 	userName, classCode := c.Args[1], c.Args[2]
 
-	if err := c.Services.User.DeregisterUsernameFromClass(userName, classCode); err != nil {
+	if err := c.Services.Enrollment.DeregisterUsernameFromClass(userName, classCode); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -118,7 +118,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 
 	messageID := c.MessageReaction.MessageID
 
-	pendingConfirmation, err := c.Services.User.GetPendingConfirmationByMessageID(messageID)
+	pendingConfirmation, err := c.Services.Solution.GetPendingConfirmationByMessageID(messageID)
 	if err != nil {
 		logger.Log.Error(err)
 
@@ -136,7 +136,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 
 	switch c.MessageReaction.Emoji.Name {
 	case common.REACTION_NO:
-		err := c.Services.User.RejectACProposal(messageID)
+		err := c.Services.Solution.RejectACProposal(messageID)
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
 			c.Dispatcher.Send(
@@ -156,7 +156,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		)
 
 	case common.REACTION_YES:
-		err := c.Services.User.AcceptACProposal(messageID)
+		err := c.Services.Solution.AcceptACProposal(messageID)
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
 			c.Dispatcher.Send(
@@ -203,7 +203,7 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err := c.Services.User.AddACToUsername(userName, problemID); err != nil {
+	if err := c.Services.Solution.AddACToUsername(userName, problemID); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -256,13 +256,17 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err = c.Services.User.UndoACByProblemAndUsername(problemID, userName); err != nil {
+	if err = c.Services.Solution.UndoACByProblemAndUsername(problemID, userName); err != nil {
 		logger.Log.Error(err)
 
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
 				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or problem id `%d` not found", userName, problemID)),
+			)
+		case errors.As(err, &serviceConflictErr):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has not solved problem `%d` yet or is not enrolled in the class", userName, problemID)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -272,10 +276,10 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Infof("Problem %d has been UnAC-ed successfully by %s (or it wasn't even ACed previously, but I didn't want to check it tbh)", problemID, userName)
+	logger.Log.Infof("Problem %d has been UnAC-ed successfully by %s", problemID, userName)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
-			"Problem `%d` has been UnAC-ed successfully by `%s` (or it wasn't even ACed previously, but I didn't want to check it tbh)",
+			"Problem `%d` has been UnAC-ed successfully by `%s`",
 			problemID,
 			userName,
 		)),
@@ -317,7 +321,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
-	problemID, err := c.Services.User.CreateProblemIntoClass(services.CreateProblemParams{
+	problemID, err := c.Services.Problem.CreateProblemIntoClass(services.CreateProblemParams{
 		Name:       problemName,
 		URL:        url,
 		ClassCode:  classCode,
@@ -382,7 +386,7 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 		return
 	}
 
-	if err = c.Services.User.RemoveProblemFromClass(problemID); err != nil {
+	if err = c.Services.Problem.RemoveProblemFromClass(problemID); err != nil {
 		logger.Log.Error(err)
 
 		switch {
@@ -437,7 +441,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 		return
 	}
 
-	classID, err := c.Services.User.GetClassIDByClassCode(classCode)
+	classID, err := c.Services.Class.GetClassIDByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
 		switch {
@@ -465,7 +469,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
-	if err = c.Services.User.UpdateProblemByProblemID(problemID, data.Problem{
+	if err = c.Services.Problem.UpdateProblemByProblemID(problemID, data.Problem{
 		ID:         problemID,
 		Name:       problemName,
 		ClassID:    classID,
