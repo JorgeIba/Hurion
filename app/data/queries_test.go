@@ -125,28 +125,58 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 	defer db.CloseDB()
 
 	const userID = "12345"
-	const classID = 1
-	queryEnrollment := fmt.Sprintf("SELECT COUNT(*) FROM enrollments WHERE user_id = '%s' AND class_id = %d", userID, classID)
+	const classID = int64(1)
 
-	// Register a user
+	// Preconditions: Create class, user, and problem
+	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", classID, "CS101", "Intro to CS")
+	assert.NoError(t, err)
+
+	err = db.BindUser(User{UserID: userID, UserName: "testuser"})
+	assert.NoError(t, err)
+
+	problemID, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: classID})
+	assert.NoError(t, err)
+
+	// Register user into class
 	err = db.RegisterUserIntoClass(userID, classID)
-	assert.NoError(t, err, "Expected no error, but got: ")
+	assert.NoError(t, err)
 
-	// Verify
+	// Add AC and pending confirmation for this user in this class
+	err = db.AddAC(userID, problemID)
+	assert.NoError(t, err)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg456", UserID: userID, ProblemID: problemID})
+	assert.NoError(t, err)
+
+	// Verify data exists before deregistration
 	var count int
-	err = db.conn.QueryRow(queryEnrollment).Scan(&count)
-	assert.NoError(t, err, "Could not query enrollments correctly: ")
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, count, "User should be registered")
 
-	// Deregister
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count, "AC should exist")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count, "Pending confirmation should exist")
+
+	// Act: Deregister user
 	err = db.DeregisterUserFromClass(userID, classID)
-	assert.NoError(t, err, "Expected no error, but got: ")
+	assert.NoError(t, err)
 
-	// Verify
-	err = db.conn.QueryRow(queryEnrollment).Scan(&count)
-	assert.NoError(t, err, "Could not query enrollments correctly: ")
-
+	// Verify: Enrollment, ACs, and pending confirmations should be deleted
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, count, "User should not be registered in the class")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "ACs should be deleted")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "Pending confirmations should be deleted")
 }
 
 // Add problem
@@ -220,11 +250,15 @@ func TestRemoveProblemByID(t *testing.T) {
 	defer db.CloseDB()
 
 	const problemName = "Sorting Algorithms"
+	const userID = "user123"
 
-	// Precondition
+	// Preconditions: Create class, user, problem
 	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
 	assert.NoError(t, err)
 	classID, err := classResult.LastInsertId()
+	assert.NoError(t, err)
+
+	err = db.BindUser(User{UserID: userID, UserName: "testuser"})
 	assert.NoError(t, err)
 
 	// Add a problem
@@ -232,11 +266,95 @@ func TestRemoveProblemByID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
 
-	// Remove the problem
-	rowsAffected, err := db.RemoveProblemByID(problemID)
+	// Add AC and pending confirmation for this problem
+	err = db.AddAC(userID, problemID)
+	assert.NoError(t, err)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg123", UserID: userID, ProblemID: problemID})
 	assert.NoError(t, err)
 
+	// Verify data exists before deletion
+	var count int
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count, "AC should exist")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count, "Pending confirmation should exist")
+
+	// Act: Remove the problem
+	rowsAffected, err := db.RemoveProblemByID(problemID)
+	assert.NoError(t, err)
 	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
+
+	// Verify: Problem and all related data should be deleted
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "Problem should be deleted")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "ACs should be deleted")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "Pending confirmations should be deleted")
+}
+
+func TestRemoveProblemByNameAndClassID(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const problemName = "Graph Algorithms"
+	const userID = "user456"
+
+	// Preconditions: Create class, user, problem
+	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('avanzados', 'Avanzados 2025')`)
+	assert.NoError(t, err)
+	classID, err := classResult.LastInsertId()
+	assert.NoError(t, err)
+
+	err = db.BindUser(User{UserID: userID, UserName: "testuser2"})
+	assert.NoError(t, err)
+
+	// Add a problem
+	problemID, err := db.AddProblem(Problem{Name: problemName, URL: "url", ClassID: classID})
+	assert.NoError(t, err)
+
+	// Add AC and pending confirmation
+	err = db.AddAC(userID, problemID)
+	assert.NoError(t, err)
+	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg999", UserID: userID, ProblemID: problemID})
+	assert.NoError(t, err)
+
+	// Verify data exists before deletion
+	var count int
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count, "AC should exist")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count, "Pending confirmation should exist")
+
+	// Act: Remove the problem by name and class ID
+	rowsAffected, err := db.RemoveProblemByNameAndClassID(problemName, classID)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
+
+	// Verify: Problem and all related data should be deleted
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "Problem should be deleted")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "ACs should be deleted")
+
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count, "Pending confirmations should be deleted")
 }
 
 func TestAddAC(t *testing.T) {
@@ -315,7 +433,7 @@ func TestGetProblemsByClass(t *testing.T) {
 	// Preconditions
 	difficulty := string(DifficultyHard)
 	topic := "Algorithms"
-	
+
 	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 1", URL: "url1", ClassID: classID})
 	assert.NoError(t, err, "Precondition failed, problem 1 could not be added")
 
@@ -500,35 +618,46 @@ func TestClearClass(t *testing.T) {
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
-	// Preconditions
+	// Preconditions: Create class, user, problem, enrollment, AC, and pending confirmation
 	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", 1, "CS101", "Intro to CS")
-	assert.NoError(t, err, "Could not insert test data.")
+	assert.NoError(t, err)
+
+	err = db.BindUser(User{UserID: "user1", UserName: "testuser1"})
+	assert.NoError(t, err)
+
 	_, err = db.conn.Exec("INSERT INTO problems (id, name, class_id) VALUES (?, ?, ?)", 1, "Problem 1", 1)
-	assert.NoError(t, err, "Could not insert test data.")
+	assert.NoError(t, err)
+
 	_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "user1", 1)
-	assert.NoError(t, err, "Could not insert test data.")
+	assert.NoError(t, err)
+
 	_, err = db.conn.Exec("INSERT INTO solved_problems (user_id, problem_id) VALUES (?, ?)", "user1", 1)
-	assert.NoError(t, err, "Could not insert test data.")
+	assert.NoError(t, err)
 
-	// Act
+	_, err = db.conn.Exec("INSERT INTO pending_confirmations (message_id, user_id, problem_id) VALUES (?, ?, ?)", "msg789", "user1", 1)
+	assert.NoError(t, err)
+
+	// Act: Clear the class
 	err = db.ClearClass(1)
-	assert.NoError(t, err, "Unexpected error")
+	assert.NoError(t, err)
 
-	// Verify
+	// Verify: All related data should be deleted
 	var count int
-	queries := []string{
-		"SELECT COUNT(*) FROM classes WHERE id = 1",
-		"SELECT COUNT(*) FROM problems WHERE class_id = 1",
-		"SELECT COUNT(*) FROM enrollments WHERE class_id = 1",
-		"SELECT COUNT(*) FROM solved_problems sp JOIN problems p ON sp.problem_id = p.id WHERE p.class_id = 1",
+	queries := []struct {
+		query string
+		desc  string
+	}{
+		{"SELECT COUNT(*) FROM classes WHERE id = 1", "classes"},
+		{"SELECT COUNT(*) FROM problems WHERE class_id = 1", "problems"},
+		{"SELECT COUNT(*) FROM enrollments WHERE class_id = 1", "enrollments"},
+		{"SELECT COUNT(*) FROM solved_problems WHERE problem_id = 1", "solved_problems"},
+		{"SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = 1", "pending_confirmations"},
 	}
-	for _, query := range queries {
-		if err := db.conn.QueryRow(query).Scan(&count); err != nil {
-			t.Fatalf("could not check data: %v", err)
-		}
-		if count != 0 {
-			t.Fatalf("expected 0 rows, but found %d", count)
-		}
+
+	for _, q := range queries {
+		err = db.conn.QueryRow(q.query).Scan(&count)
+		assert.NoError(t, err, "Could not check %s", q.desc)
+		assert.Equal(t, 0, count, "Expected 0 rows in %s, but found %d", q.desc, count)
 	}
 }
 
@@ -912,7 +1041,7 @@ func TestGetProblemByID(t *testing.T) {
 	// Act
 	problem, err := db.GetProblemByID(problemID)
 	assert.NoError(t, err)
-	
+
 	// Verify
 	assert.Equal(t, classID, problem.ClassID)
 	assert.Equal(t, url, problem.URL)

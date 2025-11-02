@@ -37,14 +37,41 @@ func (db *DB) RegisterUserIntoClass(userID string, classID int64) error {
 }
 
 func (db *DB) DeregisterUserFromClass(userID string, classID int64) error {
-	query := `
-		DELETE FROM enrollments
-		WHERE user_id = ? AND class_id = ?;
-	`
-
-	if _, err := db.conn.Exec(query, userID, classID); err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not deregister the user %s from class id %d", userID, classID), err)
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to deregister user %s from class %d", userID, classID), err)
 	}
+
+	// Delete in order: pending confirmations -> solved problems -> enrollment
+	queries := []struct {
+		query string
+		note  string
+	}{
+		{
+			query: "DELETE FROM pending_confirmations WHERE user_id = ? AND problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
+			note:  "pending confirmations",
+		},
+		{
+			query: "DELETE FROM solved_problems WHERE user_id = ? AND problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
+			note:  "solved problems",
+		},
+		{
+			query: "DELETE FROM enrollments WHERE user_id = ? AND class_id = ?",
+			note:  "enrollment",
+		},
+	}
+
+	for _, q := range queries {
+		if _, err := tx.Exec(q.query, userID, classID); err != nil {
+			tx.Rollback()
+			return dataerr.NewQueryError(fmt.Sprintf("could not delete %s for user %s from class %d", q.note, userID, classID), err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to deregister user %s from class %d", userID, classID), err)
+	}
+
 	return nil
 }
 
@@ -74,29 +101,66 @@ func (db *DB) AddProblem(problem Problem) (int64, error) {
 }
 
 func (db *DB) RemoveProblemByNameAndClassID(problemName string, classID int64) (int64, error) {
-	query := `
-		DELETE FROM problems
-		WHERE name = ? AND class_id = ?
-	`
-	response, err := db.conn.Exec(query, problemName, classID)
+	tx, err := db.conn.Begin()
 	if err != nil {
-		return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove the problem %s from the class id %d", problemName, classID), err)
+		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to remove problem %s from class %d", problemName, classID), err)
 	}
 
-	return response.RowsAffected()
+	// First, get the problem ID
+	var problemID int64
+	query := "SELECT id FROM problems WHERE name = ? AND class_id = ?"
+	err = tx.QueryRow(query, problemName, classID).Scan(&problemID)
+	if err != nil {
+		tx.Rollback()
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not find problem %s in class %d", problemName, classID), err)
+	}
+
+	// Delete in order: pending confirmations -> solved problems -> problem itself
+	queries := []string{
+		"DELETE FROM pending_confirmations WHERE problem_id = ?",
+		"DELETE FROM solved_problems WHERE problem_id = ?",
+		"DELETE FROM problems WHERE id = ?",
+	}
+
+	for _, query := range queries {
+		if _, err := tx.Exec(query, problemID); err != nil {
+			tx.Rollback()
+			return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove problem %s from class %d", problemName, classID), err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to remove problem %s from class %d", problemName, classID), err)
+	}
+
+	return 1, nil
 }
 
 func (db *DB) RemoveProblemByID(problemID int64) (int64, error) {
-	query := `
-		DELETE FROM problems
-		WHERE id = ?
-	`
-	response, err := db.conn.Exec(query, problemID)
+	tx, err := db.conn.Begin()
 	if err != nil {
-		return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove %d the problem", problemID), err)
+		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to remove problem %d", problemID), err)
 	}
 
-	return response.RowsAffected()
+	// Delete in order: pending confirmations -> solved problems -> problem itself
+	queries := []string{
+		"DELETE FROM pending_confirmations WHERE problem_id = ?",
+		"DELETE FROM solved_problems WHERE problem_id = ?",
+		"DELETE FROM problems WHERE id = ?",
+	}
+
+	for _, query := range queries {
+		if _, err := tx.Exec(query, problemID); err != nil {
+			tx.Rollback()
+			return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove problem %d", problemID), err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to remove problem %d", problemID), err)
+	}
+
+	return 1, nil
 }
 
 func (db *DB) AddAC(userID string, problemID int64) error {
@@ -247,6 +311,7 @@ func (db *DB) ClearClass(classID int64) error {
 	}
 
 	queries := []string{
+		"DELETE FROM pending_confirmations WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
 		"DELETE FROM solved_problems WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
 		"DELETE FROM enrollments WHERE class_id = ?",
 		"DELETE FROM problems WHERE class_id = ?",

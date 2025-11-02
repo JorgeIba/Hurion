@@ -100,7 +100,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 		return
 	}
 
-	successMessage := fmt.Sprintf("User `%s` has registered to the class %s successfully", userName, classCode)
+	successMessage := fmt.Sprintf("User `%s` has been deregistered from the class %s successfully", userName, classCode)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
