@@ -18,13 +18,21 @@ import (
 )
 
 type Bot struct {
-	botToken   string
-	db         *data.DB
-	dispatcher *dispatcher.Dispatcher
+	botToken         string
+	db               *data.DB
+	dispatcher       *dispatcher.Dispatcher
+	discordValidator *validators.ValidatorDiscord
+	services         *services.Services
 }
 
 func CreateBot(botToken string, db *data.DB) (*Bot, error) {
-	return &Bot{botToken, db, nil}, nil
+	return &Bot{
+		botToken:         botToken,
+		db:               db,
+		dispatcher:       nil,
+		discordValidator: nil,
+		services:         nil,
+	}, nil
 }
 
 func (bot *Bot) Run() {
@@ -37,6 +45,10 @@ func (bot *Bot) Run() {
 	bot.dispatcher = dispatcher.NewDispatcher(dg, bufferSize)
 	bot.dispatcher.Start()
 	defer bot.dispatcher.Stop()
+
+	// Initialize validator and services
+	bot.discordValidator = validators.NewValidatorDiscord(dg)
+	bot.services = services.NewServices(bot.db)
 
 	dg.AddHandler(bot.messageHandler)
 	dg.AddHandler(bot.reactionHandler)
@@ -68,10 +80,12 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	context := &context.ContextMessage{
 		Session:          s,
 		Message:          m,
-		DiscordValidator: validators.NewValidatorDiscord(s),
+		DiscordValidator: bot.discordValidator,
 		Args:             args,
-		Services:         services.NewServices(bot.db),
+		Services:         bot.services,
 		Dispatcher:       bot.dispatcher,
+		ExecutorUserID:   m.Author.ID, // Who is executing
+		ExecutorGuildID:  m.GuildID,   // Where it's executed
 	}
 
 	cmd := args[0]
@@ -91,9 +105,11 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 	context := &context.ContextMessage{
 		Session:          s,
 		MessageReaction:  r,
-		DiscordValidator: validators.NewValidatorDiscord(s),
-		Services:         services.NewServices(bot.db),
+		DiscordValidator: bot.discordValidator,
+		Services:         bot.services,
 		Dispatcher:       bot.dispatcher,
+		ExecutorUserID:   r.UserID, // Who is executing
+		ExecutorGuildID:  r.GuildID, // Where it's executed
 	}
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {

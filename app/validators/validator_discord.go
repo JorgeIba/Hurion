@@ -1,6 +1,9 @@
 package validators
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/validatorerr"
 	"github.com/bwmarrin/discordgo"
 )
@@ -10,24 +13,29 @@ type DiscordGoSession interface {
 }
 
 type ValidatorDiscord struct {
-	session DiscordGoSession
+	session     DiscordGoSession
+	adminRoleID string
+	mentorRoleID string
 }
 
 func NewValidatorDiscord(s DiscordGoSession) *ValidatorDiscord {
-	return &ValidatorDiscord{session: s}
+	return &ValidatorDiscord{
+		session:      s,
+		adminRoleID:  os.Getenv("DISCORD_ADMIN_ROLE_ID"),
+		mentorRoleID: os.Getenv("DISCORD_MENTOR_ROLE_ID"),
+	}
 }
 
-const (
-	ADMIN_ROLE  = "690200603871412245"
-	MENTOR_ROLE = "689627803624407041"
-)
-
 func (validator *ValidatorDiscord) hasRole(guildID, userID, roleID string) (bool, error) {
+	if roleID == "" {
+		return false, validatorerr.NewInternalError("role ID is not configured", fmt.Errorf("empty role ID"))
+	}
+	
 	member, err := validator.session.GuildMember(guildID, userID)
 	if err != nil {
 		return false, validatorerr.NewInternalError("could not get member", err)
 	}
-
+	
 	for _, role := range member.Roles {
 		if role == roleID {
 			return true, nil
@@ -38,9 +46,9 @@ func (validator *ValidatorDiscord) hasRole(guildID, userID, roleID string) (bool
 }
 
 func (validator *ValidatorDiscord) IsAdmin(guildID, userID string) (bool, error) {
-	return validator.hasRole(guildID, userID, ADMIN_ROLE)
+	return validator.hasRole(guildID, userID, validator.adminRoleID)
 }
 
 func (validator *ValidatorDiscord) IsMentor(guildID, userID string) (bool, error) {
-	return validator.hasRole(guildID, userID, MENTOR_ROLE)
+	return validator.hasRole(guildID, userID, validator.mentorRoleID)
 }

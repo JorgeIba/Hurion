@@ -1,5 +1,21 @@
 ### Building and running your application
 
+**Before starting, you need to configure your environment variables:**
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file and set the required values:
+   - `DISCORD_BOT_TOKEN`: Your Discord bot token
+   - `DISCORD_ADMIN_ROLE_ID`: The Discord role ID for administrators
+   - `DISCORD_MENTOR_ROLE_ID`: The Discord role ID for mentors
+
+   **How to get role IDs:**
+   - Enable Developer Mode in Discord (User Settings > Advanced > Developer Mode)
+   - Right-click on a role and select "Copy ID"
+
 When you're ready, start your application by running:
 `docker compose up --build`.
 

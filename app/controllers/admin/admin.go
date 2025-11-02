@@ -214,9 +214,13 @@ func HandleExportClass(c *context.ContextMessage) error {
 }
 
 func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
-	// TODO: Remove this line after testing
-	return true, nil
+	if c.ExecutorUserID == "" {
+		return false, fmt.Errorf("no executor user ID available")
+	}
 
-	// guildID, userID := c.Message.GuildID, c.Message.Author.ID
-	// return c.DiscordValidator.IsAdmin(guildID, userID)
+	if c.ExecutorGuildID == "" {
+		return false, fmt.Errorf("admin commands can only be used in a server, not in DMs")
+	}
+
+	return c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.ExecutorUserID)
 }

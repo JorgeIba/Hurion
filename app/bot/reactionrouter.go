@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -44,20 +45,39 @@ func routerConfirmationThumbsUpReaction(c *context.ContextMessage) {
 		return
 	}
 
+	if confirmationMsg.ReferencedMessage == nil {
+		return
+	}
+
+	// Fetch the original message directly to get complete data
+	originalMsg, err := c.Session.ChannelMessage(confirmationMsg.ReferencedMessage.ChannelID, confirmationMsg.ReferencedMessage.ID)
+	if err != nil {
+		logger.Log.Errorf("Failed to fetch original message: %v", err)
+		return
+	}
+
 	// Parse the original command
-	args := strings.Fields(confirmationMsg.ReferencedMessage.Content)
+	args := strings.Fields(originalMsg.Content)
 	if len(args) == 0 {
 		return
+	}
+
+	// Check if GuildID is missing and log it
+	if originalMsg.GuildID == "" {
+		logger.Log.Warnf("Original message missing GuildID, using GuildID from reaction event: %s", c.MessageReaction.GuildID)
+		originalMsg.GuildID = c.MessageReaction.GuildID
 	}
 
 	// Create new context with original message data
 	originalContext := &context.ContextMessage{
 		Session:          c.Session,
-		Message:          &discordgo.MessageCreate{Message: confirmationMsg.ReferencedMessage},
+		Message:          &discordgo.MessageCreate{Message: originalMsg},
 		DiscordValidator: c.DiscordValidator,
 		Services:         c.Services,
 		Dispatcher:       c.Dispatcher,
 		Args:             args,
+		ExecutorUserID:   c.ExecutorUserID,
+		ExecutorGuildID:  c.ExecutorGuildID,
 	}
 
 	// Execute the appropriate command

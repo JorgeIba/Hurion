@@ -10,9 +10,20 @@ import (
 )
 
 func main() {
+	// Validate required environment variables
 	token := os.Getenv("DISCORD_BOT_TOKEN")
 	if token == "" {
-		log.Fatalf("There is not a token")
+		log.Fatalf("DISCORD_BOT_TOKEN environment variable is required")
+	}
+
+	adminRoleID := os.Getenv("DISCORD_ADMIN_ROLE_ID")
+	if adminRoleID == "" {
+		log.Fatalf("DISCORD_ADMIN_ROLE_ID environment variable is required")
+	}
+
+	mentorRoleID := os.Getenv("DISCORD_MENTOR_ROLE_ID")
+	if mentorRoleID == "" {
+		log.Fatalf("DISCORD_MENTOR_ROLE_ID environment variable is required")
 	}
 
 	logger.Init()

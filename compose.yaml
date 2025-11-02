@@ -2,7 +2,7 @@ services:
   service:
     build: .
     env_file:
-      - ./app/.env
+      - .env
     volumes:
       - ./app/data:/app/data
     restart: unless-stopped

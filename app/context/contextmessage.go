@@ -15,4 +15,10 @@ type ContextMessage struct {
 	Dispatcher       *dispatcher.Dispatcher
 	Args             []string
 	Services         *services.Services
+
+	// ExecutorUserID identifies who is executing the command/action.
+	// ExecutorGuildID identifies where (which server) the command is executed.
+	// These are the single source of truth for permission checks.
+	ExecutorUserID  string
+	ExecutorGuildID string
 }
