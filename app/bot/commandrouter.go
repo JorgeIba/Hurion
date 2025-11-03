@@ -41,32 +41,35 @@ var commandMap = map[string]CommandRouter{
 const NotEnough = "Not enough parameters bro"
 const LimitExceed = "Parameters Limit Exceed"
 
+func sendUsageError(c *context.ContextMessage, command string) {
+	message := fmt.Sprintf("Mmmm Invalid usage bro. Check `!help %s` for more info.", command)
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, message),
+	)
+}
+
 func routerBind(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
-	default:
+	case 2:
 		general.HandleBindUser(c)
+	default:
+		sendUsageError(c, "bind")
 	}
 }
 
 func routerRegister(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		general.HandleRegisterUserInClass(c)
 	case 3:
 		mentor.HandleRegisterUser(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "register")
 	}
 }
 
 func routerDeregister(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2, 3:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
@@ -76,18 +79,16 @@ func routerDeregister(c *context.ContextMessage) {
 			GetConfirmationMessage("!deregister", c.Args),
 		))
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "deregister")
 	}
 }
 
 func routerList(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		general.HandleGetListOfProblemsByClass(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "list")
 	}
 }
 
@@ -104,27 +105,23 @@ func routerScore(c *context.ContextMessage) {
 
 func routerProposeAC(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		enrolled.HandleProposeAC(c)
 	case 3:
 		mentor.HandleAddAC(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "ac")
 	}
 }
 
 func routerUndoAC(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		enrolled.HandleUndoAC(c)
 	case 3:
 		mentor.HandleUndoAC(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "undo_ac")
 	}
 }
 
@@ -132,6 +129,7 @@ func routerAddProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1, 2, 3, 4:
 		fmt.Println(NotEnough)
+		sendUsageError(c, "add_problem")
 	default:
 		mentor.HandleAddProblem(c)
 	}
@@ -139,8 +137,6 @@ func routerAddProblem(c *context.ContextMessage) {
 
 func routerRemoveProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
@@ -150,7 +146,7 @@ func routerRemoveProblem(c *context.ContextMessage) {
 			GetConfirmationMessage("!remove_problem", c.Args),
 		))
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "remove_problem")
 	}
 }
 
@@ -165,14 +161,14 @@ func routerClearClass(c *context.ContextMessage) {
 			GetConfirmationMessage("!clear_class", c.Args),
 		))
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "clear_class")
 	}
 }
 
 func routerCreateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1, 2:
-		fmt.Println(NotEnough)
+		sendUsageError(c, "create_class")
 	default:
 		admin.HandleCreateClass(c)
 	}
@@ -180,12 +176,10 @@ func routerCreateClass(c *context.ContextMessage) {
 
 func routerGetUsersInClass(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		general.HandleGetUsersInClass(c)
 	default:
-		admin.HandleCreateClass(c)
+		sendUsageError(c, "users")
 	}
 }
 
@@ -194,16 +188,15 @@ func routerGetAllClasses(c *context.ContextMessage) {
 	case 1:
 		general.HandleGetAllClasses(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "classes")
 	}
 }
 
 func routerUpdateProblem(c *context.ContextMessage) {
-	switch len(c.Args) {
-	case 1, 2, 3, 4, 5, 6:
-		fmt.Println(NotEnough)
-	default:
+	if len(c.Args) >= 7 {
 		mentor.HandleUpdateProblem(c)
+	} else {
+		sendUsageError(c, "update_problem")
 	}
 }
 
@@ -212,18 +205,16 @@ func routerGetMyClasses(c *context.ContextMessage) {
 	case 1:
 		general.HandleGetMyClasses(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "my_classes")
 	}
 }
 
 func routerGetClassesOfUser(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		general.HandleGetClassesOfUsername(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "classes_of")
 	}
 }
 
@@ -232,25 +223,21 @@ func routerGetMyUsername(c *context.ContextMessage) {
 	case 1:
 		general.HandleGetMyUsername(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "me")
 	}
 }
 
 func routerChangeUsername(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		general.HandleChangeUsername(c)
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "change_username")
 	}
 }
 
 func routerExterminate(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
 	case 2:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
@@ -260,16 +247,16 @@ func routerExterminate(c *context.ContextMessage) {
 			GetConfirmationMessage("!exterminate", c.Args),
 		))
 	default:
-		fmt.Println(LimitExceed)
+		sendUsageError(c, "exterminate")
 	}
 }
 
 func routerExport(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		fmt.Println(NotEnough)
-	default:
+	case 2:
 		admin.HandleExportClass(c)
+	default:
+		sendUsageError(c, "export")
 	}
 }
 
