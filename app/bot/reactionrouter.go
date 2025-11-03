@@ -6,7 +6,6 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/bwmarrin/discordgo"
@@ -21,6 +20,10 @@ var reactionRouterMap = map[string]CommandRouter{
 	common.REACTION_THUMBS_DOWN: routerConfirmationReaction,
 }
 
+func routerPendingConfirmationAC(c *context.ContextMessage) {
+	mentor.HandlePendingConfirmation(c)
+}
+
 func routerConfirmationReaction(c *context.ContextMessage) {
 	if !verifyIsConfirmationMessage(c) {
 		return
@@ -28,17 +31,17 @@ func routerConfirmationReaction(c *context.ContextMessage) {
 
 	switch c.MessageReaction.Emoji.Name {
 	case common.REACTION_THUMBS_UP:
-		routerConfirmationThumbsUpReaction(c)
+		handleConfirmationYes(c)
 	case common.REACTION_THUMBS_DOWN:
 		handleConfirmationNo(c)
 	}
 }
 
-func routerPendingConfirmationAC(c *context.ContextMessage) {
-	mentor.HandlePendingConfirmation(c)
+func handleConfirmationNo(c *context.ContextMessage) {
+	setMessageAsCancelled(c)
 }
 
-func routerConfirmationThumbsUpReaction(c *context.ContextMessage) {
+func handleConfirmationYes(c *context.ContextMessage) {
 	// Get the confirmation message
 	confirmationMsg, err := c.Session.ChannelMessage(c.MessageReaction.ChannelID, c.MessageReaction.MessageID)
 	if err != nil {
@@ -80,27 +83,7 @@ func routerConfirmationThumbsUpReaction(c *context.ContextMessage) {
 		ExecutorGuildID:  c.ExecutorGuildID,
 	}
 
-	// Execute the appropriate command
-	switch args[0] {
-	case "!exterminate":
-		if err := admin.HandleExterminate(originalContext); err != nil {
-			setMessageAsError(c)
-		} else {
-			setMessageAsExecuted(c, fmt.Sprintf("User %s has been exterminated", args[1]))
-		}
-		return
-	case "!clear_class":
-		if err := admin.HandleClearClass(originalContext); err != nil {
-			setMessageAsError(c)
-		} else {
-			setMessageAsExecuted(c, fmt.Sprintf("Class %s has been cleared", args[1]))
-		}
-		return
-	}
-}
-
-func handleConfirmationNo(c *context.ContextMessage) {
-	setMessageAsCancelled(c)
+	executeConfirmedCommand(originalContext, args, c)
 }
 
 func setMessageAsCancelled(c *context.ContextMessage) {

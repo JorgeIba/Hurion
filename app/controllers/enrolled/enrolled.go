@@ -17,7 +17,7 @@ var (
 	serviceConflictErr     = &serviceerr.ConflictError{}
 )
 
-func HandleDeregisterUser(c *context.ContextMessage) {
+func HandleDeregisterUser(c *context.ContextMessage) error {
 	classCode := c.Args[1]
 	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
 
@@ -35,7 +35,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 			)
 		}
 
-		return
+		return err
 	}
 
 	successMessage := fmt.Sprintf("User `%s` has deregistered from the class `%s` successfully", discordNickname, classCode)
@@ -43,6 +43,8 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
+	
+	return nil
 }
 
 func HandleProposeAC(c *context.ContextMessage) {

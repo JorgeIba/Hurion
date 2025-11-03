@@ -66,19 +66,19 @@ func HandleRegisterUser(c *context.ContextMessage) {
 	)
 }
 
-func HandleDeregisterUser(c *context.ContextMessage) {
+func HandleDeregisterUser(c *context.ContextMessage) error {
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
 		)
-		return
+		return err
 	} else if !IsMentor {
 		logger.Log.Errorln(messageErrNotPermissions)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
 		)
-		return
+		return fmt.Errorf("user is not a mentor")
 	}
 
 	userName, classCode := c.Args[1], c.Args[2]
@@ -97,7 +97,7 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 			)
 		}
 
-		return
+		return err
 	}
 
 	successMessage := fmt.Sprintf("User `%s` has been deregistered from the class %s successfully", userName, classCode)
@@ -105,6 +105,8 @@ func HandleDeregisterUser(c *context.ContextMessage) {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
+	
+	return nil
 }
 
 func HandlePendingConfirmation(c *context.ContextMessage) {
@@ -362,19 +364,19 @@ func HandleAddProblem(c *context.ContextMessage) {
 	)
 }
 
-func HandleRemoveProblem(c *context.ContextMessage) {
+func HandleRemoveProblem(c *context.ContextMessage) error {
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
 		)
-		return
+		return err
 	} else if !IsMentor {
 		logger.Log.Errorln(messageErrNotPermissions)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
 		)
-		return
+		return fmt.Errorf("user is not a mentor")
 	}
 
 	problemIDs := c.Args[1]
@@ -384,7 +386,7 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
 		)
-		return
+		return err
 	}
 
 	if err = c.Services.Problem.RemoveProblemFromClass(problemID); err != nil {
@@ -400,7 +402,7 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
 			)
 		}
-		return
+		return err
 	}
 
 	logger.Log.Infof("Problem with ID: %d has been removed from this earthly plane and has passed to the astral plane", problemID)
@@ -409,6 +411,8 @@ func HandleRemoveProblem(c *context.ContextMessage) {
 			"Problem with ID: `%d` has been removed from this earthly plane and has passed to the astral plane",
 			problemID)),
 	)
+	
+	return nil
 }
 
 func HandleUpdateProblem(c *context.ContextMessage) {

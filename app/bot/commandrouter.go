@@ -67,10 +67,14 @@ func routerDeregister(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1:
 		fmt.Println(NotEnough)
-	case 2:
-		enrolled.HandleDeregisterUser(c)
-	case 3:
-		mentor.HandleDeregisterUser(c)
+	case 2, 3:
+		// This command requires confirmation
+		// confirmationHandler.go will handle it
+		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
+			c.Message.ChannelID,
+			c.Message.ID,
+			GetConfirmationMessage("!deregister", c.Args),
+		))
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -138,7 +142,13 @@ func routerRemoveProblem(c *context.ContextMessage) {
 	case 1:
 		fmt.Println(NotEnough)
 	case 2:
-		mentor.HandleRemoveProblem(c)
+		// This command requires confirmation
+		// confirmationHandler.go will handle it
+		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
+			c.Message.ChannelID,
+			c.Message.ID,
+			GetConfirmationMessage("!remove_problem", c.Args),
+		))
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -147,13 +157,13 @@ func routerRemoveProblem(c *context.ContextMessage) {
 func routerClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
-		// Send confirmation message instead of directly executing
-		classCode := c.Args[1]
-		warningMessage := fmt.Sprintf("⚠️ **DANGER!** This will permanently delete class `%s` and all its data. This action cannot be undone!", classCode)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeConfirmationMessage(c.Message.ChannelID, c.Message.ID, warningMessage),
-		)
+		// This command requires confirmation
+		// confirmationHandler.go will handle it
+		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
+			c.Message.ChannelID,
+			c.Message.ID,
+			GetConfirmationMessage("!clear_class", c.Args),
+		))
 	default:
 		fmt.Println(LimitExceed)
 	}
@@ -242,15 +252,12 @@ func routerExterminate(c *context.ContextMessage) {
 	case 1:
 		fmt.Println(NotEnough)
 	case 2:
-		// Send confirmation message instead of executing directly
-		warningMessage := fmt.Sprintf("⚠️ **DANGEROUS OPERATION**\n\n"+
-			"This will **PERMANENTLY DELETE** all data for user `%s'\n"+
-			"**This action CANNOT be undone!**", c.Args[1])
-
+		// This command requires confirmation
+		// confirmationHandler.go will handle it
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			warningMessage,
+			GetConfirmationMessage("!exterminate", c.Args),
 		))
 	default:
 		fmt.Println(LimitExceed)
