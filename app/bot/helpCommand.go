@@ -7,237 +7,32 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// UserRole represents the different types of users that can execute commands
-type UserRole string
-
-const (
-	RoleAll      UserRole = "All"
-	RoleEnrolled UserRole = "Enrolled"
-	RoleMentor   UserRole = "Mentor"
-	RoleAdmin    UserRole = "Admin"
-)
-
-// UserRoleSet is a set of user roles that can execute a command
-type UserRoleSet map[UserRole]bool
-
-// NewUserRoleSet creates a new set of user roles
-func NewUserRoleSet(roles ...UserRole) UserRoleSet {
-	set := make(UserRoleSet)
-	for _, role := range roles {
-		set[role] = true
+func getCommandDataByName(name string) (CommandData, bool) {
+	if cmd, ok := CommandByName(name); ok {
+		return cmd.Data(), true
 	}
-	return set
+	return CommandData{}, false
 }
 
-// Contains checks if the set contains a specific role
-func (s UserRoleSet) Contains(role UserRole) bool {
-	return s[role]
-}
-
-// String returns a string representation of the role set for display
-func (s UserRoleSet) String() string {
-	roles := []string{}
-
-	orderedRoles := []UserRole{RoleAll, RoleEnrolled, RoleMentor, RoleAdmin}
-	for _, role := range orderedRoles {
-		if s[role] {
-			roles = append(roles, string(role))
-		}
-	}
-	return strings.Join(roles, "/")
-}
-
-type commandInfo struct {
-	Command     string
-	Usage       string
-	Description string
-	UserRoles   UserRoleSet // Set of roles that can use this command
-	ExtraInfo   string
-}
-
-var commandInfoMap = map[string]commandInfo{
-	"!help": {
-		Command:     "!help",
-		Usage:       "!help [command]",
-		Description: "Show info for all commands or details for a specific command",
-		UserRoles:   NewUserRoleSet(RoleAll),
-	},
-	"!bind": {
-		Command:     "!bind",
-		Usage:       "!bind <user_name>",
-		Description: "Bind your Discord account to a username for tracking progress",
-		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\")",
-	},
-	"!change_username": {
-		Command:     "!change_username",
-		Usage:       "!change_username <user_name>",
-		Description: "Change your current username to a new one",
-		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\"). If you don't have a username bound yet, this will bind the new username to your account.",
-	},
-	"!register": {
-		Command:     "!register",
-		Usage:       "!register <class_code>\n!register <user_name> <class_code>",
-		Description: "Register yourself or another user in a class",
-		UserRoles:   NewUserRoleSet(RoleAll, RoleMentor),
-		ExtraInfo: "**As Regular User:** Use `!register <class_code>` to register yourself in a class.\n" +
-			"**As Mentor:** Use `!register <user_name> <class_code>` to register another user in a class.\n" +
-			"The `class_code` and `user_name` parameters should be one word (e.g., \"basicos_1\", \"jorge_ibanez\")",
-	},
-	"!deregister": {
-		Command:     "!deregister",
-		Usage:       "!deregister <class_code>\n!deregister <user_name> <class_code>",
-		Description: "Remove yourself or another user from a class",
-		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
-		ExtraInfo: "**As Enrolled User:** Use `!deregister <class_code>` to remove yourself from a class.\n" +
-			"**As Mentor:** Use `!deregister <user_name> <class_code>` to remove another user from a class.\n" +
-			"⚠️ **WARNING:** This will delete ALL solved problems and pending confirmations for the user in this class.",
-	},
-	"!list": {
-		Command:     "!list",
-		Usage:       "!list <class_code>",
-		Description: "Show the list of problems available for the specified class",
-		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
-	},
-	"!score": {
-		Command:     "!score",
-		Usage:       "!score [class_code] [user_name]",
-		Description: "Show scores for all classes, a specific class, or a specific user in a class",
-		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "Both `class_code` and `user_name` parameters should be one word. You can use `!score` to see all scores, `!score class_code` to see scores for a class, or `!score user_name class_code` to see a specific user's scores in a class.",
-	},
-	"!ac": {
-		Command:     "!ac",
-		Usage:       "!ac <problem_id>\n!ac <user_name> <problem_id>",
-		Description: "Mark a problem as solved for yourself or another user",
-		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
-		ExtraInfo: "**As Enrolled User:** Use `!ac <problem_id>` to mark a problem as solved (requires mentor approval with ✅ or ❌).\n" +
-			"**As Mentor:** Use `!ac <user_name> <problem_id>` to directly mark a problem as solved for another user (no approval needed).",
-	},
-	"!undo_ac": {
-		Command:     "!undo_ac",
-		Usage:       "!undo_ac <problem_id>\n!undo_ac <user_name> <problem_id>",
-		Description: "Remove a previously solved problem from your or another user's solved list",
-		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
-		ExtraInfo: "**As Enrolled User:** Use `!undo_ac <problem_id>` to remove a problem from your own solved list.\n" +
-			"**As Mentor:** Use `!undo_ac <user_name> <problem_id>` to remove a problem from another user's solved list.",
-	},
-	"!add_problem": {
-		Command:     "!add_problem",
-		Usage:       "!add_problem <class_code> <url> [difficulty] [topic] <ProblemName>",
-		Description: "Add a new problem to a class with URL, optional difficulty and topic, and name",
-		UserRoles:   NewUserRoleSet(RoleMentor),
-		ExtraInfo: "The `class_code` should be one word, url should have 'http://' prefix (Discord policies I guess), " +
-			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (No case sensitive). " +
-			"`topic` can be any text, one word, use '-' to skip (No case sensitive). " +
-			"`ProblemName` can include multiple words.\n" +
-			"Examples:\n" +
-			"  !add_problem basicos http://example.com - - Two Sum (no difficulty, no topic)\n" +
-			"  !add_problem basicos http://example.com Easy - Two Sum (only difficulty)\n" +
-			"  !add_problem basicos http://example.com - DP Two Sum (only topic)\n" +
-			"  !add_problem basicos http://example.com Medium Graphs Binary Tree Problem (both)",
-	},
-	"!remove_problem": {
-		Command:     "!remove_problem",
-		Usage:       "!remove_problem <problem_id>",
-		Description: "Remove a problem from a class by its ID",
-		UserRoles:   NewUserRoleSet(RoleMentor),
-	},
-	"!update_problem": {
-		Command:     "!update_problem",
-		Usage:       "!update_problem <problem_id> <class_code> <url> [difficulty] [topic] <ProblemName>",
-		Description: "Update a problem's details while preserving its ID for AC records",
-		UserRoles:   NewUserRoleSet(RoleMentor),
-		ExtraInfo: "The `problem_id` and `class_code` should be one word, url should have 'http://' prefix (Discord policies I guess), " +
-			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (No case sensitive). " +
-			"`topic` can be any text, one word, use '-' to skip (No case sensitive). " +
-			"`ProblemName` can include multiple words.\n" +
-			"Examples:\n" +
-			"  !update_problem 3 basicos http://example.com - - Updated Name (no difficulty, no topic)\n" +
-			"  !update_problem 3 basicos http://example.com Hard - Updated Name (only difficulty)\n" +
-			"  !update_problem 3 basicos http://example.com - DP Updated Name (only topic)\n" +
-			"  !update_problem 3 basicos http://example.com Easy Graphs Updated Problem Name (both)",
-	}, "!clear_class": {
-		Command:     "!clear_class",
-		Usage:       "!clear_class <class_code>",
-		Description: "Remove all problems, enrollments, and scores from a class",
-		UserRoles:   NewUserRoleSet(RoleAdmin),
-		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
-	}, "!create_class": {
-		Command:     "!create_class",
-		Usage:       "!create_class <class_code> <ClassName>",
-		Description: "Create a new class with the specified code and name",
-		UserRoles:   NewUserRoleSet(RoleAdmin),
-		ExtraInfo:   "The `class_code` should be one word, while `ClassName` can include multiple words (e.g., \"basicos_1 Basicos 2025\")",
-	}, "!exterminate": {
-		Command:     "!exterminate",
-		Usage:       "!exterminate <user_id>",
-		Description: "Remove user from all system data including bindings, enrollments, solved problems and pending confirmations",
-		UserRoles:   NewUserRoleSet(RoleAdmin),
-		ExtraInfo:   "The `user_id` should be the Discord user ID (e.g., \"123456789012345678\"). This action cannot be undone.",
-	}, "!export": {
-		Command:     "!export",
-		Usage:       "!export <class_code>",
-		Description: "Export all class data (users, problems, scores) to an Excel file",
-		UserRoles:   NewUserRoleSet(RoleAdmin),
-		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\"). The Excel file will contain three sheets: Users, Problems, and Scores.",
-	}, "!users": {
-		Command:     "!users",
-		Usage:       "!users <class_code>",
-		Description: "Show a list of all users registered in the specified class",
-		UserRoles:   NewUserRoleSet(RoleMentor),
-		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
-	},
-	"!classes": {
-		Command:     "!classes",
-		Usage:       "!classes",
-		Description: "Show a list of all available classes",
-		UserRoles:   NewUserRoleSet(RoleAll),
-	},
-	"!my_classes": {
-		Command:     "!my_classes",
-		Usage:       "!my_classes",
-		Description: "Show a list of all classes you're currently enrolled in",
-		UserRoles:   NewUserRoleSet(RoleEnrolled),
-	},
-	"!classes_of": {
-		Command:     "!classes_of",
-		Usage:       "!classes_of <user_name>",
-		Description: "Show a list of all classes a specific user is enrolled in",
-		UserRoles:   NewUserRoleSet(RoleMentor),
-		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\")",
-	},
-	"!me": {
-		Command:     "!me",
-		Usage:       "!me",
-		Description: "Show the username bound to your Discord account",
-		UserRoles:   NewUserRoleSet(RoleAll),
-	},
-}
-
-// buildGeneralHelpMessage creates the general help message listing all commands
 func buildGeneralHelpMessage() *discordgo.MessageEmbed {
 	allCommands := []string{}
 	enrolledCommands := []string{}
 	mentorCommands := []string{}
 	adminCommands := []string{}
 
-	for cmd, info := range commandInfoMap {
-		cmdEntry := fmt.Sprintf("• `%s` - %s", cmd, info.Description)
+	for _, data := range Commands {
+		cmdEntry := fmt.Sprintf("• `%s` - %s", data.Cmd, data.Description)
 
-		// Check which roles can use this command and add to appropriate lists
-		if info.UserRoles.Contains(RoleAll) {
+		if data.UserRoles.Contains(RoleAll) {
 			allCommands = append(allCommands, cmdEntry)
 		}
-		if info.UserRoles.Contains(RoleEnrolled) {
+		if data.UserRoles.Contains(RoleEnrolled) {
 			enrolledCommands = append(enrolledCommands, cmdEntry)
 		}
-		if info.UserRoles.Contains(RoleMentor) {
+		if data.UserRoles.Contains(RoleMentor) {
 			mentorCommands = append(mentorCommands, cmdEntry)
 		}
-		if info.UserRoles.Contains(RoleAdmin) {
+		if data.UserRoles.Contains(RoleAdmin) {
 			adminCommands = append(adminCommands, cmdEntry)
 		}
 	}
@@ -296,30 +91,29 @@ func buildGeneralHelpMessage() *discordgo.MessageEmbed {
 	return embed
 }
 
-// buildCommandHelpMessage creates a detailed help message for a specific command
-func buildCommandHelpMessage(info commandInfo) *discordgo.MessageEmbed {
+func buildCommandHelpMessage(data CommandData) *discordgo.MessageEmbed {
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Command: %s", info.Command),
-		Description: info.Description,
-		Color:       0x57F287, // Discord Green
+		Title:       fmt.Sprintf("Command: %s", data.Cmd),
+		Description: data.Description,
+		Color:       0x57F287,
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "📋 Usage",
-				Value:  fmt.Sprintf("`%s`", info.Usage),
+				Value:  fmt.Sprintf("`%s`", data.Usage),
 				Inline: false,
 			},
 			{
 				Name:   "👥 User Type",
-				Value:  info.UserRoles.String(),
+				Value:  data.UserRoles.String(),
 				Inline: true,
 			},
 		},
 	}
 
-	if info.ExtraInfo != "" {
+	if data.ExtraInfo != "" {
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:   "ℹ️ Additional Information",
-			Value:  info.ExtraInfo,
+			Value:  data.ExtraInfo,
 			Inline: false,
 		})
 	}

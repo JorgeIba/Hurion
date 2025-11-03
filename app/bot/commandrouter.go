@@ -15,27 +15,27 @@ import (
 type CommandRouter func(c *context.ContextMessage)
 
 var commandMap = map[string]CommandRouter{
-	"!help":            routerHelp,
-	"!bind":            routerBind,
-	"!register":        routerRegister,
-	"!deregister":      routerDeregister,
-	"!list":            routerList,
-	"!score":           routerScore,
-	"!ac":              routerProposeAC,
-	"!undo_ac":         routerUndoAC,
-	"!add_problem":     routerAddProblem,
-	"!remove_problem":  routerRemoveProblem,
-	"!clear_class":     routerClearClass,
-	"!create_class":    routerCreateClass,
-	"!users":           routerGetUsersInClass,
-	"!classes":         routerGetAllClasses,
-	"!update_problem":  routerUpdateProblem,
-	"!my_classes":      routerGetMyClasses,
-	"!classes_of":      routerGetClassesOfUser,
-	"!me":              routerGetMyUsername,
-	"!change_username": routerChangeUsername,
-	"!exterminate":     routerExterminate,
-	"!export":          routerExport,
+	Help.String():           routerHelp,
+	Bind.String():           routerBind,
+	Register.String():       routerRegister,
+	Deregister.String():     routerDeregister,
+	List.String():           routerList,
+	Score.String():          routerScore,
+	AC.String():             routerProposeAC,
+	UndoAC.String():         routerUndoAC,
+	AddProblem.String():     routerAddProblem,
+	RemoveProblem.String():  routerRemoveProblem,
+	ClearClass.String():     routerClearClass,
+	CreateClass.String():    routerCreateClass,
+	Users.String():          routerGetUsersInClass,
+	Classes.String():        routerGetAllClasses,
+	UpdateProblem.String():  routerUpdateProblem,
+	MyClasses.String():      routerGetMyClasses,
+	ClassesOf.String():      routerGetClassesOfUser,
+	Me.String():             routerGetMyUsername,
+	ChangeUsername.String(): routerChangeUsername,
+	Exterminate.String():    routerExterminate,
+	Export.String():         routerExport,
 }
 
 const NotEnough = "Not enough parameters bro"
@@ -53,7 +53,7 @@ func routerBind(c *context.ContextMessage) {
 	case 2:
 		general.HandleBindUser(c)
 	default:
-		sendUsageError(c, "bind")
+		sendUsageError(c, Bind.Name())
 	}
 }
 
@@ -64,7 +64,7 @@ func routerRegister(c *context.ContextMessage) {
 	case 3:
 		mentor.HandleRegisterUser(c)
 	default:
-		sendUsageError(c, "register")
+		sendUsageError(c, Register.Name())
 	}
 }
 
@@ -76,10 +76,10 @@ func routerDeregister(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage("!deregister", c.Args),
+			GetConfirmationMessage(Deregister.String(), c.Args),
 		))
 	default:
-		sendUsageError(c, "deregister")
+		sendUsageError(c, Deregister.Name())
 	}
 }
 
@@ -88,7 +88,7 @@ func routerList(c *context.ContextMessage) {
 	case 2:
 		general.HandleGetListOfProblemsByClass(c)
 	default:
-		sendUsageError(c, "list")
+		sendUsageError(c, List.Name())
 	}
 }
 
@@ -110,7 +110,7 @@ func routerProposeAC(c *context.ContextMessage) {
 	case 3:
 		mentor.HandleAddAC(c)
 	default:
-		sendUsageError(c, "ac")
+		sendUsageError(c, AC.Name())
 	}
 }
 
@@ -121,7 +121,7 @@ func routerUndoAC(c *context.ContextMessage) {
 	case 3:
 		mentor.HandleUndoAC(c)
 	default:
-		sendUsageError(c, "undo_ac")
+		sendUsageError(c, UndoAC.Name())
 	}
 }
 
@@ -129,7 +129,7 @@ func routerAddProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1, 2, 3, 4:
 		fmt.Println(NotEnough)
-		sendUsageError(c, "add_problem")
+		sendUsageError(c, AddProblem.Name())
 	default:
 		mentor.HandleAddProblem(c)
 	}
@@ -143,10 +143,10 @@ func routerRemoveProblem(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage("!remove_problem", c.Args),
+			GetConfirmationMessage(RemoveProblem.String(), c.Args),
 		))
 	default:
-		sendUsageError(c, "remove_problem")
+		sendUsageError(c, RemoveProblem.Name())
 	}
 }
 
@@ -158,17 +158,17 @@ func routerClearClass(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage("!clear_class", c.Args),
+			GetConfirmationMessage(ClearClass.String(), c.Args),
 		))
 	default:
-		sendUsageError(c, "clear_class")
+		sendUsageError(c, ClearClass.Name())
 	}
 }
 
 func routerCreateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1, 2:
-		sendUsageError(c, "create_class")
+		sendUsageError(c, CreateClass.Name())
 	default:
 		admin.HandleCreateClass(c)
 	}
@@ -179,7 +179,7 @@ func routerGetUsersInClass(c *context.ContextMessage) {
 	case 2:
 		general.HandleGetUsersInClass(c)
 	default:
-		sendUsageError(c, "users")
+		sendUsageError(c, Users.Name())
 	}
 }
 
@@ -188,7 +188,7 @@ func routerGetAllClasses(c *context.ContextMessage) {
 	case 1:
 		general.HandleGetAllClasses(c)
 	default:
-		sendUsageError(c, "classes")
+		sendUsageError(c, Classes.Name())
 	}
 }
 
@@ -196,7 +196,7 @@ func routerUpdateProblem(c *context.ContextMessage) {
 	if len(c.Args) >= 7 {
 		mentor.HandleUpdateProblem(c)
 	} else {
-		sendUsageError(c, "update_problem")
+		sendUsageError(c, UpdateProblem.Name())
 	}
 }
 
@@ -205,7 +205,7 @@ func routerGetMyClasses(c *context.ContextMessage) {
 	case 1:
 		general.HandleGetMyClasses(c)
 	default:
-		sendUsageError(c, "my_classes")
+		sendUsageError(c, MyClasses.Name())
 	}
 }
 
@@ -214,7 +214,7 @@ func routerGetClassesOfUser(c *context.ContextMessage) {
 	case 2:
 		general.HandleGetClassesOfUsername(c)
 	default:
-		sendUsageError(c, "classes_of")
+		sendUsageError(c, ClassesOf.Name())
 	}
 }
 
@@ -223,7 +223,7 @@ func routerGetMyUsername(c *context.ContextMessage) {
 	case 1:
 		general.HandleGetMyUsername(c)
 	default:
-		sendUsageError(c, "me")
+		sendUsageError(c, Me.Name())
 	}
 }
 
@@ -232,7 +232,7 @@ func routerChangeUsername(c *context.ContextMessage) {
 	case 2:
 		general.HandleChangeUsername(c)
 	default:
-		sendUsageError(c, "change_username")
+		sendUsageError(c, ChangeUsername.Name())
 	}
 }
 
@@ -244,10 +244,10 @@ func routerExterminate(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage("!exterminate", c.Args),
+			GetConfirmationMessage(Exterminate.String(), c.Args),
 		))
 	default:
-		sendUsageError(c, "exterminate")
+		sendUsageError(c, Exterminate.Name())
 	}
 }
 
@@ -256,11 +256,10 @@ func routerExport(c *context.ContextMessage) {
 	case 2:
 		admin.HandleExportClass(c)
 	default:
-		sendUsageError(c, "export")
+		sendUsageError(c, Export.Name())
 	}
 }
 
-// routerHelp handles the !help command, showing all commands or details for a specific command
 func routerHelp(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1:
@@ -271,8 +270,8 @@ func routerHelp(c *context.ContextMessage) {
 		)
 	case 2:
 		command := c.Args[1]
-		if info, exists := commandInfoMap["!"+command]; exists {
-			embed := buildCommandHelpMessage(info)
+		if data, exists := getCommandDataByName(command); exists {
+			embed := buildCommandHelpMessage(data)
 			logger.Log.Debugf("Help embed built with %d fields", len(embed.Fields))
 			c.Dispatcher.Send(
 				dispatcher.MakeEmbedMessage(c.Message.ChannelID, embed),
