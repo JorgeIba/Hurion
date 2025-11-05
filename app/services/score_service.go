@@ -38,6 +38,18 @@ func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[data.
 		return emptyMap, serviceerr.MakeGeneralError(err)
 	}
 
+	// Ensure all users in the class are represented in the score map
+	allUsers, err := service.Datastore.GetAllUsersByClassID(class.ID)
+	if err != nil {
+		return emptyMap, serviceerr.MakeGeneralError(err)
+	}
+
+	for _, user := range allUsers {
+		if _, exists := studentsScore[user]; !exists {
+			studentsScore[user] = []data.SolvedProblem{}
+		}
+	}
+
 	return studentsScore, nil
 }
 

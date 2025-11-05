@@ -127,7 +127,7 @@ func routerUndoAC(c *context.ContextMessage) {
 
 func routerAddProblem(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1, 2, 3, 4:
+	case 1, 2, 3, 4, 5:
 		fmt.Println(NotEnough)
 		sendUsageError(c, AddProblem.Name())
 	default:
