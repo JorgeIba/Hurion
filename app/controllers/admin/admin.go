@@ -115,14 +115,19 @@ func HandleExterminate(c *context.ContextMessage) error {
 		return err
 	}
 
-	userID := c.Args[1]
+	// Extract user ID from mention (format: <@USER_ID> or <@!USER_ID>)
+	mention := c.Args[1]
+	userID := strings.TrimPrefix(mention, "<@")
+	userID = strings.TrimPrefix(userID, "!")
+	userID = strings.TrimSuffix(userID, ">")
+
 	if err := c.Services.User.ExterminateUser(userID); err != nil {
 		logger.Log.Error(err)
 
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` not found in the system", userID)),
+				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> not found in the system", userID)),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -135,7 +140,7 @@ func HandleExterminate(c *context.ContextMessage) error {
 
 	logger.Log.Infof("User %s exterminated successfully!", userID)
 	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has been completely removed from the system.", userID)),
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> has been completely removed from the system.", userID)),
 	)
 
 	return nil

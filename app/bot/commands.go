@@ -171,10 +171,10 @@ var Commands = map[Command]CommandData{
 	Exterminate: {
 		Cmd:        "!exterminate",
 		Name:        "exterminate",
-		Usage:       "!exterminate <user_id>",
+		Usage:       "!exterminate <@user>",
 		Description: "Remove user from all system data including bindings, enrollments, solved problems and pending confirmations",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
-		ExtraInfo:   "The `user_id` should be the Discord user ID (e.g., \"123456789012345678\"). This action cannot be undone.",
+		ExtraInfo:   "Mention the user with @ (e.g., \"@JohnDoe\"). This action cannot be undone.",
 	},
 	Export: {
 		Cmd:        "!export",
