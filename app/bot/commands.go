@@ -189,7 +189,7 @@ var Commands = map[Command]CommandData{
 		Name:        "users",
 		Usage:       "!users <class_code>",
 		Description: "Show a list of all users registered in the specified class",
-		UserRoles:   NewUserRoleSet(RoleMentor),
+		UserRoles:   NewUserRoleSet(RoleAll),
 		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
 	},
 	Classes: {
@@ -211,7 +211,7 @@ var Commands = map[Command]CommandData{
 		Name:        "classes_of",
 		Usage:       "!classes_of <user_name>",
 		Description: "Show a list of all classes a specific user is enrolled in",
-		UserRoles:   NewUserRoleSet(RoleMentor),
+		UserRoles:   NewUserRoleSet(RoleAll),
 		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\")",
 	},
 	Me: {
