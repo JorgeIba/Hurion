@@ -55,7 +55,7 @@ func HandleClearClass(c *context.ContextMessage) error {
 
 	logger.Log.Infof("Class %s has been removed\n", classCode)
 	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class `%s` has bee removed successfully", classCode)),
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class `%s` has been removed successfully", classCode)),
 	)
 
 	return nil
