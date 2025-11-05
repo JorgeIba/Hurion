@@ -118,40 +118,58 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	var embeds []*discordgo.MessageEmbed
 	title := fmt.Sprintf("List of problems for class %s", classCode)
 
-	// Build content by iterating through grouped problems
-	body := ""
+	// Build values for the 3 columns
+	idColumn := ""
+	difficultyColumn := ""
+	nameColumn := ""
 	problemCount := 0
 	const LENGTH_PAGE = 15
 
 	for _, group := range groupedProblems {
-		// Add topic header
-		if body != "" {
-			body += "\n"
+		// Add topic separator
+		if idColumn != "" {
+			idColumn += "\n"
+			difficultyColumn += "\n"
+			nameColumn += "\n"
 		}
-		body += fmt.Sprintf("**%s**\n", group.Topic)
+		idColumn += fmt.Sprintf("**%s**", group.Topic)
+		difficultyColumn += "\u200b" // Zero-width space
+		nameColumn += "\u200b"       // Zero-width space
 
 		// Add problems in this topic
 		for _, problem := range group.Problems {
 			difficultyEmoji := getDifficultyEmoji(problem.GetDifficulty())
-			body += fmt.Sprintf("%d. %s - [%s](%s)\n", problem.ID, difficultyEmoji, problem.Name, problem.URL)
+			idColumn += fmt.Sprintf("\n%d", problem.ID)
+			difficultyColumn += fmt.Sprintf("\n%s", difficultyEmoji)
+			nameColumn += fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
 			problemCount++
 
 			// Create a new page every LENGTH_PAGE problems
 			if problemCount%LENGTH_PAGE == 0 {
 				embeds = append(embeds, &discordgo.MessageEmbed{
-					Title:       title,
-					Description: body,
+					Title: title,
+					Fields: []*discordgo.MessageEmbedField{
+						{Name: "ID", Value: idColumn, Inline: true},
+						{Name: "Difficulty", Value: difficultyColumn, Inline: true},
+						{Name: "Name", Value: nameColumn, Inline: true},
+					},
 				})
-				body = ""
+				idColumn = ""
+				difficultyColumn = ""
+				nameColumn = ""
 			}
 		}
 	}
 
-	// Add any remaining content as the last page
-	if body != "" {
+	// Add the last page if there are remaining problems
+	if idColumn != "" {
 		embeds = append(embeds, &discordgo.MessageEmbed{
-			Title:       title,
-			Description: body,
+			Title: title,
+			Fields: []*discordgo.MessageEmbedField{
+				{Name: "ID", Value: idColumn, Inline: true},
+				{Name: "Difficulty", Value: difficultyColumn, Inline: true},
+				{Name: "Name", Value: nameColumn, Inline: true},
+			},
 		})
 	}
 
