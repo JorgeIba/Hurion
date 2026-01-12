@@ -115,6 +115,8 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		return
 	}
 
+	const MAX_FIELD_LENGTH = 1024 - 1 // Discord limit
+
 	var embeds []*discordgo.MessageEmbed
 	title := fmt.Sprintf("List of problems for class %s", classCode)
 
@@ -122,56 +124,87 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	idColumn := ""
 	difficultyColumn := ""
 	nameColumn := ""
-	problemCount := 0
-	const LENGTH_PAGE = 15
 
-	for _, group := range groupedProblems {
-		// Add topic separator
+	// Check if any column would exceed Discord's limit
+	wouldExceedLimit := func(addID, addDiff, addName string) bool {
+		return len(idColumn+addID) > MAX_FIELD_LENGTH ||
+			len(difficultyColumn+addDiff) > MAX_FIELD_LENGTH ||
+			len(nameColumn+addName) > MAX_FIELD_LENGTH
+	}
+
+	// Flush current page if not empty
+	flushPage := func() {
 		if idColumn != "" {
+			embeds = append(embeds, &discordgo.MessageEmbed{
+				Title: title,
+				Fields: []*discordgo.MessageEmbedField{
+					{Name: "ID", Value: idColumn, Inline: true},
+					{Name: "Difficulty", Value: difficultyColumn, Inline: true},
+					{Name: "Name", Value: nameColumn, Inline: true},
+				},
+			})
+			idColumn = ""
+			difficultyColumn = ""
+			nameColumn = ""
+		}
+	}
+
+	// Add topic header to columns
+	addTopicHeader := func(topic string, needsSeparator bool) {
+		if needsSeparator {
 			idColumn += "\n"
 			difficultyColumn += "\n"
 			nameColumn += "\n"
 		}
-		idColumn += fmt.Sprintf("**%s**", group.Topic)
-		difficultyColumn += "\u200b" // Zero-width space
-		nameColumn += "\u200b"       // Zero-width space
+		idColumn += fmt.Sprintf("**%s**", topic)
+		difficultyColumn += "\u200b"
+		nameColumn += "\u200b"
+	}
+
+	// Add problem data to columns
+	addProblem := func(problemID int64, difficultyEmoji, problemName, problemURL string) {
+		idColumn += fmt.Sprintf("\n%d", problemID)
+		difficultyColumn += fmt.Sprintf("\n%s", difficultyEmoji)
+		nameColumn += fmt.Sprintf("\n[%s](%s)", problemName, problemURL)
+	}
+
+	for _, group := range groupedProblems {
+		// Build what we want to add for topic header
+		addID := fmt.Sprintf("**%s**", group.Topic)
+		addDiff := "\u200b"
+		addName := "\u200b"
+		if idColumn != "" {
+			addID = "\n" + addID
+			addDiff = "\n" + addDiff
+			addName = "\n" + addName
+		}
+
+		// Check if adding topic header would exceed limit
+		if wouldExceedLimit(addID, addDiff, addName) {
+			flushPage()
+		}
+		addTopicHeader(group.Topic, idColumn != "")
 
 		// Add problems in this topic
 		for _, problem := range group.Problems {
 			difficultyEmoji := getDifficultyEmoji(problem.GetDifficulty())
-			idColumn += fmt.Sprintf("\n%d", problem.ID)
-			difficultyColumn += fmt.Sprintf("\n%s", difficultyEmoji)
-			nameColumn += fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
-			problemCount++
 
-			// Create a new page every LENGTH_PAGE problems
-			if problemCount%LENGTH_PAGE == 0 {
-				embeds = append(embeds, &discordgo.MessageEmbed{
-					Title: title,
-					Fields: []*discordgo.MessageEmbedField{
-						{Name: "ID", Value: idColumn, Inline: true},
-						{Name: "Difficulty", Value: difficultyColumn, Inline: true},
-						{Name: "Name", Value: nameColumn, Inline: true},
-					},
-				})
-				idColumn = ""
-				difficultyColumn = ""
-				nameColumn = ""
+			// Build what we want to add for problem
+			addID := fmt.Sprintf("\n%d", problem.ID)
+			addDiff := fmt.Sprintf("\n%s", difficultyEmoji)
+			addName := fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
+
+			// Check if adding this problem would exceed limit
+			if wouldExceedLimit(addID, addDiff, addName) {
+				flushPage()
+				addTopicHeader(group.Topic, false)
 			}
+			addProblem(problem.ID, difficultyEmoji, problem.Name, problem.URL)
 		}
 	}
 
-	// Add the last page if there are remaining problems
-	if idColumn != "" {
-		embeds = append(embeds, &discordgo.MessageEmbed{
-			Title: title,
-			Fields: []*discordgo.MessageEmbedField{
-				{Name: "ID", Value: idColumn, Inline: true},
-				{Name: "Difficulty", Value: difficultyColumn, Inline: true},
-				{Name: "Name", Value: nameColumn, Inline: true},
-			},
-		})
-	}
+	// Flush the last page if there are remaining problems
+	flushPage()
 
 	logger.Log.Info("Sending info")
 	c.Dispatcher.Send(
