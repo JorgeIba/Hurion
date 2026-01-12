@@ -1,12 +1,8 @@
 package bot
 
 import (
-	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
@@ -23,6 +19,7 @@ type Bot struct {
 	dispatcher       *dispatcher.Dispatcher
 	discordValidator *validators.ValidatorDiscord
 	services         *services.Services
+	session          *discordgo.Session
 }
 
 func CreateBot(botToken string, db *data.DB) (*Bot, error) {
@@ -35,16 +32,16 @@ func CreateBot(botToken string, db *data.DB) (*Bot, error) {
 	}, nil
 }
 
-func (bot *Bot) Run() {
+func (bot *Bot) Run() error {
 	dg, err := discordgo.New("Bot " + bot.botToken)
 	if err != nil {
 		log.Fatalln("Error creating the session,", err)
+		return err
 	}
 
 	const bufferSize = 5
 	bot.dispatcher = dispatcher.NewDispatcher(dg, bufferSize)
 	bot.dispatcher.Start()
-	defer bot.dispatcher.Stop()
 
 	// Initialize validator and services
 	bot.discordValidator = validators.NewValidatorDiscord(dg)
@@ -55,16 +52,30 @@ func (bot *Bot) Run() {
 
 	if err = dg.Open(); err != nil {
 		log.Fatalln("Error opening connection,", err)
+		return err
 	}
-	defer dg.Close()
 
-	fmt.Println("Bot is running, CTRL+C to exit.")
+	bot.session = dg
+	logger.Log.Info("Bot is running, CTRL+C to exit.")
+	return nil
+}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
+func (bot *Bot) Stop() {
+	logger.Log.Info("Shutting down the bot...")
 
-	fmt.Println("Disconnecting bot...")
+	if bot.session != nil {
+		bot.session.Close()
+	}
+
+	if bot.dispatcher != nil {
+		bot.dispatcher.Stop()
+	}
+
+	if bot.db != nil {
+		bot.db.CloseDB()
+	}
+
+	logger.Log.Info("Bot shut down successfully.")
 }
 
 func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -108,7 +119,7 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		DiscordValidator: bot.discordValidator,
 		Services:         bot.services,
 		Dispatcher:       bot.dispatcher,
-		ExecutorUserID:   r.UserID, // Who is executing
+		ExecutorUserID:   r.UserID,  // Who is executing
 		ExecutorGuildID:  r.GuildID, // Where it's executed
 	}
 

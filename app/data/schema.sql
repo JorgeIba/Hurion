@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
-    user_name TEXT UNIQUE NOT NULL,
-    FOREIGN KEY (user_name) REFERENCES user_names(user_name)
+    user_name TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS classes (
@@ -42,5 +41,7 @@ CREATE TABLE IF NOT EXISTS pending_confirmations (
     message_id TEXT,
     user_id TEXT,
     problem_id INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (problem_id) REFERENCES problems(id),
     PRIMARY KEY (user_id, problem_id)
 );
