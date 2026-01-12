@@ -4,3 +4,6 @@
 # SQLite database files
 app/data/*.sqlite
 app/data/*.db
+
+# Backup directory
+local-backup/
