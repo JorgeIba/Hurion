@@ -122,18 +122,17 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 
 	pendingConfirmation, err := c.Services.Solution.GetPendingConfirmationByMessageID(messageID)
 	if err != nil {
-		logger.Log.Error(err)
-
 		switch {
 		case errors.As(err, &serviceNotFoundInfoErr):
-
+			// Silent return - reaction is not on a pending confirmation message
+			return
 		default:
+			logger.Log.Error(err)
 			c.Dispatcher.Send(
 				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
 			)
+			return
 		}
-
-		return
 	}
 
 	switch c.MessageReaction.Emoji.Name {

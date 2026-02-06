@@ -47,8 +47,8 @@ func (bot *Bot) Run() error {
 	bot.discordValidator = validators.NewValidatorDiscord(dg)
 	bot.services = services.NewServices(bot.db)
 
-	dg.AddHandler(bot.messageHandler)
-	dg.AddHandler(bot.reactionHandler)
+	dg.AddHandler(bot.safeMessageHandler)
+	dg.AddHandler(bot.safeReactionHandler)
 
 	if err = dg.Open(); err != nil {
 		log.Fatalln("Error opening connection,", err)
@@ -78,12 +78,21 @@ func (bot *Bot) Stop() {
 	logger.Log.Info("Bot shut down successfully.")
 }
 
+func (bot *Bot) safeMessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log.Errorf("Panic recovered in messageHandler: %v", r)
+		}
+	}()
+	bot.messageHandler(s, m)
+}
+
 func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.Bot {
 		return
 	}
 
-	args := strings.Split(m.Content, " ")
+	args := strings.Fields(m.Content)
 	if len(args) < 1 {
 		return
 	}
@@ -100,12 +109,21 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 
 	cmd := args[0]
-	if cmd[0] == '!' {
+	if len(cmd) > 0 && cmd[0] == '!' {
 		logger.Log.Info(cmd)
 	}
 	if router, exists := commandMap[cmd]; exists {
 		router(context)
 	}
+}
+
+func (bot *Bot) safeReactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			logger.Log.Errorf("Panic recovered in reactionHandler: %v", rec)
+		}
+	}()
+	bot.reactionHandler(s, r)
 }
 
 func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
