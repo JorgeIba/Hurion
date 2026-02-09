@@ -28,9 +28,18 @@ func NewDispatcher(session *discordgo.Session, bufferSize int) *Dispatcher {
 func (d *Dispatcher) Start() {
 	go func() {
 		for response := range d.Output {
-			d.dispatch(response)
+			d.safeDispatch(response)
 		}
 	}()
+}
+
+func (d *Dispatcher) safeDispatch(response MessageResponse) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Error dispatching message: %v\n", r)
+		}
+	}()
+	d.dispatch(response)
 }
 
 func (d *Dispatcher) Stop() {

@@ -59,6 +59,14 @@ func main() {
 		log.Fatalf("Error creating the bot: %v", err)
 	}
 
+	// Protect bot.Run() with a recover
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("CRITICAL: Panic recovered in main: %v", r)
+			bot.Stop()
+		}
+	}()
+
 	if err := bot.Run(); err != nil {
 		log.Fatalf("Error running the bot: %v", err)
 	}
