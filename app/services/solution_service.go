@@ -117,6 +117,15 @@ func (service *SolutionService) AddPendingACOfUserID(messageID, userID string, p
 	return nil
 }
 
+// ExistsPendingConfirmation checks if a pending confirmation exists for a message ID
+func (service *SolutionService) ExistsPendingConfirmation(messageID string) (bool, error) {
+	exists, err := service.Datastore.ExistsPendingConfirmation(messageID)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+	return exists, nil
+}
+
 // GetPendingConfirmationByMessageID retrieves a pending confirmation by message ID
 func (service *SolutionService) GetPendingConfirmationByMessageID(messageID string) (*data.PendingConfirmation, error) {
 	userID, problemID, err := service.Datastore.GetPendingConfirmation(messageID)

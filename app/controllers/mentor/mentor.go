@@ -105,11 +105,24 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
-	
+
 	return nil
 }
 
 func HandlePendingConfirmation(c *context.ContextMessage) {
+	messageID := c.MessageReaction.MessageID
+
+	// First check: Is this a pending confirmation message?
+	exists, err := c.Services.Solution.ExistsPendingConfirmation(messageID)
+	if err != nil {
+		logger.Log.Error(err)
+		return
+	}
+	if !exists {
+		return
+	}
+
+	// Second check: Is user a mentor?
 	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
 		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
 		return
@@ -118,21 +131,14 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		return
 	}
 
-	messageID := c.MessageReaction.MessageID
-
+	// Now get the full pending confirmation data
 	pendingConfirmation, err := c.Services.Solution.GetPendingConfirmationByMessageID(messageID)
 	if err != nil {
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			// Silent return - reaction is not on a pending confirmation message
-			return
-		default:
-			logger.Log.Error(err)
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-			return
-		}
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
+		)
+		return
 	}
 
 	switch c.MessageReaction.Emoji.Name {
@@ -410,7 +416,7 @@ func HandleRemoveProblem(c *context.ContextMessage) error {
 			"Problem with ID: `%d` has been removed from this earthly plane and has passed to the astral plane",
 			problemID)),
 	)
-	
+
 	return nil
 }
 

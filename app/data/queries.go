@@ -469,6 +469,20 @@ func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
 	return nil
 }
 
+func (db *DB) ExistsPendingConfirmation(messageID string) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM pending_confirmations
+		WHERE message_id = ?;
+	`
+	var count int
+
+	err := db.conn.QueryRow(query, messageID).Scan(&count)
+	if err != nil {
+		return false, dataerr.NewQueryError(fmt.Sprintf("could not check pending confirmation existence for message id %s", messageID), err)
+	}
+	return count > 0, nil
+}
+
 func (db *DB) GetPendingConfirmation(messageID string) (string, int64, error) {
 	query := `
 		SELECT user_id, problem_id FROM pending_confirmations
