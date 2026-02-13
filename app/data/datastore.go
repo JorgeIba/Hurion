@@ -1,5 +1,7 @@
 package data
 
+//go:generate mockgen -destination=../services/mocks/mock_datastore.go -package=mocks github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data DataStore
+
 type QueryDatastore interface {
 	GetProblemsByClass(classID int64) ([]Problem, error)
 	GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error)
