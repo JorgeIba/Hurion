@@ -11,7 +11,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
 )
 
 func TestUserService_BindUser(t *testing.T) {
@@ -95,7 +95,7 @@ func TestUserService_BindUser(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.wantErrType != nil {
-					require.ErrorAs(t, err, &tt.wantErrType)
+					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
 				require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.wantErrType != nil {
-					require.ErrorAs(t, err, &tt.wantErrType)
+					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
 				require.NoError(t, err)
@@ -331,7 +331,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.wantErrType != nil {
-					require.ErrorAs(t, err, &tt.wantErrType)
+					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
 				require.NoError(t, err)
@@ -401,7 +401,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.wantErrType != nil {
-					require.ErrorAs(t, err, &tt.wantErrType)
+					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
 				require.NoError(t, err)
@@ -471,7 +471,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.wantErrType != nil {
-					require.ErrorAs(t, err, &tt.wantErrType)
+					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
 				require.NoError(t, err)

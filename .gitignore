@@ -15,7 +15,7 @@
 **/*.env
 /git-credential-manager
 
-# Generated mocks
+# Generated mocks (mockgen creates directories automatically)
 **/mocks/
 
 # SQLite database files
