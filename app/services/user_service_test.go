@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
@@ -93,12 +92,12 @@ func TestUserService_BindUser(t *testing.T) {
 			err := svc.BindUser(tt.userID, tt.userName)
 
 			if tt.wantErr {
-				require.Error(t, err)
+				assert.Error(t, err)
 				if tt.wantErrType != nil {
 					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -180,12 +179,12 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			err := svc.ChangeUsername(tt.userID, tt.newUsername)
 
 			if tt.wantErr {
-				require.Error(t, err)
+				assert.Error(t, err)
 				if tt.wantErrType != nil {
 					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -246,9 +245,9 @@ func TestUserService_HasUsernameBound(t *testing.T) {
 			result, err := svc.HasUsernameBound(tt.userID)
 
 			if tt.wantErr {
-				require.Error(t, err)
+				assert.Error(t, err)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, tt.wantResult, result)
 			}
 		})
@@ -329,12 +328,12 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			err := svc.ExterminateUser(tt.userID)
 
 			if tt.wantErr {
-				require.Error(t, err)
+				assert.Error(t, err)
 				if tt.wantErrType != nil {
 					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -399,12 +398,12 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 			result, err := svc.GetUsernameByUserID(tt.userID)
 
 			if tt.wantErr {
-				require.Error(t, err)
+				assert.Error(t, err)
 				if tt.wantErrType != nil {
 					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, tt.wantResult, result)
 			}
 		})
@@ -469,12 +468,12 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 			result, err := svc.GetUserIDByUsername(tt.username)
 
 			if tt.wantErr {
-				require.Error(t, err)
+				assert.Error(t, err)
 				if tt.wantErrType != nil {
 					assert.IsType(t, tt.wantErrType, err)
 				}
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, tt.wantResult, result)
 			}
 		})
