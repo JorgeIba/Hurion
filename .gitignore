@@ -1,5 +1,22 @@
+# Binaries and build artifacts
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDEs
+.vscode/
+
+# Environment variables
 **/*.env
 /git-credential-manager
+
+# Generated mocks (mockgen creates directories automatically)
+**/mocks/
 
 # SQLite database files
 app/data/*.sqlite
