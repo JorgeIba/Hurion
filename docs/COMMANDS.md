@@ -33,7 +33,7 @@ Available to users registered in at least one class.
 |---|---|---|:---:|
 | `!ac` | `!ac <problem_id>` | Propose a problem as solved (requires mentor approval via ✅/❌) | Mentor Reaction |
 | `!undo_ac` | `!undo_ac <problem_id>` | Remove a problem from your own solved list | No |
-| `!deregister` | `!deregister <class_code>` | Remove yourself from a class (deletes all your ACs in that class) | Yes 👍/👎 |
+| `!deregister` | `!deregister <class_code>` | Remove yourself from a class (deletes all your ACs and pending confirmations in that class) | Yes 👍/👎 |
 | `!my_classes` | `!my_classes` | Show all classes you're currently enrolled in | No |
 
 ---
@@ -49,7 +49,7 @@ Available to users with the Mentor Discord role.
 | `!ac` | `!ac <user_name> <problem_id>` | Directly mark a problem as solved for a user (no approval needed) | No |
 | `!undo_ac` | `!undo_ac <user_name> <problem_id>` | Remove a solved problem from another user's list | No |
 | `!add_problem` | `!add_problem <class_code> <url> [difficulty] [topic] <ProblemName>` | Add a new problem to a class | No |
-| `!remove_problem` | `!remove_problem <problem_id>` | Remove a problem and all associated ACs | Yes 👍/👎 |
+| `!remove_problem` | `!remove_problem <problem_id>` | Remove a problem, all associated ACs and pending confirmations | Yes 👍/👎 |
 | `!update_problem` | `!update_problem <problem_id> <class_code> <url> [difficulty] [topic] <ProblemName>` | Update a problem's details while preserving its ID | No |
 
 ---

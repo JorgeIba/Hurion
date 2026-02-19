@@ -44,31 +44,18 @@ DISCORD_MENTOR_ROLE_ID=123456789012345679
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/JorgeIba/Huron-Problem-Checker-Bot.git
+git clone git@github.com:JorgeIba/Huron-Problem-Checker-Bot.git
 cd Huron-Problem-Checker-Bot
 
 # 2. Install dependencies
 go mod download
 
-# 3. Generate mocks (required for tests)
-make generate
-
-# 4. Run tests
+# 3. Run tests
 make test
 
-# 5. Build the binary
-make build
-# Binary created at ./bin/huron-bot
-
-# 6. Run the bot
+# 4. Run the bot
 make run
 ```
-
-> **Note:** The bot resolves the database and schema paths relative to the executable location. When using `make run`, the binary is at `./bin/huron-bot`, so it expects `./bin/data/schema.sql`. Make sure to copy or symlink the schema file appropriately, or run from source:
->
-> ```bash
-> go run app/main.go
-> ```
 
 ### Running with Docker
 
