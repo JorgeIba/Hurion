@@ -11,7 +11,7 @@ echo "[entrypoint] Enabling WAL mode..."
 sqlite3 "${DB_PATH:-/huron-bot/data/db.sqlite}" "PRAGMA journal_mode=WAL;"
 
 # 2. Setup cron
-echo "0 5 * * * root /app/backup/backup.sh >> /var/log/backup.log 2>&1" > /etc/cron.d/db_backup
+echo "0 5 * * * root DB_PATH=${DB_PATH:-/huron-bot/data/db.sqlite} /huron-bot/backup/backup.sh >> /var/log/backup.log 2>&1" > /etc/cron.d/db_backup
 chmod 0644 /etc/cron.d/db_backup
 crontab /etc/cron.d/db_backup
 cron
