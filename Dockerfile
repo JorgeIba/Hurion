@@ -20,14 +20,13 @@ RUN apt-get update && apt-get install -y \
     cron \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /huron-bot
 
 # Bot binary
-COPY --from=builder /build/bot /app/bot
+COPY --from=builder /build/bot /huron-bot/bin/huron-bot
 
-# Data + backup
-COPY app/data/schema.sql /app/data/schema.sql
-COPY backup/ /app/backup/
-RUN chmod +x /app/backup/*.sh
+# Backup
+COPY backup/ /huron-bot/backup/
+RUN chmod +x /huron-bot/backup/*.sh
 
-CMD ["/app/backup/entrypoint.sh"]
+CMD ["/huron-bot/backup/entrypoint.sh"]

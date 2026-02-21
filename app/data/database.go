@@ -2,12 +2,17 @@ package data
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+//go:embed schema.sql
+var embeddedSchema string
 
 type DBTypeEnum int
 
@@ -17,9 +22,8 @@ const (
 )
 
 type DBConfig struct {
-	DBPath     string
-	SchemaPath string
-	DBType     DBTypeEnum
+	DBPath string
+	DBType DBTypeEnum
 }
 
 type DB struct {
@@ -34,6 +38,12 @@ func (db *DB) CloseDB() {
 }
 
 func NewDB(cfg *DBConfig) (*DB, error) {
+	if cfg.DBType == Prod {
+		if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0755); err != nil {
+			return nil, dataerr.NewInitializationError("could not create DB directory", err)
+		}
+	}
+
 	conn, err := sql.Open("sqlite3", cfg.DBPath)
 	if err != nil {
 		return nil, dataerr.NewInitializationError("could not open DB", err)
@@ -43,21 +53,15 @@ func NewDB(cfg *DBConfig) (*DB, error) {
 		return nil, dataerr.NewInitializationError("could not ping DB", err)
 	}
 
-	if err := applySchema(conn, cfg.SchemaPath); err != nil {
+	if err := applySchema(conn); err != nil {
 		return nil, dataerr.NewInitializationError("could not get the schema", err)
 	}
 
 	return &DB{conn: conn, Config: cfg}, nil
 }
 
-func applySchema(conn *sql.DB, schemaPath string) error {
-
-	schema, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return dataerr.NewInitializationError("could not read schema file", err)
-	}
-
-	if _, err = conn.Exec(string(schema)); err != nil {
+func applySchema(conn *sql.DB) error {
+	if _, err := conn.Exec(embeddedSchema); err != nil {
 		return dataerr.NewInitializationError("could not apply schema", err)
 	}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testConfig *DBConfig = &DBConfig{DBPath: ":memory:", SchemaPath: "./schema.sql", DBType: Test}
+var testConfig *DBConfig = &DBConfig{DBPath: ":memory:", DBType: Test}
 
 // Bind
 func TestBindUser_NewUser(t *testing.T) {

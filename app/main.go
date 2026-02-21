@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot"
@@ -31,22 +30,15 @@ func main() {
 
 	logger.Init()
 
-	// Get the directory where the executable is located
-	execPath, err := os.Executable()
-	if err != nil {
-		log.Fatalf("Error getting executable path: %v", err)
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "./data/db.sqlite"
 	}
-	execDir := filepath.Dir(execPath)
-
-	// Build paths relative to executable directory
-	dbPath := filepath.Join(execDir, "data", "db.sqlite")
-	schemaPath := filepath.Join(execDir, "data", "schema.sql")
 
 	db, err := data.NewDB(
 		&data.DBConfig{
-			DBPath:     dbPath,
-			SchemaPath: schemaPath,
-			DBType:     data.Prod,
+			DBPath:  dbPath,
+			DBType:  data.Prod,
 		},
 	)
 
