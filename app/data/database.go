@@ -39,7 +39,8 @@ func (db *DB) CloseDB() {
 
 func NewDB(cfg *DBConfig) (*DB, error) {
 	if cfg.DBType == Prod {
-		if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0755); err != nil {
+		// 0o755: owner=rwx, group=r-x, others=r-x (standard dir permissions)
+		if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0o755); err != nil {
 			return nil, dataerr.NewInitializationError("could not create DB directory", err)
 		}
 	}
