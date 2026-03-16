@@ -14,6 +14,8 @@ import (
 )
 
 func TestUserService_BindUser(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		userID      string
@@ -81,6 +83,7 @@ func TestUserService_BindUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -104,6 +107,8 @@ func TestUserService_BindUser(t *testing.T) {
 }
 
 func TestUserService_ChangeUsername(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		userID      string
@@ -169,6 +174,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -191,6 +197,8 @@ func TestUserService_ChangeUsername(t *testing.T) {
 }
 
 func TestUserService_HasUsernameBound(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		userID     string
@@ -235,6 +243,7 @@ func TestUserService_HasUsernameBound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -255,6 +264,8 @@ func TestUserService_HasUsernameBound(t *testing.T) {
 }
 
 func TestUserService_ExterminateUser(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		userID      string
@@ -317,6 +328,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -340,6 +352,8 @@ func TestUserService_ExterminateUser(t *testing.T) {
 }
 
 func TestUserService_GetUsernameByUserID(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		userID      string
@@ -387,6 +401,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -411,6 +426,8 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 }
 
 func TestUserService_GetUserIDByUsername(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		username    string
@@ -458,6 +475,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -475,6 +493,58 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.wantResult, result)
+			}
+		})
+	}
+}
+
+func TestUserService_GetClassesByUserID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		userID     string
+		setupMock  func(*mocks.MockDataStore)
+		wantResult []data.Class
+		wantErr    bool
+	}{
+		{
+			name:   "success",
+			userID: "u1",
+			setupMock: func(m *mocks.MockDataStore) {
+				m.EXPECT().GetClassesByUserID("u1").Return([]data.Class{{ID: 1, Name: "C1"}}, nil)
+			},
+			wantResult: []data.Class{{ID: 1, Name: "C1"}},
+			wantErr:    false,
+		},
+		{
+			name:   "error",
+			userID: "u1",
+			setupMock: func(m *mocks.MockDataStore) {
+				m.EXPECT().GetClassesByUserID("u1").Return(nil, errors.New("db fail"))
+			},
+			wantResult: nil,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mocks.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+
+			svc := &UserService{Datastore: mockStore}
+			res, err := svc.GetClassesByUserID(tt.userID)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantResult, res)
 			}
 		})
 	}
