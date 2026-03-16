@@ -18,6 +18,13 @@ test: generate
 	@echo "==> Running tests..."
 	@go test -v ./app/...
 
+## coverage: Run tests with coverage and generate HTML report
+coverage: generate
+	@echo "==> Running tests with coverage..."
+	@go test ./... -coverprofile=coverage.out
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "==> Coverage report generated at coverage.html"
+
 ## build: Compile the bot and save binary to ./bin
 build:
 	@echo "==> Compiling binary..."
