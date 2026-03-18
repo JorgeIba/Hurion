@@ -119,7 +119,7 @@ func (service *UserService) GetUserIDByUsername(userName string) (string, error)
 func (service *UserService) GetClassesByUserID(userID string) ([]data.Class, error) {
 	classes, err := service.Datastore.GetClassesByUserID(userID)
 	if err != nil {
-		return []data.Class{}, serviceerr.MakeGeneralError(fmt.Errorf("something happened trying to get classes by userID: %s: %v", userID, err))
+		return nil, serviceerr.MakeGeneralError(fmt.Errorf("something happened trying to get classes by userID: %s: %v", userID, err))
 	}
 	return classes, nil
 }

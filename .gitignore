@@ -24,3 +24,7 @@ app/data/*.db
 
 # Backup directory
 local-backup/
+
+# Coverage artifacts
+/coverage.html
+/coverage.out
