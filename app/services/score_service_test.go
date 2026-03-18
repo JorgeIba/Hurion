@@ -7,6 +7,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -123,9 +124,9 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				u3 := data.User{UserID: "u3", UserName: "user3"}
 				
 				problems := []data.Problem{
-					{ID: 100, Topic: ptrStr("T1"), Name: "P1"},
-					{ID: 101, Topic: ptrStr("T1"), Name: "P2"},
-					{ID: 102, Topic: ptrStr("T1"), Name: "P3"},
+					{ID: 100, Topic: helpers.PtrStr("T1"), Name: "P1"},
+					{ID: 101, Topic: helpers.PtrStr("T1"), Name: "P2"},
+					{ID: 102, Topic: helpers.PtrStr("T1"), Name: "P3"},
 				}
 
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()

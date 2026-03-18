@@ -8,11 +8,10 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
-
-func ptrStr(s string) *string { return &s }
 
 func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 	t.Parallel()
@@ -31,8 +30,8 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 				Name:       "Two Sum",
 				URL:        "https://leetcode.com/problems/two-sum/",
 				ClassCode:  "CS101",
-				Difficulty: ptrStr("Easy"),
-				Topic:      ptrStr("Arrays"),
+				Difficulty: helpers.PtrStr("Easy"),
+				Topic:      helpers.PtrStr("Arrays"),
 			},
 			setupMock: func(m *mocks.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
@@ -40,8 +39,8 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 					Name:       "Two Sum",
 					URL:        "https://leetcode.com/problems/two-sum/",
 					ClassID:    10,
-					Difficulty: ptrStr("Easy"),
-					Topic:      ptrStr("Arrays"),
+					Difficulty: helpers.PtrStr("Easy"),
+					Topic:      helpers.PtrStr("Arrays"),
 				}).Return(int64(100), nil)
 			},
 			wantID:  100,
@@ -278,23 +277,23 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 			setupMock: func(m *mocks.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetProblemsByClass(int64(10)).Return([]data.Problem{
-					{ID: 1, Topic: ptrStr("Math"), Difficulty: ptrStr("1")},
-					{ID: 2, Topic: ptrStr("Math"), Difficulty: ptrStr("2")},
-					{ID: 3, Topic: ptrStr("Strings"), Difficulty: ptrStr("1")},
+					{ID: 1, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("1")},
+					{ID: 2, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("2")},
+					{ID: 3, Topic: helpers.PtrStr("Strings"), Difficulty: helpers.PtrStr("1")},
 				}, nil)
 			},
 			wantResult: []ProblemsByTopic{
 				{
 					Topic: "Math",
 					Problems: []data.Problem{
-						{ID: 1, Topic: ptrStr("Math"), Difficulty: ptrStr("1")},
-						{ID: 2, Topic: ptrStr("Math"), Difficulty: ptrStr("2")},
+						{ID: 1, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("1")},
+						{ID: 2, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("2")},
 					},
 				},
 				{
 					Topic: "Strings",
 					Problems: []data.Problem{
-						{ID: 3, Topic: ptrStr("Strings"), Difficulty: ptrStr("1")},
+						{ID: 3, Topic: helpers.PtrStr("Strings"), Difficulty: helpers.PtrStr("1")},
 					},
 				},
 			},

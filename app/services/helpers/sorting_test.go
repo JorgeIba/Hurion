@@ -19,9 +19,9 @@ func TestGetDifficultyOrder(t *testing.T) {
 func TestSortProblemsByTopicAndDifficulty(t *testing.T) {
 	t.Parallel()
 	problems := []data.Problem{
-		{ID: 1, Topic: ptrStr("B"), Difficulty: ptrStr("Hard")},
-		{ID: 2, Topic: ptrStr("A"), Difficulty: ptrStr("Medium")},
-		{ID: 3, Topic: ptrStr("A"), Difficulty: ptrStr("Easy")},
+		{ID: 1, Topic: PtrStr("B"), Difficulty: PtrStr("Hard")},
+		{ID: 2, Topic: PtrStr("A"), Difficulty: PtrStr("Medium")},
+		{ID: 3, Topic: PtrStr("A"), Difficulty: PtrStr("Easy")},
 	}
 
 	SortProblemsByTopicAndDifficulty(problems)

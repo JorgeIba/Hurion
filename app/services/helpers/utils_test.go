@@ -11,8 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func ptrStr(s string) *string { return &s }
-
 func TestExistsProblem(t *testing.T) {
 	t.Parallel()
 
