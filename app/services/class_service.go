@@ -60,7 +60,7 @@ func (service *ClassService) DeleteClassByClassCode(classCode string) error {
 func (service *ClassService) GetAllClasses() ([]data.Class, error) {
 	classes, err := service.Datastore.GetAllClasses()
 	if err != nil {
-		return []data.Class{}, serviceerr.MakeGeneralError(err)
+		return nil, serviceerr.MakeGeneralError(err)
 	}
 	return classes, nil
 }

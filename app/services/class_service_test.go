@@ -197,7 +197,7 @@ func TestClassService_GetAllClasses(t *testing.T) {
 					GetAllClasses().
 					Return(nil, errors.New("db error"))
 			},
-			wantResult: []data.Class{},
+			wantResult: nil,
 			wantErr:    true,
 		},
 	}
