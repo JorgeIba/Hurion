@@ -5,8 +5,9 @@ When writing or updating unit tests for this project, you MUST strictly adhere t
 ## 1. Core Testing Architecture
 - **Table-Driven Testing**: ALWAYS use anonymous structs for test cases.
 - **Assertions**: Use `github.com/stretchr/testify/assert`.
-- **Mocking**: Use `go.uber.org/mock/gomock` for the `Datastore`.
+- **Mocking**: Use `go.uber.org/mock/gomock` for interfaces.
 - **Parallelism**: ALWAYS call `t.Parallel()` at the start of the top-level test AND inside the `t.Run` loop.
+- **Go Version**: Using Go 1.24+, so loop variable rebinding (`tt := tt`) is NOT required.
 
 ## 2. Test Case Structure (The `assertFunc` Pattern)
 Every table-driven test should define the following properties. The most important is `assertFunc` to guarantee we test business logic, not just error absence.
@@ -15,10 +16,10 @@ Every table-driven test should define the following properties. The most importa
 tests := []struct {
 	name        string
 	// Input parameters
-	classCode   string
+	input       string
 	
 	// Mocks and Expected Outputs
-	setupMock   func(*mocks.MockDataStore)
+	setupMock   func(*mocks.MockInterfaces)
 	wantErr     bool
 	wantErrType error
 	
@@ -28,7 +29,8 @@ tests := []struct {
 ```
 
 ## 3. Mocking Best Practices (`setupMock`)
-- Do NOT use global mocks. Re-instantiate `ctrl := gomock.NewController(t)` and `mockStore := mocks.NewMockDataStore(ctrl)` inside the `for _, tt := range tests` loop.
+- **Naming**: Refer to the interface as `DataStore` (CamelCase) and the struct field as `datastore` (lowercase) to maintain clarity.
+- **Isolation**: Do NOT use global mocks. Re-instantiate `ctrl := gomock.NewController(t)` and `mockStore := mocks.NewMockDataStore(ctrl)` inside the `for _, tt := range tests` loop.
 - Only mock what is absolutely necessary for the specific path.
 - If a mocked function is called iteratively inside a loop, use `.AnyTimes()` safely.
 
@@ -100,4 +102,5 @@ func ptrStr(s string) *string { return &s }
 - Always initialize a fresh database schema for each test case to ensure isolation.
 
 ## 8. Mock Generation
-- If you modify any interface, you MUST run `go generate ./...` to update the mocks before writing tests.
+- If you modify any interface, you MUST run `make generate` (or `go generate ./...`) to update the mocks before writing tests.
+- **IMPORTANT**: Mocks are gitignored. A fresh clone will NOT compile tests until you run `make generate` or `make test`.

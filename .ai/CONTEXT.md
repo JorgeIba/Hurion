@@ -13,4 +13,8 @@ The Huron Problem Checker Bot is a Discord bot designed to manage algorithm cour
 - **userID vs discordID**: Always use `userID` in the data and service layers. Discord-specific logic is isolated in Controllers.
 - **AC (Accepted)**: Refers to a successfully solved problem.
 - **Classes**: Groups of users and problems identified by a `classCode`.
-- **Permissions**: Four permission groups: `Admin`, `Mentor`, `Enrolled` (student), and `General` (non-enrolled).
+- **Permissions**: Four permission groups matching the controller structure:
+  - `Admin`: Full system control.
+  - `Mentor`: Class and student management.
+  - `Enrolled`: Students registered in at least one class.
+  - `General`: Non-enrolled users with basic access.
