@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-DB="/app/data/db.sqlite"
+DB="${DB_PATH:-/huron-bot/data/db.sqlite}"
 BACKUP_DIR="/mnt/backup"
 TIMESTAMP=$(date +"%Y%m%d-%H%M")
 
 mkdir -p "$BACKUP_DIR"
 
 # Local temporary backup to avoid SQLite writing directly to Azure Files
-LOCAL_TMP="/app/data/db-$TIMESTAMP.tmp.sqlite"
+LOCAL_TMP="$(dirname "$DB")/db-$TIMESTAMP.tmp.sqlite"
 
 BACKUP_FILE="$BACKUP_DIR/db-$TIMESTAMP.sqlite"
 LATEST="$BACKUP_DIR/db-latest.sqlite"

@@ -1,11 +1,10 @@
 #!/bin/bash
 set -e
 
-DB="/app/data/db.sqlite"
+DB="${DB_PATH:-/huron-bot/data/db.sqlite}"
 BACKUP="/mnt/backup/db-latest.sqlite"
-SCHEMA="/app/data/schema.sql"
 
-mkdir -p /app/data
+mkdir -p "$(dirname "$DB")"
 mkdir -p /mnt/backup
 
 if [ -f "$DB" ]; then
@@ -19,5 +18,4 @@ if [ -f "$BACKUP" ]; then
     exit 0
 fi
 
-echo "[restore] No DB or backup found, creating new DB."
-sqlite3 "$DB" < "$SCHEMA"
+echo "[restore] No DB or backup found, bot will initialize on startup."
