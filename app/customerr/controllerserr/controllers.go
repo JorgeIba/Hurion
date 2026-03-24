@@ -15,6 +15,10 @@ func (e *ControllersError) Error() string {
 	return fmt.Sprintf("Controller error: (code %d) %s", e.Code, e.Message)
 }
 
+func (e *ControllersError) Unwrap() error {
+	return e.WrappedError
+}
+
 type ValidationError struct {
 	*ControllersError
 }

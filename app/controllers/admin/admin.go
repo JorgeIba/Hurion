@@ -2,22 +2,15 @@ package admin
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
 	"github.com/bwmarrin/discordgo"
-)
-
-var (
-	serviceConflictErr     = &serviceerr.ConflictError{}
-	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
 )
 
 func HandleClearClass(c *context.ContextMessage) error {
@@ -39,16 +32,9 @@ func HandleClearClass(c *context.ContextMessage) error {
 	if err := c.Services.Class.DeleteClassByClassCode(classCode); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionClearClass, classCode)),
+		)
 
 		return fmt.Errorf("error deleting class %s: %w", classCode, err)
 	}
@@ -80,16 +66,9 @@ func HandleCreateClass(c *context.ContextMessage) {
 	if err := c.Services.Class.CreateClass(classCode, className); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` already exists", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionCreateClass, classCode)),
+		)
 
 		return
 	}
@@ -124,16 +103,9 @@ func HandleExterminate(c *context.ContextMessage) error {
 	if err := c.Services.User.ExterminateUser(userID); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> not found in the system", userID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error while exterminating user."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionExterminateUser, userID)),
+		)
 
 		return fmt.Errorf("error exterminating user %s: %w", userID, err)
 	}
@@ -169,16 +141,9 @@ func HandleExportClass(c *context.ContextMessage) error {
 	if err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error while retrieving class data."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionExportClass, classCode)),
+		)
 
 		return fmt.Errorf("error getting data for class %s: %w", classCode, err)
 	}

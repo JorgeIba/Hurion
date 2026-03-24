@@ -15,6 +15,10 @@ func (e *PresentationError) Error() string {
 	return fmt.Sprintf("Presentation error: (code %d) %s", e.Code, e.Message)
 }
 
+func (e *PresentationError) Unwrap() error {
+	return e.WrappedError
+}
+
 type RenderingError struct {
 	*PresentationError
 }

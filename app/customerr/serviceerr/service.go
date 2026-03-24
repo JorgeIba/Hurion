@@ -15,6 +15,10 @@ func (e *ServiceError) Error() string {
 	return fmt.Sprintf("Service Error: (code %d) %s", e.Code, e.Message)
 }
 
+func (e *ServiceError) Unwrap() error {
+	return e.WrappedError
+}
+
 type InternalError struct {
 	*ServiceError
 }

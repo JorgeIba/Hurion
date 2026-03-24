@@ -15,6 +15,10 @@ func (e *ValidatorError) Error() string {
 	return fmt.Sprintf("Validator error: (code %d) %s", e.Code, e.Message)
 }
 
+func (e *ValidatorError) Unwrap() error {
+	return e.WrappedError
+}
+
 type InternalError struct {
 	*ValidatorError
 }

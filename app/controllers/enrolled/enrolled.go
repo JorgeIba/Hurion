@@ -1,20 +1,14 @@
 package enrolled
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-)
-
-var (
-	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
-	serviceConflictErr     = &serviceerr.ConflictError{}
 )
 
 func HandleDeregisterUser(c *context.ContextMessage) error {
@@ -24,16 +18,9 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 	if err := c.Services.Enrollment.DeregisterUserIDFromClass(discordID, classCode); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` is not registered in class `%s` or class doesn't even exist", discordNickname, classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledDeregisterUser, discordNickname, classCode)),
+		)
 
 		return err
 	}
@@ -43,7 +30,7 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
-	
+
 	return nil
 }
 
@@ -63,20 +50,9 @@ func HandleProposeAC(c *context.ContextMessage) {
 	if err = c.Services.Solution.AddPendingACOfUserID(messageID, discordID, problemID); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Can you check if user `%s` is binded and registered on the same class of problem `%d`?", discordNickname, problemID)),
-			)
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has already solved problem `%d`", discordNickname, problemID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledProposeAC, discordNickname, problemID)),
+		)
 
 		return
 	}
@@ -108,20 +84,9 @@ func HandleUndoAC(c *context.ContextMessage) {
 	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, discordID); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem `%d` not found or you're not enrolled in the class", problemID)),
-			)
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Bro `%s`, you haven't solved problem `%d` yet, so you can't undo it", discordNickname, problemID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledUndoAC, discordNickname, problemID)),
+		)
 
 		return
 	}
