@@ -10,6 +10,8 @@ import (
 
 type Action int
 
+type ErrorKind int
+
 const (
 	ActionBindUser Action = iota
 	ActionRegisterInClass
@@ -38,118 +40,123 @@ const (
 	ActionEnrolledDeregisterUser
 	ActionEnrolledProposeAC
 	ActionEnrolledUndoAC
+
+	// ActionSentinel must stay as the last Action constant.
+	// It is used as an exclusive upper bound when iterating all actions.
+	ActionSentinel
 )
 
 const (
-	errorTypeConflict = "Conflict"
-	errorTypeNotFound = "NotFound"
-	errorTypeDefault  = "Default"
+	errorKindConflict ErrorKind = iota
+	errorKindNotFound
+	errorKindInternal
+	errorKindDefault
 
 	defaultFallbackMessage = "Unexpected error."
 	internalHiddenMessage  = "Unexpected internal error bro."
 )
 
-var templates = map[Action]map[string]string{
+var templates = map[Action]map[ErrorKind]string{
 	ActionBindUser: {
-		errorTypeConflict: "Username `%s` is already taken by another user. Please choose a different username.",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindConflict: "Username `%s` is already taken by another user. Please choose a different username.",
+		errorKindDefault:  "Unexpected error while binding your username.",
 	},
 	ActionRegisterInClass: {
-		errorTypeNotFound: "Class code `%s` not found or user `%s` not binded yet",
-		errorTypeConflict: "User `%s` already registered on class `%s`",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Class code `%s` not found or user `%s` not binded yet",
+		errorKindConflict: "User `%s` already registered on class `%s`",
+		errorKindDefault:  "Unexpected error while registering in class.",
 	},
 	ActionListProblemsByClass: {
-		errorTypeNotFound: "Class code `%s` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Class code `%s` not found",
+		errorKindDefault:  "Unexpected error while listing class problems.",
 	},
 	ActionScoreByClass: {
-		errorTypeNotFound: "Class code %s doesn't match with any class",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Class code %s doesn't match with any class",
+		errorKindDefault:  "Unexpected error while getting class scores.",
 	},
 	ActionScoreByUserAndClass: {
-		errorTypeNotFound: "Not found info for class code `%[2]s` or user name `%[1]s`",
-		errorTypeDefault:  "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
+		errorKindNotFound: "Not found info for class code `%[2]s` or user name `%[1]s`",
+		errorKindDefault:  "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
 	},
 	ActionGetUsersInClass: {
-		errorTypeNotFound: "No class was found with class code %s",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "No class was found with class code %s",
+		errorKindDefault:  "Unexpected error while listing users in class.",
 	},
 	ActionGetClassesOfUsername: {
-		errorTypeNotFound: "Username `%s` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Username `%s` not found",
+		errorKindDefault:  "Unexpected error while listing classes for username.",
 	},
 	ActionGetMyUsername: {
-		errorTypeNotFound: "You are not binded to any username. Use `!bind <username>` to bind your account.",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "You are not binded to any username. Use `!bind <username>` to bind your account.",
+		errorKindDefault:  "Unexpected error while fetching your username.",
 	},
 	ActionChangeUsername: {
-		errorTypeConflict: "Username `%s` is already taken by another user. Please choose a different username.",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindConflict: "Username `%s` is already taken by another user. Please choose a different username.",
+		errorKindDefault:  "Unexpected error while changing username.",
 	},
 	ActionClearClass: {
-		errorTypeNotFound: "Class code `%s` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Class code `%s` not found",
+		errorKindDefault:  "Unexpected error while clearing class data.",
 	},
 	ActionCreateClass: {
-		errorTypeConflict: "Class code `%s` already exists",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindConflict: "Class code `%s` already exists",
+		errorKindDefault:  "Unexpected error while creating class.",
 	},
 	ActionExterminateUser: {
-		errorTypeNotFound: "User <@%s> not found in the system",
-		errorTypeDefault:  "Unexpected error while exterminating user.",
+		errorKindNotFound: "User <@%s> not found in the system",
+		errorKindDefault:  "Unexpected error while exterminating user.",
 	},
 	ActionExportClass: {
-		errorTypeNotFound: "Class code `%s` not found",
-		errorTypeDefault:  "Unexpected error while retrieving class data.",
+		errorKindNotFound: "Class code `%s` not found",
+		errorKindDefault:  "Unexpected error while retrieving class data.",
 	},
 	ActionMentorRegisterUser: {
-		errorTypeNotFound: "Username `%s` or class code `%s` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Username `%s` or class code `%s` not found",
+		errorKindDefault:  "Unexpected error while mentor-registering user.",
 	},
 	ActionMentorDeregisterUser: {
-		errorTypeNotFound: "Username `%s` or class code `%s` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Username `%s` or class code `%s` not found",
+		errorKindDefault:  "Unexpected error while mentor-deregistering user.",
 	},
 	ActionMentorAddAC: {
-		errorTypeNotFound: "Username `%s` or problem id `%d` not found, probably you are not binded or registered in the same class problem lives",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Username `%s` or problem id `%d` not found, probably you are not binded or registered in the same class problem lives",
+		errorKindDefault:  "Unexpected error while adding AC.",
 	},
 	ActionMentorUndoAC: {
-		errorTypeNotFound: "Username `%s` or problem id `%d` not found",
-		errorTypeConflict: "User `%s` has not solved problem `%d` yet or is not enrolled in the class",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Username `%s` or problem id `%d` not found",
+		errorKindConflict: "User `%s` has not solved problem `%d` yet or is not enrolled in the class",
+		errorKindDefault:  "Unexpected error while undoing AC.",
 	},
 	ActionMentorAddProblem: {
-		errorTypeNotFound: "Class code `%[2]s` not found",
-		errorTypeConflict: "Problem `%[1]s` already exists on class `%[2]s` with the ID: `%[3]d`",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Class code `%[2]s` not found",
+		errorKindConflict: "Problem `%[1]s` already exists on class `%[2]s` with the ID: `%[3]d`",
+		errorKindDefault:  "Unexpected error while adding problem.",
 	},
 	ActionMentorRemoveProblem: {
-		errorTypeNotFound: "Problem id `%d` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Problem id `%d` not found",
+		errorKindDefault:  "Unexpected error while removing problem.",
 	},
 	ActionMentorUpdateProblemClass: {
-		errorTypeNotFound: "Class code `%s` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Class code `%s` not found",
+		errorKindDefault:  "Unexpected error while moving problem to class.",
 	},
 	ActionMentorUpdateProblem: {
-		errorTypeNotFound: "Problem with ID: `%d` not found",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Problem with ID: `%d` not found",
+		errorKindDefault:  "Unexpected error while updating problem.",
 	},
 	ActionEnrolledDeregisterUser: {
-		errorTypeNotFound: "User `%s` is not registered in class `%s` or class doesn't even exist",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "User `%s` is not registered in class `%s` or class doesn't even exist",
+		errorKindDefault:  "Unexpected error while deregistering from class.",
 	},
 	ActionEnrolledProposeAC: {
-		errorTypeNotFound: "Can you check if user `%s` is binded and registered on the same class of problem `%d`?",
-		errorTypeConflict: "User `%s` has already solved problem `%d`",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Can you check if user `%s` is binded and registered on the same class of problem `%d`?",
+		errorKindConflict: "User `%s` has already solved problem `%d`",
+		errorKindDefault:  "Unexpected error while proposing AC.",
 	},
 	ActionEnrolledUndoAC: {
-		errorTypeNotFound: "Problem `%[2]d` not found or you're not enrolled in the class",
-		errorTypeConflict: "Bro `%[1]s`, you haven't solved problem `%[2]d` yet, so you can't undo it",
-		errorTypeDefault:  "Unexpected error.",
+		errorKindNotFound: "Problem `%[2]d` not found or you're not enrolled in the class",
+		errorKindConflict: "Bro `%[1]s`, you haven't solved problem `%[2]d` yet, so you can't undo it",
+		errorKindDefault:  "Unexpected error while undoing AC.",
 	},
 }
 
@@ -159,59 +166,66 @@ func MapError(err error, action Action, args ...any) string {
 		return defaultFallbackMessage
 	}
 
-	var internalErr *serviceerr.InternalError
-	if errors.As(err, &internalErr) {
-		// Generic message for internal errors, we don't want to leak details
+	kind := getErrorKindFromError(err)
+	if kind == errorKindInternal {
 		return internalHiddenMessage
 	}
 
-	if msg, ok := resolveConflict(err, action, args...); ok {
+	if msg, ok := fromTemplate(action, kind, args...); ok {
 		return msg
 	}
 
-	if msg, ok := resolveNotFound(err, action, args...); ok {
-		return msg
-	}
-
-	if msg, ok := fromTemplate(action, errorTypeDefault, args...); ok {
+	// If no specific template was found for this error kind, try the action's default template.
+	if msg, ok := fromTemplate(action, errorKindDefault, args...); ok {
 		return msg
 	}
 
 	return defaultFallbackMessage
 }
 
-func resolveConflict(err error, action Action, args ...any) (string, bool) {
+func getErrorKindFromError(err error) ErrorKind {
 	var conflictErr *serviceerr.ConflictError
-	if !errors.As(err, &conflictErr) {
-		return "", false
-	}
-
-	return fromTemplate(action, errorTypeConflict, args...)
-}
-
-func resolveNotFound(err error, action Action, args ...any) (string, bool) {
 	var notFoundErr *serviceerr.NotFoundInfoError
-	if !errors.As(err, &notFoundErr) {
-		return "", false
-	}
+	var internalErr *serviceerr.InternalError
 
-	return fromTemplate(action, errorTypeNotFound, args...)
+	switch {
+	case errors.As(err, &internalErr):
+		// Prioritize internal errors to avoid leaking sensitive info from wrapped errors
+		return errorKindInternal
+	case errors.As(err, &conflictErr):
+		return errorKindConflict
+	case errors.As(err, &notFoundErr):
+		return errorKindNotFound
+	default:
+		return errorKindDefault
+	}
 }
 
-func fromTemplate(action Action, kind string, args ...any) (string, bool) {
+func fromTemplate(action Action, kind ErrorKind, args ...any) (string, bool) {
+	// First-level lookup
 	byType, ok := templates[action]
 	if !ok {
 		return "", false
 	}
 
+	// Second-level lookup
+	// If no template is configured for this pair, caller should try another fallback.
 	tpl, ok := byType[kind]
 	if !ok || strings.TrimSpace(tpl) == "" {
 		return "", false
 	}
 
-	if len(args) == 0 || !strings.Contains(tpl, "%") {
-		return tpl, true
+	// Keep plain templates untouched. Format only when placeholders are present.
+	formatted := tpl
+	if strings.Contains(tpl, "%") {
+		formatted = fmt.Sprintf(tpl, args...)
 	}
 
-	return fmt.Sprintf(tpl, args...), true
+	// fmt embeds "%!" markers when args are missing or have the wrong type.
+	// Treat that as a rendering failure and let MapError fall back to default message.
+	if strings.Contains(formatted, "%!") {
+		return "", false
+	}
+
+	return formatted, true
 }
