@@ -1,23 +1,17 @@
 package mentor
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
-)
-
-var (
-	serviceConflictErr     = &serviceerr.ConflictError{}
-	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
 )
 
 const (
@@ -46,16 +40,9 @@ func HandleRegisterUser(c *context.ContextMessage) {
 	if err := c.Services.Enrollment.RegisterUsernameIntoClass(userName, classCode); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or class code `%s` not found", userName, classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorRegisterUser, userName, classCode)),
+		)
 
 		return
 	}
@@ -86,16 +73,9 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 	if err := c.Services.Enrollment.DeregisterUsernameFromClass(userName, classCode); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or class code `%s` not found", userName, classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorDeregisterUser, userName, classCode)),
+		)
 
 		return err
 	}
@@ -213,16 +193,9 @@ func HandleAddAC(c *context.ContextMessage) {
 	if err := c.Services.Solution.AddACToUsername(userName, problemID); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or problem id `%d` not found, probably you are not binded or registered in the same class problem lives", userName, problemID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddAC, userName, problemID)),
+		)
 
 		return
 	}
@@ -266,20 +239,9 @@ func HandleUndoAC(c *context.ContextMessage) {
 	if err = c.Services.Solution.UndoACByProblemAndUsername(problemID, userName); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` or problem id `%d` not found", userName, problemID)),
-			)
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has not solved problem `%d` yet or is not enrolled in the class", userName, problemID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUndoAC, userName, problemID)),
+		)
 		return
 	}
 
@@ -340,20 +302,9 @@ func HandleAddProblem(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
-			)
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem `%s` already exists on class `%s` with the ID: `%d`", problemName, classCode, problemID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddProblem, problemName, classCode, problemID)),
+		)
 
 		return
 	}
@@ -397,16 +348,9 @@ func HandleRemoveProblem(c *context.ContextMessage) error {
 	if err = c.Services.Problem.RemoveProblemFromClass(problemID); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem id `%d` not found", problemID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorRemoveProblem, problemID)),
+		)
 		return err
 	}
 
@@ -454,16 +398,9 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	classID, err := c.Services.Class.GetClassIDByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUpdateProblemClass, classCode)),
+		)
 		return
 	}
 
@@ -490,16 +427,9 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	}); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Problem with ID: `%d` not found", problemID)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrUnexpectec),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUpdateProblem, problemID)),
+		)
 		return
 	}
 

@@ -2,24 +2,16 @@ package general
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/image"
 	"github.com/bwmarrin/discordgo"
-)
-
-var (
-	serviceConflictErr     = &serviceerr.ConflictError{}
-	serviceNotFoundInfoErr = &serviceerr.NotFoundInfoError{}
-	serviceInternalErr     = &serviceerr.InternalError{}
 )
 
 func HandleBindUser(c *context.ContextMessage) {
@@ -32,16 +24,9 @@ func HandleBindUser(c *context.ContextMessage) {
 	if err := c.Services.User.BindUser(discordID, userName); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` is already taken by another user. Please choose a different username.", userName)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionBindUser, userName)),
+		)
 
 		return
 	}
@@ -60,20 +45,9 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 	if err := c.Services.Enrollment.RegisterUserIDIntoClass(discordID, classCode); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found or user `%s` not binded yet", classCode, discordNickName)),
-			)
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` already registered on class `%s`", discordNickName, classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, discordNickName)),
+		)
 
 		return
 	}
@@ -93,16 +67,9 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code `%s` not found", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionListProblemsByClass, classCode)),
+		)
 
 		return
 	}
@@ -225,16 +192,9 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class code %s doesn't match with any class", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionScoreByClass, classCode)),
+		)
 
 		return
 	}
@@ -281,20 +241,9 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Not found info for class code `%s` or user name `%s`", classCode, userName)),
-			)
-		case errors.As(err, &serviceInternalErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected internal error."),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` is registered in `%s`? I didn't find any AC", userName, classCode)),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionScoreByUserAndClass, userName, classCode)),
+		)
 		return
 	}
 
@@ -339,16 +288,10 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 	users, err := c.Services.Enrollment.GetListOfUsersByClassCode(classCode)
 	if err != nil {
 		logger.Log.Error(err)
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No class was found with class code %s", classCode)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetUsersInClass, classCode)),
+		)
+		return
 	}
 
 	var stringBuilder strings.Builder
@@ -507,16 +450,9 @@ func HandleGetClassesOfUsername(c *context.ContextMessage) {
 	userID, err := c.Services.User.GetUserIDByUsername(userName)
 	if err != nil {
 		logger.Log.Error(err)
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` not found", userName)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetClassesOfUsername, userName)),
+		)
 		return
 	}
 
@@ -563,16 +499,9 @@ func HandleGetMyUsername(c *context.ContextMessage) {
 	userName, err := c.Services.User.GetUsernameByUserID(discordID)
 	if err != nil {
 		logger.Log.Error(err)
-		switch {
-		case errors.As(err, &serviceNotFoundInfoErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "You are not binded to any username. Use `!bind <username>` to bind your account."),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetMyUsername)),
+		)
 		return
 	}
 
@@ -599,16 +528,9 @@ func HandleChangeUsername(c *context.ContextMessage) {
 	if err := c.Services.User.ChangeUsername(discordID, newUserName); err != nil {
 		logger.Log.Error(err)
 
-		switch {
-		case errors.As(err, &serviceConflictErr):
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` is already taken by another user. Please choose a different username.", newUserName)),
-			)
-		default:
-			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-			)
-		}
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionChangeUsername, newUserName)),
+		)
 
 		return
 	}

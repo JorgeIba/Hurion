@@ -15,6 +15,10 @@ func (e *DataError) Error() string {
 	return fmt.Sprintf("Data error: (code %d) %s", e.Code, e.Message)
 }
 
+func (e *DataError) Unwrap() error {
+	return e.WrappedError
+}
+
 type InitializationError struct {
 	*DataError
 }
