@@ -45,7 +45,7 @@ func IsUserIDEnrolledByClassCode(datastore data.DataStore, userID, classCode str
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
-			return false, serviceerr.NewClassCodeNotFoundError("classID doesn't match with any class", err)
+			return false, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any class", classCode), err)
 		default:
 			return false, serviceerr.MakeGeneralError(err)
 		}
@@ -79,7 +79,7 @@ func CanBroACTheProblem(datastore data.DataStore, userID string, problemID int64
 	if isMyBoyEnrolled, err := IsUserIDEnrolledByClassID(datastore, userID, problem.ClassID); err != nil {
 		return false, err
 	} else if !isMyBoyEnrolled {
-		return false, serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s is not registered in the class of problem %d", userID, problemID), nil)
+		return false, nil
 	}
 
 	if hasUserSolvedAlready, err := datastore.HasUserSolvedProblem(userID, problemID); err != nil {

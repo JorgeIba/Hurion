@@ -64,11 +64,11 @@ func (e *ProblemNotFoundError) Unwrap() error {
 	return e.WrappedError
 }
 
-type DuplicateProblemURLError struct {
+type DuplicateProblemError struct {
 	*ServiceError
 }
 
-func (e *DuplicateProblemURLError) Unwrap() error {
+func (e *DuplicateProblemError) Unwrap() error {
 	if e == nil || e.ServiceError == nil {
 		return nil
 	}
@@ -177,8 +177,8 @@ func NewProblemNotFoundError(message string, original error) *ProblemNotFoundErr
 	}
 }
 
-func NewDuplicateProblemURLError(message string, original error) *DuplicateProblemURLError {
-	return &DuplicateProblemURLError{
+func NewDuplicateProblemError(message string, original error) *DuplicateProblemError {
+	return &DuplicateProblemError{
 		ServiceError: &ServiceError{
 			Code:         409,
 			Message:      message,

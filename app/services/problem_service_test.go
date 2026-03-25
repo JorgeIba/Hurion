@@ -95,7 +95,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			},
 			wantID:      0,
 			wantErr:     true,
-			wantErrType: &serviceerr.DuplicateProblemURLError{},
+			wantErrType: &serviceerr.DuplicateProblemError{},
 		},
 		{
 			name: "generic error in AddProblem",
@@ -241,7 +241,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "Repeated Name"}).Return(dataerr.NewRowConflictError("problem exists", nil))
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.DuplicateProblemURLError{},
+			wantErrType: &serviceerr.DuplicateProblemError{},
 		},
 		{
 			name:      "generic error UpdateProblemByProblemID",

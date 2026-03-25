@@ -52,7 +52,7 @@ const (
 	errorKindUserNotFound
 	errorKindClassCodeNotFound
 	errorKindProblemNotFound
-	errorKindDuplicateProblemURL
+	errorKindDuplicateProblem
 	errorKindConflict
 	errorKindNotFound
 	errorKindInternal
@@ -142,10 +142,10 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:         "Unexpected error while undoing AC.",
 	},
 	ActionMentorAddProblem: {
-		errorKindClassCodeNotFound:   "Class code `%[1]s` not found while adding `%[3]s` with URL `%[2]s`",
-		errorKindDuplicateProblemURL: "Problem URL `%[2]s` for `%[3]s` already exists on class `%[1]s`",
-		errorKindConflict:            "Problem `%[3]s` already exists on class `%[1]s` with URL `%[2]s`",
-		errorKindDefault:             "Unexpected error while adding problem.",
+		errorKindClassCodeNotFound: "Class code `%[1]s` not found while adding `%[3]s`.",
+		errorKindDuplicateProblem:  "Problem `%[3]s` already exists on class `%[1]s` (with URL `%[2]s`)",
+		errorKindConflict:          "Problem `%[3]s` already exists on class `%[1]s` with URL `%[2]s`",
+		errorKindDefault:           "Unexpected error while adding problem.",
 	},
 	ActionMentorRemoveProblem: {
 		errorKindProblemNotFound: "Problem id `%d` not found",
@@ -156,9 +156,9 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while moving problem to class.",
 	},
 	ActionMentorUpdateProblem: {
-		errorKindProblemNotFound:     "Problem with ID: `%[1]d` not found while updating class `%[2]s` and URL `%[3]s`",
-		errorKindDuplicateProblemURL: "Problem URL `%[3]s` already exists in class `%[2]s`",
-		errorKindDefault:             "Unexpected error while updating problem.",
+		errorKindProblemNotFound:  "Problem with ID: `%[1]d` not found.",
+		errorKindDuplicateProblem: "Problem `%[3]s` already exists in class `%[2]s`",
+		errorKindDefault:          "Unexpected error while updating problem.",
 	},
 	ActionEnrolledDeregisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`.",
@@ -207,7 +207,7 @@ func getErrorKindFromError(err error) ErrorKind {
 	var userNotFoundErr *serviceerr.UserNotFoundError
 	var classCodeNotFoundErr *serviceerr.ClassCodeNotFoundError
 	var problemNotFoundErr *serviceerr.ProblemNotFoundError
-	var duplicateProblemURLErr *serviceerr.DuplicateProblemURLError
+	var duplicateProblemErr *serviceerr.DuplicateProblemError
 	var conflictErr *serviceerr.ConflictError
 	var notFoundErr *serviceerr.NotFoundInfoError
 	var internalErr *serviceerr.InternalError
@@ -226,8 +226,8 @@ func getErrorKindFromError(err error) ErrorKind {
 		return errorKindClassCodeNotFound
 	case errors.As(err, &problemNotFoundErr):
 		return errorKindProblemNotFound
-	case errors.As(err, &duplicateProblemURLErr):
-		return errorKindDuplicateProblemURL
+	case errors.As(err, &duplicateProblemErr):
+		return errorKindDuplicateProblem
 	case errors.As(err, &conflictErr):
 		return errorKindConflict
 	case errors.As(err, &notFoundErr):

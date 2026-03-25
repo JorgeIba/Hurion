@@ -173,7 +173,7 @@ func TestEnrollmentService_DeregisterUserIDFromClass(t *testing.T) {
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.UserNotEnrolledError{},
 		},
 		{
 			name:      "error in IsUserIDEnrolledByClassCode helper",

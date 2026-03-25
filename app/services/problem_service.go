@@ -48,7 +48,7 @@ func (service *ProblemService) CreateProblemIntoClass(params CreateProblemParams
 	if err != nil {
 		switch {
 		case errors.As(err, &dataConflictErrProblem):
-			return problemID, serviceerr.NewDuplicateProblemURLError("problem with the same name in the same class", nil)
+			return problemID, serviceerr.NewDuplicateProblemError("problem with the same name in the same class", err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
 		}
@@ -86,7 +86,7 @@ func (service *ProblemService) UpdateProblemByProblemID(problemID int64, problem
 			// Defensive mapping in case the row disappears between pre-check and update.
 			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
 		case errors.As(err, &dataConflictErrProblem):
-			return serviceerr.NewDuplicateProblemURLError(
+			return serviceerr.NewDuplicateProblemError(
 				fmt.Sprintf("duplicate problem detected while updating problemID=%d (name=%q, classID=%d)", problemID, problem.Name, problem.ClassID),
 				err,
 			)

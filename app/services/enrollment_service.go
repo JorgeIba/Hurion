@@ -14,7 +14,7 @@ var (
 	dataNotFoundErrEnrollment = &dataerr.NotFoundError{}
 )
 
-// EnrollmentService handles user enrollment operations in classes
+// EnrollmentService handles user enrollment into classes
 type EnrollmentService struct {
 	Datastore data.DataStore
 }

@@ -49,7 +49,7 @@ func (service *SolutionService) UndoACByProblemAndUserID(problemID int64, userID
 	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isProblemPresent {
-		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesnt exist", problemID), nil)
+		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
 	// Validate user is registered in the class of the problem

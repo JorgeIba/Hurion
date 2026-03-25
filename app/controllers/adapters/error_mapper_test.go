@@ -70,11 +70,11 @@ func TestMapError(t *testing.T) {
 			want:   "Problem `404` not found for user `jorge`",
 		},
 		{
-			name:   "semantic duplicate URL for mentor add problem",
-			err:    serviceerr.NewDuplicateProblemURLError("", nil),
+			name:   "semantic duplicate for mentor add problem",
+			err:    serviceerr.NewDuplicateProblemError("", nil),
 			action: ActionMentorAddProblem,
 			args:   []any{"basicos_1", "https://leetcode.com/problems/two-sum", "Two Sum"},
-			want:   "Problem URL `https://leetcode.com/problems/two-sum` for `Two Sum` already exists on class `basicos_1`",
+			want:   "Problem `Two Sum` already exists on class `basicos_1` (with URL `https://leetcode.com/problems/two-sum`)",
 		},
 		{
 			name:   "semantic class not found for mentor register action",
