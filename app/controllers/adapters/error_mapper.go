@@ -78,16 +78,16 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while listing class problems.",
 	},
 	ActionScoreByClass: {
-		errorKindClassCodeNotFound: "Class code %s doesn't match with any class",
+		errorKindClassCodeNotFound: "Class code `%s` doesn't match with any class",
 		errorKindDefault:           "Unexpected error while getting class scores.",
 	},
 	ActionScoreByUserAndClass: {
-		errorKindClassCodeNotFound: "Not found info for class code `%[2]s` or user name `%[1]s`",
+		errorKindClassCodeNotFound: "Class code `%[2]s` not found",
 		errorKindUserNotFound:      "Username `%[1]s` not found",
 		errorKindDefault:           "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
 	},
 	ActionGetUsersInClass: {
-		errorKindClassCodeNotFound: "No class was found with class code %s",
+		errorKindClassCodeNotFound: "No class was found with class code `%s`",
 		errorKindDefault:           "Unexpected error while listing users in class.",
 	},
 	ActionGetClassesOfUsername: {
@@ -120,25 +120,25 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionMentorRegisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for username `%[1]s`",
-		errorKindUserNotFound:      "Username `%s` not found",
+		errorKindUserNotFound:      "Username `%[1]s` not found",
 		errorKindDefault:           "Unexpected error while mentor-registering user.",
 	},
 	ActionMentorDeregisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for username `%[1]s`",
 		errorKindUserNotEnrolled:   "Username `%[1]s` is not enrolled in class `%[2]s`",
-		errorKindUserNotFound:      "Username `%s` not found",
+		errorKindUserNotFound:      "Username `%[1]s` not found",
 		errorKindDefault:           "Unexpected error while mentor-deregistering user.",
 	},
 	ActionMentorAddAC: {
 		errorKindProblemNotFound: "Problem id `%[2]d` not found for username `%[1]s`",
 		errorKindUserNotEnrolled: "Username `%[1]s` is not enrolled in the class of the problem `%[2]d`",
-		errorKindUserNotFound:    "Username `%s` not found",
+		errorKindUserNotFound:    "Username `%[1]s` not found",
 		errorKindDefault:         "Unexpected error while adding AC.",
 	},
 	ActionMentorUndoAC: {
 		errorKindProblemNotFound: "Problem id `%[2]d` not found for username `%[1]s`",
-		errorKindUserNotFound:    "Username `%s` not found",
-		errorKindConflict:        "User `%s` has not solved problem `%d` yet or is not enrolled in the class",
+		errorKindUserNotFound:    "Username `%[1]s` not found",
+		errorKindConflict:        "User `%[1]s` has not solved problem `%[2]d` yet or is not enrolled in the class",
 		errorKindDefault:         "Unexpected error while undoing AC.",
 	},
 	ActionMentorAddProblem: {
@@ -156,7 +156,7 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while moving problem to class.",
 	},
 	ActionMentorUpdateProblem: {
-		errorKindProblemNotFound:     "Problem with ID: `%[1]d` not found while targeting class `%[2]s` and URL `%[3]s`",
+		errorKindProblemNotFound:     "Problem with ID: `%[1]d` not found while updating class `%[2]s` and URL `%[3]s`",
 		errorKindDuplicateProblemURL: "Problem URL `%[3]s` already exists in class `%[2]s`",
 		errorKindDefault:             "Unexpected error while updating problem.",
 	},

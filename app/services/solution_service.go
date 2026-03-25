@@ -45,6 +45,13 @@ func (service *SolutionService) AddACToUser(userID string, problemID int64) erro
 
 // UndoACByProblemAndUserID removes an AC for a user
 func (service *SolutionService) UndoACByProblemAndUserID(problemID int64, userID string) error {
+	// Validate problem exists
+	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
+		return err
+	} else if !isProblemPresent {
+		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesnt exist", problemID), nil)
+	}
+
 	// Validate user is registered in the class of the problem
 	if isBroAbleToUndoAC, err := helpers.HasUserSolvedProblem(service.Datastore, userID, problemID); err != nil {
 		return err

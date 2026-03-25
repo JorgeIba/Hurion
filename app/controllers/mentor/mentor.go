@@ -226,7 +226,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	problemIDs, userName := c.Args[1], c.Args[2]
+	userName, problemIDs := c.Args[1], c.Args[2]
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
