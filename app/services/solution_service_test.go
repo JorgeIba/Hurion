@@ -47,7 +47,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.ProblemNotFoundError{},
 		},
 		{
 			name:      "user not enrolled",

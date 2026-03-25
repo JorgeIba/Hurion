@@ -74,7 +74,7 @@ func (service *UserService) ExterminateUser(userID string) error {
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewUserNotFoundError("", err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
@@ -92,7 +92,7 @@ func (service *UserService) GetUsernameByUserID(userID string) (string, error) {
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
-			return "", serviceerr.NewNotFoundInfoError(fmt.Sprintf("userID %s doesn't match with any user", userID), err)
+			return "", serviceerr.NewUserNotFoundError(fmt.Sprintf("userID %s doesn't match with any user", userID), err)
 		default:
 			return "", serviceerr.MakeGeneralError(err)
 		}
@@ -106,7 +106,7 @@ func (service *UserService) GetUserIDByUsername(userName string) (string, error)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErr):
-			return "", serviceerr.NewNotFoundInfoError("", err)
+			return "", serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s doesn't match with any user", userName), err)
 		default:
 			return "", serviceerr.MakeGeneralError(err)
 		}

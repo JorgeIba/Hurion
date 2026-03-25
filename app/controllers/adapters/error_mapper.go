@@ -47,7 +47,13 @@ const (
 )
 
 const (
-	errorKindConflict ErrorKind = iota
+	errorKindUserNotBinded ErrorKind = iota
+	errorKindUserNotEnrolled
+	errorKindUserNotFound
+	errorKindClassCodeNotFound
+	errorKindProblemNotFound
+	errorKindDuplicateProblemURL
+	errorKindConflict
 	errorKindNotFound
 	errorKindInternal
 	errorKindDefault
@@ -62,101 +68,113 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:  "Unexpected error while binding your username.",
 	},
 	ActionRegisterInClass: {
-		errorKindNotFound: "Class code `%s` not found or user `%s` not binded yet",
-		errorKindConflict: "User `%s` already registered on class `%s`",
-		errorKindDefault:  "Unexpected error while registering in class.",
+		errorKindClassCodeNotFound: "Class code `%[1]s` not found for user `%[2]s`.",
+		errorKindUserNotBinded:     "User `%[2]s` is not binded yet. Use `!bind <username>` first.",
+		errorKindConflict:          "User `%[2]s` already registered on class `%[1]s`",
+		errorKindDefault:           "Unexpected error while registering in class.",
 	},
 	ActionListProblemsByClass: {
-		errorKindNotFound: "Class code `%s` not found",
-		errorKindDefault:  "Unexpected error while listing class problems.",
+		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindDefault:           "Unexpected error while listing class problems.",
 	},
 	ActionScoreByClass: {
-		errorKindNotFound: "Class code %s doesn't match with any class",
-		errorKindDefault:  "Unexpected error while getting class scores.",
+		errorKindClassCodeNotFound: "Class code %s doesn't match with any class",
+		errorKindDefault:           "Unexpected error while getting class scores.",
 	},
 	ActionScoreByUserAndClass: {
-		errorKindNotFound: "Not found info for class code `%[2]s` or user name `%[1]s`",
-		errorKindDefault:  "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
+		errorKindClassCodeNotFound: "Not found info for class code `%[2]s` or user name `%[1]s`",
+		errorKindUserNotFound:      "Username `%[1]s` not found",
+		errorKindDefault:           "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
 	},
 	ActionGetUsersInClass: {
-		errorKindNotFound: "No class was found with class code %s",
-		errorKindDefault:  "Unexpected error while listing users in class.",
+		errorKindClassCodeNotFound: "No class was found with class code %s",
+		errorKindDefault:           "Unexpected error while listing users in class.",
 	},
 	ActionGetClassesOfUsername: {
-		errorKindNotFound: "Username `%s` not found",
-		errorKindDefault:  "Unexpected error while listing classes for username.",
+		errorKindUserNotFound: "Username `%s` not found",
+		errorKindDefault:      "Unexpected error while listing classes for username.",
 	},
 	ActionGetMyUsername: {
-		errorKindNotFound: "You are not binded to any username. Use `!bind <username>` to bind your account.",
-		errorKindDefault:  "Unexpected error while fetching your username.",
+		errorKindUserNotFound: "You are not binded to any username. Use `!bind <username>` to bind your account.",
+		errorKindDefault:      "Unexpected error while fetching your username.",
 	},
 	ActionChangeUsername: {
 		errorKindConflict: "Username `%s` is already taken by another user. Please choose a different username.",
 		errorKindDefault:  "Unexpected error while changing username.",
 	},
 	ActionClearClass: {
-		errorKindNotFound: "Class code `%s` not found",
-		errorKindDefault:  "Unexpected error while clearing class data.",
+		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindDefault:           "Unexpected error while clearing class data.",
 	},
 	ActionCreateClass: {
 		errorKindConflict: "Class code `%s` already exists",
 		errorKindDefault:  "Unexpected error while creating class.",
 	},
 	ActionExterminateUser: {
-		errorKindNotFound: "User <@%s> not found in the system",
-		errorKindDefault:  "Unexpected error while exterminating user.",
+		errorKindUserNotFound: "User <@%s> not found in the system",
+		errorKindDefault:      "Unexpected error while exterminating user.",
 	},
 	ActionExportClass: {
-		errorKindNotFound: "Class code `%s` not found",
-		errorKindDefault:  "Unexpected error while retrieving class data.",
+		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindDefault:           "Unexpected error while retrieving class data.",
 	},
 	ActionMentorRegisterUser: {
-		errorKindNotFound: "Username `%s` or class code `%s` not found",
-		errorKindDefault:  "Unexpected error while mentor-registering user.",
+		errorKindClassCodeNotFound: "Class code `%[2]s` not found for username `%[1]s`",
+		errorKindUserNotFound:      "Username `%s` not found",
+		errorKindDefault:           "Unexpected error while mentor-registering user.",
 	},
 	ActionMentorDeregisterUser: {
-		errorKindNotFound: "Username `%s` or class code `%s` not found",
-		errorKindDefault:  "Unexpected error while mentor-deregistering user.",
+		errorKindClassCodeNotFound: "Class code `%[2]s` not found for username `%[1]s`",
+		errorKindUserNotEnrolled:   "Username `%[1]s` is not enrolled in class `%[2]s`",
+		errorKindUserNotFound:      "Username `%s` not found",
+		errorKindDefault:           "Unexpected error while mentor-deregistering user.",
 	},
 	ActionMentorAddAC: {
-		errorKindNotFound: "Username `%s` or problem id `%d` not found, probably you are not binded or registered in the same class problem lives",
-		errorKindDefault:  "Unexpected error while adding AC.",
+		errorKindProblemNotFound: "Problem id `%[2]d` not found for username `%[1]s`",
+		errorKindUserNotEnrolled: "Username `%[1]s` is not enrolled in the class of the problem `%[2]d`",
+		errorKindUserNotFound:    "Username `%s` not found",
+		errorKindDefault:         "Unexpected error while adding AC.",
 	},
 	ActionMentorUndoAC: {
-		errorKindNotFound: "Username `%s` or problem id `%d` not found",
-		errorKindConflict: "User `%s` has not solved problem `%d` yet or is not enrolled in the class",
-		errorKindDefault:  "Unexpected error while undoing AC.",
+		errorKindProblemNotFound: "Problem id `%[2]d` not found for username `%[1]s`",
+		errorKindUserNotFound:    "Username `%s` not found",
+		errorKindConflict:        "User `%s` has not solved problem `%d` yet or is not enrolled in the class",
+		errorKindDefault:         "Unexpected error while undoing AC.",
 	},
 	ActionMentorAddProblem: {
-		errorKindNotFound: "Class code `%[2]s` not found",
-		errorKindConflict: "Problem `%[1]s` already exists on class `%[2]s` with the ID: `%[3]d`",
-		errorKindDefault:  "Unexpected error while adding problem.",
+		errorKindClassCodeNotFound:   "Class code `%[1]s` not found while adding `%[3]s` with URL `%[2]s`",
+		errorKindDuplicateProblemURL: "Problem URL `%[2]s` for `%[3]s` already exists on class `%[1]s`",
+		errorKindConflict:            "Problem `%[3]s` already exists on class `%[1]s` with URL `%[2]s`",
+		errorKindDefault:             "Unexpected error while adding problem.",
 	},
 	ActionMentorRemoveProblem: {
-		errorKindNotFound: "Problem id `%d` not found",
-		errorKindDefault:  "Unexpected error while removing problem.",
+		errorKindProblemNotFound: "Problem id `%d` not found",
+		errorKindDefault:         "Unexpected error while removing problem.",
 	},
 	ActionMentorUpdateProblemClass: {
-		errorKindNotFound: "Class code `%s` not found",
-		errorKindDefault:  "Unexpected error while moving problem to class.",
+		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindDefault:           "Unexpected error while moving problem to class.",
 	},
 	ActionMentorUpdateProblem: {
-		errorKindNotFound: "Problem with ID: `%d` not found",
-		errorKindDefault:  "Unexpected error while updating problem.",
+		errorKindProblemNotFound:     "Problem with ID: `%[1]d` not found while targeting class `%[2]s` and URL `%[3]s`",
+		errorKindDuplicateProblemURL: "Problem URL `%[3]s` already exists in class `%[2]s`",
+		errorKindDefault:             "Unexpected error while updating problem.",
 	},
 	ActionEnrolledDeregisterUser: {
-		errorKindNotFound: "User `%s` is not registered in class `%s` or class doesn't even exist",
-		errorKindDefault:  "Unexpected error while deregistering from class.",
+		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`.",
+		errorKindUserNotEnrolled:   "User `%[1]s` is not registered in class `%[2]s`.",
+		errorKindDefault:           "Unexpected error while deregistering from class.",
 	},
 	ActionEnrolledProposeAC: {
-		errorKindNotFound: "Can you check if user `%s` is binded and registered on the same class of problem `%d`?",
-		errorKindConflict: "User `%s` has already solved problem `%d`",
-		errorKindDefault:  "Unexpected error while proposing AC.",
+		errorKindProblemNotFound: "Problem `%[2]d` not found for user `%[1]s`",
+		errorKindUserNotEnrolled: "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
+		errorKindConflict:        "User `%s` has already solved problem `%d`",
+		errorKindDefault:         "Unexpected error while proposing AC.",
 	},
 	ActionEnrolledUndoAC: {
-		errorKindNotFound: "Problem `%[2]d` not found or you're not enrolled in the class",
-		errorKindConflict: "Bro `%[1]s`, you haven't solved problem `%[2]d` yet, so you can't undo it",
-		errorKindDefault:  "Unexpected error while undoing AC.",
+		errorKindProblemNotFound: "Problem `%[2]d` not found",
+		errorKindConflict:        "Bro `%[1]s`, you haven't solved problem `%[2]d` yet, so you can't undo it",
+		errorKindDefault:         "Unexpected error while undoing AC.",
 	},
 }
 
@@ -184,6 +202,12 @@ func MapError(err error, action Action, args ...any) string {
 }
 
 func getErrorKindFromError(err error) ErrorKind {
+	var userNotBindedErr *serviceerr.UserNotBindedError
+	var userNotEnrolledErr *serviceerr.UserNotEnrolledError
+	var userNotFoundErr *serviceerr.UserNotFoundError
+	var classCodeNotFoundErr *serviceerr.ClassCodeNotFoundError
+	var problemNotFoundErr *serviceerr.ProblemNotFoundError
+	var duplicateProblemURLErr *serviceerr.DuplicateProblemURLError
 	var conflictErr *serviceerr.ConflictError
 	var notFoundErr *serviceerr.NotFoundInfoError
 	var internalErr *serviceerr.InternalError
@@ -192,6 +216,18 @@ func getErrorKindFromError(err error) ErrorKind {
 	case errors.As(err, &internalErr):
 		// Prioritize internal errors to avoid leaking sensitive info from wrapped errors
 		return errorKindInternal
+	case errors.As(err, &userNotBindedErr):
+		return errorKindUserNotBinded
+	case errors.As(err, &userNotEnrolledErr):
+		return errorKindUserNotEnrolled
+	case errors.As(err, &userNotFoundErr):
+		return errorKindUserNotFound
+	case errors.As(err, &classCodeNotFoundErr):
+		return errorKindClassCodeNotFound
+	case errors.As(err, &problemNotFoundErr):
+		return errorKindProblemNotFound
+	case errors.As(err, &duplicateProblemURLErr):
+		return errorKindDuplicateProblemURL
 	case errors.As(err, &conflictErr):
 		return errorKindConflict
 	case errors.As(err, &notFoundErr):

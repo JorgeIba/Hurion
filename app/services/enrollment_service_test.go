@@ -43,7 +43,7 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("UNKNOWN").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.ClassCodeNotFoundError{},
 		},
 		{
 			name:      "class check generic error",
@@ -64,7 +64,7 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 				m.EXPECT().IsUserBinded("u1").Return(false, nil)
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.UserNotBindedError{},
 		},
 		{
 			name:      "IsUserBinded generic error",

@@ -44,7 +44,7 @@ func (service *ClassService) DeleteClassByClassCode(classCode string) error {
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrClass):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
@@ -71,7 +71,7 @@ func (service *ClassService) GetClassIDByClassCode(classCode string) (int64, err
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrClass):
-			return 0, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
+			return 0, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
 		}
