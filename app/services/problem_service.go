@@ -15,7 +15,7 @@ var (
 	dataConflictErrProblem = &dataerr.RowConflictError{}
 )
 
-//go:generate go run go.uber.org/mock/mockgen@latest -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
+//go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 // ProblemService defines problem management operations
 type ProblemService interface {
 	CreateProblemIntoClass(params CreateProblemParams) (int64, error)

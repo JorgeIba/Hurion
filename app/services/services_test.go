@@ -17,10 +17,22 @@ func TestNewServices(t *testing.T) {
 	services := NewServices(mockStore)
 	
 	assert.NotNil(t, services)
-	assert.NotNil(t, services.User)
-	assert.NotNil(t, services.Enrollment)
-	assert.NotNil(t, services.Class)
-	assert.NotNil(t, services.Problem)
-	assert.NotNil(t, services.Solution)
-	assert.NotNil(t, services.Score)
+	
+	// Verify Datastore is correctly injected into all services
+	assert.Equal(t, mockStore, services.User.Datastore)
+	assert.Equal(t, mockStore, services.Enrollment.Datastore)
+	assert.Equal(t, mockStore, services.Class.Datastore)
+	assert.Equal(t, mockStore, services.Solution.Datastore)
+	assert.Equal(t, mockStore, services.Score.Datastore)
+
+	// Verify the problemService struct inside the interface has the correct Datastore
+	// We have to use type assertion to access the underlying struct
+	concreteProblemSvc, ok := services.Problem.(*problemService)
+	assert.True(t, ok, "ProblemService should be of type *problemService")
+	if ok {
+		assert.Equal(t, mockStore, concreteProblemSvc.Datastore)
+	}
+
+	// Verify ScoreService is wired with the exact same ProblemService instance
+	assert.Equal(t, services.Problem, services.Score.ProblemService)
 }

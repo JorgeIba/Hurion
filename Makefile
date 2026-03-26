@@ -12,6 +12,7 @@ all: build
 generate:
 	@echo "==> Generating mocks..."
 	@go generate ./...
+	@echo "==> Mocks generated successfully."
 
 ## test: Generate mocks and then run all project tests
 test: generate

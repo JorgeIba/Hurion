@@ -55,6 +55,10 @@ func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[data.
 
 // GetScoreByClassCode retrieves the full score for a class
 func (service *ScoreService) GetScoreByClassCode(classCode string) (Score, error) {
+	if service.ProblemService == nil {
+		return Score{}, serviceerr.NewInternalError("ProblemService is not injected in ScoreService", nil)
+	}
+
 	solvedProblems, err := service.GetRawScoreByClassCode(classCode)
 	if err != nil {
 		return Score{}, err

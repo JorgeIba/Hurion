@@ -35,7 +35,7 @@ type UpdateDataStore interface {
 	ExterminateUser(userID string) error
 }
 
-//go:generate go run go.uber.org/mock/mockgen@latest -destination=mock_data/mock_datastore.go -package=mock_data . DataStore
+//go:generate go tool mockgen -destination=mock_data/mock_datastore.go -package=mock_data . DataStore
 type DataStore interface {
 	QueryDatastore
 	UpdateDataStore
