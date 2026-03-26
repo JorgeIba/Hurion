@@ -25,14 +25,14 @@ func (service *ProblemService) CreateProblemIntoClass(params CreateProblemParams
 	if isClassCodeValid, err := helpers.IsClassCodeValid(service.Datastore, params.ClassCode); err != nil {
 		return 0, err
 	} else if !isClassCodeValid {
-		return 0, serviceerr.NewNotFoundInfoError(fmt.Sprintf("no info of class code %s", params.ClassCode), nil)
+		return 0, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("no info of class code %s", params.ClassCode), nil)
 	}
 
 	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrProblem):
-			return 0, serviceerr.NewNotFoundInfoError("", err)
+			return 0, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", params.ClassCode), err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
 		}
@@ -48,7 +48,7 @@ func (service *ProblemService) CreateProblemIntoClass(params CreateProblemParams
 	if err != nil {
 		switch {
 		case errors.As(err, &dataConflictErrProblem):
-			return problemID, serviceerr.NewConflictError("problem with the same name in the same class", nil)
+			return problemID, serviceerr.NewDuplicateProblemError("problem with the same name in the same class", err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
 		}
@@ -62,7 +62,7 @@ func (service *ProblemService) RemoveProblemFromClass(problemID int64) error {
 	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isValidProblem {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
 	if _, err := service.Datastore.RemoveProblemByID(problemID); err != nil {
@@ -77,11 +77,22 @@ func (service *ProblemService) UpdateProblemByProblemID(problemID int64, problem
 	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isValidProblem {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
 	if err := service.Datastore.UpdateProblemByProblemID(problemID, problem); err != nil {
-		return serviceerr.MakeGeneralError(fmt.Errorf("something happened trying to update problem %d with problem: %v", problemID, problem))
+		switch {
+		case errors.As(err, &dataNotFoundErrProblem):
+			// Defensive mapping in case the row disappears between pre-check and update.
+			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
+		case errors.As(err, &dataConflictErrProblem):
+			return serviceerr.NewDuplicateProblemError(
+				fmt.Sprintf("duplicate problem detected while updating problemID=%d (name=%q, classID=%d)", problemID, problem.Name, problem.ClassID),
+				err,
+			)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
 	}
 
 	return nil
@@ -94,7 +105,7 @@ func (service *ProblemService) GetProblemsGroupedByTopic(classCode string) ([]Pr
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrProblem):
-			return emptySlice, serviceerr.NewNotFoundInfoError("", err)
+			return emptySlice, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return emptySlice, serviceerr.MakeGeneralError(err)
 		}

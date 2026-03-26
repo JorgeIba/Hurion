@@ -14,7 +14,7 @@ var (
 	dataNotFoundErrEnrollment = &dataerr.NotFoundError{}
 )
 
-// EnrollmentService handles user enrollment operations in classes
+// EnrollmentService handles user enrollment into classes
 type EnrollmentService struct {
 	Datastore data.DataStore
 }
@@ -26,7 +26,7 @@ func (service *EnrollmentService) RegisterUserIDIntoClass(userID, classCode stri
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrEnrollment):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
@@ -37,7 +37,7 @@ func (service *EnrollmentService) RegisterUserIDIntoClass(userID, classCode stri
 	if err != nil {
 		return serviceerr.MakeGeneralError(err)
 	} else if !isUserBinded {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("user %s has not username binded yet", userID), nil)
+		return serviceerr.NewUserNotBindedError(fmt.Sprintf("user %s has not username binded yet", userID), nil)
 	}
 
 	// Check if user was already registered
@@ -61,7 +61,7 @@ func (service *EnrollmentService) DeregisterUserIDFromClass(userID string, class
 	if err != nil {
 		return err
 	} else if !isMyBoyEnrolled {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("user %s is not registered in class %s", userID, classCode), nil)
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s is not registered in class %s", userID, classCode), nil)
 	}
 
 	// Get Info
@@ -69,7 +69,7 @@ func (service *EnrollmentService) DeregisterUserIDFromClass(userID string, class
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrEnrollment):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
@@ -88,7 +88,7 @@ func (service *EnrollmentService) RegisterUsernameIntoClass(userName, classCode 
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrEnrollment):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
@@ -98,20 +98,19 @@ func (service *EnrollmentService) RegisterUsernameIntoClass(userName, classCode 
 	return err
 }
 
-// DeregisterUsernameFromClass removes a user (by username) from a class
+// DeregisterUsernameFromClass removes a user (by username) from a class.
 func (service *EnrollmentService) DeregisterUsernameFromClass(userName, classCode string) error {
 	user, err := service.Datastore.GetUserByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrEnrollment):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
 	}
 
-	err = service.DeregisterUserIDFromClass(user.UserID, classCode)
-	return err
+	return service.DeregisterUserIDFromClass(user.UserID, classCode)
 }
 
 // GetListOfUsersByClassCode retrieves all users enrolled in a class
@@ -120,7 +119,7 @@ func (service *EnrollmentService) GetListOfUsersByClassCode(classCode string) ([
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrEnrollment):
-			return []data.User{}, serviceerr.NewNotFoundInfoError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
+			return []data.User{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return []data.User{}, serviceerr.MakeGeneralError(err)
 		}

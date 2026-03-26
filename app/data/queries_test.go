@@ -1194,6 +1194,27 @@ func TestUpdateByProblemID_NotFound(t *testing.T) {
 	assert.ErrorAs(t, err, &notFoundErr, "Should return NotFoundError type")
 }
 
+func TestUpdateByProblemID_Conflict(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	classID, err := db.CreateClass(Class{ClassCode: "test", Name: "Test Class"})
+	assert.NoError(t, err)
+
+	problemAID, err := db.AddProblem(Problem{Name: "Two Sum", URL: "url-a", ClassID: classID})
+	assert.NoError(t, err)
+
+	_, err = db.AddProblem(Problem{Name: "Three Sum", URL: "url-b", ClassID: classID})
+	assert.NoError(t, err)
+
+	err = db.UpdateProblemByProblemID(problemAID, Problem{Name: "Three Sum", URL: "url-c", ClassID: classID})
+	assert.Error(t, err, "Should return conflict error when updating to an existing (name,class) pair")
+
+	var conflictErr *dataerr.RowConflictError
+	assert.ErrorAs(t, err, &conflictErr, "Should return RowConflictError type")
+}
+
 func TestGetClassesByUserID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")

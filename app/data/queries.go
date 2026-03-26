@@ -2,10 +2,12 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
+	"github.com/mattn/go-sqlite3"
 )
 
 // Binds an existing (or not) user id to a single user name.
@@ -604,6 +606,10 @@ func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	`
 
 	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problemID); err != nil {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			return dataerr.NewRowConflictError(fmt.Sprintf("problem %q already exists in class %d", problem.Name, problem.ClassID), err)
+		}
 		return dataerr.NewQueryError(fmt.Sprintf("could not update problem with ID %d", problemID), err)
 	} else if rowsAffected, err := result.RowsAffected(); err != nil {
 		return dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when updating problem with ID %d", problemID), err)

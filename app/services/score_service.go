@@ -27,7 +27,7 @@ func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[data.
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrScore):
-			return emptyMap, serviceerr.NewNotFoundInfoError("", err)
+			return emptyMap, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return emptyMap, serviceerr.MakeGeneralError(err)
 		}
@@ -113,7 +113,7 @@ func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode st
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrScore):
-			return Score{}, serviceerr.NewNotFoundInfoError("", err)
+			return Score{}, serviceerr.NewUserNotFoundError(fmt.Sprintf("username `%s` not found", userName), err)
 		default:
 			return Score{}, serviceerr.MakeGeneralError(err)
 		}
@@ -135,7 +135,7 @@ func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode st
 	}
 
 	if userIndex == -1 {
-		err := serviceerr.NewNotFoundInfoError(fmt.Sprintf("user `%s` doesn't have any AC in class `%s`", userName, classCode), nil)
+		err := serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user `%s` is not registered in class `%s`", userName, classCode), nil)
 		return Score{}, err
 	}
 
@@ -176,7 +176,7 @@ func (service *ScoreService) GetClassExportData(classCode string) ([]data.User, 
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrScore):
-			return nil, nil, Score{}, serviceerr.NewNotFoundInfoError("", err)
+			return nil, nil, Score{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return nil, nil, Score{}, serviceerr.MakeGeneralError(err)
 		}

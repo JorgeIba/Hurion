@@ -226,7 +226,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	problemIDs, userName := c.Args[1], c.Args[2]
+	userName, problemIDs := c.Args[1], c.Args[2]
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
@@ -303,7 +303,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddProblem, problemName, classCode, problemID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddProblem, classCode, url, problemName)),
 		)
 
 		return
@@ -428,7 +428,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUpdateProblem, problemID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUpdateProblem, problemID, classCode, problemName)),
 		)
 		return
 	}

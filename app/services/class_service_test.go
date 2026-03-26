@@ -117,7 +117,7 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 					Return(data.Class{}, &dataerr.NotFoundError{})
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.ClassCodeNotFoundError{},
 		},
 		{
 			name:      "internal error - GetClassByClassCode fails",

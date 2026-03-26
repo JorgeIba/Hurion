@@ -47,7 +47,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.ProblemNotFoundError{},
 		},
 		{
 			name:      "user not enrolled",
@@ -58,7 +58,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.UserNotEnrolledError{},
 		},
 		{
 			name:      "already solved",
@@ -124,6 +124,7 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mocks.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 				m.EXPECT().RemoveAC("u1", int64(100)).Return(nil)
 			},
@@ -134,6 +135,7 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mocks.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 			},
 			wantErr: true,
@@ -143,6 +145,7 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mocks.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 				m.EXPECT().RemoveAC("u1", int64(100)).Return(errors.New("db fail"))
 			},
@@ -249,6 +252,7 @@ func TestSolutionService_UndoACByProblemAndUsername(t *testing.T) {
 			problemID: 100,
 			setupMock: func(m *mocks.MockDataStore) {
 				m.EXPECT().GetUserByUserName("user1").Return(data.User{UserID: "u1"}, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 				m.EXPECT().RemoveAC("u1", int64(100)).Return(nil)
 			},

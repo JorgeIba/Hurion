@@ -25,14 +25,14 @@ func (service *SolutionService) AddACToUser(userID string, problemID int64) erro
 	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isProblemPresent {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
+		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
 	}
 
 	// Validate user is registered in the class of the problem
 	if isBroAbleToAC, err := helpers.CanBroACTheProblem(service.Datastore, userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
 	// ACing
@@ -45,6 +45,13 @@ func (service *SolutionService) AddACToUser(userID string, problemID int64) erro
 
 // UndoACByProblemAndUserID removes an AC for a user
 func (service *SolutionService) UndoACByProblemAndUserID(problemID int64, userID string) error {
+	// Validate problem exists
+	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
+		return err
+	} else if !isProblemPresent {
+		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+	}
+
 	// Validate user is registered in the class of the problem
 	if isBroAbleToUndoAC, err := helpers.HasUserSolvedProblem(service.Datastore, userID, problemID); err != nil {
 		return err
@@ -65,7 +72,7 @@ func (service *SolutionService) AddACToUsername(userName string, problemID int64
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrSolution):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
@@ -80,7 +87,7 @@ func (service *SolutionService) UndoACByProblemAndUsername(problemID int64, user
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrSolution):
-			return serviceerr.NewNotFoundInfoError("", err)
+			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
 		}
@@ -96,14 +103,14 @@ func (service *SolutionService) AddPendingACOfUserID(messageID, userID string, p
 	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isProblemPresent {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
+		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
 	}
 
 	// Validate user is registered in the class of the problem
 	if isBroAbleToAC, err := helpers.CanBroACTheProblem(service.Datastore, userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return serviceerr.NewNotFoundInfoError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
 	if err := service.Datastore.AddPendingConfirmation(data.PendingConfirmation{

@@ -56,7 +56,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			},
 			wantID:      0,
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.ClassCodeNotFoundError{},
 		},
 		{
 			name: "generic error in IsClassCodeValid",
@@ -95,7 +95,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			},
 			wantID:      0,
 			wantErr:     true,
-			wantErrType: &serviceerr.ConflictError{},
+			wantErrType: &serviceerr.DuplicateProblemError{},
 		},
 		{
 			name: "generic error in AddProblem",
@@ -211,6 +211,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 		problem   data.Problem
 		setupMock func(*mocks.MockDataStore)
 		wantErr   bool
+		wantErrType error
 	}{
 		{
 			name:      "success",
@@ -228,7 +229,19 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			setupMock: func(m *mocks.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(2)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
-			wantErr: true,
+			wantErr:     true,
+			wantErrType: &serviceerr.ProblemNotFoundError{},
+		},
+		{
+			name:      "duplicate conflict on update",
+			problemID: 1,
+			problem:   data.Problem{Name: "Repeated Name"},
+			setupMock: func(m *mocks.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "Repeated Name"}).Return(dataerr.NewRowConflictError("problem exists", nil))
+			},
+			wantErr:     true,
+			wantErrType: &serviceerr.DuplicateProblemError{},
 		},
 		{
 			name:      "generic error UpdateProblemByProblemID",
@@ -237,7 +250,8 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(errors.New("db fail"))
 			},
-			wantErr: true,
+			wantErr:     true,
+			wantErrType: &serviceerr.InternalError{},
 		},
 	}
 
@@ -254,6 +268,9 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 
 			if tt.wantErr {
 				assert.Error(t, err)
+				if tt.wantErrType != nil {
+					assert.IsType(t, tt.wantErrType, err)
+				}
 			} else {
 				assert.NoError(t, err)
 			}

@@ -296,7 +296,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 					Return(data.User{}, &dataerr.NotFoundError{})
 			},
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.UserNotFoundError{},
 		},
 		{
 			name:   "internal error - get user fails",
@@ -383,7 +383,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 			},
 			wantResult:  "",
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.UserNotFoundError{},
 		},
 		{
 			name:   "internal error - datastore fails",
@@ -457,7 +457,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 			},
 			wantResult:  "",
 			wantErr:     true,
-			wantErrType: &serviceerr.NotFoundInfoError{},
+			wantErrType: &serviceerr.UserNotFoundError{},
 		},
 		{
 			name:     "internal error",
