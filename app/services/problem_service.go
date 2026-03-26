@@ -15,13 +15,26 @@ var (
 	dataConflictErrProblem = &dataerr.RowConflictError{}
 )
 
-// ProblemService handles problem management operations
-type ProblemService struct {
+//go:generate go run go.uber.org/mock/mockgen@latest -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
+// ProblemService defines problem management operations
+type ProblemService interface {
+	CreateProblemIntoClass(params CreateProblemParams) (int64, error)
+	RemoveProblemFromClass(problemID int64) error
+	UpdateProblemByProblemID(problemID int64, problem data.Problem) error
+	GetProblemsGroupedByTopic(classCode string) ([]ProblemsByTopic, error)
+}
+
+// problemService handles problem management operations
+type problemService struct {
 	Datastore data.DataStore
 }
 
+func NewProblemService(datastore data.DataStore) ProblemService {
+	return &problemService{Datastore: datastore}
+}
+
 // CreateProblemIntoClass creates a new problem in a class
-func (service *ProblemService) CreateProblemIntoClass(params CreateProblemParams) (int64, error) {
+func (service *problemService) CreateProblemIntoClass(params CreateProblemParams) (int64, error) {
 	if isClassCodeValid, err := helpers.IsClassCodeValid(service.Datastore, params.ClassCode); err != nil {
 		return 0, err
 	} else if !isClassCodeValid {
@@ -58,7 +71,7 @@ func (service *ProblemService) CreateProblemIntoClass(params CreateProblemParams
 }
 
 // RemoveProblemFromClass removes a problem from a class
-func (service *ProblemService) RemoveProblemFromClass(problemID int64) error {
+func (service *problemService) RemoveProblemFromClass(problemID int64) error {
 	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isValidProblem {
@@ -73,7 +86,7 @@ func (service *ProblemService) RemoveProblemFromClass(problemID int64) error {
 }
 
 // UpdateProblemByProblemID updates a problem's information
-func (service *ProblemService) UpdateProblemByProblemID(problemID int64, problem data.Problem) error {
+func (service *problemService) UpdateProblemByProblemID(problemID int64, problem data.Problem) error {
 	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isValidProblem {
@@ -99,7 +112,8 @@ func (service *ProblemService) UpdateProblemByProblemID(problemID int64, problem
 }
 
 // GetProblemsGroupedByTopic retrieves all problems in a class grouped by topic
-func (service *ProblemService) GetProblemsGroupedByTopic(classCode string) ([]ProblemsByTopic, error) {
+func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]ProblemsByTopic, error) {
+
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	emptySlice := []ProblemsByTopic{}
 	if err != nil {

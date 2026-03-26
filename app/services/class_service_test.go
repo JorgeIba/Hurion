@@ -7,7 +7,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -19,7 +19,7 @@ func TestClassService_CreateClass(t *testing.T) {
 		name        string
 		classCode   string
 		className   string
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
@@ -27,7 +27,7 @@ func TestClassService_CreateClass(t *testing.T) {
 			name:      "success - class created",
 			classCode: "CS101",
 			className: "Intro to CS",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					CreateClass(data.Class{ClassCode: "CS101", Name: "Intro to CS"}).
 					Return(int64(1), nil)
@@ -38,7 +38,7 @@ func TestClassService_CreateClass(t *testing.T) {
 			name:      "conflict - class already exists",
 			classCode: "CS101",
 			className: "Intro to CS",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					CreateClass(gomock.Any()).
 					Return(int64(0), &dataerr.RowConflictError{})
@@ -50,7 +50,7 @@ func TestClassService_CreateClass(t *testing.T) {
 			name:      "internal error - datastore fails",
 			classCode: "CS101",
 			className: "Intro to CS",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					CreateClass(gomock.Any()).
 					Return(int64(0), errors.New("db error"))
@@ -67,7 +67,7 @@ func TestClassService_CreateClass(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &ClassService{Datastore: mockStore}
@@ -91,14 +91,14 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 	tests := []struct {
 		name        string
 		classCode   string
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
 		{
 			name:      "success - class deleted",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("CS101").
 					Return(data.Class{ID: 1, ClassCode: "CS101"}, nil)
@@ -111,7 +111,7 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 		{
 			name:      "not found - class doesn't exist",
 			classCode: "UNKNOWN",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("UNKNOWN").
 					Return(data.Class{}, &dataerr.NotFoundError{})
@@ -122,7 +122,7 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 		{
 			name:      "internal error - GetClassByClassCode fails",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("CS101").
 					Return(data.Class{}, errors.New("db error"))
@@ -133,7 +133,7 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 		{
 			name:      "internal error - ClearClass fails",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("CS101").
 					Return(data.Class{ID: 1, ClassCode: "CS101"}, nil)
@@ -153,7 +153,7 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &ClassService{Datastore: mockStore}
@@ -176,13 +176,13 @@ func TestClassService_GetAllClasses(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		setupMock  func(*mocks.MockDataStore)
+		setupMock  func(*mock_data.MockDataStore)
 		wantResult []data.Class
 		wantErr    bool
 	}{
 		{
 			name: "success - retrieved classes",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetAllClasses().
 					Return([]data.Class{{ID: 1, ClassCode: "C1"}}, nil)
@@ -192,7 +192,7 @@ func TestClassService_GetAllClasses(t *testing.T) {
 		},
 		{
 			name: "internal error",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetAllClasses().
 					Return(nil, errors.New("db error"))
@@ -209,7 +209,7 @@ func TestClassService_GetAllClasses(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &ClassService{Datastore: mockStore}
@@ -231,14 +231,14 @@ func TestClassService_GetClassIDByClassCode(t *testing.T) {
 	tests := []struct {
 		name       string
 		classCode  string
-		setupMock  func(*mocks.MockDataStore)
+		setupMock  func(*mock_data.MockDataStore)
 		wantResult int64
 		wantErr    bool
 	}{
 		{
 			name:      "success - id retrieved",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("CS101").
 					Return(data.Class{ID: 123}, nil)
@@ -249,7 +249,7 @@ func TestClassService_GetClassIDByClassCode(t *testing.T) {
 		{
 			name:      "not found",
 			classCode: "UNKNOWN",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("UNKNOWN").
 					Return(data.Class{}, &dataerr.NotFoundError{})
@@ -260,7 +260,7 @@ func TestClassService_GetClassIDByClassCode(t *testing.T) {
 		{
 			name:      "generic error",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("CS101").
 					Return(data.Class{}, errors.New("db error"))
@@ -277,7 +277,7 @@ func TestClassService_GetClassIDByClassCode(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &ClassService{Datastore: mockStore}

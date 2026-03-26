@@ -17,7 +17,7 @@ var (
 // ScoreService handles score calculation and ranking operations
 type ScoreService struct {
 	Datastore      data.DataStore
-	ProblemService *ProblemService
+	ProblemService ProblemService
 }
 
 // GetRawScoreByClassCode retrieves raw score data for a class

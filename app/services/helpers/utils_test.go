@@ -6,7 +6,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -17,14 +17,14 @@ func TestExistsProblem(t *testing.T) {
 	tests := []struct {
 		name      string
 		problemID int64
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		want      bool
 		wantErr   bool
 	}{
 		{
 			name:      "exists",
 			problemID: 1,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 			},
 			want:    true,
@@ -33,7 +33,7 @@ func TestExistsProblem(t *testing.T) {
 		{
 			name:      "not found",
 			problemID: 2,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(2)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
 			want:    false,
@@ -42,7 +42,7 @@ func TestExistsProblem(t *testing.T) {
 		{
 			name:      "db error",
 			problemID: 3,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(3)).Return(data.Problem{}, errors.New("db error"))
 			},
 			want:    false,
@@ -55,7 +55,7 @@ func TestExistsProblem(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			got, err := ExistsProblem(mockStore, tt.problemID)
@@ -75,14 +75,14 @@ func TestIsClassCodeValid(t *testing.T) {
 	tests := []struct {
 		name      string
 		classCode string
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		want      bool
 		wantErr   bool
 	}{
 		{
 			name:      "valid",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 1}, nil)
 			},
 			want:    true,
@@ -91,7 +91,7 @@ func TestIsClassCodeValid(t *testing.T) {
 		{
 			name:      "invalid",
 			classCode: "NONE",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
 			want:    false,
@@ -100,7 +100,7 @@ func TestIsClassCodeValid(t *testing.T) {
 		{
 			name:      "db error",
 			classCode: "ERR",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("ERR").Return(data.Class{}, errors.New("db fail"))
 			},
 			want:    false,
@@ -113,7 +113,7 @@ func TestIsClassCodeValid(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			got, err := IsClassCodeValid(mockStore, tt.classCode)
@@ -134,7 +134,7 @@ func TestIsUserIDEnrolledByClassCode(t *testing.T) {
 		name      string
 		userID    string
 		classCode string
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		want      bool
 		wantErr   bool
 	}{
@@ -142,7 +142,7 @@ func TestIsUserIDEnrolledByClassCode(t *testing.T) {
 			name:      "success - enrolled",
 			userID:    "u1",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 			},
@@ -153,7 +153,7 @@ func TestIsUserIDEnrolledByClassCode(t *testing.T) {
 			name:      "class not found",
 			userID:    "u1",
 			classCode: "NONE",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
 			want:    false,
@@ -163,7 +163,7 @@ func TestIsUserIDEnrolledByClassCode(t *testing.T) {
 			name:      "generic error GetClassByClassCode",
 			userID:    "u1",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
 			want:    false,
@@ -176,7 +176,7 @@ func TestIsUserIDEnrolledByClassCode(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			got, err := IsUserIDEnrolledByClassCode(mockStore, tt.userID, tt.classCode)
@@ -197,7 +197,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 		name      string
 		userID    string
 		problemID int64
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		want      bool
 		wantErr   bool
 	}{
@@ -205,7 +205,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 			name:      "can AC",
 			userID:    "u1",
 			problemID: 10,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(10)).Return(data.Problem{ID: 10, ClassID: 1}, nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(1)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(10)).Return(false, nil)
@@ -217,7 +217,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 			name:      "problem not found",
 			userID:    "u1",
 			problemID: 10,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(10)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
 			want:    false,
@@ -227,7 +227,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 			name:      "not enrolled",
 			userID:    "u1",
 			problemID: 10,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(10)).Return(data.Problem{ID: 10, ClassID: 1}, nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(1)).Return(false, nil)
 			},
@@ -238,7 +238,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 			name:      "already solved",
 			userID:    "u1",
 			problemID: 10,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(10)).Return(data.Problem{ID: 10, ClassID: 1}, nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(1)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(10)).Return(true, nil)
@@ -250,7 +250,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 			name:      "IsUserIDEnrolledByClassID generic error",
 			userID:    "u1",
 			problemID: 10,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(10)).Return(data.Problem{ID: 10, ClassID: 1}, nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(1)).Return(false, errors.New("db fail"))
 			},
@@ -261,7 +261,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 			name:      "HasUserSolvedProblem generic error",
 			userID:    "u1",
 			problemID: 10,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(10)).Return(data.Problem{ID: 10, ClassID: 1}, nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(1)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(10)).Return(false, errors.New("db fail"))
@@ -276,7 +276,7 @@ func TestCanBroACTheProblem(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			got, err := CanBroACTheProblem(mockStore, tt.userID, tt.problemID)
@@ -297,7 +297,7 @@ func TestHasUserSolvedProblem(t *testing.T) {
 		name      string
 		userID    string
 		problemID int64
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		want      bool
 		wantErr   bool
 	}{
@@ -305,7 +305,7 @@ func TestHasUserSolvedProblem(t *testing.T) {
 			name:      "solved",
 			userID:    "u1",
 			problemID: 1,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().HasUserSolvedProblem("u1", int64(1)).Return(true, nil)
 			},
 			want:    true,
@@ -315,7 +315,7 @@ func TestHasUserSolvedProblem(t *testing.T) {
 			name:      "not solved",
 			userID:    "u1",
 			problemID: 1,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().HasUserSolvedProblem("u1", int64(1)).Return(false, nil)
 			},
 			want:    false,
@@ -325,7 +325,7 @@ func TestHasUserSolvedProblem(t *testing.T) {
 			name:      "db error",
 			userID:    "u1",
 			problemID: 1,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().HasUserSolvedProblem("u1", int64(1)).Return(false, errors.New("db fail"))
 			},
 			want:    false,
@@ -338,7 +338,7 @@ func TestHasUserSolvedProblem(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			got, err := HasUserSolvedProblem(mockStore, tt.userID, tt.problemID)

@@ -9,7 +9,7 @@ type Services struct {
 	User       *UserService
 	Enrollment *EnrollmentService
 	Class      *ClassService
-	Problem    *ProblemService
+	Problem    ProblemService
 	Solution   *SolutionService
 	Score      *ScoreService
 }
@@ -26,9 +26,7 @@ func NewServices(datastore data.DataStore) *Services {
 	classService := &ClassService{
 		Datastore: datastore,
 	}
-	problemService := &ProblemService{
-		Datastore: datastore,
-	}
+	problemService := NewProblemService(datastore)
 	solutionService := &SolutionService{
 		Datastore: datastore,
 	}

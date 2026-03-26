@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"errors"
@@ -6,7 +6,9 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/mock_services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -18,14 +20,14 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 	tests := []struct {
 		name       string
 		classCode  string
-		setupMock  func(*mocks.MockDataStore)
+		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
 		wantResult map[data.User][]data.SolvedProblem
 		wantErr    bool
 	}{
 		{
 			name:      "success - raw scores",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				u1 := data.User{UserID: "u1", UserName: "user1"}
 				u2 := data.User{UserID: "u2", UserName: "user2"}
 				u3 := data.User{UserID: "u3", UserName: "user3"}
@@ -46,7 +48,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 		{
 			name:      "class not found",
 			classCode: "NONE",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
 			wantResult: map[data.User][]data.SolvedProblem{},
@@ -55,7 +57,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 		{
 			name:      "generic error GetClassByClassCode",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
 			wantResult: map[data.User][]data.SolvedProblem{},
@@ -64,7 +66,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 		{
 			name:      "generic error GetAllSolvedProblemsByClass",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(nil, errors.New("db fail"))
 			},
@@ -74,7 +76,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 		{
 			name:      "generic error GetAllUsersByClassID",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
@@ -89,10 +91,11 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			mockProbSvc := mock_services.NewMockProblemService(ctrl)
+			tt.setupMock(mockStore, mockProbSvc)
 
-			svc := &ScoreService{Datastore: mockStore}
+			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
 			res, err := svc.GetRawScoreByClassCode(tt.classCode)
 
 			if tt.wantErr {
@@ -111,14 +114,14 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 	tests := []struct {
 		name       string
 		classCode  string
-		setupMock  func(*mocks.MockDataStore)
-		assertFunc func(*testing.T, Score)
+		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
+		assertFunc func(*testing.T, services.Score)
 		wantErr    bool
 	}{
 		{
 			name:      "success - 3 users with different solved counts",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				u1 := data.User{UserID: "u1", UserName: "user1"}
 				u2 := data.User{UserID: "u2", UserName: "user2"}
 				u3 := data.User{UserID: "u3", UserName: "user3"}
@@ -139,9 +142,17 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				}, nil)
 				
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{u1, u2, u3}, nil)
-				m.EXPECT().GetProblemsByClass(int64(10)).Return(problems, nil)
+				
+				// Mock ProblemService instead of DataStore for problems
+				groupedProblems := []services.ProblemsByTopic{
+					{
+						Topic:    "T1",
+						Problems: problems,
+					},
+				}
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(groupedProblems, nil)
 			},
-			assertFunc: func(t *testing.T, res Score) {
+			assertFunc: func(t *testing.T, res services.Score) {
 				assert.Len(t, res.UserScores, 3)
 				
 				// Sorting check (Desc by count)
@@ -172,7 +183,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 		{
 			name:      "error in GetRawScoreByClassCode",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
 			wantErr: true,
@@ -180,11 +191,11 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 		{
 			name:      "error in GetProblemsGroupedByTopic",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{}, nil)
-				m.EXPECT().GetProblemsByClass(int64(10)).Return(nil, errors.New("db fail"))
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, errors.New("db fail"))
 			},
 			wantErr: true,
 		},
@@ -195,12 +206,12 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			mockProbSvc := mock_services.NewMockProblemService(ctrl)
+			tt.setupMock(mockStore, mockProbSvc)
 
 			// ScoreService needs ProblemService
-			probSvc := &ProblemService{Datastore: mockStore}
-			svc := &ScoreService{Datastore: mockStore, ProblemService: probSvc}
+			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
 
 			res, err := svc.GetScoreByClassCode(tt.classCode)
 
@@ -223,15 +234,15 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 		name       string
 		username   string
 		classCode  string
-		setupMock  func(*mocks.MockDataStore)
-		assertFunc func(*testing.T, Score)
+		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
+		assertFunc func(*testing.T, services.Score)
 		wantErr    bool
 	}{
 		{
 			name:      "success - middle of list (7 users, target at index 3)",
 			username:  "u4",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetUserByUserName("u4").Return(data.User{UserID: "id4", UserName: "u4"}, nil)
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 
@@ -255,9 +266,9 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 					users[6]: make([]data.SolvedProblem, 1),
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(users, nil)
-				m.EXPECT().GetProblemsByClass(int64(10)).Return(nil, nil)
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, nil)
 			},
-			assertFunc: func(t *testing.T, res Score) {
+			assertFunc: func(t *testing.T, res services.Score) {
 				// Window should be: [id2, id3, id4, id5, id6]
 				assert.Len(t, res.UserScores, 5)
 				assert.Equal(t, "id2", res.UserScores[0].User.UserID)
@@ -272,7 +283,7 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 			name:      "success - target at start (index 0)",
 			username:  "u1",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetUserByUserName("u1").Return(data.User{UserID: "id1", UserName: "u1"}, nil)
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 
@@ -290,9 +301,9 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 					users[3]: make([]data.SolvedProblem, 1),
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(users, nil)
-				m.EXPECT().GetProblemsByClass(int64(10)).Return(nil, nil)
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, nil)
 			},
-			assertFunc: func(t *testing.T, res Score) {
+			assertFunc: func(t *testing.T, res services.Score) {
 				// Index 0 -> max(0, 0-2) to min(3, 0+2) => 0 to 2
 				assert.Len(t, res.UserScores, 3)
 				assert.Equal(t, "id1", res.UserScores[0].User.UserID)
@@ -305,7 +316,7 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 			name:      "user not found in DB",
 			username:  "ghost",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetUserByUserName("ghost").Return(data.User{}, &dataerr.NotFoundError{})
 			},
 			wantErr: true,
@@ -314,7 +325,7 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 			name:      "generic error GetUserByUserName",
 			username:  "u1",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetUserByUserName("u1").Return(data.User{}, errors.New("db fail"))
 			},
 			wantErr: true,
@@ -323,7 +334,7 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 			name:      "error in GetScoreByClassCode",
 			username:  "u1",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetUserByUserName("u1").Return(data.User{UserID: "u1"}, nil)
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
@@ -333,12 +344,12 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 			name:      "user not found in scores",
 			username:  "ghost",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetUserByUserName("ghost").Return(data.User{UserID: "ghostID"}, nil)
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(nil, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{}, nil)
-				m.EXPECT().GetProblemsByClass(int64(10)).Return(nil, nil)
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, nil)
 			},
 			wantErr: true,
 		},
@@ -349,11 +360,11 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			mockProbSvc := mock_services.NewMockProblemService(ctrl)
+			tt.setupMock(mockStore, mockProbSvc)
 
-			probSvc := &ProblemService{Datastore: mockStore}
-			svc := &ScoreService{Datastore: mockStore, ProblemService: probSvc}
+			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
 
 			res, err := svc.GetNeighborsScoreForUsername(tt.username, tt.classCode)
 
@@ -374,13 +385,13 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		setupMock  func(*mocks.MockDataStore)
-		assertFunc func(*testing.T, map[string]Score)
+		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
+		assertFunc func(*testing.T, map[string]services.Score)
 		wantErr    bool
 	}{
 		{
 			name: "success - scores for multiple classes",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetAllClasses().Return([]data.Class{
 					{ID: 1, ClassCode: "C1", Name: "Class 1"},
 					{ID: 2, ClassCode: "C2", Name: "Class 2"},
@@ -392,7 +403,9 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 					{UserID: "u1"}: {{ProblemID: 100}},
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "u1"}}, nil)
-				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 100}}, nil)
+				ps.EXPECT().GetProblemsGroupedByTopic("C1").Return([]services.ProblemsByTopic{
+					{Problems: []data.Problem{{ID: 100}}},
+				}, nil)
 
 				// Mock Class 2
 				m.EXPECT().GetClassByClassCode("C2").Return(data.Class{ID: 2, ClassCode: "C2"}, nil).AnyTimes()
@@ -400,9 +413,11 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 					{UserID: "u2"}: {{ProblemID: 200}},
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(2)).Return([]data.User{{UserID: "u2"}}, nil)
-				m.EXPECT().GetProblemsByClass(int64(2)).Return([]data.Problem{{ID: 200}}, nil)
+				ps.EXPECT().GetProblemsGroupedByTopic("C2").Return([]services.ProblemsByTopic{
+					{Problems: []data.Problem{{ID: 200}}},
+				}, nil)
 			},
-			assertFunc: func(t *testing.T, res map[string]Score) {
+			assertFunc: func(t *testing.T, res map[string]services.Score) {
 				assert.Len(t, res, 2)
 				assert.Contains(t, res, "Class 1")
 				assert.Contains(t, res, "Class 2")
@@ -414,14 +429,14 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 		},
 		{
 			name: "error GetAllClasses",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetAllClasses().Return(nil, errors.New("db fail"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "error in GetScoreByClassCode for a class",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetAllClasses().Return([]data.Class{{ID: 1, ClassCode: "C1"}}, nil)
 				m.EXPECT().GetClassByClassCode("C1").Return(data.Class{}, errors.New("db fail"))
 			},
@@ -434,11 +449,11 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			mockProbSvc := mock_services.NewMockProblemService(ctrl)
+			tt.setupMock(mockStore, mockProbSvc)
 
-			probSvc := &ProblemService{Datastore: mockStore}
-			svc := &ScoreService{Datastore: mockStore, ProblemService: probSvc}
+			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
 
 			res, err := svc.GetScoreAllClasses()
 
@@ -460,24 +475,24 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 	tests := []struct {
 		name      string
 		classCode string
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore, *mock_services.MockProblemService)
 		wantErr   bool
 	}{
 		{
 			name:      "success",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10, ClassCode: "CS101"}, nil).AnyTimes()
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
-				m.EXPECT().GetProblemsByClass(int64(10)).Return([]data.Problem{}, nil)
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return([]services.ProblemsByTopic{}, nil)
 			},
 			wantErr: false,
 		},
 		{
 			name:      "class not found",
 			classCode: "NONE",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
 			wantErr: true,
@@ -485,7 +500,7 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 		{
 			name:      "generic error GetClassByClassCode",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
 			wantErr: true,
@@ -493,7 +508,7 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 		{
 			name:      "generic error GetAllUsersByClassID",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
 			},
@@ -502,7 +517,7 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 		{
 			name:      "error in GetScoreByClassCode",
 			classCode: "CS101",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10, ClassCode: "CS101"}, nil).AnyTimes()
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil)
 				// GetScoreByClassCode will call GetRawScoreByClassCode -> GetAllSolvedProblemsByClass
@@ -517,11 +532,11 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			mockProbSvc := mock_services.NewMockProblemService(ctrl)
+			tt.setupMock(mockStore, mockProbSvc)
 
-			probSvc := &ProblemService{Datastore: mockStore}
-			svc := &ScoreService{Datastore: mockStore, ProblemService: probSvc}
+			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
 
 			users, problems, score, err := svc.GetClassExportData(tt.classCode)
 

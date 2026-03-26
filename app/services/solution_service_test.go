@@ -7,7 +7,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -19,7 +19,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 		name        string
 		userID      string
 		problemID   int64
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
@@ -27,7 +27,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 			name:      "success - AC added",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				// helpers.ExistsProblem
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				// helpers.CanBroACTheProblem -> IsUserIDEnrolledByClassID
@@ -43,7 +43,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 			name:      "problem does not exist",
 			userID:    "u1",
 			problemID: 404,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
 			wantErr:     true,
@@ -53,7 +53,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 			name:      "user not enrolled",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
 			},
@@ -64,7 +64,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 			name:      "already solved",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
@@ -76,7 +76,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 			name:      "AddAC generic error",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
@@ -91,7 +91,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -116,14 +116,14 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 		name      string
 		userID    string
 		problemID int64
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		wantErr   bool
 	}{
 		{
 			name:      "success - AC removed",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 				m.EXPECT().RemoveAC("u1", int64(100)).Return(nil)
@@ -134,7 +134,7 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 			name:      "not solved",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 			},
@@ -144,7 +144,7 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 			name:      "RemoveAC fail",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 				m.EXPECT().RemoveAC("u1", int64(100)).Return(errors.New("db fail"))
@@ -158,7 +158,7 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -180,14 +180,14 @@ func TestSolutionService_AddACToUsername(t *testing.T) {
 		name      string
 		userName  string
 		problemID int64
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		wantErr   bool
 	}{
 		{
 			name:      "success",
 			userName:  "user1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserName("user1").Return(data.User{UserID: "u1"}, nil)
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
@@ -200,7 +200,7 @@ func TestSolutionService_AddACToUsername(t *testing.T) {
 			name:      "user not found",
 			userName:  "ghost",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserName("ghost").Return(data.User{}, &dataerr.NotFoundError{})
 			},
 			wantErr: true,
@@ -209,7 +209,7 @@ func TestSolutionService_AddACToUsername(t *testing.T) {
 			name:      "generic error GetUserByUserName",
 			userName:  "user1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserName("user1").Return(data.User{}, errors.New("db fail"))
 			},
 			wantErr: true,
@@ -221,7 +221,7 @@ func TestSolutionService_AddACToUsername(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -243,14 +243,14 @@ func TestSolutionService_UndoACByProblemAndUsername(t *testing.T) {
 		name      string
 		userName  string
 		problemID int64
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		wantErr   bool
 	}{
 		{
 			name:      "success",
 			userName:  "user1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserName("user1").Return(data.User{UserID: "u1"}, nil)
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
@@ -262,7 +262,7 @@ func TestSolutionService_UndoACByProblemAndUsername(t *testing.T) {
 			name:      "user not found",
 			userName:  "ghost",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserName("ghost").Return(data.User{}, &dataerr.NotFoundError{})
 			},
 			wantErr: true,
@@ -274,7 +274,7 @@ func TestSolutionService_UndoACByProblemAndUsername(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -297,7 +297,7 @@ func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
 		messageID string
 		userID    string
 		problemID int64
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		wantErr   bool
 	}{
 		{
@@ -305,7 +305,7 @@ func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
 			messageID: "m1",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
@@ -318,7 +318,7 @@ func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
 			messageID: "m1",
 			userID:    "u1",
 			problemID: 404,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
 			wantErr: true,
@@ -328,7 +328,7 @@ func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
 			messageID: "m1",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
 			},
@@ -339,7 +339,7 @@ func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
 			messageID: "m1",
 			userID:    "u1",
 			problemID: 100,
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
@@ -354,7 +354,7 @@ func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -375,14 +375,14 @@ func TestSolutionService_ExistsPendingConfirmation(t *testing.T) {
 	tests := []struct {
 		name      string
 		messageID string
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		want      bool
 		wantErr   bool
 	}{
 		{
 			name:      "exists",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().ExistsPendingConfirmation("m1").Return(true, nil)
 			},
 			want:    true,
@@ -391,7 +391,7 @@ func TestSolutionService_ExistsPendingConfirmation(t *testing.T) {
 		{
 			name:      "error",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().ExistsPendingConfirmation("m1").Return(false, errors.New("db fail"))
 			},
 			want:    false,
@@ -404,7 +404,7 @@ func TestSolutionService_ExistsPendingConfirmation(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -426,13 +426,13 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 	tests := []struct {
 		name      string
 		messageID string
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		wantErr   bool
 	}{
 		{
 			name:      "success",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
 			},
 			wantErr: false,
@@ -440,7 +440,7 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 		{
 			name:      "not found",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("", int64(0), &dataerr.NotFoundError{})
 			},
 			wantErr: true,
@@ -448,7 +448,7 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 		{
 			name:      "generic error",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("", int64(0), errors.New("db fail"))
 			},
 			wantErr: true,
@@ -460,7 +460,7 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -482,13 +482,13 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 	tests := []struct {
 		name      string
 		messageID string
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		wantErr   bool
 	}{
 		{
 			name:      "success",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
 				m.EXPECT().RemovePendingConfirmation("m1").Return(nil)
 				// From AddACToUser
@@ -502,7 +502,7 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 		{
 			name:      "error GetPendingConfirmationByMessageID",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("", int64(0), errors.New("db fail"))
 			},
 			wantErr: true,
@@ -510,7 +510,7 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 		{
 			name:      "error RemovePendingConfirmation",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
 				m.EXPECT().RemovePendingConfirmation("m1").Return(errors.New("db fail"))
 			},
@@ -523,7 +523,7 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
@@ -544,13 +544,13 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 	tests := []struct {
 		name      string
 		messageID string
-		setupMock func(*mocks.MockDataStore)
+		setupMock func(*mock_data.MockDataStore)
 		wantErr   bool
 	}{
 		{
 			name:      "success",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().RemovePendingConfirmation("m1").Return(nil)
 			},
 			wantErr: false,
@@ -558,7 +558,7 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 		{
 			name:      "error",
 			messageID: "m1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().RemovePendingConfirmation("m1").Return(errors.New("db fail"))
 			},
 			wantErr: true,
@@ -570,7 +570,7 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
