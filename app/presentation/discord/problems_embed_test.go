@@ -1,10 +1,12 @@
 package discord
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,13 +17,13 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 	tests := []struct {
 		name            string
 		classCode       string
-		groupedProblems []services.ProblemsByTopic
+		groupedProblems []presentation.ProblemsByTopic
 		assertFunc      func(t *testing.T, res []*discordgo.MessageEmbed)
 	}{
 		{
-			name:      "Empty problems",
-			classCode: "CS101",
-			groupedProblems: []services.ProblemsByTopic{},
+			name:            "Empty problems",
+			classCode:       "CS101",
+			groupedProblems: []presentation.ProblemsByTopic{},
 			assertFunc: func(t *testing.T, res []*discordgo.MessageEmbed) {
 				assert.Empty(t, res)
 			},
@@ -29,14 +31,14 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 		{
 			name:      "Single problem",
 			classCode: "CS101",
-			groupedProblems: []services.ProblemsByTopic{
+			groupedProblems: []presentation.ProblemsByTopic{
 				{
 					Topic: "Arrays",
 					Problems: []data.Problem{
 						{
-							ID:   1,
-							Name: "Two Sum",
-							URL:  "https://leetcode.com/problems/two-sum",
+							ID:         1,
+							Name:       "Two Sum",
+							URL:        "https://leetcode.com/problems/two-sum",
 							Difficulty: ptrStr("Easy"),
 						},
 					},
@@ -55,7 +57,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 		{
 			name:      "Multiple topics",
 			classCode: "CS101",
-			groupedProblems: []services.ProblemsByTopic{
+			groupedProblems: []presentation.ProblemsByTopic{
 				{
 					Topic: "Arrays",
 					Problems: []data.Problem{
@@ -75,6 +77,63 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				assert.Contains(t, res[0].Fields[0].Value, "**Strings**")
 				assert.Contains(t, res[0].Fields[1].Value, "🟩")
 				assert.Contains(t, res[0].Fields[1].Value, "🟨")
+			},
+		},
+		{
+			name:      "Pagination - Exceeds 1024 chars",
+			classCode: "CS101",
+			groupedProblems: func() []presentation.ProblemsByTopic {
+				var problems []data.Problem
+				// Create enough problems to force pagination.
+				// Each problem name+url is about 30 chars. 60 problems = ~1800 chars.
+				for i := 1; i <= 60; i++ {
+					problems = append(problems, data.Problem{
+						ID:         int64(i),
+						Name:       fmt.Sprintf("Problem %d", i),
+						URL:        "http://url",
+						Difficulty: ptrStr("Easy"),
+					})
+				}
+				return []presentation.ProblemsByTopic{
+					{
+						Topic:    "Many Problems",
+						Problems: problems,
+					},
+				}
+			}(),
+			assertFunc: func(t *testing.T, res []*discordgo.MessageEmbed) {
+				assert.GreaterOrEqual(t, len(res), 2, "Should split into multiple embeds")
+				for _, embed := range res {
+					assert.Len(t, embed.Fields, 3)
+					for _, field := range embed.Fields {
+						assert.LessOrEqual(t, len(field.Value), maxFieldLength, "Field value should not exceed max length")
+					}
+				}
+			},
+		},
+		{
+			name:      "Oversize single row truncation",
+			classCode: "CS101",
+			groupedProblems: []presentation.ProblemsByTopic{
+				{
+					Topic: "Big Problem",
+					Problems: []data.Problem{
+						{
+							ID:         1,
+							Name:       strings.Repeat("A", 1500), // Larger than maxFieldLength
+							URL:        "http://url",
+							Difficulty: ptrStr("Easy"),
+						},
+					},
+				},
+			},
+			assertFunc: func(t *testing.T, res []*discordgo.MessageEmbed) {
+				assert.Len(t, res, 1)
+				assert.Len(t, res[0].Fields, 3)
+				for _, field := range res[0].Fields {
+					assert.LessOrEqual(t, len(field.Value), maxFieldLength, "Field value should not exceed max length even for oversized single problem")
+				}
+				assert.Contains(t, res[0].Fields[2].Value, "...", "The name should have been truncated")
 			},
 		},
 	}

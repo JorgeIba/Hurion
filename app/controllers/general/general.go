@@ -82,7 +82,7 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		return
 	}
 
-	embeds := discord.FormatProblemsAsEmbeds(classCode, groupedProblems)
+	embeds := discord.FormatProblemsAsEmbeds(classCode, adapters.TransformToPresentationProblemsByTopic(groupedProblems))
 
 	logger.Log.Info("Sending info")
 	c.Dispatcher.Send(

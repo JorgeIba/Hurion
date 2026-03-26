@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -12,7 +12,7 @@ const maxFieldLength = 1024 - 1 // Discord limit
 
 // FormatProblemsAsEmbeds transforms a list of problems grouped by topic into a slice of Discord embeds.
 // It handles splitting into multiple embeds if the content exceeds Discord's field limits.
-func FormatProblemsAsEmbeds(classCode string, groupedProblems []services.ProblemsByTopic) []*discordgo.MessageEmbed {
+func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.ProblemsByTopic) []*discordgo.MessageEmbed {
 	var embeds []*discordgo.MessageEmbed
 	title := fmt.Sprintf("List of problems for class %s", classCode)
 
@@ -23,9 +23,9 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []services.Problem
 
 	// Check if any column would exceed Discord's limit
 	wouldExceedLimit := func(addID, addDiff, addName string) bool {
-		return len(idColumn+addID) > maxFieldLength ||
-			len(difficultyColumn+addDiff) > maxFieldLength ||
-			len(nameColumn+addName) > maxFieldLength
+		return len([]rune(idColumn+addID)) > maxFieldLength ||
+			len([]rune(difficultyColumn+addDiff)) > maxFieldLength ||
+			len([]rune(nameColumn+addName)) > maxFieldLength
 	}
 
 	// Flush current page if not empty
@@ -58,10 +58,10 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []services.Problem
 	}
 
 	// Add problem data to columns
-	addProblem := func(problemID int64, difficultyEmoji, problemName, problemURL string) {
-		idColumn += fmt.Sprintf("\n%d", problemID)
-		difficultyColumn += fmt.Sprintf("\n%s", difficultyEmoji)
-		nameColumn += fmt.Sprintf("\n[%s](%s)", problemName, problemURL)
+	addProblem := func(problemID string, difficultyEmoji string, problemName string) {
+		idColumn += problemID
+		difficultyColumn += difficultyEmoji
+		nameColumn += problemName
 	}
 
 	for _, group := range groupedProblems {
@@ -90,12 +90,16 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []services.Problem
 			pAddDiff := fmt.Sprintf("\n%s", difficultyEmoji)
 			pAddName := fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
 
+			// Truncate to avoid exceeding max field length individually
+			pAddName = truncateProblemName(problem.Name, pAddName)
+
 			// Check if adding this problem would exceed limit
 			if wouldExceedLimit(pAddID, pAddDiff, pAddName) {
 				flushPage()
 				addTopicHeader(group.Topic, false)
 			}
-			addProblem(problem.ID, difficultyEmoji, problem.Name, problem.URL)
+			
+			addProblem(pAddID, pAddDiff, pAddName)
 		}
 	}
 
@@ -103,6 +107,37 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []services.Problem
 	flushPage()
 
 	return embeds
+}
+
+// truncateProblemName ensures that the formatted problem row does not exceed the safe maximum field length.
+// It prioritizes keeping the markdown link, but falls back to the plain name and finally a truncated name if needed.
+func truncateProblemName(name, formattedRow string) string {
+	safeMax := maxFieldLength - 20
+
+	// Step 1: If the full link fits, we're good!
+	if len([]rune(formattedRow)) <= safeMax {
+		return formattedRow
+	}
+
+	// Step 2: It's too long. Drop the URL and try with just the name.
+	rowWithJustName := "\n" + name
+	if len([]rune(rowWithJustName)) <= safeMax {
+		return rowWithJustName
+	}
+
+	// Step 3: Even the name alone is too long. Truncate it surgically.
+	// Account for "\n" (1) and "..." (3)
+	maxNameChars := safeMax - 4
+	if maxNameChars < 0 {
+		maxNameChars = 0
+	}
+
+	runes := []rune(name)
+	if len(runes) > maxNameChars {
+		return "\n" + string(runes[:maxNameChars]) + "..."
+	}
+
+	return rowWithJustName
 }
 
 // GetDifficultyEmoji returns the emoji representation of a problem's difficulty.

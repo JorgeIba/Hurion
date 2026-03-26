@@ -25,3 +25,9 @@ type TableScore struct {
 	Table       [][]string
 	RowMetadata []RowMetadata // Semantic metadata for each row
 }
+
+// ProblemsByTopic is a presentation-layer model representing problems grouped by topic.
+type ProblemsByTopic struct {
+	Topic    string
+	Problems []data.Problem
+}

@@ -47,6 +47,18 @@ func TransformToExcelizerProblemsByTopic(problemsByTopic []services.ProblemsByTo
 	return result
 }
 
+// TransformToPresentationProblemsByTopic converts service layer ProblemsByTopic to presentation ProblemsByTopic
+func TransformToPresentationProblemsByTopic(problemsByTopic []services.ProblemsByTopic) []presentation.ProblemsByTopic {
+	result := make([]presentation.ProblemsByTopic, len(problemsByTopic))
+	for i, group := range problemsByTopic {
+		result[i] = presentation.ProblemsByTopic{
+			Topic:    group.Topic,
+			Problems: group.Problems,
+		}
+	}
+	return result
+}
+
 // ============================================================================
 // Adapters to Presentation Layer (TableScore)
 // ============================================================================
