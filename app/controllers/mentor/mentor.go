@@ -428,7 +428,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUpdateProblem, problemID, classCode, url)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUpdateProblem, problemID, classCode, problemName)),
 		)
 		return
 	}

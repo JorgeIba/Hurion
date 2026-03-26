@@ -91,6 +91,13 @@ func TestMapError(t *testing.T) {
 			want:   "Username `jorge_not_found` not found",
 		},
 		{
+			name:   "semantic class code not found for score by user and class",
+			err:    serviceerr.NewClassCodeNotFoundError("", nil),
+			action: ActionScoreByUserAndClass,
+			args:   []any{"jorge", "basicos_404"},
+			want:   "Class code `basicos_404` not found",
+		},
+		{
 			name:   "semantic problem not found for mentor undo AC",
 			err:    serviceerr.NewProblemNotFoundError("", nil),
 			action: ActionMentorUndoAC,

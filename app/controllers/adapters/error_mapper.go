@@ -84,6 +84,7 @@ var templates = map[Action]map[ErrorKind]string{
 	ActionScoreByUserAndClass: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found",
 		errorKindUserNotFound:      "Username `%[1]s` not found",
+		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in class `%[2]s`",
 		errorKindDefault:           "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
 	},
 	ActionGetUsersInClass: {
