@@ -10,7 +10,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mocks"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
 )
 
 func TestUserService_BindUser(t *testing.T) {
@@ -20,7 +20,7 @@ func TestUserService_BindUser(t *testing.T) {
 		name        string
 		userID      string
 		userName    string
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
@@ -28,7 +28,7 @@ func TestUserService_BindUser(t *testing.T) {
 			name:     "success - username available and user bound",
 			userID:   "u123",
 			userName: "cool_user",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("cool_user", "u123").
 					Return(true, nil)
@@ -43,7 +43,7 @@ func TestUserService_BindUser(t *testing.T) {
 			name:     "conflict - username already taken",
 			userID:   "u1",
 			userName: "taken",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("taken", "u1").
 					Return(false, nil)
@@ -55,7 +55,7 @@ func TestUserService_BindUser(t *testing.T) {
 			name:     "internal error - datastore check fails",
 			userID:   "u1",
 			userName: "anything",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("anything", "u1").
 					Return(false, errors.New("db connection lost"))
@@ -67,7 +67,7 @@ func TestUserService_BindUser(t *testing.T) {
 			name:     "internal error - bind operation fails",
 			userID:   "u2",
 			userName: "newuser",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("newuser", "u2").
 					Return(true, nil)
@@ -87,7 +87,7 @@ func TestUserService_BindUser(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
@@ -113,7 +113,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 		name        string
 		userID      string
 		newUsername string
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
@@ -121,7 +121,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			name:        "success - username updated",
 			userID:      "u1",
 			newUsername: "new_name",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("new_name", "u1").
 					Return(true, nil)
@@ -135,7 +135,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			name:        "conflict - username already taken",
 			userID:      "u1",
 			newUsername: "taken",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("taken", "u1").
 					Return(false, nil)
@@ -147,7 +147,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			name:        "internal error - check fails",
 			userID:      "u1",
 			newUsername: "name",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("name", "u1").
 					Return(false, errors.New("db error"))
@@ -159,7 +159,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			name:        "internal error - update fails",
 			userID:      "u1",
 			newUsername: "name",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("name", "u1").
 					Return(true, nil)
@@ -178,7 +178,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
@@ -202,14 +202,14 @@ func TestUserService_HasUsernameBound(t *testing.T) {
 	tests := []struct {
 		name       string
 		userID     string
-		setupMock  func(*mocks.MockDataStore)
+		setupMock  func(*mock_data.MockDataStore)
 		wantResult bool
 		wantErr    bool
 	}{
 		{
 			name:   "is bound",
 			userID: "u1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					HasUsernameBound("u1").
 					Return(true, nil)
@@ -220,7 +220,7 @@ func TestUserService_HasUsernameBound(t *testing.T) {
 		{
 			name:   "is not bound",
 			userID: "u2",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					HasUsernameBound("u2").
 					Return(false, nil)
@@ -231,7 +231,7 @@ func TestUserService_HasUsernameBound(t *testing.T) {
 		{
 			name:   "internal error",
 			userID: "u1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					HasUsernameBound("u1").
 					Return(false, errors.New("db error"))
@@ -247,7 +247,7 @@ func TestUserService_HasUsernameBound(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
@@ -269,14 +269,14 @@ func TestUserService_ExterminateUser(t *testing.T) {
 	tests := []struct {
 		name        string
 		userID      string
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
 		{
 			name:   "success - user exterminated",
 			userID: "u1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserID("u1").
 					Return(data.User{UserID: "u1", UserName: "user1"}, nil)
@@ -290,7 +290,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 		{
 			name:   "not found - user does not exist",
 			userID: "nonexistent",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserID("nonexistent").
 					Return(data.User{}, &dataerr.NotFoundError{})
@@ -301,7 +301,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 		{
 			name:   "internal error - get user fails",
 			userID: "u2",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserID("u2").
 					Return(data.User{}, errors.New("db error"))
@@ -312,7 +312,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 		{
 			name:   "internal error - extermination fails",
 			userID: "u3",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserID("u3").
 					Return(data.User{UserID: "u3", UserName: "user3"}, nil)
@@ -332,7 +332,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
@@ -357,7 +357,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 	tests := []struct {
 		name        string
 		userID      string
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantResult  string
 		wantErr     bool
 		wantErrType error
@@ -365,7 +365,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 		{
 			name:   "success - username retrieved",
 			userID: "u1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserID("u1").
 					Return(data.User{UserID: "u1", UserName: "john_doe"}, nil)
@@ -376,7 +376,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 		{
 			name:   "not found - user does not exist",
 			userID: "nonexistent",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserID("nonexistent").
 					Return(data.User{}, &dataerr.NotFoundError{})
@@ -388,7 +388,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 		{
 			name:   "internal error - datastore fails",
 			userID: "u2",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserID("u2").
 					Return(data.User{}, errors.New("database connection lost"))
@@ -405,7 +405,7 @@ func TestUserService_GetUsernameByUserID(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
@@ -431,7 +431,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 	tests := []struct {
 		name        string
 		username    string
-		setupMock   func(*mocks.MockDataStore)
+		setupMock   func(*mock_data.MockDataStore)
 		wantResult  string
 		wantErr     bool
 		wantErrType error
@@ -439,7 +439,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 		{
 			name:     "success - found",
 			username: "john",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserName("john").
 					Return(data.User{UserID: "u123", UserName: "john"}, nil)
@@ -450,7 +450,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 		{
 			name:     "not found",
 			username: "nobody",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserName("nobody").
 					Return(data.User{}, &dataerr.NotFoundError{})
@@ -462,7 +462,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 		{
 			name:     "internal error",
 			username: "error_user",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetUserByUserName("error_user").
 					Return(data.User{}, errors.New("db error"))
@@ -479,7 +479,7 @@ func TestUserService_GetUserIDByUsername(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
@@ -504,14 +504,14 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 	tests := []struct {
 		name       string
 		userID     string
-		setupMock  func(*mocks.MockDataStore)
+		setupMock  func(*mock_data.MockDataStore)
 		wantResult []data.Class
 		wantErr    bool
 	}{
 		{
 			name:   "success",
 			userID: "u1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassesByUserID("u1").Return([]data.Class{{ID: 1, Name: "C1"}}, nil)
 			},
 			wantResult: []data.Class{{ID: 1, Name: "C1"}},
@@ -520,7 +520,7 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 		{
 			name:   "error",
 			userID: "u1",
-			setupMock: func(m *mocks.MockDataStore) {
+			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassesByUserID("u1").Return(nil, errors.New("db fail"))
 			},
 			wantResult: nil,
@@ -534,7 +534,7 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockStore := mocks.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
