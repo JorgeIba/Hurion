@@ -3,13 +3,13 @@ package excelizer
 // Column width constants
 const (
 	// MinColumnWidth is the minimum width for any column
-	MinColumnWidth = 10.0
+	MinColumnWidth = 3.0
 
 	// MaxColumnWidth is the maximum width to avoid extremely wide columns
 	MaxColumnWidth = 90.0
 
 	// ColumnWidthBuffer is the extra space added to column width for padding
-	ColumnWidthBuffer = 5.0
+	ColumnWidthBuffer = 2.0
 
 	// ColumnWidthMultiplier is used to calculate width based on content length
 	ColumnWidthMultiplier = 1.2
