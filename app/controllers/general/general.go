@@ -114,7 +114,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	scoreTable := adapters.ScoreToTableScore(score)
 
 	// Get Table as Image
-	imgByte, err := image.GenerateScoreImage(scoreTable)
+	imgBytes, err := image.GenerateScoreImage(scoreTable)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -124,14 +124,14 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 	}
 
 	file := &discordgo.File{
-		Name:   "tabla.png",
-		Reader: bytes.NewReader(imgByte),
+		Name:   "table.png",
+		Reader: bytes.NewReader(imgBytes),
 	}
 
 	embed := &discordgo.MessageEmbed{
 		Title: title,
 		Image: &discordgo.MessageEmbedImage{
-			URL: "attachment://tabla.png",
+			URL: "attachment://table.png",
 		},
 		Color: 0x00bfff,
 	}
@@ -172,14 +172,14 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	}
 
 	file := &discordgo.File{
-		Name:   "tabla.png",
+		Name:   "table.png",
 		Reader: bytes.NewReader(imgByte),
 	}
 
 	embed := &discordgo.MessageEmbed{
 		Title: fmt.Sprintf("Score of `%s` in the class `%s`", userName, classCode),
 		Image: &discordgo.MessageEmbedImage{
-			URL: "attachment://tabla.png",
+			URL: "attachment://table.png",
 		},
 		Color: 0x00bfff,
 	}

@@ -65,8 +65,8 @@ func TransformToPresentationProblemsByTopic(problemsByTopic []services.ProblemsB
 
 // Converts a Score struct into a TableScore with semantic metadata
 func ScoreToTableScore(score services.Score) presentation.TableScore {
-	// Build headers: "Problem \\ Username" followed by usernames
-	headers := []string{"Problem \\ Username"}
+	// Build headers: "(ID) Problem \\ Username" followed by usernames
+	headers := []string{"(ID) Problem \\ Username"}
 	for _, entry := range score.UserScores {
 		headers = append(headers, entry.User.UserName)
 	}
@@ -116,7 +116,7 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 
 		// Add problem rows for this topic
 		for _, problem := range topicGroup.Problems {
-			row := []string{problem.Name}
+			row := []string{fmt.Sprintf("(%d) %s", problem.ID, problem.Name)}
 			cellMetadata := []presentation.CellMetadata{
 				{IsProblemName: true, IsAC: false, IsUsername: false, IsTotal: false}, // First cell is problem name
 			}
