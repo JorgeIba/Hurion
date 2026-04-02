@@ -106,7 +106,8 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				for _, embed := range res {
 					assert.Len(t, embed.Fields, 3)
 					for _, field := range embed.Fields {
-						assert.LessOrEqual(t, len(field.Value), maxFieldLength, "Field value should not exceed max length")
+						// Use utf16Count for assertions as well
+						assert.LessOrEqual(t, utf16Count(field.Value), maxFieldLength, "Field value should not exceed max length (UTF-16 code units)")
 					}
 				}
 			},
@@ -131,7 +132,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				assert.Len(t, res, 1)
 				assert.Len(t, res[0].Fields, 3)
 				for _, field := range res[0].Fields {
-					assert.LessOrEqual(t, len(field.Value), maxFieldLength, "Field value should not exceed max length even for oversized single problem")
+					assert.LessOrEqual(t, utf16Count(field.Value), maxFieldLength, "Field value should not exceed max length even for oversized single problem")
 				}
 				assert.Contains(t, res[0].Fields[2].Value, "...", "The name should have been truncated")
 			},
@@ -168,6 +169,27 @@ func TestGetDifficultyEmoji(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, tt.expected, GetDifficultyEmoji(tt.difficulty))
+		})
+	}
+}
+
+func TestUtf16Count(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input    string
+		expected int
+	}{
+		{"abc", 3},
+		{"😊", 2}, // Emoji outside BMP uses 2 code units
+		{"a😊b", 4},
+		{"", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.expected, utf16Count(tt.input))
 		})
 	}
 }

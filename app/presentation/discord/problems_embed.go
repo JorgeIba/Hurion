@@ -2,13 +2,21 @@ package discord
 
 import (
 	"fmt"
+	"unicode/utf16"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/bwmarrin/discordgo"
 )
 
-const maxFieldLength = 1024 - 1 // Discord limit
+const (
+	maxFieldLength = 1024 // Discord's strict limit for field values
+
+	// truncationSafetyMargin is a buffer subtracted from maxFieldLength during per-row truncation.
+	// This accounts for extra characters like topic headers, newlines, and Discord's internal overhead
+	// to ensure that even with multiple rows, the field value stays comfortably under the limit.
+	truncationSafetyMargin = 20
+)
 
 // FormatProblemsAsEmbeds transforms a list of problems grouped by topic into a slice of Discord embeds.
 // It handles splitting into multiple embeds if the content exceeds Discord's field limits.
@@ -23,9 +31,9 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 
 	// Check if any column would exceed Discord's limit
 	wouldExceedLimit := func(addID, addDiff, addName string) bool {
-		return len([]rune(idColumn+addID)) > maxFieldLength ||
-			len([]rune(difficultyColumn+addDiff)) > maxFieldLength ||
-			len([]rune(nameColumn+addName)) > maxFieldLength
+		return utf16Count(idColumn+addID) > maxFieldLength ||
+			utf16Count(difficultyColumn+addDiff) > maxFieldLength ||
+			utf16Count(nameColumn+addName) > maxFieldLength
 	}
 
 	// Flush current page if not empty
@@ -98,7 +106,7 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 				flushPage()
 				addTopicHeader(group.Topic, false)
 			}
-			
+
 			addProblem(pAddID, pAddDiff, pAddName)
 		}
 	}
@@ -112,20 +120,20 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 // truncateProblemName ensures that the formatted problem row does not exceed the safe maximum field length.
 // It prioritizes keeping the markdown link, but falls back to the plain name and finally a truncated name if needed.
 func truncateProblemName(name, formattedRow string) string {
-	safeMax := maxFieldLength - 20
+	safeMax := maxFieldLength - truncationSafetyMargin
 
 	// Step 1: If the full link fits, we're good!
-	if len([]rune(formattedRow)) <= safeMax {
+	if utf16Count(formattedRow) <= safeMax {
 		return formattedRow
 	}
 
 	// Step 2: It's too long. Drop the URL and try with just the name.
 	rowWithJustName := "\n" + name
-	if len([]rune(rowWithJustName)) <= safeMax {
+	if utf16Count(rowWithJustName) <= safeMax {
 		return rowWithJustName
 	}
 
-	// Step 3: Even the name alone is too long. Truncate it surgically.
+	// Step 3: Even the name alone is too long.
 	// Account for "\n" (1) and "..." (3)
 	maxNameChars := safeMax - 4
 	if maxNameChars < 0 {
@@ -152,4 +160,10 @@ func GetDifficultyEmoji(difficulty data.Difficulty) string {
 	default:
 		return "⬜"
 	}
+}
+
+// utf16Count returns the number of UTF-16 code units in a string.
+// Discord's character limits (like the 1024 char field limit) are measured in UTF-16 code units.
+func utf16Count(s string) int {
+	return len(utf16.Encode([]rune(s)))
 }
