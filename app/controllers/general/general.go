@@ -7,9 +7,9 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/discord"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/image"
 	"github.com/bwmarrin/discordgo"
 )
@@ -82,96 +82,7 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 		return
 	}
 
-	const MAX_FIELD_LENGTH = 1024 - 1 // Discord limit
-
-	var embeds []*discordgo.MessageEmbed
-	title := fmt.Sprintf("List of problems for class %s", classCode)
-
-	// Build values for the 3 columns
-	idColumn := ""
-	difficultyColumn := ""
-	nameColumn := ""
-
-	// Check if any column would exceed Discord's limit
-	wouldExceedLimit := func(addID, addDiff, addName string) bool {
-		return len(idColumn+addID) > MAX_FIELD_LENGTH ||
-			len(difficultyColumn+addDiff) > MAX_FIELD_LENGTH ||
-			len(nameColumn+addName) > MAX_FIELD_LENGTH
-	}
-
-	// Flush current page if not empty
-	flushPage := func() {
-		if idColumn != "" {
-			embeds = append(embeds, &discordgo.MessageEmbed{
-				Title: title,
-				Fields: []*discordgo.MessageEmbedField{
-					{Name: "ID", Value: idColumn, Inline: true},
-					{Name: "Difficulty", Value: difficultyColumn, Inline: true},
-					{Name: "Name", Value: nameColumn, Inline: true},
-				},
-			})
-			idColumn = ""
-			difficultyColumn = ""
-			nameColumn = ""
-		}
-	}
-
-	// Add topic header to columns
-	addTopicHeader := func(topic string, needsSeparator bool) {
-		if needsSeparator {
-			idColumn += "\n"
-			difficultyColumn += "\n"
-			nameColumn += "\n"
-		}
-		idColumn += fmt.Sprintf("**%s**", topic)
-		difficultyColumn += "\u200b"
-		nameColumn += "\u200b"
-	}
-
-	// Add problem data to columns
-	addProblem := func(problemID int64, difficultyEmoji, problemName, problemURL string) {
-		idColumn += fmt.Sprintf("\n%d", problemID)
-		difficultyColumn += fmt.Sprintf("\n%s", difficultyEmoji)
-		nameColumn += fmt.Sprintf("\n[%s](%s)", problemName, problemURL)
-	}
-
-	for _, group := range groupedProblems {
-		// Build what we want to add for topic header
-		addID := fmt.Sprintf("**%s**", group.Topic)
-		addDiff := "\u200b"
-		addName := "\u200b"
-		if idColumn != "" {
-			addID = "\n" + addID
-			addDiff = "\n" + addDiff
-			addName = "\n" + addName
-		}
-
-		// Check if adding topic header would exceed limit
-		if wouldExceedLimit(addID, addDiff, addName) {
-			flushPage()
-		}
-		addTopicHeader(group.Topic, idColumn != "")
-
-		// Add problems in this topic
-		for _, problem := range group.Problems {
-			difficultyEmoji := getDifficultyEmoji(problem.GetDifficulty())
-
-			// Build what we want to add for problem
-			addID := fmt.Sprintf("\n%d", problem.ID)
-			addDiff := fmt.Sprintf("\n%s", difficultyEmoji)
-			addName := fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
-
-			// Check if adding this problem would exceed limit
-			if wouldExceedLimit(addID, addDiff, addName) {
-				flushPage()
-				addTopicHeader(group.Topic, false)
-			}
-			addProblem(problem.ID, difficultyEmoji, problem.Name, problem.URL)
-		}
-	}
-
-	// Flush the last page if there are remaining problems
-	flushPage()
+	embeds := discord.FormatProblemsAsEmbeds(classCode, adapters.TransformToPresentationProblemsByTopic(groupedProblems))
 
 	logger.Log.Info("Sending info")
 	c.Dispatcher.Send(
@@ -546,17 +457,4 @@ func HandleChangeUsername(c *context.ContextMessage) {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
-}
-
-func getDifficultyEmoji(difficulty data.Difficulty) string {
-	switch difficulty {
-	case data.DifficultyEasy:
-		return "🟩"
-	case data.DifficultyMedium:
-		return "🟨"
-	case data.DifficultyHard:
-		return "🟥"
-	default:
-		return "⬜"
-	}
 }
