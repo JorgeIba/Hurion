@@ -246,7 +246,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 		scoreTable := adapters.ScoreToTableScore(score)
 
 		// Get Table as Image
-		imgByte, err := image.GenerateScoreImage(scoreTable)
+		imgBytes, err := image.GenerateScoreImage(scoreTable)
 		if err != nil {
 			logger.Log.Error(err)
 			c.Dispatcher.Send(
@@ -255,11 +255,11 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 			return
 		}
 
-		fileName := fmt.Sprintf("tabla_%d.png", idx)
+		fileName := fmt.Sprintf("table_%d.png", idx)
 
 		file := &discordgo.File{
 			Name:   fileName,
-			Reader: bytes.NewReader(imgByte),
+			Reader: bytes.NewReader(imgBytes),
 		}
 
 		embed := &discordgo.MessageEmbed{
