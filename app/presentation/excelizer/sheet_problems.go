@@ -7,7 +7,7 @@ import (
 
 func writeProblemsData(f *excelize.File, sheetName string, problemsByTopic []ProblemsByTopic) error {
 	// Write headers in row 1
-	headers := []string{"ID", "Nombre", "URL", "Dificultad"}
+	headers := []string{"ID", "Name", "URL", "Difficulty"}
 	for i, header := range headers {
 		cell := makeCellRef(i, HeaderRow)
 		f.SetCellValue(sheetName, cell, header)
