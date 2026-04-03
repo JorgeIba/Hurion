@@ -12,21 +12,26 @@ type DiscordGoSession interface {
 	GuildMember(guildID, userID string, options ...discordgo.RequestOption) (*discordgo.Member, error)
 }
 
-type ValidatorDiscord struct {
+type DiscordValidator interface {
+	IsAdmin(guildID, userID string) (bool, error)
+	IsMentor(guildID, userID string) (bool, error)
+}
+
+type discordValidator struct {
 	session     DiscordGoSession
 	adminRoleID string
 	mentorRoleID string
 }
 
-func NewValidatorDiscord(s DiscordGoSession) *ValidatorDiscord {
-	return &ValidatorDiscord{
+func NewValidatorDiscord(s DiscordGoSession) DiscordValidator {
+	return &discordValidator{
 		session:      s,
 		adminRoleID:  os.Getenv("DISCORD_ADMIN_ROLE_ID"),
 		mentorRoleID: os.Getenv("DISCORD_MENTOR_ROLE_ID"),
 	}
 }
 
-func (validator *ValidatorDiscord) hasRole(guildID, userID, roleID string) (bool, error) {
+func (validator *discordValidator) hasRole(guildID, userID, roleID string) (bool, error) {
 	if roleID == "" {
 		return false, validatorerr.NewInternalError("role ID is not configured", fmt.Errorf("empty role ID"))
 	}
@@ -45,10 +50,10 @@ func (validator *ValidatorDiscord) hasRole(guildID, userID, roleID string) (bool
 	return false, nil
 }
 
-func (validator *ValidatorDiscord) IsAdmin(guildID, userID string) (bool, error) {
+func (validator *discordValidator) IsAdmin(guildID, userID string) (bool, error) {
 	return validator.hasRole(guildID, userID, validator.adminRoleID)
 }
 
-func (validator *ValidatorDiscord) IsMentor(guildID, userID string) (bool, error) {
+func (validator *discordValidator) IsMentor(guildID, userID string) (bool, error) {
 	return validator.hasRole(guildID, userID, validator.mentorRoleID)
 }

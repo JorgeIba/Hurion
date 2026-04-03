@@ -11,7 +11,7 @@ The bot follows a clean **layered architecture** with clear separation of concer
 | **Reaction Router** | Handles emoji reactions for AC approvals and confirmation flows. | `bot/reactionrouter.go` |
 | **Controllers** | Orchestrate permission checks, call services, and format Discord responses. Organized by role: `admin/`, `enrolled/`, `general/`, `mentor/`. | `controllers/` |
 | **Adapters** | Transform data between layers (service models → presentation models). | `controllers/adapters/` |
-| **Validators** | Verify Discord roles (`ValidatorDiscord`) and database state (`ValidatorDB`). | `validators/` |
+| **Validators** | Verify Discord roles (`DiscordValidator`). | `validators/` |
 | **Services** | Business logic layer. Six services: `UserService`, `EnrollmentService`, `ClassService`, `ProblemService`, `SolutionService`, `ScoreService`. | `services/` |
 | **Data (Repository)** | Framework-agnostic database operations via the `DataStore` interface. | `data/` |
 | **Presentation** | Rendering layer: generates score images (`image/`) and Excel exports (`excelizer/`). | `presentation/` |
@@ -40,7 +40,6 @@ graph TB
 
     subgraph ValidationLayer["Validation Layer"]
         DiscordValidator[Discord Role Validator]
-        DBValidator[Database State Validator]
     end
 
     subgraph ServiceLayer["Service Layer"]

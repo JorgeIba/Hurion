@@ -17,7 +17,7 @@ type Bot struct {
 	botToken         string
 	db               *data.DB
 	dispatcher       *dispatcher.Dispatcher
-	discordValidator *validators.ValidatorDiscord
+	discordValidator validators.DiscordValidator
 	services         *services.Services
 	session          *discordgo.Session
 }

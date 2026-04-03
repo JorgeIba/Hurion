@@ -11,7 +11,7 @@ type ContextMessage struct {
 	Session          *discordgo.Session
 	MessageReaction  *discordgo.MessageReactionAdd
 	Message          *discordgo.MessageCreate
-	DiscordValidator *validators.ValidatorDiscord
+	DiscordValidator validators.DiscordValidator
 	Dispatcher       *dispatcher.Dispatcher
 	Args             []string
 	Services         *services.Services
