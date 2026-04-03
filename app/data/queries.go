@@ -601,11 +601,11 @@ func (db *DB) GetAllClasses() ([]Class, error) {
 func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	query := `
 		UPDATE problems
-		SET name = ?, url = ?, class_id = ?
+		SET name = ?, url = ?, class_id = ?, difficulty = ?, topic = ?
 		WHERE id = ?;
 	`
 
-	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problemID); err != nil {
+	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic, problemID); err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
 			return dataerr.NewRowConflictError(fmt.Sprintf("problem %q already exists in class %d", problem.Name, problem.ClassID), err)
