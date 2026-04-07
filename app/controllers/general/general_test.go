@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
@@ -19,17 +20,14 @@ import (
 func TestMain(m *testing.M) {
 	logger.Init()
 
-	// Set standard test roles
-	os.Setenv("DISCORD_MENTOR_ROLE_ID", "mentor_role_id")
-	os.Setenv("DISCORD_ADMIN_ROLE_ID", "admin_role_id")
-
 	code := m.Run()
-
-	os.Unsetenv("DISCORD_MENTOR_ROLE_ID")
-	os.Unsetenv("DISCORD_ADMIN_ROLE_ID")
 
 	os.Exit(code)
 }
+
+const (
+	channelTimeout = 1 * time.Second
+)
 
 func ptrStr(s string) *string { return &s }
 
@@ -54,7 +52,12 @@ func TestHandleBindUser(t *testing.T) {
 				m.EXPECT().BindUser(data.User{UserID: "discord_123", UserName: "jorge"}).Return(nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, "User `Jorge Nick` binded to the user name `jorge`", msg.Content)
 			},
 		},
@@ -67,7 +70,12 @@ func TestHandleBindUser(t *testing.T) {
 				m.EXPECT().IsUsernameAvailable("jorge_taken", "discord_456").Return(false, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				// The error message comes from adapters.MapError
 				assert.Contains(t, msg.Content, "is already taken")
 			},
@@ -136,7 +144,12 @@ func TestHandleRegisterUserInClass(t *testing.T) {
 				m.EXPECT().RegisterUserIntoClass("discord_123", int64(1)).Return(nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, "User `Jorge Nick` has registered in the class `basicos_1`", msg.Content)
 			},
 		},
@@ -149,7 +162,12 @@ func TestHandleRegisterUserInClass(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("invalid_class").Return(data.Class{}, fmt.Errorf("class not found"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -213,7 +231,12 @@ func TestHandleGetListOfProblemsByClass(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.PaginationEmbed, msg.Type)
 				assert.NotEmpty(t, msg.Embeds)
 				assert.Equal(t, "List of problems for class basicos_1", msg.Embeds[0].Title)
@@ -227,7 +250,12 @@ func TestHandleGetListOfProblemsByClass(t *testing.T) {
 				m.EXPECT().GetProblemsByClass(int64(2)).Return([]data.Problem{}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "No problems found")
 			},
 		},
@@ -239,7 +267,12 @@ func TestHandleGetListOfProblemsByClass(t *testing.T) {
 				m.EXPECT().GetProblemsByClass(int64(1)).Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error")
 			},
 		},
@@ -281,6 +314,8 @@ func TestHandleGetListOfProblemsByClass(t *testing.T) {
 }
 
 func TestHandleGetScoreByClass(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		args       []string
@@ -299,7 +334,12 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.Equal(t, "table.png", msg.Files[0].Name)
@@ -312,7 +352,12 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -342,6 +387,8 @@ func TestHandleGetScoreByClass(t *testing.T) {
 }
 
 func TestHandleGetScoreByUserAndClass(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		args       []string
@@ -361,7 +408,12 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 			},
@@ -373,7 +425,12 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				m.EXPECT().GetUserByUserName("jorge").Return(data.User{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -422,7 +479,12 @@ func TestHandleGetUsersInClass(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
 				assert.Contains(t, msg.Embed.Description, "<@123>: jorge")
 				assert.Contains(t, msg.Embed.Description, "<@456>: jose")
@@ -436,7 +498,12 @@ func TestHandleGetUsersInClass(t *testing.T) {
 				m.EXPECT().GetAllUsersByClassID(int64(1)).Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -473,6 +540,8 @@ func TestHandleGetUsersInClass(t *testing.T) {
 }
 
 func TestHandleGetScoreAllClasses(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		setupMock  func(m *mock_data.MockDataStore)
@@ -492,7 +561,12 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
@@ -504,7 +578,12 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 				m.EXPECT().GetAllClasses().Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error")
 			},
 		},
@@ -533,6 +612,8 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 }
 
 func TestHandleGetAllClasses(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		setupMock  func(m *mock_data.MockDataStore)
@@ -547,7 +628,12 @@ func TestHandleGetAllClasses(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
 				assert.Contains(t, msg.Embed.Description, "`basicos_1`: Basics 1")
 				assert.Contains(t, msg.Embed.Description, "`basicos_2`: Basics 2")
@@ -559,7 +645,12 @@ func TestHandleGetAllClasses(t *testing.T) {
 				m.EXPECT().GetAllClasses().Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error")
 			},
 		},
@@ -588,6 +679,8 @@ func TestHandleGetAllClasses(t *testing.T) {
 }
 
 func TestHandleGetMyClasses(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		authorID   string
@@ -603,7 +696,12 @@ func TestHandleGetMyClasses(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
 				assert.Contains(t, msg.Embed.Description, "`basicos_1`: Basics 1")
 			},
@@ -615,7 +713,12 @@ func TestHandleGetMyClasses(t *testing.T) {
 				m.EXPECT().GetClassesByUserID("discord_456").Return([]data.Class{}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "You are not registered in any class")
 			},
 		},
@@ -626,7 +729,12 @@ func TestHandleGetMyClasses(t *testing.T) {
 				m.EXPECT().GetClassesByUserID("discord_123").Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error")
 			},
 		},
@@ -660,6 +768,8 @@ func TestHandleGetMyClasses(t *testing.T) {
 }
 
 func TestHandleGetClassesOfUsername(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		args       []string
@@ -676,7 +786,12 @@ func TestHandleGetClassesOfUsername(t *testing.T) {
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
 				assert.Contains(t, msg.Embed.Description, "`basicos_1`: Basics 1")
 			},
@@ -688,7 +803,12 @@ func TestHandleGetClassesOfUsername(t *testing.T) {
 				m.EXPECT().GetUserByUserName("unknown").Return(data.User{}, fmt.Errorf("not found"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -700,7 +820,12 @@ func TestHandleGetClassesOfUsername(t *testing.T) {
 				m.EXPECT().GetClassesByUserID("123").Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected error.")
 			},
 		},
@@ -745,7 +870,12 @@ func TestHandleGetMyUsername(t *testing.T) {
 				m.EXPECT().GetUserByUserID("discord_123").Return(data.User{UserID: "discord_123", UserName: "jorge"}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, "Your username is `jorge`", msg.Content)
 			},
 		},
@@ -756,7 +886,12 @@ func TestHandleGetMyUsername(t *testing.T) {
 				m.EXPECT().GetUserByUserID("discord_123").Return(data.User{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -818,7 +953,12 @@ func TestHandleChangeUsername(t *testing.T) {
 				m.EXPECT().BindUser(data.User{UserID: "discord_123", UserName: "new_jorge"}).Return(nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "changed username to `new_jorge`")
 			},
 		},
@@ -831,7 +971,12 @@ func TestHandleChangeUsername(t *testing.T) {
 				m.EXPECT().HasUsernameBound("discord_123").Return(false, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Equal(t, "Unexpected error.", msg.Content)
 			},
 		},
@@ -846,7 +991,12 @@ func TestHandleChangeUsername(t *testing.T) {
 				m.EXPECT().BindUser(data.User{UserID: "discord_123", UserName: "new_jorge"}).Return(nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				msg := <-out
+				var msg dispatcher.MessageResponse
+				select {
+				case msg = <-out:
+				case <-time.After(channelTimeout):
+					t.Fatal("timeout: message was never sent to dispatcher channel")
+				}
 				assert.Contains(t, msg.Content, "bound to the username `new_jorge` (no previous username found)")
 			},
 		},
