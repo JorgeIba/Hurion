@@ -365,6 +365,7 @@ func TestHandleGetScoreByClass(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
@@ -438,6 +439,7 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
@@ -591,6 +593,7 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
@@ -658,6 +661,7 @@ func TestHandleGetAllClasses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
@@ -742,6 +746,7 @@ func TestHandleGetMyClasses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
@@ -833,6 +838,7 @@ func TestHandleGetClassesOfUsername(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
