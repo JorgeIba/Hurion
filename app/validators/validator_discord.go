@@ -12,6 +12,7 @@ type DiscordGoSession interface {
 	GuildMember(guildID, userID string, options ...discordgo.RequestOption) (*discordgo.Member, error)
 }
 
+//go:generate go tool mockgen -destination=mock_validators/mock_validator.go -package=mock_validators . DiscordValidator
 type DiscordValidator interface {
 	IsAdmin(guildID, userID string) (bool, error)
 	IsMentor(guildID, userID string) (bool, error)
