@@ -20,9 +20,9 @@ When you're ready, start your application by running:
 The bot uses **Litestream** for real-time replication to **Azure Blob Storage**. This allows the container to run on fast, ephemeral storage while ensuring no data loss.
 
 **Local Development:**
-- In local dev mode (using `docker compose`), Litestream replication is automatically disabled if Azure credentials are not found.
-- The database is stored in the container's internal filesystem.
-- To persist data locally during dev, you can mount a volume to `/huron-bot/data` in your `compose.yaml`.
+- In local dev mode (using `docker compose`), the bot automatically switches to **local file replication** (using `litestream.local.yml`).
+- Backups are stored in the `./local-backups` folder on your host machine.
+- This allows you to test restoration and persistence locally without an Azure connection.
 
 **Production (Azure):**
 - On startup, the bot attempts to restore the database from the Azure Blob Storage replica.

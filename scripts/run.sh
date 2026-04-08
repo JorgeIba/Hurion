@@ -9,12 +9,13 @@ mkdir -p "$(dirname "$DB_PATH")"
 mkdir -p "/huron-bot/local-backups"
 
 # 2. Pick the right Litestream configuration
-if [ -n "$AZURE_STORAGE_ACCOUNT" ] && [ -n "$LITESTREAM_AZURE_ACCOUNT_KEY" ]; then
+# We require all three Azure variables to use the production config.
+if [ -n "$AZURE_STORAGE_ACCOUNT" ] && [ -n "$AZURE_STORAGE_CONTAINER" ] && [ -n "$LITESTREAM_AZURE_ACCOUNT_KEY" ]; then
     CONFIG="/etc/litestream.yml"
     echo "[run.sh] Azure credentials found. Using production config: $CONFIG"
 else
     CONFIG="/etc/litestream.local.yml"
-    echo "[run.sh] Azure credentials missing. Using local dev config: $CONFIG"
+    echo "[run.sh] Azure credentials missing or incomplete. Using local dev config: $CONFIG"
 fi
 
 # 3. Restore the database if it doesn't exist
