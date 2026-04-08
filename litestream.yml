@@ -1,0 +1,4 @@
+dbs:
+  - path: ${DB_PATH}
+    replicas:
+      - url: abs://${AZURE_STORAGE_ACCOUNT}@${AZURE_STORAGE_CONTAINER}/db.sqlite

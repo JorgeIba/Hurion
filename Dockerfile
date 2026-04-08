@@ -14,10 +14,12 @@ RUN CGO_ENABLED=1 GOOS=linux go build -o /build/bot
 # Stage 2: Runtime
 FROM debian:bookworm-slim
 
+# Copy Litestream binary from official image
+COPY --from=litestream/litestream:0.3.13 /usr/local/bin/litestream /usr/local/bin/litestream
+
 RUN apt-get update && apt-get install -y \
     sqlite3 \
     ca-certificates \
-    cron \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /huron-bot
@@ -25,8 +27,10 @@ WORKDIR /huron-bot
 # Bot binary
 COPY --from=builder /build/bot /huron-bot/bin/huron-bot
 
-# Backup
-COPY backup/ /huron-bot/backup/
-RUN chmod +x /huron-bot/backup/*.sh
+# Litestream Config & Startup Script
+COPY litestream.yml /etc/litestream.yml
+COPY litestream.local.yml /etc/litestream.local.yml
+COPY scripts/run.sh /huron-bot/run.sh
+RUN chmod +x /huron-bot/run.sh
 
-CMD ["/huron-bot/backup/entrypoint.sh"]
+CMD ["/huron-bot/run.sh"]
