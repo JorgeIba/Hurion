@@ -6,8 +6,7 @@ services:
     environment:
       - DB_PATH=/huron-bot/data/db.sqlite
     volumes:
-      # Mount for backups
-      - ./local-backup:/mnt/backup
+      - ./local-backups:/huron-bot/local-backups
     restart: unless-stopped
     image: huron-problem-checker-bot:local
     pull_policy: never

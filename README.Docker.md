@@ -12,36 +12,36 @@
    - `DISCORD_ADMIN_ROLE_ID`: The Discord role ID for administrators
    - `DISCORD_MENTOR_ROLE_ID`: The Discord role ID for mentors
 
-   **How to get role IDs:**
-   - Enable Developer Mode in Discord (User Settings > Advanced > Developer Mode)
-   - Right-click on a role and select "Copy ID"
-
 When you're ready, start your application by running:
 `docker compose up --build`.
 
-### Data Persistence
+### Data Persistence (Litestream)
 
-The SQLite database is persisted using Docker volumes. The database file is stored in `./app/data/db.sqlite` on your host machine and is mounted to `/app/data` in the container.
+The bot uses **Litestream** for real-time replication to **Azure Blob Storage**. This allows the container to run on fast, ephemeral storage while ensuring no data loss.
 
-**Important notes:**
-- The database will persist across container restarts and rebuilds
-- To reset the database, simply delete `./app/data/db.sqlite` and restart the container
-- The `app/data` directory must exist on your host (a `.gitkeep` file maintains it in git)
-- Database files are ignored by git (see `.gitignore`)
+**Local Development:**
+- In local dev mode (using `docker compose`), Litestream replication is automatically disabled if Azure credentials are not found.
+- The database is stored in the container's internal filesystem.
+- To persist data locally during dev, you can mount a volume to `/huron-bot/data` in your `compose.yaml`.
 
+**Production (Azure):**
+- On startup, the bot attempts to restore the database from the Azure Blob Storage replica.
+- Once running, every database change is continuously streamed to Azure.
 
-### Deploying your application to the cloud
+### Deployment
 
-First, build your image, e.g.: `docker build -t myapp .`.
-If your cloud uses a different CPU architecture than your development
-machine (e.g., you are on a Mac M1 and your cloud provider is amd64),
-you'll want to build the image for that platform, e.g.:
-`docker build --platform=linux/amd64 -t myapp .`.
+To deploy to Azure, you must provide the following environment variables:
 
-Then, push it to your registry, e.g. `docker push myregistry.com/myapp`.
+- `AZURE_STORAGE_ACCOUNT`: Your storage account name.
+- `AZURE_STORAGE_CONTAINER`: The blob container for backups (e.g., `litestream-backups`).
+- `LITESTREAM_AZURE_ACCOUNT_KEY`: Your storage account access key.
 
-Consult Docker's [getting started](https://docs.docker.com/go/get-started-sharing/)
-docs for more detail on building and pushing.
+**1. Build and Push:**
+```bash
+docker build -t <your-username>/huron-problem-checker-bot:latest .
+docker push <your-username>/huron-problem-checker-bot:latest
+```
 
 ### References
+* [Litestream Documentation](https://litestream.io/)
 * [Docker's Go guide](https://docs.docker.com/language/golang/)

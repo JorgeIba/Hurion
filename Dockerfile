@@ -29,6 +29,7 @@ COPY --from=builder /build/bot /huron-bot/bin/huron-bot
 
 # Litestream Config & Startup Script
 COPY litestream.yml /etc/litestream.yml
+COPY litestream.local.yml /etc/litestream.local.yml
 COPY scripts/run.sh /huron-bot/run.sh
 RUN chmod +x /huron-bot/run.sh
 

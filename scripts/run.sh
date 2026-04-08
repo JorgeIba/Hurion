@@ -1,29 +1,32 @@
 #!/bin/bash
 set -e
 
-DB_PATH="/huron-bot/data/db.sqlite"
+# Use the environment variable or fall back to the default path
+export DB_PATH="${DB_PATH:-/huron-bot/data/db.sqlite}"
 
-# 1. Restore the database from Litestream (Blob Storage)
-if [ ! -f "$DB_PATH" ]; then
-    echo "[run.sh] Database missing locally. Checking for Litestream replicas..."
-    # -if-replica-exists: prevents errors if this is a brand new bot with no backups yet.
-    litestream restore -if-replica-exists -config /etc/litestream.yml "$DB_PATH"
-else
-    echo "[run.sh] Database already exists locally. Skipping restore."
-fi
-
-# 2. Final check and initialization
-if [ ! -f "$DB_PATH" ]; then
-    echo "[run.sh] No local database or Litestream replica found. Bot will initialize a fresh database on startup."
-fi
-
-# 3. Ensure WAL mode is enabled (required for Litestream)
-# Ensure the data directory exists.
+# 1. Ensure the data directory exists before any Litestream or SQLite operations
 mkdir -p "$(dirname "$DB_PATH")"
-# If the file doesn't exist yet, sqlite3 will create it when we set WAL mode.
+mkdir -p "/huron-bot/local-backups"
+
+# 2. Pick the right Litestream configuration
+if [ -n "$AZURE_STORAGE_ACCOUNT" ] && [ -n "$LITESTREAM_AZURE_ACCOUNT_KEY" ]; then
+    CONFIG="/etc/litestream.yml"
+    echo "[run.sh] Azure credentials found. Using production config: $CONFIG"
+else
+    CONFIG="/etc/litestream.local.yml"
+    echo "[run.sh] Azure credentials missing. Using local dev config: $CONFIG"
+fi
+
+# 3. Restore the database if it doesn't exist
+# -if-db-not-exists: prevents overwriting an existing local database.
+# -if-replica-exists: prevents errors if this is a brand new setup.
+echo "[run.sh] Checking for Litestream replicas..."
+litestream restore -if-db-not-exists -if-replica-exists -config "$CONFIG" "$DB_PATH"
+
+# 4. Ensure WAL mode is enabled (required for Litestream)
 echo "[run.sh] Ensuring WAL mode..."
 sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;"
 
-# 4. Run Litestream to replicate changes and supervise the bot process.
+# 5. Run Litestream to replicate changes and supervise the bot process.
 echo "[run.sh] Starting Litestream replication..."
-exec litestream replicate -config /etc/litestream.yml -exec "/huron-bot/bin/huron-bot"
+exec litestream replicate -config "$CONFIG" -exec "/huron-bot/bin/huron-bot"
