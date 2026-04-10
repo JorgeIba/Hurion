@@ -184,7 +184,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		Color: 0x00bfff,
 	}
 
-	logger.Log.Infof("Score of %s in class %s\n%v\n%v", userName, classCode, scoreTable.Header, scoreTable.Table)
+	logger.Log.Infof("Score of %s in class %s", userName, classCode)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,

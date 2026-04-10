@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 var (
@@ -21,9 +22,9 @@ type ScoreService struct {
 }
 
 // GetRawScoreByClassCode retrieves raw score data for a class
-func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[data.User][]data.SolvedProblem, error) {
+func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[service_model.User][]service_model.SolvedProblem, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
-	emptyMap := map[data.User][]data.SolvedProblem{}
+	emptyMap := map[service_model.User][]service_model.SolvedProblem{}
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrScore):
@@ -33,20 +34,26 @@ func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[data.
 		}
 	}
 
-	studentsScore, err := service.Datastore.GetAllSolvedProblemsByClass(class.ID)
+	studentsScoreData, err := service.Datastore.GetAllSolvedProblemsByClass(class.ID)
 	if err != nil {
 		return emptyMap, serviceerr.MakeGeneralError(err)
 	}
 
 	// Ensure all users in the class are represented in the score map
-	allUsers, err := service.Datastore.GetAllUsersByClassID(class.ID)
+	allUsersData, err := service.Datastore.GetAllUsersByClassID(class.ID)
 	if err != nil {
 		return emptyMap, serviceerr.MakeGeneralError(err)
 	}
 
-	for _, user := range allUsers {
+	studentsScore := make(map[service_model.User][]service_model.SolvedProblem)
+	for uData, spsData := range studentsScoreData {
+		studentsScore[mapDataUserToServiceUser(uData)] = mapDataSolvedProblemsToServiceSolvedProblems(spsData)
+	}
+
+	for _, uData := range allUsersData {
+		user := mapDataUserToServiceUser(uData)
 		if _, exists := studentsScore[user]; !exists {
-			studentsScore[user] = []data.SolvedProblem{}
+			studentsScore[user] = []service_model.SolvedProblem{}
 		}
 	}
 
@@ -54,39 +61,35 @@ func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[data.
 }
 
 // GetScoreByClassCode retrieves the full score for a class
-func (service *ScoreService) GetScoreByClassCode(classCode string) (Score, error) {
+func (service *ScoreService) GetScoreByClassCode(classCode string) (service_model.Score, error) {
 	if service.ProblemService == nil {
-		return Score{}, serviceerr.NewInternalError("ProblemService is not injected in ScoreService", nil)
+		return service_model.Score{}, serviceerr.NewInternalError("ProblemService is not injected in ScoreService", nil)
 	}
 
 	solvedProblems, err := service.GetRawScoreByClassCode(classCode)
 	if err != nil {
-		return Score{}, err
+		return service_model.Score{}, err
 	}
-
-	sortedSolvedProblems := helpers.SortScore(solvedProblems)
 
 	groupedProblems, err := service.ProblemService.GetProblemsGroupedByTopic(classCode)
 	if err != nil {
-		return Score{}, err
+		return service_model.Score{}, err
 	}
 
 	// Build all problems list from grouped (flattened and ordered)
-	allProblems := []data.Problem{}
+	allProblems := []service_model.Problem{}
 	for _, group := range groupedProblems {
 		allProblems = append(allProblems, group.Problems...)
 	}
 
-	allScore := make([]PairUserProblemScore, 0)
+	allScore := make([]service_model.PairUserProblemScore, 0)
 
-	for _, entry := range sortedSolvedProblems {
-		var scoreUser PairUserProblemScore
-		scoreUser.User = entry.User
-		scoreUser.Problems = make(map[data.Problem]bool)
+	for user, solvedProblemsByUser := range solvedProblems {
+		var scoreUser service_model.PairUserProblemScore
+		scoreUser.User = user
+		scoreUser.Problems = make(map[service_model.Problem]bool)
 
-		solvedProblemsByUser := entry.SolvedProblems
-
-		// Set
+		// Set solved status
 		problemIDContainerSolvedByUser := make(map[int64]struct{})
 		for _, problemUser := range solvedProblemsByUser {
 			problemIDContainerSolvedByUser[problemUser.ProblemID] = struct{}{}
@@ -104,29 +107,31 @@ func (service *ScoreService) GetScoreByClassCode(classCode string) (Score, error
 		allScore = append(allScore, scoreUser)
 	}
 
-	return Score{
+	helpers.SortScore(allScore)
+
+	return service_model.Score{
 		UserScores:      allScore,
 		ProblemsByTopic: groupedProblems,
 	}, nil
 }
 
 // GetNeighborsScoreForUsername retrieves the score with neighbors around a specific user
-func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode string) (Score, error) {
+func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode string) (service_model.Score, error) {
 	// Get userID from username
 	user, err := service.Datastore.GetUserByUserName(userName)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrScore):
-			return Score{}, serviceerr.NewUserNotFoundError(fmt.Sprintf("username `%s` not found", userName), err)
+			return service_model.Score{}, serviceerr.NewUserNotFoundError(fmt.Sprintf("username `%s` not found", userName), err)
 		default:
-			return Score{}, serviceerr.MakeGeneralError(err)
+			return service_model.Score{}, serviceerr.MakeGeneralError(err)
 		}
 	}
 	userID := user.UserID
 
 	score, err := service.GetScoreByClassCode(classCode)
 	if err != nil {
-		return Score{}, err
+		return service_model.Score{}, err
 	}
 
 	// Find the user's position
@@ -140,7 +145,7 @@ func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode st
 
 	if userIndex == -1 {
 		err := serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user `%s` is not registered in class `%s`", userName, classCode), nil)
-		return Score{}, err
+		return service_model.Score{}, err
 	}
 
 	// Get neighbors (2 before, user, 2 after)
@@ -148,26 +153,26 @@ func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode st
 	neighborScores := score.UserScores[l : r+1]
 
 	// Return Score with filtered UserScores but same ProblemsByTopic
-	return Score{
+	return service_model.Score{
 		UserScores:      neighborScores,
 		ProblemsByTopic: score.ProblemsByTopic,
 	}, nil
 }
 
 // GetScoreAllClasses retrieves scores for all classes
-func (service *ScoreService) GetScoreAllClasses() (map[string]Score, error) {
-	classes, err := service.Datastore.GetAllClasses()
+func (service *ScoreService) GetScoreAllClasses() (map[string]service_model.Score, error) {
+	classesData, err := service.Datastore.GetAllClasses()
 	if err != nil {
 		return nil, serviceerr.MakeGeneralError(err)
 	}
 
-	scores := make(map[string]Score)
-	for _, class := range classes {
-		score, err := service.GetScoreByClassCode(class.ClassCode)
+	scores := make(map[string]service_model.Score)
+	for _, cData := range classesData {
+		score, err := service.GetScoreByClassCode(cData.ClassCode)
 		if err != nil {
 			return nil, err
 		}
-		scores[class.Name] = score
+		scores[cData.Name] = score
 	}
 
 	return scores, nil
@@ -175,28 +180,28 @@ func (service *ScoreService) GetScoreAllClasses() (map[string]Score, error) {
 
 // GetClassExportData retrieves all data needed for exporting a class
 // Returns users, problems grouped by topic, and score
-func (service *ScoreService) GetClassExportData(classCode string) ([]data.User, []ProblemsByTopic, Score, error) {
-	class, err := service.Datastore.GetClassByClassCode(classCode)
+func (service *ScoreService) GetClassExportData(classCode string) ([]service_model.User, []service_model.ProblemsByTopic, service_model.Score, error) {
+	classData, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrScore):
-			return nil, nil, Score{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
+			return nil, nil, service_model.Score{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
-			return nil, nil, Score{}, serviceerr.MakeGeneralError(err)
+			return nil, nil, service_model.Score{}, serviceerr.MakeGeneralError(err)
 		}
 	}
 
 	// Retrieve users
-	users, err := service.Datastore.GetAllUsersByClassID(class.ID)
+	usersData, err := service.Datastore.GetAllUsersByClassID(classData.ID)
 	if err != nil {
-		return nil, nil, Score{}, serviceerr.MakeGeneralError(err)
+		return nil, nil, service_model.Score{}, serviceerr.MakeGeneralError(err)
 	}
 
 	// Retrieve score (contains ProblemsByTopic)
 	score, err := service.GetScoreByClassCode(classCode)
 	if err != nil {
-		return nil, nil, Score{}, err
+		return nil, nil, service_model.Score{}, err
 	}
 
-	return users, score.ProblemsByTopic, score, nil
+	return mapDataUsersToServiceUsers(usersData), score.ProblemsByTopic, score, nil
 }

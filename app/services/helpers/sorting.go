@@ -3,20 +3,20 @@ package helpers
 import (
 	"sort"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 // GetDifficultyOrder returns the sort order for a difficulty
 // Easy=1, Medium=2, Hard=3, Not specified=4
-func GetDifficultyOrder(difficulty data.Difficulty) int {
+func GetDifficultyOrder(difficulty string) int {
 	switch difficulty {
-	case data.DifficultyEasy:
+	case service_model.DifficultyEasy:
 		return 1
-	case data.DifficultyMedium:
+	case service_model.DifficultyMedium:
 		return 2
-	case data.DifficultyHard:
+	case service_model.DifficultyHard:
 		return 3
-	case data.DifficultyDefault:
+	case service_model.DifficultyDefault:
 		return 4
 	default:
 		return 5 // Unknown difficulties go last
@@ -24,7 +24,7 @@ func GetDifficultyOrder(difficulty data.Difficulty) int {
 }
 
 // SortProblemsByTopicAndDifficulty sorts problems by topic (alphabetically) and then by difficulty
-func SortProblemsByTopicAndDifficulty(problems []data.Problem) {
+func SortProblemsByTopicAndDifficulty(problems []service_model.Problem) {
 	sort.Slice(problems, func(i, j int) bool {
 		topicI := problems[i].GetTopic()
 		topicJ := problems[j].GetTopic()
@@ -41,26 +41,9 @@ func SortProblemsByTopicAndDifficulty(problems []data.Problem) {
 	})
 }
 
-// PairUserSolvedProblems pairs a user with their solved problems
-type PairUserSolvedProblems struct {
-	User           data.User
-	SolvedProblems []data.SolvedProblem
-}
-
 // SortScore sorts users by number of solved problems (descending)
-func SortScore(solvedProblemsByUsers map[data.User][]data.SolvedProblem) []PairUserSolvedProblems {
-	var userScores []PairUserSolvedProblems
-
-	for user, problems := range solvedProblemsByUsers {
-		userScores = append(userScores, PairUserSolvedProblems{
-			User:           user,
-			SolvedProblems: problems,
-		})
-	}
-
+func SortScore(userScores []service_model.PairUserProblemScore) {
 	sort.Slice(userScores, func(i, j int) bool {
-		return len(userScores[i].SolvedProblems) > len(userScores[j].SolvedProblems)
+		return userScores[i].CountProblems > userScores[j].CountProblems
 	})
-
-	return userScores
 }

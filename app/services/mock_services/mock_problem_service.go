@@ -12,8 +12,7 @@ package mock_services
 import (
 	reflect "reflect"
 
-	data "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	services "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	service_model "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,7 +41,7 @@ func (m *MockProblemService) EXPECT() *MockProblemServiceMockRecorder {
 }
 
 // CreateProblemIntoClass mocks base method.
-func (m *MockProblemService) CreateProblemIntoClass(params services.CreateProblemParams) (int64, error) {
+func (m *MockProblemService) CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateProblemIntoClass", params)
 	ret0, _ := ret[0].(int64)
@@ -57,10 +56,10 @@ func (mr *MockProblemServiceMockRecorder) CreateProblemIntoClass(params any) *go
 }
 
 // GetProblemsGroupedByTopic mocks base method.
-func (m *MockProblemService) GetProblemsGroupedByTopic(classCode string) ([]services.ProblemsByTopic, error) {
+func (m *MockProblemService) GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetProblemsGroupedByTopic", classCode)
-	ret0, _ := ret[0].([]services.ProblemsByTopic)
+	ret0, _ := ret[0].([]service_model.ProblemsByTopic)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -86,7 +85,7 @@ func (mr *MockProblemServiceMockRecorder) RemoveProblemFromClass(problemID any) 
 }
 
 // UpdateProblemByProblemID mocks base method.
-func (m *MockProblemService) UpdateProblemByProblemID(problemID int64, problem data.Problem) error {
+func (m *MockProblemService) UpdateProblemByProblemID(problemID int64, problem service_model.Problem) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateProblemByProblemID", problemID, problem)
 	ret0, _ := ret[0].(error)

@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -34,12 +33,12 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 			groupedProblems: []presentation.ProblemsByTopic{
 				{
 					Topic: "Arrays",
-					Problems: []data.Problem{
+					Problems: []presentation.Problem{
 						{
 							ID:         1,
 							Name:       "Two Sum",
 							URL:        "https://leetcode.com/problems/two-sum",
-							Difficulty: ptrStr("Easy"),
+							Difficulty: "Easy",
 						},
 					},
 				},
@@ -60,14 +59,14 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 			groupedProblems: []presentation.ProblemsByTopic{
 				{
 					Topic: "Arrays",
-					Problems: []data.Problem{
-						{ID: 1, Name: "Two Sum", URL: "url1", Difficulty: ptrStr("Easy")},
+					Problems: []presentation.Problem{
+						{ID: 1, Name: "Two Sum", URL: "url1", Difficulty: "Easy"},
 					},
 				},
 				{
 					Topic: "Strings",
-					Problems: []data.Problem{
-						{ID: 2, Name: "Reverse", URL: "url2", Difficulty: ptrStr("Medium")},
+					Problems: []presentation.Problem{
+						{ID: 2, Name: "Reverse", URL: "url2", Difficulty: "Medium"},
 					},
 				},
 			},
@@ -83,15 +82,14 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 			name:      "Pagination - Exceeds 1024 chars",
 			classCode: "CS101",
 			groupedProblems: func() []presentation.ProblemsByTopic {
-				var problems []data.Problem
+				var problems []presentation.Problem
 				// Create enough problems to force pagination.
-				// Each problem name+url is about 30 chars. 60 problems = ~1800 chars.
 				for i := 1; i <= 60; i++ {
-					problems = append(problems, data.Problem{
+					problems = append(problems, presentation.Problem{
 						ID:         int64(i),
 						Name:       fmt.Sprintf("Problem %d", i),
 						URL:        "http://url",
-						Difficulty: ptrStr("Easy"),
+						Difficulty: "Easy",
 					})
 				}
 				return []presentation.ProblemsByTopic{
@@ -106,7 +104,6 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				for _, embed := range res {
 					assert.Len(t, embed.Fields, 3)
 					for _, field := range embed.Fields {
-						// Use utf16Count for assertions as well
 						assert.LessOrEqual(t, utf16Count(field.Value), maxFieldLength, "Field value should not exceed max length (UTF-16 code units)")
 					}
 				}
@@ -118,12 +115,12 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 			groupedProblems: []presentation.ProblemsByTopic{
 				{
 					Topic: "Big Problem",
-					Problems: []data.Problem{
+					Problems: []presentation.Problem{
 						{
 							ID:         1,
 							Name:       strings.Repeat("A", 1500), // Larger than maxFieldLength
 							URL:        "http://url",
-							Difficulty: ptrStr("Easy"),
+							Difficulty: "Easy",
 						},
 					},
 				},
@@ -155,14 +152,14 @@ func TestGetDifficultyEmoji(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		difficulty data.Difficulty
+		difficulty string
 		expected   string
 	}{
-		{"Easy", data.DifficultyEasy, "🟩"},
-		{"Medium", data.DifficultyMedium, "🟨"},
-		{"Hard", data.DifficultyHard, "🟥"},
-		{"Default", data.DifficultyDefault, "⬜"},
-		{"Unknown", data.Difficulty("Unknown"), "⬜"},
+		{"Easy", "Easy", "🟩"},
+		{"Medium", "Medium", "🟨"},
+		{"Hard", "Hard", "🟥"},
+		{"Default", "Not specified", "⬜"},
+		{"Unknown", "Unknown", "⬜"},
 	}
 
 	for _, tt := range tests {
@@ -193,5 +190,3 @@ func TestUtf16Count(t *testing.T) {
 		})
 	}
 }
-
-func ptrStr(s string) *string { return &s }

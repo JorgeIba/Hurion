@@ -9,6 +9,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -18,7 +19,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		params      CreateProblemParams
+		params      service_model.CreateProblemParams
 		setupMock   func(*mock_data.MockDataStore)
 		wantID      int64
 		wantErr     bool
@@ -26,7 +27,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 	}{
 		{
 			name: "success - problem created",
-			params: CreateProblemParams{
+			params: service_model.CreateProblemParams{
 				Name:       "Two Sum",
 				URL:        "https://leetcode.com/problems/two-sum/",
 				ClassCode:  "CS101",
@@ -48,7 +49,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		},
 		{
 			name: "class not found in IsClassCodeValid",
-			params: CreateProblemParams{
+			params: service_model.CreateProblemParams{
 				ClassCode: "UNKNOWN",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
@@ -60,7 +61,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		},
 		{
 			name: "generic error in IsClassCodeValid",
-			params: CreateProblemParams{
+			params: service_model.CreateProblemParams{
 				ClassCode: "CS101",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
@@ -72,7 +73,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		},
 		{
 			name: "generic error in GetClassByClassCode",
-			params: CreateProblemParams{
+			params: service_model.CreateProblemParams{
 				ClassCode: "CS101",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
@@ -85,7 +86,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		},
 		{
 			name: "conflict - duplicate problem",
-			params: CreateProblemParams{
+			params: service_model.CreateProblemParams{
 				ClassCode: "CS101",
 				Name:      "Two Sum",
 			},
@@ -99,7 +100,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		},
 		{
 			name: "generic error in AddProblem",
-			params: CreateProblemParams{
+			params: service_model.CreateProblemParams{
 				ClassCode: "CS101",
 				Name:      "Two Sum",
 			},
@@ -206,20 +207,20 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		problemID int64
-		problem   data.Problem
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
+		name        string
+		problemID   int64
+		problem     service_model.Problem
+		setupMock   func(*mock_data.MockDataStore)
+		wantErr     bool
 		wantErrType error
 	}{
 		{
 			name:      "success",
 			problemID: 1,
-			problem:   data.Problem{Name: "New Name"},
+			problem:   service_model.Problem{Name: "New Name"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "New Name"}).Return(nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{ID: 0, Name: "New Name", ClassID: 0, URL: "", Difficulty: nil, Topic: nil}).Return(nil)
 			},
 			wantErr: false,
 		},
@@ -235,10 +236,10 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 		{
 			name:      "duplicate conflict on update",
 			problemID: 1,
-			problem:   data.Problem{Name: "Repeated Name"},
+			problem:   service_model.Problem{Name: "Repeated Name"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "Repeated Name"}).Return(dataerr.NewRowConflictError("problem exists", nil))
+				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{ID: 0, Name: "Repeated Name", ClassID: 0, URL: "", Difficulty: nil, Topic: nil}).Return(dataerr.NewRowConflictError("problem exists", nil))
 			},
 			wantErr:     true,
 			wantErrType: &serviceerr.DuplicateProblemError{},
@@ -285,7 +286,7 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 		name       string
 		classCode  string
 		setupMock  func(*mock_data.MockDataStore)
-		wantResult []ProblemsByTopic
+		wantResult []service_model.ProblemsByTopic
 		wantErr    bool
 	}{
 		{
@@ -299,17 +300,17 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 					{ID: 3, Topic: helpers.PtrStr("Strings"), Difficulty: helpers.PtrStr("1")},
 				}, nil)
 			},
-			wantResult: []ProblemsByTopic{
+			wantResult: []service_model.ProblemsByTopic{
 				{
 					Topic: "Math",
-					Problems: []data.Problem{
+					Problems: []service_model.Problem{
 						{ID: 1, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("1")},
 						{ID: 2, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("2")},
 					},
 				},
 				{
 					Topic: "Strings",
-					Problems: []data.Problem{
+					Problems: []service_model.Problem{
 						{ID: 3, Topic: helpers.PtrStr("Strings"), Difficulty: helpers.PtrStr("1")},
 					},
 				},
@@ -322,7 +323,7 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
-			wantResult: []ProblemsByTopic{},
+			wantResult: []service_model.ProblemsByTopic{},
 			wantErr:    true,
 		},
 		{
@@ -331,7 +332,7 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
-			wantResult: []ProblemsByTopic{},
+			wantResult: []service_model.ProblemsByTopic{},
 			wantErr:    true,
 		},
 		{
@@ -341,7 +342,7 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetProblemsByClass(int64(10)).Return(nil, errors.New("db fail"))
 			},
-			wantResult: []ProblemsByTopic{},
+			wantResult: []service_model.ProblemsByTopic{},
 			wantErr:    true,
 		},
 	}

@@ -8,8 +8,9 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/mock_services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/mock_services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -21,7 +22,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 		name       string
 		classCode  string
 		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
-		wantResult map[data.User][]data.SolvedProblem
+		wantResult map[service_model.User][]service_model.SolvedProblem
 		wantErr    bool
 	}{
 		{
@@ -38,7 +39,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{u1, u2, u3}, nil)
 			},
-			wantResult: map[data.User][]data.SolvedProblem{
+			wantResult: map[service_model.User][]service_model.SolvedProblem{
 				{UserID: "u1", UserName: "user1"}: {{UserID: "u1", ProblemID: 100}},
 				{UserID: "u2", UserName: "user2"}: {},
 				{UserID: "u3", UserName: "user3"}: {{UserID: "u3", ProblemID: 101}},
@@ -51,7 +52,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
-			wantResult: map[data.User][]data.SolvedProblem{},
+			wantResult: map[service_model.User][]service_model.SolvedProblem{},
 			wantErr:    true,
 		},
 		{
@@ -60,7 +61,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
-			wantResult: map[data.User][]data.SolvedProblem{},
+			wantResult: map[service_model.User][]service_model.SolvedProblem{},
 			wantErr:    true,
 		},
 		{
@@ -70,7 +71,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(nil, errors.New("db fail"))
 			},
-			wantResult: map[data.User][]data.SolvedProblem{},
+			wantResult: map[service_model.User][]service_model.SolvedProblem{},
 			wantErr:    true,
 		},
 		{
@@ -81,7 +82,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
 			},
-			wantResult: map[data.User][]data.SolvedProblem{},
+			wantResult: map[service_model.User][]service_model.SolvedProblem{},
 			wantErr:    true,
 		},
 	}
@@ -115,7 +116,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 		name       string
 		classCode  string
 		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
-		assertFunc func(*testing.T, services.Score)
+		assertFunc func(*testing.T, service_model.Score)
 		wantErr    bool
 	}{
 		{
@@ -126,7 +127,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				u2 := data.User{UserID: "u2", UserName: "user2"}
 				u3 := data.User{UserID: "u3", UserName: "user3"}
 				
-				problems := []data.Problem{
+				problems := []service_model.Problem{
 					{ID: 100, Topic: helpers.PtrStr("T1"), Name: "P1"},
 					{ID: 101, Topic: helpers.PtrStr("T1"), Name: "P2"},
 					{ID: 102, Topic: helpers.PtrStr("T1"), Name: "P3"},
@@ -144,7 +145,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{u1, u2, u3}, nil)
 				
 				// Mock ProblemService instead of DataStore for problems
-				groupedProblems := []services.ProblemsByTopic{
+				groupedProblems := []service_model.ProblemsByTopic{
 					{
 						Topic:    "T1",
 						Problems: problems,
@@ -152,7 +153,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				}
 				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(groupedProblems, nil)
 			},
-			assertFunc: func(t *testing.T, res services.Score) {
+			assertFunc: func(t *testing.T, res service_model.Score) {
 				assert.Len(t, res.UserScores, 3)
 				
 				// Sorting check (Desc by count)
@@ -235,7 +236,7 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 		username   string
 		classCode  string
 		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
-		assertFunc func(*testing.T, services.Score)
+		assertFunc func(*testing.T, service_model.Score)
 		wantErr    bool
 	}{
 		{
@@ -256,19 +257,26 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 					{UserID: "id7", UserName: "u7"},
 				}
 
+				// Crucial: define problems so CountProblems works and sorting is stable
+				problems := []service_model.Problem{
+					{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}, {ID: 5}, {ID: 6}, {ID: 7},
+				}
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return([]service_model.ProblemsByTopic{
+					{Topic: "T", Problems: problems},
+				}, nil)
+
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{
-					users[0]: make([]data.SolvedProblem, 7),
-					users[1]: make([]data.SolvedProblem, 6),
-					users[2]: make([]data.SolvedProblem, 5),
-					users[3]: make([]data.SolvedProblem, 4), // target u4
-					users[4]: make([]data.SolvedProblem, 3),
-					users[5]: make([]data.SolvedProblem, 2),
-					users[6]: make([]data.SolvedProblem, 1),
+					users[0]: {{ProblemID: 1}, {ProblemID: 2}, {ProblemID: 3}, {ProblemID: 4}, {ProblemID: 5}, {ProblemID: 6}, {ProblemID: 7}},
+					users[1]: {{ProblemID: 1}, {ProblemID: 2}, {ProblemID: 3}, {ProblemID: 4}, {ProblemID: 5}, {ProblemID: 6}},
+					users[2]: {{ProblemID: 1}, {ProblemID: 2}, {ProblemID: 3}, {ProblemID: 4}, {ProblemID: 5}},
+					users[3]: {{ProblemID: 1}, {ProblemID: 2}, {ProblemID: 3}, {ProblemID: 4}}, // target u4 at index 3
+					users[4]: {{ProblemID: 1}, {ProblemID: 2}, {ProblemID: 3}},
+					users[5]: {{ProblemID: 1}, {ProblemID: 2}},
+					users[6]: {{ProblemID: 1}},
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(users, nil)
-				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, nil)
 			},
-			assertFunc: func(t *testing.T, res services.Score) {
+			assertFunc: func(t *testing.T, res service_model.Score) {
 				// Window should be: [id2, id3, id4, id5, id6]
 				assert.Len(t, res.UserScores, 5)
 				assert.Equal(t, "id2", res.UserScores[0].User.UserID)
@@ -294,16 +302,20 @@ func TestScoreService_GetNeighborsScoreForUsername(t *testing.T) {
 					{UserID: "id4", UserName: "u4"},
 				}
 
+				problems := []service_model.Problem{{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}}
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return([]service_model.ProblemsByTopic{
+					{Topic: "T", Problems: problems},
+				}, nil)
+
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{
-					users[0]: make([]data.SolvedProblem, 4),
-					users[1]: make([]data.SolvedProblem, 3),
-					users[2]: make([]data.SolvedProblem, 2),
-					users[3]: make([]data.SolvedProblem, 1),
+					users[0]: {{ProblemID: 1}, {ProblemID: 2}, {ProblemID: 3}, {ProblemID: 4}},
+					users[1]: {{ProblemID: 1}, {ProblemID: 2}, {ProblemID: 3}},
+					users[2]: {{ProblemID: 1}, {ProblemID: 2}},
+					users[3]: {{ProblemID: 1}},
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(users, nil)
-				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, nil)
 			},
-			assertFunc: func(t *testing.T, res services.Score) {
+			assertFunc: func(t *testing.T, res service_model.Score) {
 				// Index 0 -> max(0, 0-2) to min(3, 0+2) => 0 to 2
 				assert.Len(t, res.UserScores, 3)
 				assert.Equal(t, "id1", res.UserScores[0].User.UserID)
@@ -386,7 +398,7 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 	tests := []struct {
 		name       string
 		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
-		assertFunc func(*testing.T, map[string]services.Score)
+		assertFunc func(*testing.T, map[string]service_model.Score)
 		wantErr    bool
 	}{
 		{
@@ -403,8 +415,8 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 					{UserID: "u1"}: {{ProblemID: 100}},
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "u1"}}, nil)
-				ps.EXPECT().GetProblemsGroupedByTopic("C1").Return([]services.ProblemsByTopic{
-					{Problems: []data.Problem{{ID: 100}}},
+				ps.EXPECT().GetProblemsGroupedByTopic("C1").Return([]service_model.ProblemsByTopic{
+					{Problems: []service_model.Problem{{ID: 100}}},
 				}, nil)
 
 				// Mock Class 2
@@ -413,11 +425,11 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 					{UserID: "u2"}: {{ProblemID: 200}},
 				}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(2)).Return([]data.User{{UserID: "u2"}}, nil)
-				ps.EXPECT().GetProblemsGroupedByTopic("C2").Return([]services.ProblemsByTopic{
-					{Problems: []data.Problem{{ID: 200}}},
+				ps.EXPECT().GetProblemsGroupedByTopic("C2").Return([]service_model.ProblemsByTopic{
+					{Problems: []service_model.Problem{{ID: 200}}},
 				}, nil)
 			},
-			assertFunc: func(t *testing.T, res map[string]services.Score) {
+			assertFunc: func(t *testing.T, res map[string]service_model.Score) {
 				assert.Len(t, res, 2)
 				assert.Contains(t, res, "Class 1")
 				assert.Contains(t, res, "Class 2")
@@ -485,7 +497,7 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10, ClassCode: "CS101"}, nil).AnyTimes()
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
-				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return([]services.ProblemsByTopic{}, nil)
+				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return([]service_model.ProblemsByTopic{}, nil)
 			},
 			wantErr: false,
 		},
