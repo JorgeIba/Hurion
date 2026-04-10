@@ -175,9 +175,9 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				p2 := res.ProblemsByTopic[0].Problems[1]
 				p3 := res.ProblemsByTopic[0].Problems[2]
 				
-				assert.True(t, res.UserScores[1].Problems[p1])
-				assert.True(t, res.UserScores[1].Problems[p2])
-				assert.False(t, res.UserScores[1].Problems[p3])
+				assert.True(t, res.UserScores[1].Problems[p1.ID])
+				assert.True(t, res.UserScores[1].Problems[p2.ID])
+				assert.False(t, res.UserScores[1].Problems[p3.ID])
 			},
 			wantErr: false,
 		},

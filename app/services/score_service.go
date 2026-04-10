@@ -87,7 +87,7 @@ func (service *ScoreService) GetScoreByClassCode(classCode string) (service_mode
 	for user, solvedProblemsByUser := range solvedProblems {
 		var scoreUser service_model.PairUserProblemScore
 		scoreUser.User = user
-		scoreUser.Problems = make(map[service_model.Problem]bool)
+		scoreUser.Problems = make(map[int64]bool)
 
 		// Set solved status
 		problemIDContainerSolvedByUser := make(map[int64]struct{})
@@ -97,10 +97,10 @@ func (service *ScoreService) GetScoreByClassCode(classCode string) (service_mode
 
 		for _, problem := range allProblems {
 			if _, exists := problemIDContainerSolvedByUser[problem.ID]; exists {
-				scoreUser.Problems[problem] = true
+				scoreUser.Problems[problem.ID] = true
 				scoreUser.CountProblems++
 			} else {
-				scoreUser.Problems[problem] = false
+				scoreUser.Problems[problem.ID] = false
 			}
 		}
 

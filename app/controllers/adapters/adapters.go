@@ -143,7 +143,7 @@ func ScoreToTableScore(score service_model.Score) presentation.TableScore {
 			}
 
 			for _, userScore := range score.UserScores {
-				if v, exists := userScore.Problems[problem]; exists && v {
+				if v, exists := userScore.Problems[problem.ID]; exists && v {
 					row = append(row, "AC")
 					cellMetadata = append(cellMetadata, presentation.CellMetadata{
 						IsAC:          true,

@@ -78,7 +78,7 @@ type PairUserSolvedProblems struct {
 type PairUserProblemScore struct {
 	User          User
 	CountProblems int
-	Problems      map[Problem]bool
+	Problems      map[int64]bool // Map problem ID to solved status
 }
 
 // Score represents the complete score information for a class
