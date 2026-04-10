@@ -220,7 +220,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			problem:   service_model.Problem{Name: "New Name"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{ID: 0, Name: "New Name", ClassID: 0, URL: "", Difficulty: nil, Topic: nil}).Return(nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "New Name"}).Return(nil)
 			},
 			wantErr: false,
 		},
@@ -239,7 +239,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			problem:   service_model.Problem{Name: "Repeated Name"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{ID: 0, Name: "Repeated Name", ClassID: 0, URL: "", Difficulty: nil, Topic: nil}).Return(dataerr.NewRowConflictError("problem exists", nil))
+				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "Repeated Name"}).Return(dataerr.NewRowConflictError("problem exists", nil))
 			},
 			wantErr:     true,
 			wantErrType: &serviceerr.DuplicateProblemError{},
