@@ -11,6 +11,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/discord"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/image"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -21,7 +22,7 @@ func HandleBindUser(c *context.ContextMessage) {
 
 	logger.Log.Infof("Binding %s to the user name %s...\n", discordNickName, userName)
 
-	if err := c.Services.User.BindUser(discordID, userName); err != nil {
+	if err := c.Services.User.BindUser(service_model.User{UserID: discordID, UserName: userName}); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -436,7 +437,7 @@ func HandleChangeUsername(c *context.ContextMessage) {
 		return
 	}
 
-	if err := c.Services.User.ChangeUsername(discordID, newUserName); err != nil {
+	if err := c.Services.User.ChangeUsername(service_model.User{UserID: discordID, UserName: newUserName}); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

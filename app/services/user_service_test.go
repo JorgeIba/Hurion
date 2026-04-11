@@ -18,16 +18,14 @@ func TestUserService_BindUser(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		userID      string
-		userName    string
+		user        service_model.User
 		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
 		{
-			name:     "success - username available and user bound",
-			userID:   "u123",
-			userName: "cool_user",
+			name: "success - username available and user bound",
+			user: service_model.User{UserID: "u123", UserName: "cool_user"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("cool_user", "u123").
@@ -40,9 +38,8 @@ func TestUserService_BindUser(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "conflict - username already taken",
-			userID:   "u1",
-			userName: "taken",
+			name: "conflict - username already taken",
+			user: service_model.User{UserID: "u1", UserName: "taken"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("taken", "u1").
@@ -52,9 +49,8 @@ func TestUserService_BindUser(t *testing.T) {
 			wantErrType: &serviceerr.ConflictError{},
 		},
 		{
-			name:     "internal error - datastore check fails",
-			userID:   "u1",
-			userName: "anything",
+			name: "internal error - datastore check fails",
+			user: service_model.User{UserID: "u1", UserName: "anything"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("anything", "u1").
@@ -64,9 +60,8 @@ func TestUserService_BindUser(t *testing.T) {
 			wantErrType: &serviceerr.InternalError{},
 		},
 		{
-			name:     "internal error - bind operation fails",
-			userID:   "u2",
-			userName: "newuser",
+			name: "internal error - bind operation fails",
+			user: service_model.User{UserID: "u2", UserName: "newuser"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("newuser", "u2").
@@ -92,7 +87,7 @@ func TestUserService_BindUser(t *testing.T) {
 
 			svc := &UserService{Datastore: mockStore}
 
-			err := svc.BindUser(tt.userID, tt.userName)
+			err := svc.BindUser(tt.user)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -111,16 +106,14 @@ func TestUserService_ChangeUsername(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		userID      string
-		newUsername string
+		user        service_model.User
 		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
 		wantErrType error
 	}{
 		{
-			name:        "success - username updated",
-			userID:      "u1",
-			newUsername: "new_name",
+			name: "success - username updated",
+			user: service_model.User{UserID: "u1", UserName: "new_name"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("new_name", "u1").
@@ -132,9 +125,8 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:        "conflict - username already taken",
-			userID:      "u1",
-			newUsername: "taken",
+			name: "conflict - username already taken",
+			user: service_model.User{UserID: "u1", UserName: "taken"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("taken", "u1").
@@ -144,9 +136,8 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			wantErrType: &serviceerr.ConflictError{},
 		},
 		{
-			name:        "internal error - check fails",
-			userID:      "u1",
-			newUsername: "name",
+			name: "internal error - check fails",
+			user: service_model.User{UserID: "u1", UserName: "name"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("name", "u1").
@@ -156,9 +147,8 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			wantErrType: &serviceerr.InternalError{},
 		},
 		{
-			name:        "internal error - update fails",
-			userID:      "u1",
-			newUsername: "name",
+			name: "internal error - update fails",
+			user: service_model.User{UserID: "u1", UserName: "name"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					IsUsernameAvailable("name", "u1").
@@ -182,7 +172,7 @@ func TestUserService_ChangeUsername(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
-			err := svc.ChangeUsername(tt.userID, tt.newUsername)
+			err := svc.ChangeUsername(tt.user)
 
 			if tt.wantErr {
 				assert.Error(t, err)

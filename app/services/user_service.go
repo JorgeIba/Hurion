@@ -20,15 +20,15 @@ type UserService struct {
 }
 
 // BindUser binds a Discord userID to a platform username
-func (service *UserService) BindUser(userID, userName string) error {
-	isUsernameAvailable, err := service.Datastore.IsUsernameAvailable(userName, userID)
+func (service *UserService) BindUser(user service_model.User) error {
+	isUsernameAvailable, err := service.Datastore.IsUsernameAvailable(user.UserName, user.UserID)
 	if err != nil {
 		return serviceerr.MakeGeneralError(err)
 	} else if !isUsernameAvailable {
-		return serviceerr.NewConflictError(fmt.Sprintf("username `%s` is already taken", userName), nil)
+		return serviceerr.NewConflictError(fmt.Sprintf("username `%s` is already taken", user.UserName), nil)
 	}
 
-	err = service.Datastore.BindUser(data.User{UserID: userID, UserName: userName})
+	err = service.Datastore.BindUser(mapServiceUserToDataUser(user))
 	if err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
@@ -37,10 +37,10 @@ func (service *UserService) BindUser(userID, userName string) error {
 }
 
 // ChangeUsername changes an existing username for a userID
-func (service *UserService) ChangeUsername(userID, newUsername string) error {
+func (service *UserService) ChangeUsername(user service_model.User) error {
 	// Logic is actually the same as BindUser due to SQL implementation (upsert or replace logic if exists)
 	// But we keep it separate for semantic reasons
-	return service.BindUser(userID, newUsername)
+	return service.BindUser(user)
 }
 
 // HasUsernameBound checks if a userID has a username bound
