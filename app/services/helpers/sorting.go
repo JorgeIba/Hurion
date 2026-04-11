@@ -42,8 +42,12 @@ func SortProblemsByTopicAndDifficulty(problems []service_model.Problem) {
 }
 
 // SortScore sorts users by number of solved problems (descending)
+// If problem counts are equal, it sorts by UserID (ascending) to ensure deterministic ranking
 func SortScore(userScores []service_model.PairUserProblemScore) {
-	sort.Slice(userScores, func(i, j int) bool {
-		return userScores[i].CountProblems > userScores[j].CountProblems
+	sort.SliceStable(userScores, func(i, j int) bool {
+		if userScores[i].CountProblems != userScores[j].CountProblems {
+			return userScores[i].CountProblems > userScores[j].CountProblems
+		}
+		return userScores[i].User.UserID < userScores[j].User.UserID
 	})
 }
