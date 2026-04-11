@@ -8,10 +8,9 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 const (
@@ -291,7 +290,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
-	problemID, err := c.Services.Problem.CreateProblemIntoClass(services.CreateProblemParams{
+	problemID, err := c.Services.Problem.CreateProblemIntoClass(service_model.CreateProblemParams{
 		Name:       problemName,
 		URL:        url,
 		ClassCode:  classCode,
@@ -417,7 +416,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
-	if err = c.Services.Problem.UpdateProblemByProblemID(problemID, data.Problem{
+	if err = c.Services.Problem.UpdateProblemByProblemID(problemID, service_model.Problem{
 		ID:         problemID,
 		Name:       problemName,
 		ClassID:    classID,

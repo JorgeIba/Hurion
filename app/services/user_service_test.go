@@ -4,13 +4,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestUserService_BindUser(t *testing.T) {
@@ -505,7 +505,7 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 		name       string
 		userID     string
 		setupMock  func(*mock_data.MockDataStore)
-		wantResult []data.Class
+		wantResult []service_model.Class
 		wantErr    bool
 	}{
 		{
@@ -514,7 +514,7 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassesByUserID("u1").Return([]data.Class{{ID: 1, Name: "C1"}}, nil)
 			},
-			wantResult: []data.Class{{ID: 1, Name: "C1"}},
+			wantResult: []service_model.Class{{ID: 1, Name: "C1"}},
 			wantErr:    false,
 		},
 		{

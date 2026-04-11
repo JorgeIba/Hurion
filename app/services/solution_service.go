@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 var (
@@ -113,11 +114,11 @@ func (service *SolutionService) AddPendingACOfUserID(messageID, userID string, p
 		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
-	if err := service.Datastore.AddPendingConfirmation(data.PendingConfirmation{
+	if err := service.Datastore.AddPendingConfirmation(mapServicePendingConfirmationToDataPendingConfirmation(service_model.PendingConfirmation{
 		MessageID: messageID,
 		UserID:    userID,
 		ProblemID: problemID,
-	}); err != nil {
+	})); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 
@@ -134,19 +135,19 @@ func (service *SolutionService) ExistsPendingConfirmation(messageID string) (boo
 }
 
 // GetPendingConfirmationByMessageID retrieves a pending confirmation by message ID
-func (service *SolutionService) GetPendingConfirmationByMessageID(messageID string) (*data.PendingConfirmation, error) {
+func (service *SolutionService) GetPendingConfirmationByMessageID(messageID string) (*service_model.PendingConfirmation, error) {
 	userID, problemID, err := service.Datastore.GetPendingConfirmation(messageID)
 
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrSolution):
-			return &data.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("", err)
+			return &service_model.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("", err)
 		default:
-			return &data.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
+			return &service_model.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
 		}
 	}
 
-	return &data.PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID}, nil
+	return &service_model.PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID}, nil
 }
 
 // AcceptACProposal accepts a pending AC proposal

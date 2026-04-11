@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -379,7 +380,7 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 		name       string
 		classCode  string
 		setupMock  func(*mock_data.MockDataStore)
-		wantResult []data.User
+		wantResult []service_model.User
 		wantErr    bool
 	}{
 		{
@@ -389,7 +390,7 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil)
 			},
-			wantResult: []data.User{{UserID: "u1"}},
+			wantResult: []service_model.User{{UserID: "u1"}},
 			wantErr:    false,
 		},
 		{
@@ -398,7 +399,7 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
-			wantResult: []data.User{},
+			wantResult: []service_model.User{},
 			wantErr:    true,
 		},
 		{
@@ -407,7 +408,7 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
-			wantResult: []data.User{},
+			wantResult: []service_model.User{},
 			wantErr:    true,
 		},
 		{
@@ -417,7 +418,7 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
 			},
-			wantResult: []data.User{},
+			wantResult: []service_model.User{},
 			wantErr:    true,
 		},
 	}

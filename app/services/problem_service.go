@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 var (
@@ -18,10 +19,10 @@ var (
 //go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 // ProblemService defines problem management operations
 type ProblemService interface {
-	CreateProblemIntoClass(params CreateProblemParams) (int64, error)
+	CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error)
 	RemoveProblemFromClass(problemID int64) error
-	UpdateProblemByProblemID(problemID int64, problem data.Problem) error
-	GetProblemsGroupedByTopic(classCode string) ([]ProblemsByTopic, error)
+	UpdateProblemByProblemID(problemID int64, problem service_model.Problem) error
+	GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error)
 }
 
 // problemService handles problem management operations
@@ -34,7 +35,7 @@ func NewProblemService(datastore data.DataStore) ProblemService {
 }
 
 // CreateProblemIntoClass creates a new problem in a class
-func (service *problemService) CreateProblemIntoClass(params CreateProblemParams) (int64, error) {
+func (service *problemService) CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error) {
 	if isClassCodeValid, err := helpers.IsClassCodeValid(service.Datastore, params.ClassCode); err != nil {
 		return 0, err
 	} else if !isClassCodeValid {
@@ -86,14 +87,14 @@ func (service *problemService) RemoveProblemFromClass(problemID int64) error {
 }
 
 // UpdateProblemByProblemID updates a problem's information
-func (service *problemService) UpdateProblemByProblemID(problemID int64, problem data.Problem) error {
+func (service *problemService) UpdateProblemByProblemID(problemID int64, problem service_model.Problem) error {
 	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
 	} else if !isValidProblem {
 		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
-	if err := service.Datastore.UpdateProblemByProblemID(problemID, problem); err != nil {
+	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapServiceProblemToDataProblem(problem)); err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrProblem):
 			// Defensive mapping in case the row disappears between pre-check and update.
@@ -112,10 +113,10 @@ func (service *problemService) UpdateProblemByProblemID(problemID int64, problem
 }
 
 // GetProblemsGroupedByTopic retrieves all problems in a class grouped by topic
-func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]ProblemsByTopic, error) {
+func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error) {
 
 	class, err := service.Datastore.GetClassByClassCode(classCode)
-	emptySlice := []ProblemsByTopic{}
+	emptySlice := []service_model.ProblemsByTopic{}
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrProblem):
@@ -125,16 +126,19 @@ func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]Pr
 		}
 	}
 
-	problems, err := service.Datastore.GetProblemsByClass(class.ID)
+	problemsData, err := service.Datastore.GetProblemsByClass(class.ID)
 	if err != nil {
 		return emptySlice, serviceerr.MakeGeneralError(err)
 	}
 
-	// Sort problems by topic and difficulty
+	// Map data.Problem to Problem
+	problems := mapDataProblemsToServiceProblems(problemsData)
+
+	// Sort problems using helper!
 	helpers.SortProblemsByTopicAndDifficulty(problems)
 
 	// Group problems in map
-	topicMap := make(map[string][]data.Problem)
+	topicMap := make(map[string][]service_model.Problem)
 	var topicOrder []string
 
 	for _, problem := range problems {
@@ -146,9 +150,9 @@ func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]Pr
 	}
 
 	// Convert map to []ProblemsByTopic maintaining order
-	grouped := make([]ProblemsByTopic, 0, len(topicMap))
+	grouped := make([]service_model.ProblemsByTopic, 0, len(topicMap))
 	for _, topic := range topicOrder {
-		grouped = append(grouped, ProblemsByTopic{
+		grouped = append(grouped, service_model.ProblemsByTopic{
 			Topic:    topic,
 			Problems: topicMap[topic],
 		})

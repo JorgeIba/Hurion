@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 var (
@@ -114,21 +115,21 @@ func (service *EnrollmentService) DeregisterUsernameFromClass(userName, classCod
 }
 
 // GetListOfUsersByClassCode retrieves all users enrolled in a class
-func (service *EnrollmentService) GetListOfUsersByClassCode(classCode string) ([]data.User, error) {
+func (service *EnrollmentService) GetListOfUsersByClassCode(classCode string) ([]service_model.User, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
 		case errors.As(err, &dataNotFoundErrEnrollment):
-			return []data.User{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
+			return []service_model.User{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
-			return []data.User{}, serviceerr.MakeGeneralError(err)
+			return []service_model.User{}, serviceerr.MakeGeneralError(err)
 		}
 	}
 
 	users, err := service.Datastore.GetAllUsersByClassID(class.ID)
 	if err != nil {
-		return []data.User{}, serviceerr.MakeGeneralError(err)
+		return []service_model.User{}, serviceerr.MakeGeneralError(err)
 	}
 
-	return users, nil
+	return mapDataUsersToServiceUsers(users), nil
 }

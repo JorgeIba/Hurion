@@ -1,7 +1,5 @@
 package presentation
 
-import "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-
 // CellMetadata contains semantic information about a table cell
 type CellMetadata struct {
 	IsAC          bool
@@ -10,11 +8,26 @@ type CellMetadata struct {
 	IsTotal       bool // True if this cell is part of the totals row
 }
 
+const (
+	DifficultyEasy   = "Easy"
+	DifficultyMedium = "Medium"
+	DifficultyHard   = "Hard"
+)
+
+// Problem represents a problem in the presentation layer
+type Problem struct {
+	ID         int64
+	Name       string
+	URL        string
+	Difficulty string
+	Topic      string
+}
+
 // RowMetadata contains semantic information for a row
 type RowMetadata struct {
 	IsTopicHeader bool
-	IsTotalsRow   bool           // True if this is the totals row (second row in scores sheet)
-	Problem       *data.Problem  // nil for topic headers, contains problem reference for problem rows
+	IsTotalsRow   bool     // True if this is the totals row
+	Problem       *Problem // Presentation-specific problem model
 	CellMetadata  []CellMetadata
 }
 
@@ -29,5 +42,5 @@ type TableScore struct {
 // ProblemsByTopic is a presentation-layer model representing problems grouped by topic.
 type ProblemsByTopic struct {
 	Topic    string
-	Problems []data.Problem
+	Problems []Problem
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"unicode/utf16"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/bwmarrin/discordgo"
 )
@@ -91,7 +90,7 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 
 		// Add problems in this topic
 		for _, problem := range group.Problems {
-			difficultyEmoji := GetDifficultyEmoji(problem.GetDifficulty())
+			difficultyEmoji := GetDifficultyEmoji(problem.Difficulty)
 
 			// Build what we want to add for problem
 			pAddID := fmt.Sprintf("\n%d", problem.ID)
@@ -149,13 +148,13 @@ func truncateProblemName(name, formattedRow string) string {
 }
 
 // GetDifficultyEmoji returns the emoji representation of a problem's difficulty.
-func GetDifficultyEmoji(difficulty data.Difficulty) string {
+func GetDifficultyEmoji(difficulty string) string {
 	switch difficulty {
-	case data.DifficultyEasy:
+	case presentation.DifficultyEasy:
 		return "🟩"
-	case data.DifficultyMedium:
+	case presentation.DifficultyMedium:
 		return "🟨"
-	case data.DifficultyHard:
+	case presentation.DifficultyHard:
 		return "🟥"
 	default:
 		return "⬜"

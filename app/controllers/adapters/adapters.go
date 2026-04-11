@@ -3,18 +3,39 @@ package adapters
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
+
+// ============================================================================
+// Internal Mappers (Private)
+// ============================================================================
+
+func mapServiceProblemToPresentationProblem(p service_model.Problem) presentation.Problem {
+	return presentation.Problem{
+		ID:         p.ID,
+		Name:       p.Name,
+		URL:        p.URL,
+		Difficulty: string(p.GetDifficulty()),
+		Topic:      p.GetTopic(),
+	}
+}
+
+func mapServiceProblemsToPresentationProblems(problems []service_model.Problem) []presentation.Problem {
+	result := make([]presentation.Problem, len(problems))
+	for i, p := range problems {
+		result[i] = mapServiceProblemToPresentationProblem(p)
+	}
+	return result
+}
 
 // ============================================================================
 // Adapters to Excelizer Types
 // ============================================================================
 
-// TransformToExcelizerUsers converts data layer users to excelizer users
-func TransformToExcelizerUsers(users []data.User) []excelizer.User {
+// TransformToExcelizerUsers converts service layer users to excelizer users
+func TransformToExcelizerUsers(users []service_model.User) []excelizer.User {
 	result := make([]excelizer.User, len(users))
 	for i, u := range users {
 		result[i] = excelizer.User{
@@ -26,7 +47,7 @@ func TransformToExcelizerUsers(users []data.User) []excelizer.User {
 }
 
 // TransformToExcelizerProblemsByTopic converts service layer ProblemsByTopic to excelizer ProblemsByTopic
-func TransformToExcelizerProblemsByTopic(problemsByTopic []services.ProblemsByTopic) []excelizer.ProblemsByTopic {
+func TransformToExcelizerProblemsByTopic(problemsByTopic []service_model.ProblemsByTopic) []excelizer.ProblemsByTopic {
 	result := make([]excelizer.ProblemsByTopic, len(problemsByTopic))
 	for i, group := range problemsByTopic {
 		excelizerProblems := make([]excelizer.Problem, len(group.Problems))
@@ -48,12 +69,12 @@ func TransformToExcelizerProblemsByTopic(problemsByTopic []services.ProblemsByTo
 }
 
 // TransformToPresentationProblemsByTopic converts service layer ProblemsByTopic to presentation ProblemsByTopic
-func TransformToPresentationProblemsByTopic(problemsByTopic []services.ProblemsByTopic) []presentation.ProblemsByTopic {
+func TransformToPresentationProblemsByTopic(problemsByTopic []service_model.ProblemsByTopic) []presentation.ProblemsByTopic {
 	result := make([]presentation.ProblemsByTopic, len(problemsByTopic))
 	for i, group := range problemsByTopic {
 		result[i] = presentation.ProblemsByTopic{
 			Topic:    group.Topic,
-			Problems: group.Problems,
+			Problems: mapServiceProblemsToPresentationProblems(group.Problems),
 		}
 	}
 	return result
@@ -64,7 +85,7 @@ func TransformToPresentationProblemsByTopic(problemsByTopic []services.ProblemsB
 // ============================================================================
 
 // Converts a Score struct into a TableScore with semantic metadata
-func ScoreToTableScore(score services.Score) presentation.TableScore {
+func ScoreToTableScore(score service_model.Score) presentation.TableScore {
 	// Build headers: "(ID) Problem \\ Username" followed by usernames
 	headers := []string{"(ID) Problem \\ Username"}
 	for _, entry := range score.UserScores {
@@ -122,7 +143,7 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 			}
 
 			for _, userScore := range score.UserScores {
-				if v, exists := userScore.Problems[problem]; exists && v {
+				if v, exists := userScore.Problems[problem.ID]; exists && v {
 					row = append(row, "AC")
 					cellMetadata = append(cellMetadata, presentation.CellMetadata{
 						IsAC:          true,
@@ -142,11 +163,14 @@ func ScoreToTableScore(score services.Score) presentation.TableScore {
 			}
 			table = append(table, row)
 
+			// Map service problem to presentation problem
+			presProblem := mapServiceProblemToPresentationProblem(problem)
+
 			// Problem row metadata with reference to the problem
 			rowMetadata = append(rowMetadata, presentation.RowMetadata{
 				IsTopicHeader: false,
 				IsTotalsRow:   false,
-				Problem:       &problem, // Reference to problem (can access difficulty, etc.)
+				Problem:       &presProblem,
 				CellMetadata:  cellMetadata,
 			})
 		}

@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -177,7 +178,7 @@ func TestClassService_GetAllClasses(t *testing.T) {
 	tests := []struct {
 		name       string
 		setupMock  func(*mock_data.MockDataStore)
-		wantResult []data.Class
+		wantResult []service_model.Class
 		wantErr    bool
 	}{
 		{
@@ -187,7 +188,7 @@ func TestClassService_GetAllClasses(t *testing.T) {
 					GetAllClasses().
 					Return([]data.Class{{ID: 1, ClassCode: "C1"}}, nil)
 			},
-			wantResult: []data.Class{{ID: 1, ClassCode: "C1"}},
+			wantResult: []service_model.Class{{ID: 1, ClassCode: "C1"}},
 			wantErr:    false,
 		},
 		{

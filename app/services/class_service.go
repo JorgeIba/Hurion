@@ -7,6 +7,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 var (
@@ -57,12 +58,12 @@ func (service *ClassService) DeleteClassByClassCode(classCode string) error {
 }
 
 // GetAllClasses retrieves all classes
-func (service *ClassService) GetAllClasses() ([]data.Class, error) {
+func (service *ClassService) GetAllClasses() ([]service_model.Class, error) {
 	classes, err := service.Datastore.GetAllClasses()
 	if err != nil {
 		return nil, serviceerr.MakeGeneralError(err)
 	}
-	return classes, nil
+	return mapDataClassesToServiceClasses(classes), nil
 }
 
 // GetClassIDByClassCode retrieves the class ID for a given class code
