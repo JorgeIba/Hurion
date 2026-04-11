@@ -16,10 +16,8 @@ func GetDifficultyOrder(difficulty string) int {
 		return 2
 	case service_model.DifficultyHard:
 		return 3
-	case service_model.DifficultyDefault:
-		return 4
 	default:
-		return 5 // Unknown difficulties go last
+		return 4 // Default
 	}
 }
 

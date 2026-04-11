@@ -14,7 +14,7 @@ func TestGetDifficultyOrder(t *testing.T) {
 	assert.Equal(t, 2, GetDifficultyOrder("Medium"))
 	assert.Equal(t, 3, GetDifficultyOrder("Hard"))
 	assert.Equal(t, 4, GetDifficultyOrder(service_model.DifficultyDefault))
-	assert.Equal(t, 5, GetDifficultyOrder("Unknown"))
+	assert.Equal(t, 4, GetDifficultyOrder("Unknown"))
 }
 
 func TestSortProblemsByTopicAndDifficulty(t *testing.T) {
