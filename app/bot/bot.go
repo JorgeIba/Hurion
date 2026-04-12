@@ -2,6 +2,7 @@ package bot
 
 import (
 	"log"
+	"os"
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
@@ -44,7 +45,11 @@ func (bot *Bot) Run() error {
 	bot.dispatcher.Start()
 
 	// Initialize provider and services
-	bot.discordProvider = providers.NewProviderDiscord(dg)
+	bot.discordProvider = providers.NewProviderDiscord(
+		dg,
+		os.Getenv("DISCORD_ADMIN_ROLE_ID"),
+		os.Getenv("DISCORD_MENTOR_ROLE_ID"),
+	)
 	bot.services = services.NewServices(bot.db)
 
 	dg.AddHandler(bot.safeMessageHandler)

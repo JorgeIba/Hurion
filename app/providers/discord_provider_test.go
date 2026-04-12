@@ -2,7 +2,6 @@ package providers
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/bwmarrin/discordgo"
@@ -18,95 +17,157 @@ func (m *MockDiscordSession) GuildMember(guildID, userID string, options ...disc
 }
 
 func TestIsAdmin(t *testing.T) {
-	os.Setenv("DISCORD_ADMIN_ROLE_ID", "admin_role")
-	defer os.Unsetenv("DISCORD_ADMIN_ROLE_ID")
+	t.Parallel()
 
-	t.Run("should return true if user has admin role", func(t *testing.T) {
-		mockSession := &MockDiscordSession{
-			MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
-				return &discordgo.Member{Roles: []string{"admin_role"}}, nil
+	const adminRole = "admin_role"
+
+	tests := []struct {
+		name       string
+		guildID    string
+		userID     string
+		setupMock  func() DiscordGoSession
+		assertFunc func(t *testing.T, result bool, err error)
+	}{
+		{
+			name:    "should return true if user has admin role",
+			guildID: "guild_id",
+			userID:  "user_id",
+			setupMock: func() DiscordGoSession {
+				return &MockDiscordSession{
+					MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
+						return &discordgo.Member{Roles: []string{adminRole}}, nil
+					},
+				}
 			},
-		}
-
-		provider := NewProviderDiscord(mockSession)
-		result, err := provider.IsAdmin("guild_id", "user_id")
-
-		assert.NoError(t, err)
-		assert.True(t, result)
-	})
-
-	t.Run("should return false if user does not have admin role", func(t *testing.T) {
-		mockSession := &MockDiscordSession{
-			MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
-				return &discordgo.Member{Roles: []string{"other_role"}}, nil
+			assertFunc: func(t *testing.T, result bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, result)
 			},
-		}
-
-		provider := NewProviderDiscord(mockSession)
-		result, err := provider.IsAdmin("guild_id", "user_id")
-
-		assert.NoError(t, err)
-		assert.False(t, result)
-	})
-
-	t.Run("should return error if session returns error", func(t *testing.T) {
-		mockSession := &MockDiscordSession{
-			MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
-				return nil, fmt.Errorf("discord error")
+		},
+		{
+			name:    "should return false if user does not have admin role",
+			guildID: "guild_id",
+			userID:  "user_id",
+			setupMock: func() DiscordGoSession {
+				return &MockDiscordSession{
+					MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
+						return &discordgo.Member{Roles: []string{"other_role"}}, nil
+					},
+				}
 			},
-		}
+			assertFunc: func(t *testing.T, result bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, result)
+			},
+		},
+		{
+			name:    "should return error if session returns error",
+			guildID: "guild_id",
+			userID:  "user_id",
+			setupMock: func() DiscordGoSession {
+				return &MockDiscordSession{
+					MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
+						return nil, fmt.Errorf("discord error")
+					},
+				}
+			},
+			assertFunc: func(t *testing.T, result bool, err error) {
+				assert.Error(t, err)
+				assert.False(t, result)
+			},
+		},
+		{
+			name:    "should return error if session is nil",
+			guildID: "guild_id",
+			userID:  "user_id",
+			setupMock: func() DiscordGoSession {
+				return nil
+			},
+			assertFunc: func(t *testing.T, result bool, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "session not configured")
+			},
+		},
+	}
 
-		provider := NewProviderDiscord(mockSession)
-		result, err := provider.IsAdmin("guild_id", "user_id")
-
-		assert.Error(t, err)
-		assert.False(t, result)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			provider := NewProviderDiscord(tt.setupMock(), adminRole, "mentor_role")
+			result, err := provider.IsAdmin(tt.guildID, tt.userID)
+			tt.assertFunc(t, result, err)
+		})
+	}
 }
 
 func TestIsMentor(t *testing.T) {
-	os.Setenv("DISCORD_MENTOR_ROLE_ID", "mentor_role")
-	defer os.Unsetenv("DISCORD_MENTOR_ROLE_ID")
+	t.Parallel()
 
-	t.Run("should return true if user has mentor role", func(t *testing.T) {
-		mockSession := &MockDiscordSession{
-			MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
-				return &discordgo.Member{Roles: []string{"mentor_role"}}, nil
+	const mentorRole = "mentor_role"
+
+	tests := []struct {
+		name       string
+		guildID    string
+		userID     string
+		setupMock  func() DiscordGoSession
+		assertFunc func(t *testing.T, result bool, err error)
+	}{
+		{
+			name:    "should return true if user has mentor role",
+			guildID: "guild_id",
+			userID:  "user_id",
+			setupMock: func() DiscordGoSession {
+				return &MockDiscordSession{
+					MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
+						return &discordgo.Member{Roles: []string{mentorRole}}, nil
+					},
+				}
 			},
-		}
-
-		provider := NewProviderDiscord(mockSession)
-		result, err := provider.IsMentor("guild_id", "user_id")
-
-		assert.NoError(t, err)
-		assert.True(t, result)
-	})
-
-	t.Run("should return false if user does not have mentor role", func(t *testing.T) {
-		mockSession := &MockDiscordSession{
-			MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
-				return &discordgo.Member{Roles: []string{"other_role"}}, nil
+			assertFunc: func(t *testing.T, result bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, result)
 			},
-		}
-
-		provider := NewProviderDiscord(mockSession)
-		result, err := provider.IsMentor("guild_id", "user_id")
-
-		assert.NoError(t, err)
-		assert.False(t, result)
-	})
-
-	t.Run("should return error if session returns error", func(t *testing.T) {
-		mockSession := &MockDiscordSession{
-			MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
-				return nil, fmt.Errorf("discord error")
+		},
+		{
+			name:    "should return false if user does not have mentor role",
+			guildID: "guild_id",
+			userID:  "user_id",
+			setupMock: func() DiscordGoSession {
+				return &MockDiscordSession{
+					MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
+						return &discordgo.Member{Roles: []string{"other_role"}}, nil
+					},
+				}
 			},
-		}
+			assertFunc: func(t *testing.T, result bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, result)
+			},
+		},
+		{
+			name:    "should return error if session returns error",
+			guildID: "guild_id",
+			userID:  "user_id",
+			setupMock: func() DiscordGoSession {
+				return &MockDiscordSession{
+					MockGuildMember: func(guildID, userID string) (*discordgo.Member, error) {
+						return nil, fmt.Errorf("discord error")
+					},
+				}
+			},
+			assertFunc: func(t *testing.T, result bool, err error) {
+				assert.Error(t, err)
+				assert.False(t, result)
+			},
+		},
+	}
 
-		provider := NewProviderDiscord(mockSession)
-		result, err := provider.IsMentor("guild_id", "user_id")
-
-		assert.Error(t, err)
-		assert.False(t, result)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			provider := NewProviderDiscord(tt.setupMock(), "admin_role", mentorRole)
+			result, err := provider.IsMentor(tt.guildID, tt.userID)
+			tt.assertFunc(t, result, err)
+		})
+	}
 }
