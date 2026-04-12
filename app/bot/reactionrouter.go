@@ -76,6 +76,7 @@ func handleConfirmationYes(c *context.ContextMessage) {
 		Session:          c.Session,
 		Message:          &discordgo.MessageCreate{Message: originalMsg},
 		DiscordValidator: c.DiscordValidator,
+		DiscordFetcher:   c.DiscordFetcher,
 		Services:         c.Services,
 		Dispatcher:       c.Dispatcher,
 		Args:             args,

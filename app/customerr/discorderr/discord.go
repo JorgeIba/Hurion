@@ -1,35 +1,35 @@
-package validatorerr
+package discorderr
 
 import "fmt"
 
-type ValidatorError struct {
+type DiscordError struct {
 	Code         int
 	Message      string
 	WrappedError error
 }
 
-func (e *ValidatorError) Error() string {
+func (e *DiscordError) Error() string {
 	if e.WrappedError != nil {
-		return fmt.Sprintf("Validator error: (code %d) %s: %v", e.Code, e.Message, e.WrappedError)
+		return fmt.Sprintf("Discord error: (code %d) %s: %v", e.Code, e.Message, e.WrappedError)
 	}
-	return fmt.Sprintf("Validator error: (code %d) %s", e.Code, e.Message)
+	return fmt.Sprintf("Discord error: (code %d) %s", e.Code, e.Message)
 }
 
-func (e *ValidatorError) Unwrap() error {
+func (e *DiscordError) Unwrap() error {
 	return e.WrappedError
 }
 
 type InternalError struct {
-	*ValidatorError
+	*DiscordError
 }
 
 type NotFoundError struct {
-	*ValidatorError
+	*DiscordError
 }
 
 func NewInternalError(message string, original error) *InternalError {
 	return &InternalError{
-		ValidatorError: &ValidatorError{
+		DiscordError: &DiscordError{
 			Code:         500,
 			Message:      message,
 			WrappedError: original,
@@ -39,8 +39,8 @@ func NewInternalError(message string, original error) *InternalError {
 
 func NewNotFoundError(message string, original error) *NotFoundError {
 	return &NotFoundError{
-		ValidatorError: &ValidatorError{
-			Code:         500,
+		DiscordError: &DiscordError{
+			Code:         404,
 			Message:      message,
 			WrappedError: original,
 		},
