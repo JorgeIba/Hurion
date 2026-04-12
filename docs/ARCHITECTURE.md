@@ -11,13 +11,13 @@ The bot follows a clean **layered architecture** with clear separation of concer
 | **Reaction Router** | Handles emoji reactions for AC approvals and confirmation flows. | `bot/reactionrouter.go` |
 | **Controllers** | Orchestrate permission checks, call services, and format Discord responses. Organized by role: `admin/`, `enrolled/`, `general/`, `mentor/`. | `controllers/` |
 | **Adapters** | Transform data between layers (service models → presentation models). | `controllers/adapters/` |
-| **Validators** | Verify Discord roles (`DiscordValidator`). | `validators/` |
+| **Providers** | Verify Discord roles and interact with External APIs (`DiscordProvider`). | `providers/` |
 | **Services** | Business logic layer. Six services: `UserService`, `EnrollmentService`, `ClassService`, `ProblemService`, `SolutionService`, `ScoreService`. | `services/` |
 | **Data (Repository)** | Framework-agnostic database operations via the `DataStore` interface. | `data/` |
 | **Presentation** | Rendering layer: generates score images (`image/`) and Excel exports (`excelizer/`). | `presentation/` |
 | **Dispatcher** | Buffered, async message queue that handles sending all Discord responses (simple messages, embeds, reactions, files, paginated embeds, confirmation messages). | `dispatcher/` |
 | **Logger** | Structured logging via `logrus`. | `logger/` |
-| **Custom Errors** | Typed errors per layer: `dataerr`, `serviceerr`, `validatorerr`, `controllerserr`, `presentationerr`. | `customerr/` |
+| **Custom Errors** | Typed errors per layer: `dataerr`, `serviceerr`, `discorderr`, `controllerserr`, `presentationerr`. | `customerr/` |
 
 ---
 
@@ -38,8 +38,8 @@ graph TB
         GeneralCtrl[General Controller]
     end
 
-    subgraph ValidationLayer["Validation Layer"]
-        DiscordValidator[Discord Role Validator]
+    subgraph ProviderLayer["Provider Layer"]
+        DiscordProvider[Discord Provider]
     end
 
     subgraph ServiceLayer["Service Layer"]
@@ -68,7 +68,7 @@ graph TB
 
     %% Flow between layers
     BotLayer --> ControllerLayer
-    ControllerLayer --> ValidationLayer
+    ControllerLayer --> ProviderLayer
     ControllerLayer --> ServiceLayer
     ControllerLayer --> PresentationLayer
     ServiceLayer --> DataLayer

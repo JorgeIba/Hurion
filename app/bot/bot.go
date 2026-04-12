@@ -2,33 +2,34 @@ package bot
 
 import (
 	"log"
+	"os"
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/validators"
 	"github.com/bwmarrin/discordgo"
 )
 
 type Bot struct {
-	botToken         string
-	db               *data.DB
-	dispatcher       *dispatcher.Dispatcher
-	discordValidator validators.DiscordValidator
-	services         *services.Services
-	session          *discordgo.Session
+	botToken        string
+	db              *data.DB
+	dispatcher      *dispatcher.Dispatcher
+	discordProvider providers.DiscordProvider
+	services        *services.Services
+	session         *discordgo.Session
 }
 
 func CreateBot(botToken string, db *data.DB) (*Bot, error) {
 	return &Bot{
-		botToken:         botToken,
-		db:               db,
-		dispatcher:       nil,
-		discordValidator: nil,
-		services:         nil,
+		botToken:        botToken,
+		db:              db,
+		dispatcher:      nil,
+		discordProvider: nil,
+		services:        nil,
 	}, nil
 }
 
@@ -43,8 +44,12 @@ func (bot *Bot) Run() error {
 	bot.dispatcher = dispatcher.NewDispatcher(dg, bufferSize)
 	bot.dispatcher.Start()
 
-	// Initialize validator and services
-	bot.discordValidator = validators.NewValidatorDiscord(dg)
+	// Initialize provider and services
+	bot.discordProvider = providers.NewProviderDiscord(
+		dg,
+		os.Getenv("DISCORD_ADMIN_ROLE_ID"),
+		os.Getenv("DISCORD_MENTOR_ROLE_ID"),
+	)
 	bot.services = services.NewServices(bot.db)
 
 	dg.AddHandler(bot.safeMessageHandler)
@@ -100,7 +105,8 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	context := &context.ContextMessage{
 		Session:          s,
 		Message:          m,
-		DiscordValidator: bot.discordValidator,
+		DiscordValidator: bot.discordProvider,
+		DiscordFetcher:   bot.discordProvider,
 		Args:             args,
 		Services:         bot.services,
 		Dispatcher:       bot.dispatcher,
@@ -134,7 +140,8 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 	context := &context.ContextMessage{
 		Session:          s,
 		MessageReaction:  r,
-		DiscordValidator: bot.discordValidator,
+		DiscordValidator: bot.discordProvider,
+		DiscordFetcher:   bot.discordProvider,
 		Services:         bot.services,
 		Dispatcher:       bot.dispatcher,
 		ExecutorUserID:   r.UserID,  // Who is executing
