@@ -122,8 +122,12 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		})
 
 		if err == nil {
-			d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_UP)
-			d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_DOWN)
+			if err := d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_UP); err != nil {
+				logger.Log.Errorf("Error adding thumbs up reaction to message %s: %v\n", sentMsg.ID, err)
+			}
+			if err := d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_DOWN); err != nil {
+				logger.Log.Errorf("Error adding thumbs down reaction to message %s: %v\n", sentMsg.ID, err)
+			}
 		} else {
 			logger.Log.Errorf("Error sending confirmation message to channel %s: %v\n", msg.ChannelID, err)
 		}

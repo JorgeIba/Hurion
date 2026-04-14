@@ -36,7 +36,13 @@ func HandleRegisterUser(c *context.ContextMessage) {
 	}
 
 	userParam, classCode := c.Args[1], c.Args[2]
-	userID := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
 
 	if err := c.Services.Enrollment.RegisterUserIDIntoClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
@@ -70,7 +76,13 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 	}
 
 	userParam, classCode := c.Args[1], c.Args[2]
-	userID := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return fmt.Errorf("invalid user parameter")
+	}
 
 	if err := c.Services.Enrollment.DeregisterUserIDFromClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
@@ -182,7 +194,13 @@ func HandleAddAC(c *context.ContextMessage) {
 	}
 
 	userParam, problemIDs := c.Args[1], c.Args[2]
-	userID := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
 
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
@@ -231,7 +249,13 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	userParam, problemIDs := c.Args[1], c.Args[2]
-	userID := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
 
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {

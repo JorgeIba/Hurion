@@ -64,4 +64,4 @@ Available to users with the Admin Discord role.
 
 ---
 
-> ℹ️ **Note on User Parameters**: While documentation uses `<@user>` (Discord mentions), the bot also supports raw numeric Discord IDs for all commands that take a user as a parameter. This is useful for administrative tasks or when a user is not easily mentionable.
+> ℹ️ **Note on User Parameters**: While documentation uses `<@user>`, the bot supports all Discord mention formats (including `<@userID>` and `<@!userID>`) as well as raw numeric Discord IDs for all commands that take a user as a parameter. This is useful for administrative tasks or when a user is not easily mentionable.

@@ -126,7 +126,13 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	classCode, userParam := c.Args[1], c.Args[2]
 
-	userID := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
 
 	score, err := c.Services.Score.GetNeighborsScoreForUserID(userID, classCode)
 	if err != nil {
@@ -164,7 +170,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		Color: 0x00bfff,
 	}
 
-	logger.Log.Infof("Score of %s in class %s", userID, classCode)
+	logger.Log.Debugf("Score of %s in class %s", userID, classCode)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
@@ -196,7 +202,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 		Color:       0x00ffcc,
 	}
 
-	logger.Log.Infof("Users in class %s\n%s", classCode, stringBuilder.String())
+	logger.Log.Debugf("Users in class %s\n%s", classCode, stringBuilder.String())
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
 			Type:      dispatcher.EmbedMessage,
@@ -337,7 +343,13 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 func HandleGetClassesOfUser(c *context.ContextMessage) {
 	userParam := c.Args[1]
 
-	userID := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
 
 	classes, err := c.Services.User.GetClassesByUserID(userID)
 	if err != nil {

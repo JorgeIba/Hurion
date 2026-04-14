@@ -96,7 +96,13 @@ func HandleExterminate(c *context.ContextMessage) error {
 	}
 
 	mention := c.Args[1]
-	userID := controllers_common.ResolveUserID(mention)
+	userID, ok := controllers_common.ResolveUserID(mention)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", mention)),
+		)
+		return nil
+	}
 
 	if err := c.Services.User.ExterminateUser(userID); err != nil {
 		logger.Log.Error(err)
