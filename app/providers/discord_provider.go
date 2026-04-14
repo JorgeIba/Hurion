@@ -12,6 +12,7 @@ type DiscordGoSession interface {
 }
 
 // DiscordValidator focuses on permission checks.
+//
 //go:generate go tool mockgen -destination=mock_providers/mock_validator.go -package=mock_providers . DiscordValidator
 type DiscordValidator interface {
 	IsAdmin(guildID, userID string) (bool, error)
@@ -19,12 +20,13 @@ type DiscordValidator interface {
 }
 
 // DiscordFetcher focuses on data retrieval from Discord.
+//
 //go:generate go tool mockgen -destination=mock_providers/mock_fetcher.go -package=mock_providers . DiscordFetcher
 type DiscordFetcher interface {
 	// Future methods like FetchNicknames go here
 }
 
-// DiscordProvider combines all Discord-related capabilities.
+// DiscordProvider combines Discord-related capabilities.
 type DiscordProvider interface {
 	DiscordValidator
 	DiscordFetcher
@@ -58,12 +60,12 @@ func (provider *discordProvider) hasRole(args hasRoleArgs) (bool, error) {
 	if args.roleID == "" {
 		return false, discorderr.NewInternalError("role ID is not configured", fmt.Errorf("empty role ID"))
 	}
-	
+
 	member, err := provider.session.GuildMember(args.guildID, args.userID)
 	if err != nil {
 		return false, discorderr.NewInternalError("could not get member", err)
 	}
-	
+
 	for _, role := range member.Roles {
 		if role == args.roleID {
 			return true, nil

@@ -7,15 +7,17 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
 
 func HandleDeregisterUser(c *context.ContextMessage) error {
 	classCode := c.Args[1]
-	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
+	userID := c.Message.Author.ID
+	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
 
-	if err := c.Services.Enrollment.DeregisterUserIDFromClass(discordID, classCode); err != nil {
+	if err := c.Services.Enrollment.DeregisterUserIDFromClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -45,9 +47,11 @@ func HandleProposeAC(c *context.ContextMessage) {
 		return
 	}
 
-	messageID, discordID, discordNickname := c.Message.ID, c.Message.Author.ID, c.Message.Author.GlobalName
+	messageID := c.Message.ID
+	userID := c.Message.Author.ID
+	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
 
-	if err = c.Services.Solution.AddPendingACOfUserID(messageID, discordID, problemID); err != nil {
+	if err := c.Services.Solution.AddPendingACOfUserID(messageID, userID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -57,7 +61,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Info("Adding reactions...")
+	logger.Log.Infof("Proposing AC: user %s, problem %d", userID, problemID)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
 			Type:      dispatcher.Reaction,
@@ -70,6 +74,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 
 func HandleUndoAC(c *context.ContextMessage) {
 	problemIDs := c.Args[1]
+
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
@@ -79,9 +84,10 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
+	userID := c.Message.Author.ID
+	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
 
-	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, discordID); err != nil {
+	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, userID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

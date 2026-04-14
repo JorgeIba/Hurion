@@ -11,48 +11,40 @@ import (
 
 var testConfig *DBConfig = &DBConfig{DBPath: ":memory:", DBType: Test}
 
-// Bind
-func TestBindUser_NewUser(t *testing.T) {
+// Ensure user
+func TestEnsureUser_NewUser(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
 	const userID = "12345"
-	const nameQuery = "Jorge"
-	const nameExpected = "Jorge"
 
-	err = db.BindUser(User{UserID: userID, UserName: nameQuery})
+	err = db.EnsureUser(userID)
 	assert.NoError(t, err, "Error inserting")
 
-	var userName string
-	err = db.conn.QueryRow("SELECT user_name FROM users WHERE user_id = ?", userID).Scan(&userName)
+	var dbUserID string
+	err = db.conn.QueryRow("SELECT user_id FROM users WHERE user_id = ?", userID).Scan(&dbUserID)
 	assert.NoError(t, err, "User not found")
-	assert.Equal(t, nameExpected, userName, "Username doesn't match")
+	assert.Equal(t, userID, dbUserID, "UserID doesn't match")
 }
 
-func TestBindUser_UpdateUser(t *testing.T) {
+func TestEnsureUser_ExistingUser(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
 	defer db.CloseDB()
 
 	const userID = "12345"
-	const nameFirst = "Jorge"
-	const nameUpdated = "JorgeLuis"
-	const nameExpected = "JorgeLuis"
 
-	// Create a new entry
-	err = db.BindUser(User{UserID: userID, UserName: nameFirst})
+	err = db.EnsureUser(userID)
 	assert.NoError(t, err, "Error inserting")
 
-	// Update entry
-	err = db.BindUser(User{UserID: userID, UserName: nameUpdated})
-	assert.NoError(t, err, "Error updating")
+	err = db.EnsureUser(userID)
+	assert.NoError(t, err, "Error ensuring existing user")
 
-	// Verify
-	var userName string
-	err = db.conn.QueryRow("SELECT user_name FROM users WHERE user_id = ?", userID).Scan(&userName)
-	assert.NoError(t, err, "User not found")
-	assert.Equal(t, nameExpected, userName, "Username doesn't match")
+	var count int
+	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", userID).Scan(&count)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count, "Only one user row should exist")
 }
 
 // Register
@@ -62,14 +54,12 @@ func TestRegisterUserIntoClass_NewUser(t *testing.T) {
 	defer db.CloseDB()
 
 	const userID = "12345"
-	const userName = "Jorge"
-
 	// Preconditions
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
 	assert.NoError(t, err, "Could not insert class")
 
-	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
-	assert.NoError(t, err, "Could not insert class")
+	err = db.EnsureUser(userID)
+	assert.NoError(t, err, "Could not ensure user")
 
 	classID, _ := response.LastInsertId()
 
@@ -91,14 +81,12 @@ func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
 	defer db.CloseDB()
 
 	const userID = "12345"
-	const userName = "Jorge"
-
 	// Preconditions
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
 	assert.NoError(t, err, "Could not insert class")
 
-	_, err = db.conn.Exec("INSERT INTO users (user_id, user_name) VALUES (?, ?)", userID, userName)
-	assert.NoError(t, err, "Could not insert class")
+	err = db.EnsureUser(userID)
+	assert.NoError(t, err, "Could not ensure user")
 
 	classID, _ := response.LastInsertId()
 
@@ -131,7 +119,7 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", classID, "CS101", "Intro to CS")
 	assert.NoError(t, err)
 
-	err = db.BindUser(User{UserID: userID, UserName: "testuser"})
+	err = db.EnsureUser(userID)
 	assert.NoError(t, err)
 
 	problemID, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: classID})
@@ -218,32 +206,6 @@ func TestAddProblem_New(t *testing.T) {
 	assert.Equal(t, "Sorting", *problem.Topic)
 }
 
-// Remove problem
-func RemoveProblemByNameAndClassID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const problemName = "Sorting Algorithms"
-
-	// Precondition
-	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
-	assert.NoError(t, err)
-	classID, err := classResult.LastInsertId()
-	assert.NoError(t, err)
-
-	// Add a problem
-	problemID, err := db.AddProblem(Problem{Name: problemName, URL: "url", ClassID: classID})
-	assert.NoError(t, err)
-	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
-
-	// Remove the problem
-	rowsAffected, err := db.RemoveProblemByNameAndClassID(problemName, classID)
-	assert.NoError(t, err)
-
-	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
-}
-
 func TestRemoveProblemByID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -258,7 +220,7 @@ func TestRemoveProblemByID(t *testing.T) {
 	classID, err := classResult.LastInsertId()
 	assert.NoError(t, err)
 
-	err = db.BindUser(User{UserID: userID, UserName: "testuser"})
+	err = db.EnsureUser(userID)
 	assert.NoError(t, err)
 
 	// Add a problem
@@ -284,62 +246,6 @@ func TestRemoveProblemByID(t *testing.T) {
 
 	// Act: Remove the problem
 	rowsAffected, err := db.RemoveProblemByID(problemID)
-	assert.NoError(t, err)
-	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
-
-	// Verify: Problem and all related data should be deleted
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "Problem should be deleted")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "ACs should be deleted")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "Pending confirmations should be deleted")
-}
-
-func TestRemoveProblemByNameAndClassID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const problemName = "Graph Algorithms"
-	const userID = "user456"
-
-	// Preconditions: Create class, user, problem
-	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('avanzados', 'Avanzados 2025')`)
-	assert.NoError(t, err)
-	classID, err := classResult.LastInsertId()
-	assert.NoError(t, err)
-
-	err = db.BindUser(User{UserID: userID, UserName: "testuser2"})
-	assert.NoError(t, err)
-
-	// Add a problem
-	problemID, err := db.AddProblem(Problem{Name: problemName, URL: "url", ClassID: classID})
-	assert.NoError(t, err)
-
-	// Add AC and pending confirmation
-	err = db.AddAC(userID, problemID)
-	assert.NoError(t, err)
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg999", UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err)
-
-	// Verify data exists before deletion
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "AC should exist")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "Pending confirmation should exist")
-
-	// Act: Remove the problem by name and class ID
-	rowsAffected, err := db.RemoveProblemByNameAndClassID(problemName, classID)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
 
@@ -563,12 +469,12 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 
 	user1 := User{
 		UserID:   "user1",
-		UserName: "name1",
+		UserName: "user1",
 	}
 
 	user2 := User{
 		UserID:   "user2",
-		UserName: "name2",
+		UserName: "user2",
 	}
 
 	var updates = []struct {
@@ -585,10 +491,10 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 		{userID: user2.UserID, problemID: problemID3},
 	}
 
-	err = db.BindUser(user1)
+	err = db.EnsureUser(user1.UserID)
 	assert.NoError(t, err)
 
-	err = db.BindUser(user2)
+	err = db.EnsureUser(user2.UserID)
 	assert.NoError(t, err)
 
 	for _, update := range updates {
@@ -622,7 +528,7 @@ func TestClearClass(t *testing.T) {
 	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", 1, "CS101", "Intro to CS")
 	assert.NoError(t, err)
 
-	err = db.BindUser(User{UserID: "user1", UserName: "testuser1"})
+	err = db.EnsureUser("user1")
 	assert.NoError(t, err)
 
 	_, err = db.conn.Exec("INSERT INTO problems (id, name, class_id) VALUES (?, ?, ?)", 1, "Problem 1", 1)
@@ -693,28 +599,15 @@ func TestGetUserByUserID(t *testing.T) {
 	defer db.CloseDB()
 
 	const userID = "123"
-	const userName = "Jorge"
-
 	// Preconditions
-	err = db.BindUser(User{UserID: userID, UserName: userName})
+	err = db.EnsureUser(userID)
 	assert.NoError(t, err, "Could not insert user")
 
 	// Test
 	user, err := db.GetUserByUserID(userID)
 	assert.NoError(t, err, "Expected no error, but got: ")
 	assert.Equal(t, userID, user.UserID, "UserID doesn't match")
-	assert.Equal(t, userName, user.UserName, "UserName doesn't match")
-}
-
-func TestGetUserByUserName_NotFound(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	// Test
-	_, err = db.GetUserByUserName("NONEXISTENT")
-	assert.Error(t, err, "Expected error, but got nil")
-	assert.IsType(t, &dataerr.NotFoundError{}, err, "Expected NotFoundError")
+	assert.Equal(t, userID, user.UserName, "UserName should mirror userID")
 }
 
 func TestGetClassByClassCode_Success(t *testing.T) {
@@ -748,39 +641,6 @@ func TestGetClassByClassCode_NotFound(t *testing.T) {
 
 	// Verify
 	assert.Contains(t, err.Error(), "class with code UNKNOWN not found")
-}
-
-func TestGetClassByClassID_Success(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const classCode = "basicos"
-	const className = "Basicos 2024"
-
-	// Act
-	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
-	assert.NoError(t, err)
-
-	// Verify
-	class, err := db.GetClassByClassID(classID)
-	assert.NoError(t, err)
-	assert.Equal(t, classID, class.ID)
-	assert.Equal(t, classCode, class.ClassCode)
-	assert.Equal(t, className, class.Name)
-}
-
-func TestGetClassByClassID_NotFound(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	// Act
-	_, err = db.GetClassByClassID(999999)
-	assert.Error(t, err)
-
-	// Verify
-	assert.Contains(t, err.Error(), "class with id 999999 not found")
 }
 
 func TestAddPendingConfirmation(t *testing.T) {
@@ -946,34 +806,6 @@ func TestIsUserRegisteredInClass_NotEnrolled(t *testing.T) {
 	assert.False(t, enrolled, "User should NOT be enrolled in the class")
 }
 
-func TestIsUserBinded_Yes(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "user123"
-
-	// Precondition:
-	db.BindUser(User{UserID: userID, UserName: "Jorge"})
-	assert.NoError(t, err, "Should insert enrollment without error")
-
-	// Act
-	binded, err := db.IsUserBinded(userID)
-	assert.NoError(t, err, "Should check binding without error")
-	assert.True(t, binded, "User should have binded some username")
-}
-
-func TestIsUserBinded_No(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	// Act
-	binded, err := db.IsUserBinded("123")
-	assert.NoError(t, err, "Should check binding without error")
-	assert.False(t, binded, "User should have binded some username")
-}
-
 func TestGetClassNameByClassID(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -983,11 +815,11 @@ func TestGetClassNameByClassID(t *testing.T) {
 	const className = "Basicos 2025"
 
 	// Preconditions
-	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
+	_, err = db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
 	// Act
-	classNameResponse, err := db.GetClassByClassID(classID)
+	classNameResponse, err := db.GetClassByClassCode(classCode)
 	assert.NoError(t, err)
 	assert.Equal(t, classNameResponse.Name, className)
 	assert.Equal(t, classNameResponse.ClassCode, classCode)
@@ -1063,15 +895,15 @@ func TestGetAllUsersByClassID(t *testing.T) {
 	users := []User{
 		{
 			UserID:   "1",
-			UserName: "Jorge",
+			UserName: "1",
 		},
 		{
 			UserID:   "2",
-			UserName: "Luis",
+			UserName: "2",
 		},
 		{
 			UserID:   "3",
-			UserName: "Ibanez",
+			UserName: "3",
 		},
 	}
 
@@ -1080,7 +912,7 @@ func TestGetAllUsersByClassID(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, user := range users {
-		err = db.BindUser(user)
+		err = db.EnsureUser(user.UserID)
 		assert.NoError(t, err)
 		err = db.RegisterUserIntoClass(user.UserID, classID)
 		assert.NoError(t, err)
@@ -1263,8 +1095,8 @@ func TestHasUserSolvedProblem_ReturnsTrue(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	user := User{UserID: "user123", UserName: "TestUser"}
-	err = db.BindUser(user)
+	user := User{UserID: "user123", UserName: "user123"}
+	err = db.EnsureUser(user.UserID)
 	assert.NoError(t, err)
 
 	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
@@ -1290,8 +1122,8 @@ func TestHasUserSolvedProblem_ReturnsFalse(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	user := User{UserID: "user123", UserName: "TestUser"}
-	err = db.BindUser(user)
+	user := User{UserID: "user123", UserName: "user123"}
+	err = db.EnsureUser(user.UserID)
 	assert.NoError(t, err)
 
 	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
@@ -1308,120 +1140,6 @@ func TestHasUserSolvedProblem_ReturnsFalse(t *testing.T) {
 	assert.False(t, solved)
 }
 
-// IsUsernameAvailable
-func TestIsUsernameAvailable_AvailableUsername(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-	const userName = "jorge_test"
-	const availableUsername = "maria_test"
-
-	// Preconditions
-	err = db.BindUser(User{UserID: userID, UserName: userName})
-	assert.NoError(t, err)
-
-	// Act
-	isAvailable, err := db.IsUsernameAvailable(availableUsername, userID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.True(t, isAvailable, "Username should be available")
-}
-
-func TestIsUsernameAvailable_TakenUsername(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID1 = "12345"
-	const userID2 = "67890"
-	const userName = "jorge_test"
-
-	// Preconditions
-	err = db.BindUser(User{UserID: userID1, UserName: userName})
-	assert.NoError(t, err)
-
-	// Act
-	isAvailable, err := db.IsUsernameAvailable(userName, userID2)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.False(t, isAvailable, "Username should not be available")
-}
-
-func TestIsUsernameAvailable_SameUserCanKeepUsername(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-	const userName = "jorge_test"
-
-	// Preconditions
-	err = db.BindUser(User{UserID: userID, UserName: userName})
-	assert.NoError(t, err)
-
-	// Act
-	isAvailable, err := db.IsUsernameAvailable(userName, userID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.True(t, isAvailable, "User should be able to keep their own username")
-}
-
-func TestIsUsernameAvailable_EmptyDatabase(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-	const userName = "jorge_test"
-
-	// Act
-	isAvailable, err := db.IsUsernameAvailable(userName, userID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.True(t, isAvailable, "Username should be available in empty database")
-}
-
-func TestHasUsernameBound_UserWithUsername(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-	const userName = "jorge_test"
-
-	// Preconditions
-	err = db.BindUser(User{UserID: userID, UserName: userName})
-	assert.NoError(t, err)
-
-	// Act
-	hasBound, err := db.HasUsernameBound(userID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.True(t, hasBound, "User should have username bound")
-}
-
-func TestHasUsernameBound_UserWithoutUsername(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-
-	// Act
-	hasBound, err := db.HasUsernameBound(userID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.False(t, hasBound, "User should not have username bound")
-}
-
 func TestExterminateUser_CompleteRemoval(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -1434,7 +1152,7 @@ func TestExterminateUser_CompleteRemoval(t *testing.T) {
 	classID, err := db.CreateClass(Class{ClassCode: "test_class", Name: "Test Class"})
 	assert.NoError(t, err)
 
-	err = db.BindUser(User{UserID: userID, UserName: userName})
+	err = db.EnsureUser(userID)
 	assert.NoError(t, err)
 
 	err = db.RegisterUserIntoClass(userID, classID)
@@ -1504,7 +1222,7 @@ func TestExterminateUser_MultipleUsers(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, user := range users {
-		err = db.BindUser(user)
+		err = db.EnsureUser(user.UserID)
 		assert.NoError(t, err)
 		err = db.RegisterUserIntoClass(user.UserID, classID)
 		assert.NoError(t, err)

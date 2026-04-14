@@ -3,13 +3,9 @@ package data
 type QueryDatastore interface {
 	GetProblemsByClass(classID int64) ([]Problem, error)
 	GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error)
-	GetUserByUserName(userName string) (User, error)
 	GetUserByUserID(userID string) (User, error)
 	GetClassByClassCode(classCode string) (Class, error)
-	IsUserBinded(userID string) (bool, error)
-	HasUsernameBound(userID string) (bool, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
-	IsUsernameAvailable(userName string, excludeUserID string) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
 	ExistsPendingConfirmation(messageID string) (bool, error)
 	GetProblemByID(problemID int64) (Problem, error)
@@ -20,7 +16,7 @@ type QueryDatastore interface {
 }
 
 type UpdateDataStore interface {
-	BindUser(user User) error
+	EnsureUser(userID string) error
 	RegisterUserIntoClass(userID string, classID int64) error
 	DeregisterUserFromClass(userID string, classID int64) error
 	AddProblem(problem Problem) (int64, error)

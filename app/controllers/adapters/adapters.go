@@ -40,7 +40,7 @@ func TransformToExcelizerUsers(users []service_model.User) []excelizer.User {
 	for i, u := range users {
 		result[i] = excelizer.User{
 			ID:   u.UserID,
-			Name: u.UserName,
+			Name: u.UserID,
 		}
 	}
 	return result
@@ -84,12 +84,12 @@ func TransformToPresentationProblemsByTopic(problemsByTopic []service_model.Prob
 // Adapters to Presentation Layer (TableScore)
 // ============================================================================
 
-// Converts a Score struct into a TableScore with semantic metadata
+// ScoreToTableScore converts a Score struct into a TableScore with semantic metadata
 func ScoreToTableScore(score service_model.Score) presentation.TableScore {
-	// Build headers: "(ID) Problem \\ Username" followed by usernames
-	headers := []string{"(ID) Problem \\ Username"}
+	// Build headers: "(ID) Problem \\ User ID" followed by user IDs
+	headers := []string{"(ID) Problem \\ User ID"}
 	for _, entry := range score.UserScores {
-		headers = append(headers, entry.User.UserName)
+		headers = append(headers, entry.User.UserID)
 	}
 
 	var table [][]string

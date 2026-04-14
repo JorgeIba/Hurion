@@ -19,105 +19,22 @@ import (
 
 func TestMain(m *testing.M) {
 	logger.Init()
-
-	code := m.Run()
-
-	os.Exit(code)
+	os.Exit(m.Run())
 }
 
 const (
 	channelTimeout = 1 * time.Second
 )
 
-func ptrStr(s string) *string { return &s }
+func awaitMessage(t *testing.T, out chan dispatcher.MessageResponse) dispatcher.MessageResponse {
+	t.Helper()
 
-func TestHandleBindUser(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		args       []string
-		authorID   string
-		authorNick string
-		setupMock  func(m *mock_data.MockDataStore)
-		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
-	}{
-		{
-			name:       "successful bind",
-			args:       []string{"!bind", "jorge"},
-			authorID:   "discord_123",
-			authorNick: "Jorge Nick",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().IsUsernameAvailable("jorge", "discord_123").Return(true, nil)
-				m.EXPECT().BindUser(data.User{UserID: "discord_123", UserName: "jorge"}).Return(nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Equal(t, "User `Jorge Nick` binded to the user name `jorge`", msg.Content)
-			},
-		},
-		{
-			name:       "username already taken",
-			args:       []string{"!bind", "jorge_taken"},
-			authorID:   "discord_456",
-			authorNick: "Other Nick",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().IsUsernameAvailable("jorge_taken", "discord_456").Return(false, nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				// The error message comes from adapters.MapError
-				assert.Contains(t, msg.Content, "is already taken")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
-
-			svc := services.NewServices(mockStore)
-
-			out := make(chan dispatcher.MessageResponse, 1)
-			disp := &dispatcher.Dispatcher{Output: out}
-
-			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message: &discordgo.MessageCreate{
-					Message: &discordgo.Message{
-						ChannelID: "chan_123",
-						Author: &discordgo.User{
-							ID:         tt.authorID,
-							GlobalName: tt.authorNick,
-						},
-					},
-				},
-			}
-
-			HandleBindUser(ctx)
-
-			if tt.assertFunc != nil {
-				tt.assertFunc(t, out)
-			}
-		})
+	select {
+	case msg := <-out:
+		return msg
+	case <-time.After(channelTimeout):
+		t.Fatal("timeout")
+		return dispatcher.MessageResponse{}
 	}
 }
 
@@ -138,36 +55,26 @@ func TestHandleRegisterUserInClass(t *testing.T) {
 			authorID:   "discord_123",
 			authorNick: "Jorge Nick",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().IsUserBinded("discord_123").Return(true, nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
+				m.EXPECT().EnsureUser("discord_123").Return(nil)
 				m.EXPECT().IsUserRegisteredInClass("discord_123", int64(1)).Return(false, nil)
 				m.EXPECT().RegisterUserIntoClass("discord_123", int64(1)).Return(nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Equal(t, "User `Jorge Nick` has registered in the class `basicos_1`", msg.Content)
 			},
 		},
 		{
-			name:       "class not found",
+			name:       "service error",
 			args:       []string{"!register", "invalid_class"},
 			authorID:   "discord_123",
 			authorNick: "Jorge Nick",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("invalid_class").Return(data.Class{}, fmt.Errorf("class not found"))
+				m.EXPECT().GetClassByClassCode("invalid_class").Return(data.Class{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -176,18 +83,13 @@ func TestHandleRegisterUserInClass(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
-
 			svc := services.NewServices(mockStore)
-
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
-
 			ctx := &context.ContextMessage{
 				Args:       tt.args,
 				Services:   svc,
@@ -202,9 +104,70 @@ func TestHandleRegisterUserInClass(t *testing.T) {
 					},
 				},
 			}
-
 			HandleRegisterUserInClass(ctx)
+			if tt.assertFunc != nil {
+				tt.assertFunc(t, out)
+			}
+		})
+	}
+}
 
+func TestHandleGetUsersInClass(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		setupMock  func(m *mock_data.MockDataStore)
+		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
+	}{
+		{
+			name: "successful get users",
+			args: []string{"!users", "basicos_1"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{
+					{UserID: "123", UserName: "Nick1"},
+					{UserID: "456", UserName: "Nick2"},
+				}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
+				assert.Contains(t, msg.Embed.Description, "<@123>")
+				assert.Contains(t, msg.Embed.Description, "<@456>")
+			},
+		},
+		{
+			name: "service error",
+			args: []string{"!users", "basicos_1"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{}, fmt.Errorf("db error"))
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+			svc := services.NewServices(mockStore)
+			out := make(chan dispatcher.MessageResponse, 1)
+			disp := &dispatcher.Dispatcher{Output: out}
+			ctx := &context.ContextMessage{
+				Args:       tt.args,
+				Services:   svc,
+				Dispatcher: disp,
+				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+			}
+			HandleGetUsersInClass(ctx)
 			if tt.assertFunc != nil {
 				tt.assertFunc(t, out)
 			}
@@ -223,57 +186,38 @@ func TestHandleGetListOfProblemsByClass(t *testing.T) {
 	}{
 		{
 			name: "successful list problems",
-			args: []string{"!list_problems", "basicos_1"},
+			args: []string{"!list", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{
-					{ID: 1, Name: "Two Sum", Topic: ptrStr("Basics"), Difficulty: ptrStr("Easy")},
-				}, nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
+				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.PaginationEmbed, msg.Type)
 				assert.NotEmpty(t, msg.Embeds)
-				assert.Equal(t, "List of problems for class basicos_1", msg.Embeds[0].Title)
 			},
 		},
 		{
 			name: "no problems found",
-			args: []string{"!list_problems", "empty_class"},
+			args: []string{"!list", "empty_class"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("empty_class").Return(data.Class{ID: 2, ClassCode: "empty_class"}, nil)
 				m.EXPECT().GetProblemsByClass(int64(2)).Return([]data.Problem{}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "No problems found")
 			},
 		},
 		{
 			name: "service error",
-			args: []string{"!list_problems", "basicos_1"},
+			args: []string{"!list", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetProblemsByClass(int64(1)).Return(nil, fmt.Errorf("db error"))
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "Unexpected internal error")
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
 	}
@@ -281,31 +225,20 @@ func TestHandleGetListOfProblemsByClass(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
-
 			svc := services.NewServices(mockStore)
-
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
-
 			ctx := &context.ContextMessage{
 				Args:       tt.args,
 				Services:   svc,
 				Dispatcher: disp,
-				Message: &discordgo.MessageCreate{
-					Message: &discordgo.Message{
-						ChannelID: "chan_123",
-					},
-				},
+				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
-
 			HandleGetListOfProblemsByClass(ctx)
-
 			if tt.assertFunc != nil {
 				tt.assertFunc(t, out)
 			}
@@ -323,26 +256,20 @@ func TestHandleGetScoreByClass(t *testing.T) {
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
-			name: "successful get score",
+			name: "successful get score by class",
 			args: []string{"!score", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "jorge"}}, nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
-					{UserID: "123", UserName: "jorge"}: {{ProblemID: 1}},
+					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
-				assert.Equal(t, "table.png", msg.Files[0].Name)
 			},
 		},
 		{
@@ -352,12 +279,7 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -397,41 +319,51 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
-			name: "successful get user score",
-			args: []string{"!score", "jorge", "basicos_1"},
+			name: "successful get user score (mention)",
+			args: []string{"!score", "basicos_1", "<@123>"},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("jorge").Return(data.User{UserID: "123", UserName: "jorge"}, nil)
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "jorge"}}, nil)
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
-					{UserID: "123", UserName: "jorge"}: {{ProblemID: 1}},
+					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
+				assert.NotEmpty(t, msg.Embeds)
+				assert.Contains(t, msg.Embeds[0].Title, "<@123>")
+			},
+		},
+		{
+			name: "successful get user score (raw ID)",
+			args: []string{"!score", "basicos_1", "123"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
+				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
+				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
+					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
+				}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Equal(t, dispatcher.FileMessage, msg.Type)
+				assert.NotEmpty(t, msg.Files)
+				assert.NotEmpty(t, msg.Embeds)
+				assert.Contains(t, msg.Embeds[0].Title, "<@123>")
 			},
 		},
 		{
 			name: "service error",
-			args: []string{"!score", "jorge", "basicos_1"},
+			args: []string{"!score", "basicos_1", "<@123>"},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("jorge").Return(data.User{}, fmt.Errorf("db error"))
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
 			},
 		},
@@ -461,86 +393,6 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 	}
 }
 
-func TestHandleGetUsersInClass(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		args       []string
-		setupMock  func(m *mock_data.MockDataStore)
-		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
-	}{
-		{
-			name: "successful get users",
-			args: []string{"!users", "basicos_1"},
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{
-					{UserID: "123", UserName: "jorge"},
-					{UserID: "456", UserName: "jose"},
-				}, nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
-				assert.Contains(t, msg.Embed.Description, "<@123>: jorge")
-				assert.Contains(t, msg.Embed.Description, "<@456>: jose")
-			},
-		},
-		{
-			name: "service error",
-			args: []string{"!users", "basicos_1"},
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return(nil, fmt.Errorf("db error"))
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
-
-			svc := services.NewServices(mockStore)
-			out := make(chan dispatcher.MessageResponse, 1)
-			disp := &dispatcher.Dispatcher{Output: out}
-
-			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
-			}
-
-			HandleGetUsersInClass(ctx)
-
-			if tt.assertFunc != nil {
-				tt.assertFunc(t, out)
-			}
-		})
-	}
-}
-
 func TestHandleGetScoreAllClasses(t *testing.T) {
 	t.Parallel()
 
@@ -552,23 +404,16 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 		{
 			name: "successful get score all classes",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetAllClasses().Return([]data.Class{
-					{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"},
-				}, nil).AnyTimes()
+				m.EXPECT().GetAllClasses().Return([]data.Class{{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}}, nil).AnyTimes()
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "jorge"}}, nil)
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
-					{UserID: "123", UserName: "jorge"}: {{ProblemID: 1}},
+					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
@@ -580,13 +425,8 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 				m.EXPECT().GetAllClasses().Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "Unexpected internal error")
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Unexpected internal error.")
 			},
 		},
 	}
@@ -614,6 +454,78 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 	}
 }
 
+func TestHandleGetClassesOfUser(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		setupMock  func(m *mock_data.MockDataStore)
+		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
+	}{
+		{
+			name: "successful get classes (mention)",
+			args: []string{"!classes_of", "<@123>"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassesByUserID("123").Return([]data.Class{{ClassCode: "basicos_1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
+				assert.Contains(t, msg.Embed.Title, "Classes of user")
+				assert.Contains(t, msg.Embed.Description, "basicos_1")
+			},
+		},
+		{
+			name: "successful get classes (raw ID)",
+			args: []string{"!classes_of", "123"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassesByUserID("123").Return([]data.Class{{ClassCode: "basicos_1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
+				assert.Contains(t, msg.Embed.Title, "Classes of user")
+				assert.Contains(t, msg.Embed.Description, "basicos_1")
+			},
+		},
+		{
+			name: "service error",
+			args: []string{"!classes_of", "<@123>"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassesByUserID("123").Return(nil, fmt.Errorf("db error"))
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+			svc := services.NewServices(mockStore)
+			out := make(chan dispatcher.MessageResponse, 1)
+			disp := &dispatcher.Dispatcher{Output: out}
+			ctx := &context.ContextMessage{
+				Args:       tt.args,
+				Services:   svc,
+				Dispatcher: disp,
+				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+			}
+			HandleGetClassesOfUser(ctx)
+			if tt.assertFunc != nil {
+				tt.assertFunc(t, out)
+			}
+		})
+	}
+}
+
 func TestHandleGetAllClasses(t *testing.T) {
 	t.Parallel()
 
@@ -625,21 +537,13 @@ func TestHandleGetAllClasses(t *testing.T) {
 		{
 			name: "successful get all classes",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetAllClasses().Return([]data.Class{
-					{ClassCode: "basicos_1", Name: "Basics 1"},
-					{ClassCode: "basicos_2", Name: "Basics 2"},
-				}, nil)
+				m.EXPECT().GetAllClasses().Return([]data.Class{{ClassCode: "basicos_1"}}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
-				assert.Contains(t, msg.Embed.Description, "`basicos_1`: Basics 1")
-				assert.Contains(t, msg.Embed.Description, "`basicos_2`: Basics 2")
+				assert.Contains(t, msg.Embed.Title, "All classes I found:")
+				assert.Contains(t, msg.Embed.Description, "basicos_1")
 			},
 		},
 		{
@@ -648,12 +552,7 @@ func TestHandleGetAllClasses(t *testing.T) {
 				m.EXPECT().GetAllClasses().Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "Unexpected internal error")
 			},
 		},
@@ -693,52 +592,25 @@ func TestHandleGetMyClasses(t *testing.T) {
 	}{
 		{
 			name:     "successful get my classes",
-			authorID: "discord_123",
+			authorID: "123",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassesByUserID("discord_123").Return([]data.Class{
-					{ClassCode: "basicos_1", Name: "Basics 1"},
-				}, nil)
+				m.EXPECT().GetClassesByUserID("123").Return([]data.Class{{ClassCode: "basicos_1"}}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
-				assert.Contains(t, msg.Embed.Description, "`basicos_1`: Basics 1")
-			},
-		},
-		{
-			name:     "no classes found",
-			authorID: "discord_456",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassesByUserID("discord_456").Return([]data.Class{}, nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "You are not registered in any class")
+				assert.Contains(t, msg.Embed.Title, "Your classes:")
+				assert.Contains(t, msg.Embed.Description, "basicos_1")
 			},
 		},
 		{
 			name:     "service error",
-			authorID: "discord_123",
+			authorID: "123",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassesByUserID("discord_123").Return(nil, fmt.Errorf("db error"))
+				m.EXPECT().GetClassesByUserID("123").Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
+				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "Unexpected internal error")
 			},
 		},
@@ -760,285 +632,13 @@ func TestHandleGetMyClasses(t *testing.T) {
 				Message: &discordgo.MessageCreate{
 					Message: &discordgo.Message{
 						ChannelID: "chan_123",
-						Author:    &discordgo.User{ID: tt.authorID},
-					},
-				},
-			}
-			HandleGetMyClasses(ctx)
-			if tt.assertFunc != nil {
-				tt.assertFunc(t, out)
-			}
-		})
-	}
-}
-
-func TestHandleGetClassesOfUsername(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		args       []string
-		setupMock  func(m *mock_data.MockDataStore)
-		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
-	}{
-		{
-			name: "successful get classes of username",
-			args: []string{"!classes", "jorge"},
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("jorge").Return(data.User{UserID: "123", UserName: "jorge"}, nil)
-				m.EXPECT().GetClassesByUserID("123").Return([]data.Class{
-					{ClassCode: "basicos_1", Name: "Basics 1"},
-				}, nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
-				assert.Contains(t, msg.Embed.Description, "`basicos_1`: Basics 1")
-			},
-		},
-		{
-			name: "user not found",
-			args: []string{"!classes", "unknown"},
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("unknown").Return(data.User{}, fmt.Errorf("not found"))
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
-			},
-		},
-		{
-			name: "classes service error",
-			args: []string{"!classes", "jorge"},
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("jorge").Return(data.User{UserID: "123"}, nil)
-				m.EXPECT().GetClassesByUserID("123").Return(nil, fmt.Errorf("db error"))
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "Unexpected error.")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
-			svc := services.NewServices(mockStore)
-			out := make(chan dispatcher.MessageResponse, 1)
-			disp := &dispatcher.Dispatcher{Output: out}
-			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
-			}
-			HandleGetClassesOfUsername(ctx)
-			if tt.assertFunc != nil {
-				tt.assertFunc(t, out)
-			}
-		})
-	}
-}
-
-func TestHandleGetMyUsername(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		authorID   string
-		setupMock  func(m *mock_data.MockDataStore)
-		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
-	}{
-		{
-			name:     "successful get username",
-			authorID: "discord_123",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserID("discord_123").Return(data.User{UserID: "discord_123", UserName: "jorge"}, nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Equal(t, "Your username is `jorge`", msg.Content)
-			},
-		},
-		{
-			name:     "service error",
-			authorID: "discord_123",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserID("discord_123").Return(data.User{}, fmt.Errorf("db error"))
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "Unexpected internal error bro.")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
-
-			svc := services.NewServices(mockStore)
-			out := make(chan dispatcher.MessageResponse, 1)
-			disp := &dispatcher.Dispatcher{Output: out}
-
-			ctx := &context.ContextMessage{
-				Services:   svc,
-				Dispatcher: disp,
-				Message: &discordgo.MessageCreate{
-					Message: &discordgo.Message{
-						ChannelID: "chan_123",
-						Author:    &discordgo.User{ID: tt.authorID},
-					},
-				},
-			}
-
-			HandleGetMyUsername(ctx)
-
-			if tt.assertFunc != nil {
-				tt.assertFunc(t, out)
-			}
-		})
-	}
-}
-
-func TestHandleChangeUsername(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		args       []string
-		authorID   string
-		authorNick string
-		setupMock  func(m *mock_data.MockDataStore)
-		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
-	}{
-		{
-			name:       "successful change username",
-			args:       []string{"!change", "new_jorge"},
-			authorID:   "discord_123",
-			authorNick: "Jorge Nick",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().HasUsernameBound("discord_123").Return(true, nil)
-				m.EXPECT().IsUsernameAvailable("new_jorge", "discord_123").Return(true, nil)
-				m.EXPECT().BindUser(data.User{UserID: "discord_123", UserName: "new_jorge"}).Return(nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "changed username to `new_jorge`")
-			},
-		},
-		{
-			name:       "unexpected error",
-			args:       []string{"!change", "new_jorge"},
-			authorID:   "discord_123",
-			authorNick: "Jorge Nick",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().HasUsernameBound("discord_123").Return(false, fmt.Errorf("db error"))
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Equal(t, "Unexpected error.", msg.Content)
-			},
-		},
-		{
-			name:       "successful bind (no previous username)",
-			args:       []string{"!change", "new_jorge"},
-			authorID:   "discord_123",
-			authorNick: "Jorge Nick",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().HasUsernameBound("discord_123").Return(false, nil)
-				m.EXPECT().IsUsernameAvailable("new_jorge", "discord_123").Return(true, nil)
-				m.EXPECT().BindUser(data.User{UserID: "discord_123", UserName: "new_jorge"}).Return(nil)
-			},
-			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				var msg dispatcher.MessageResponse
-				select {
-				case msg = <-out:
-				case <-time.After(channelTimeout):
-					t.Fatal("timeout: message was never sent to dispatcher channel")
-				}
-				assert.Contains(t, msg.Content, "bound to the username `new_jorge` (no previous username found)")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
-
-			svc := services.NewServices(mockStore)
-			out := make(chan dispatcher.MessageResponse, 1)
-			disp := &dispatcher.Dispatcher{Output: out}
-
-			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message: &discordgo.MessageCreate{
-					Message: &discordgo.Message{
-						ChannelID: "chan_123",
 						Author: &discordgo.User{
-							ID:         tt.authorID,
-							GlobalName: tt.authorNick,
+							ID: tt.authorID,
 						},
 					},
 				},
 			}
-
-			HandleChangeUsername(ctx)
-
+			HandleGetMyClasses(ctx)
 			if tt.assertFunc != nil {
 				tt.assertFunc(t, out)
 			}

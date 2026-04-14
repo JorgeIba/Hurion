@@ -7,6 +7,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
@@ -94,11 +95,14 @@ func HandleExterminate(c *context.ContextMessage) error {
 		return err
 	}
 
-	// Extract user ID from mention (format: <@USER_ID> or <@!USER_ID>)
 	mention := c.Args[1]
-	userID := strings.TrimPrefix(mention, "<@")
-	userID = strings.TrimPrefix(userID, "!")
-	userID = strings.TrimSuffix(userID, ">")
+	userID, ok := controllers_common.ResolveUserID(mention)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", mention)),
+		)
+		return nil
+	}
 
 	if err := c.Services.User.ExterminateUser(userID); err != nil {
 		logger.Log.Error(err)
@@ -133,10 +137,8 @@ func HandleExportClass(c *context.ContextMessage) error {
 		return nil
 	}
 
-	// Extract class_code from args
 	classCode := c.Args[1]
 
-	// Get data from service (users, problems by topic, and score)
 	users, problemsByTopic, score, err := c.Services.Score.GetClassExportData(classCode)
 	if err != nil {
 		logger.Log.Error(err)
@@ -148,12 +150,11 @@ func HandleExportClass(c *context.ContextMessage) error {
 		return fmt.Errorf("error getting data for class %s: %w", classCode, err)
 	}
 
-	// Transform to presentation layer types
 	excelizerUsers := adapters.TransformToExcelizerUsers(users)
 	excelizerProblemsByTopic := adapters.TransformToExcelizerProblemsByTopic(problemsByTopic)
 	tableScore := adapters.ScoreToTableScore(score)
 
-	// Generate Excel file
+	// Generate Excel file and send it as a Discord message
 	excelBytes, filename, err := excelizer.ExportClassToExcel(excelizerUsers, excelizerProblemsByTopic, tableScore, classCode)
 	if err != nil {
 		logger.Log.Error(err)
@@ -163,14 +164,12 @@ func HandleExportClass(c *context.ContextMessage) error {
 		return fmt.Errorf("error generating excel for class %s: %w", classCode, err)
 	}
 
-	// Create Discord file attachment
 	file := &discordgo.File{
 		Name:        filename,
 		ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		Reader:      bytes.NewReader(excelBytes),
 	}
 
-	// Send file via dispatcher
 	logger.Log.Infof("Sending Excel export for class %s (`%s`)", classCode, filename)
 	c.Dispatcher.Send(
 		dispatcher.MakeFileMessage(

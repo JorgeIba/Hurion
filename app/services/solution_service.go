@@ -20,8 +20,8 @@ type SolutionService struct {
 	Datastore data.DataStore
 }
 
-// AddACToUser adds an AC (accepted solution) for a user
-func (service *SolutionService) AddACToUser(userID string, problemID int64) error {
+// AddACToUserID adds an AC (accepted solution) for a user
+func (service *SolutionService) AddACToUserID(userID string, problemID int64) error {
 	// Validate problem exists
 	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
 		return err
@@ -65,37 +65,6 @@ func (service *SolutionService) UndoACByProblemAndUserID(problemID int64, userID
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
-}
-
-// AddACToUsername adds an AC for a user by username
-func (service *SolutionService) AddACToUsername(userName string, problemID int64) error {
-	user, err := service.Datastore.GetUserByUserName(userName)
-	if err != nil {
-		switch {
-		case errors.As(err, &dataNotFoundErrSolution):
-			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
-		default:
-			return serviceerr.MakeGeneralError(err)
-		}
-	}
-
-	return service.AddACToUser(user.UserID, problemID)
-}
-
-// UndoACByProblemAndUsername removes an AC for a user by username
-func (service *SolutionService) UndoACByProblemAndUsername(problemID int64, userName string) error {
-	user, err := service.Datastore.GetUserByUserName(userName)
-	if err != nil {
-		switch {
-		case errors.As(err, &dataNotFoundErrSolution):
-			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
-		default:
-			return serviceerr.MakeGeneralError(err)
-		}
-	}
-
-	err = service.UndoACByProblemAndUserID(problemID, user.UserID)
-	return err
 }
 
 // AddPendingACOfUserID adds a pending AC confirmation
@@ -161,7 +130,7 @@ func (service *SolutionService) AcceptACProposal(messageID string) error {
 		return serviceerr.MakeGeneralError(err)
 	}
 
-	if err := service.AddACToUser(pendingConfirmation.UserID, pendingConfirmation.ProblemID); err != nil {
+	if err := service.AddACToUserID(pendingConfirmation.UserID, pendingConfirmation.ProblemID); err != nil {
 		return err
 	}
 

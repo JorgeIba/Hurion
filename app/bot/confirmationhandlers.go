@@ -25,8 +25,8 @@ type ConfirmableCommand struct {
 var confirmableCommands = map[string]ConfirmableCommand{
 	Exterminate.String(): {
 		WarningMessage: func(args []string) string {
-			userName := args[1]
-			return fmt.Sprintf("⚠️ **WARNING**: This will permanently delete user `%s` and ALL their data from ALL classes.\n\nAre you sure you want to exterminate this user?", userName)
+			userParam := args[1]
+			return fmt.Sprintf("⚠️ **WARNING**: This will permanently delete user `%s` and ALL their data from ALL classes.\n\nAre you sure you want to exterminate this user?", userParam)
 		},
 		Handler: handleExterminateConfirmation,
 	},
@@ -45,9 +45,9 @@ var confirmableCommands = map[string]ConfirmableCommand{
 				return fmt.Sprintf("⚠️ **WARNING**: This will remove you from class `%s` and delete ALL your solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", classCode)
 			} else if len(args) == 3 {
 				// Mentor deregistering a user
-				userName := args[1]
+				userParam := args[1]
 				classCode := args[2]
-				return fmt.Sprintf("⚠️ **WARNING**: This will remove user `%s` from class `%s` and delete ALL their solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", userName, classCode)
+				return fmt.Sprintf("⚠️ **WARNING**: This will remove user `%s` from class `%s` and delete ALL their solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", userParam, classCode)
 			}
 			return "⚠️ **WARNING**: Invalid deregister command."
 		},

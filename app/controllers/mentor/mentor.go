@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
@@ -34,21 +35,28 @@ func HandleRegisterUser(c *context.ContextMessage) {
 		return
 	}
 
-	userName, classCode := c.Args[1], c.Args[2]
+	userParam, classCode := c.Args[1], c.Args[2]
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
 
-	if err := c.Services.Enrollment.RegisterUsernameIntoClass(userName, classCode); err != nil {
+	if err := c.Services.Enrollment.RegisterUserIDIntoClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorRegisterUser, userName, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorRegisterUser, userParam, classCode)),
 		)
 
 		return
 	}
 
-	logger.Log.Infof("User %s has registered in the class %s\n", userName, classCode)
+	logger.Log.Infof("User %s has registered in the class %s\n", userID, classCode)
 	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User `%s` has registered in the class `%s`", userName, classCode)),
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> has registered in the class `%s`", userID, classCode)),
 	)
 }
 
@@ -67,19 +75,26 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 		return fmt.Errorf("user is not a mentor")
 	}
 
-	userName, classCode := c.Args[1], c.Args[2]
+	userParam, classCode := c.Args[1], c.Args[2]
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return fmt.Errorf("invalid user parameter")
+	}
 
-	if err := c.Services.Enrollment.DeregisterUsernameFromClass(userName, classCode); err != nil {
+	if err := c.Services.Enrollment.DeregisterUserIDFromClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorDeregisterUser, userName, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorDeregisterUser, userParam, classCode)),
 		)
 
 		return err
 	}
 
-	successMessage := fmt.Sprintf("User `%s` has been deregistered from the class %s successfully", userName, classCode)
+	successMessage := fmt.Sprintf("User <@%s> has been deregistered from the class %s successfully", userID, classCode)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
@@ -178,7 +193,15 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
-	userName, problemIDs := c.Args[1], c.Args[2]
+	userParam, problemIDs := c.Args[1], c.Args[2]
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
+
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
@@ -189,23 +212,23 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err := c.Services.Solution.AddACToUsername(userName, problemID); err != nil {
+	if err := c.Services.Solution.AddACToUserID(userID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddAC, userName, problemID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddAC, userParam, problemID)),
 		)
 
 		return
 	}
 
-	logger.Log.Infof("Problem %d AC-ed by %s\n", problemID, userName)
+	logger.Log.Infof("Problem %d AC-ed by %s\n", problemID, userID)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
 			Type:      dispatcher.ReplyMessage,
 			ChannelID: c.Message.ChannelID,
 			ReplyTo:   c.Message.ID,
-			Content:   fmt.Sprintf("Good job lil bro `%s`, keep going. Problem `%d` has been AC-ed", userName, problemID),
+			Content:   fmt.Sprintf("Good job lil bro <@%s>, keep going. Problem `%d` has been AC-ed", userID, problemID),
 		},
 	)
 }
@@ -225,7 +248,15 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	userName, problemIDs := c.Args[1], c.Args[2]
+	userParam, problemIDs := c.Args[1], c.Args[2]
+	userID, ok := controllers_common.ResolveUserID(userParam)
+	if !ok {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
+		)
+		return
+	}
+
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
@@ -235,21 +266,21 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err = c.Services.Solution.UndoACByProblemAndUsername(problemID, userName); err != nil {
+	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, userID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUndoAC, userName, problemID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUndoAC, userParam, problemID)),
 		)
 		return
 	}
 
-	logger.Log.Infof("Problem %d has been UnAC-ed successfully by %s", problemID, userName)
+	logger.Log.Infof("Problem %d has been UnAC-ed successfully by %s", problemID, userID)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
-			"Problem `%d` has been UnAC-ed successfully by `%s`",
+			"Problem `%d` has been UnAC-ed successfully for <@%s>",
 			problemID,
-			userName,
+			userID,
 		)),
 	)
 }

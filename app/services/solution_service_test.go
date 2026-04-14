@@ -12,7 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestSolutionService_AddACToUser(t *testing.T) {
+func TestSolutionService_AddACToUserID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -34,7 +34,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				// helpers.CanBroACTheProblem -> HasUserSolvedProblem
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
-				// SolutionService.AddACToUser
+				// SolutionService.AddACToUserID
 				m.EXPECT().AddAC("u1", int64(100)).Return(nil)
 			},
 			wantErr: false,
@@ -95,7 +95,7 @@ func TestSolutionService_AddACToUser(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
-			err := svc.AddACToUser(tt.userID, tt.problemID)
+			err := svc.AddACToUserID(tt.userID, tt.problemID)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -163,122 +163,6 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 
 			svc := &SolutionService{Datastore: mockStore}
 			err := svc.UndoACByProblemAndUserID(tt.problemID, tt.userID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestSolutionService_AddACToUsername(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		userName  string
-		problemID int64
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
-	}{
-		{
-			name:      "success",
-			userName:  "user1",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("user1").Return(data.User{UserID: "u1"}, nil)
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
-				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
-				m.EXPECT().AddAC("u1", int64(100)).Return(nil)
-			},
-			wantErr: false,
-		},
-		{
-			name:      "user not found",
-			userName:  "ghost",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("ghost").Return(data.User{}, &dataerr.NotFoundError{})
-			},
-			wantErr: true,
-		},
-		{
-			name:      "generic error GetUserByUserName",
-			userName:  "user1",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("user1").Return(data.User{}, errors.New("db fail"))
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
-
-			svc := &SolutionService{Datastore: mockStore}
-			err := svc.AddACToUsername(tt.userName, tt.problemID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestSolutionService_UndoACByProblemAndUsername(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		userName  string
-		problemID int64
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
-	}{
-		{
-			name:      "success",
-			userName:  "user1",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("user1").Return(data.User{UserID: "u1"}, nil)
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
-				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
-				m.EXPECT().RemoveAC("u1", int64(100)).Return(nil)
-			},
-			wantErr: false,
-		},
-		{
-			name:      "user not found",
-			userName:  "ghost",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserName("ghost").Return(data.User{}, &dataerr.NotFoundError{})
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			tt.setupMock(mockStore)
-
-			svc := &SolutionService{Datastore: mockStore}
-			err := svc.UndoACByProblemAndUsername(tt.problemID, tt.userName)
 
 			if tt.wantErr {
 				assert.Error(t, err)

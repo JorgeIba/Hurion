@@ -11,17 +11,14 @@ Available to all users.
 | Command | Usage | Description | Confirmation |
 |---|---|---|:---:|
 | `!help` | `!help [command]` | Show info for all commands or details for a specific command | No |
-| `!bind` | `!bind <user_name>` | Bind your Discord account to a username for tracking progress | No |
-| `!change_username` | `!change_username <user_name>` | Change your current username to a new one | No |
-| `!register` | `!register <class_code>` | Register yourself in a class (must be bound first) | No |
+| `!register` | `!register <class_code>` | Register yourself in a class | No |
 | `!list` | `!list <class_code>` | Show the list of problems available for a class (paginated embed) | No |
 | `!score` | `!score` | Show scores for **all classes** as image tables | No |
 | `!score` | `!score <class_code>` | Show scores for a **specific class** as an image table | No |
-| `!score` | `!score <user_name> <class_code>` | Show a **specific user's** neighborhood ranking in a class | No |
+| `!score` | `!score <class_code> <@user>` | Show a **specific user's** neighborhood ranking in a class | No |
 | `!users` | `!users <class_code>` | List all users registered in a class | No |
 | `!classes` | `!classes` | List all available classes | No |
-| `!classes_of` | `!classes_of <user_name>` | Show all classes a specific user is enrolled in | No |
-| `!me` | `!me` | Show the username bound to your Discord account | No |
+| `!classes_of` | `!classes_of <@user>` | Show all classes a specific user is enrolled in | No |
 
 ---
 
@@ -44,10 +41,10 @@ Available to users with the Mentor Discord role.
 
 | Command | Usage | Description | Confirmation |
 |---|---|---|:---:|
-| `!register` | `!register <user_name> <class_code>` | Register another user in a class | No |
-| `!deregister` | `!deregister <user_name> <class_code>` | Remove another user from a class | Yes 👍/👎 |
-| `!ac` | `!ac <user_name> <problem_id>` | Directly mark a problem as solved for a user (no approval needed) | No |
-| `!undo_ac` | `!undo_ac <user_name> <problem_id>` | Remove a solved problem from another user's list | No |
+| `!register` | `!register <@user> <class_code>` | Register another user in a class | No |
+| `!deregister` | `!deregister <@user> <class_code>` | Remove another user from a class | Yes 👍/👎 |
+| `!ac` | `!ac <@user> <problem_id>` | Directly mark a problem as solved for a user (no approval needed) | No |
+| `!undo_ac` | `!undo_ac <@user> <problem_id>` | Remove a solved problem from another user's list | No |
 | `!add_problem` | `!add_problem <class_code> <url> [difficulty] [topic] <ProblemName>` | Add a new problem to a class | No |
 | `!remove_problem` | `!remove_problem <problem_id>` | Remove a problem, all associated ACs and pending confirmations | Yes 👍/👎 |
 | `!update_problem` | `!update_problem <problem_id> <class_code> <url> [difficulty] [topic] <ProblemName>` | Update a problem's details while preserving its ID | No |
@@ -64,3 +61,7 @@ Available to users with the Admin Discord role.
 | `!clear_class` | `!clear_class <class_code>` | Remove all enrollments, problems, and scores from a class | Yes 👍/👎 |
 | `!exterminate` | `!exterminate <@user>` | Permanently delete a user and all their data from the system | Yes 👍/👎 |
 | `!export` | `!export <class_code>` | Export class data (users, problems, scores) to an Excel file | No |
+
+---
+
+> ℹ️ **Note on User Parameters**: While documentation uses `<@user>`, the bot supports all Discord mention formats (including `<@userID>` and `<@!userID>`) as well as raw numeric Discord IDs for all commands that take a user as a parameter. This is useful for administrative tasks or when a user is not easily mentionable.
