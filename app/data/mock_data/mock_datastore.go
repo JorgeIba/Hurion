@@ -83,20 +83,6 @@ func (mr *MockDataStoreMockRecorder) AddProblem(problem any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProblem", reflect.TypeOf((*MockDataStore)(nil).AddProblem), problem)
 }
 
-// BindUser mocks base method.
-func (m *MockDataStore) BindUser(user data.User) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BindUser", user)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// BindUser indicates an expected call of BindUser.
-func (mr *MockDataStoreMockRecorder) BindUser(user any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindUser", reflect.TypeOf((*MockDataStore)(nil).BindUser), user)
-}
-
 // ClearClass mocks base method.
 func (m *MockDataStore) ClearClass(classID int64) error {
 	m.ctrl.T.Helper()
@@ -138,6 +124,20 @@ func (m *MockDataStore) DeregisterUserFromClass(userID string, classID int64) er
 func (mr *MockDataStoreMockRecorder) DeregisterUserFromClass(userID, classID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterUserFromClass", reflect.TypeOf((*MockDataStore)(nil).DeregisterUserFromClass), userID, classID)
+}
+
+// EnsureUser mocks base method.
+func (m *MockDataStore) EnsureUser(userID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureUser", userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureUser indicates an expected call of EnsureUser.
+func (mr *MockDataStoreMockRecorder) EnsureUser(userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUser", reflect.TypeOf((*MockDataStore)(nil).EnsureUser), userID)
 }
 
 // ExistsPendingConfirmation mocks base method.
@@ -305,21 +305,6 @@ func (mr *MockDataStoreMockRecorder) GetUserByUserID(userID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByUserID", reflect.TypeOf((*MockDataStore)(nil).GetUserByUserID), userID)
 }
 
-// GetUserByUserName mocks base method.
-func (m *MockDataStore) GetUserByUserName(userName string) (data.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByUserName", userName)
-	ret0, _ := ret[0].(data.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserByUserName indicates an expected call of GetUserByUserName.
-func (mr *MockDataStoreMockRecorder) GetUserByUserName(userName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByUserName", reflect.TypeOf((*MockDataStore)(nil).GetUserByUserName), userName)
-}
-
 // HasUserSolvedProblem mocks base method.
 func (m *MockDataStore) HasUserSolvedProblem(userID string, problemID int64) (bool, error) {
 	m.ctrl.T.Helper()
@@ -335,36 +320,6 @@ func (mr *MockDataStoreMockRecorder) HasUserSolvedProblem(userID, problemID any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUserSolvedProblem", reflect.TypeOf((*MockDataStore)(nil).HasUserSolvedProblem), userID, problemID)
 }
 
-// HasUsernameBound mocks base method.
-func (m *MockDataStore) HasUsernameBound(userID string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasUsernameBound", userID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HasUsernameBound indicates an expected call of HasUsernameBound.
-func (mr *MockDataStoreMockRecorder) HasUsernameBound(userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUsernameBound", reflect.TypeOf((*MockDataStore)(nil).HasUsernameBound), userID)
-}
-
-// IsUserBinded mocks base method.
-func (m *MockDataStore) IsUserBinded(userID string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUserBinded", userID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsUserBinded indicates an expected call of IsUserBinded.
-func (mr *MockDataStoreMockRecorder) IsUserBinded(userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUserBinded", reflect.TypeOf((*MockDataStore)(nil).IsUserBinded), userID)
-}
-
 // IsUserRegisteredInClass mocks base method.
 func (m *MockDataStore) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
 	m.ctrl.T.Helper()
@@ -378,21 +333,6 @@ func (m *MockDataStore) IsUserRegisteredInClass(userID string, classID int64) (b
 func (mr *MockDataStoreMockRecorder) IsUserRegisteredInClass(userID, classID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUserRegisteredInClass", reflect.TypeOf((*MockDataStore)(nil).IsUserRegisteredInClass), userID, classID)
-}
-
-// IsUsernameAvailable mocks base method.
-func (m *MockDataStore) IsUsernameAvailable(userName, excludeUserID string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUsernameAvailable", userName, excludeUserID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsUsernameAvailable indicates an expected call of IsUsernameAvailable.
-func (mr *MockDataStoreMockRecorder) IsUsernameAvailable(userName, excludeUserID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUsernameAvailable", reflect.TypeOf((*MockDataStore)(nil).IsUsernameAvailable), userName, excludeUserID)
 }
 
 // RegisterUserIntoClass mocks base method.

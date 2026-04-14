@@ -4,7 +4,6 @@ type Command int
 
 const (
 	Help Command = iota
-	Bind
 	Register
 	Deregister
 	List
@@ -20,8 +19,6 @@ const (
 	UpdateProblem
 	MyClasses
 	ClassesOf
-	Me
-	ChangeUsername
 	Exterminate
 	Export
 )
@@ -37,50 +34,34 @@ type CommandData struct {
 
 var Commands = map[Command]CommandData{
 	Help: {
-		Cmd:        "!help",
+		Cmd:         "!help",
 		Name:        "help",
 		Usage:       "!help [command]",
 		Description: "Show info for all commands or details for a specific command",
 		UserRoles:   NewUserRoleSet(RoleAll),
 	},
-	Bind: {
-		Cmd:        "!bind",
-		Name:        "bind",
-		Usage:       "!bind <user_name>",
-		Description: "Bind your Discord account to a username for tracking progress",
-		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\")",
-	},
-	ChangeUsername: {
-		Cmd:        "!change_username",
-		Name:        "change_username",
-		Usage:       "!change_username <user_name>",
-		Description: "Change your current username to a new one",
-		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\"). If you don't have a username bound yet, this will bind the new username to your account.",
-	},
 	Register: {
-		Cmd:        "!register",
+		Cmd:         "!register",
 		Name:        "register",
-		Usage:       "!register <class_code>\n!register <user_name> <class_code>",
+		Usage:       "!register <class_code>\n!register <@user> <class_code>",
 		Description: "Register yourself or another user in a class",
 		UserRoles:   NewUserRoleSet(RoleAll, RoleMentor),
 		ExtraInfo: "**As Regular User:** Use `!register <class_code>` to register yourself in a class.\n" +
-			"**As Mentor:** Use `!register <user_name> <class_code>` to register another user in a class.\n" +
-			"The `class_code` and `user_name` parameters should be one word (e.g., \"basicos_1\", \"jorge_ibanez\")",
+			"**As Mentor:** Use `!register <@user> <class_code>` to register another user in a class.\n" +
+			"The `class_code` parameter should be one word (e.g., \"basicos_1\").",
 	},
 	Deregister: {
-		Cmd:        "!deregister",
+		Cmd:         "!deregister",
 		Name:        "deregister",
-		Usage:       "!deregister <class_code>\n!deregister <user_name> <class_code>",
+		Usage:       "!deregister <class_code>\n!deregister <@user> <class_code>",
 		Description: "Remove yourself or another user from a class",
 		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
 		ExtraInfo: "**As Enrolled User:** Use `!deregister <class_code>` to remove yourself from a class.\n" +
-			"**As Mentor:** Use `!deregister <user_name> <class_code>` to remove another user from a class.\n" +
+			"**As Mentor:** Use `!deregister <@user> <class_code>` to remove another user from a class.\n" +
 			"⚠️ **WARNING:** This will delete ALL solved problems and pending confirmations for the user in this class.",
 	},
 	List: {
-		Cmd:        "!list",
+		Cmd:         "!list",
 		Name:        "list",
 		Usage:       "!list <class_code>",
 		Description: "Show the list of problems available for the specified class",
@@ -88,33 +69,33 @@ var Commands = map[Command]CommandData{
 		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
 	},
 	Score: {
-		Cmd:        "!score",
+		Cmd:         "!score",
 		Name:        "score",
-		Usage:       "!score [class_code] [user_name]",
+		Usage:       "!score\n!score <class_code>\n!score <class_code> <@user>",
 		Description: "Show scores for all classes, a specific class, or a specific user in a class",
 		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "Both `class_code` and `user_name` parameters should be one word. You can use `!score` to see all scores, `!score class_code` to see scores for a class, or `!score user_name class_code` to see a specific user's scores in a class.",
+		ExtraInfo:   "You can use `!score` to see all scores, `!score class_code` to see scores for a class, or `!score class_code @user` to see a specific user's scores in a class.",
 	},
 	AC: {
-		Cmd:        "!ac",
+		Cmd:         "!ac",
 		Name:        "ac",
-		Usage:       "!ac <problem_id>\n!ac <user_name> <problem_id>",
+		Usage:       "!ac <problem_id>\n!ac <@user> <problem_id>",
 		Description: "Mark a problem as solved for yourself or another user",
 		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
 		ExtraInfo: "**As Enrolled User:** Use `!ac <problem_id>` to mark a problem as solved (requires mentor approval with ✅ or ❌).\n" +
-			"**As Mentor:** Use `!ac <user_name> <problem_id>` to directly mark a problem as solved for another user (no approval needed).",
+			"**As Mentor:** Use `!ac <@user> <problem_id>` to directly mark a problem as solved for another user (no approval needed).",
 	},
 	UndoAC: {
-		Cmd:        "!undo_ac",
+		Cmd:         "!undo_ac",
 		Name:        "undo_ac",
-		Usage:       "!undo_ac <problem_id>\n!undo_ac <user_name> <problem_id>",
+		Usage:       "!undo_ac <problem_id>\n!undo_ac <@user> <problem_id>",
 		Description: "Remove a previously solved problem from your or another user's solved list",
 		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
 		ExtraInfo: "**As Enrolled User:** Use `!undo_ac <problem_id>` to remove a problem from your own solved list.\n" +
-			"**As Mentor:** Use `!undo_ac <user_name> <problem_id>` to remove a problem from another user's solved list.",
+			"**As Mentor:** Use `!undo_ac <@user> <problem_id>` to remove a problem from another user's solved list.",
 	},
 	AddProblem: {
-		Cmd:        "!add_problem",
+		Cmd:         "!add_problem",
 		Name:        "add_problem",
 		Usage:       "!add_problem <class_code> <url> [difficulty] [topic] <ProblemName>",
 		Description: "Add a new problem to a class with URL, optional difficulty and topic, and name",
@@ -130,14 +111,14 @@ var Commands = map[Command]CommandData{
 			"  !add_problem basicos http://example.com Medium Graphs Binary Tree Problem (both)",
 	},
 	RemoveProblem: {
-		Cmd:        "!remove_problem",
+		Cmd:         "!remove_problem",
 		Name:        "remove_problem",
 		Usage:       "!remove_problem <problem_id>",
 		Description: "Remove a problem from a class by its ID",
 		UserRoles:   NewUserRoleSet(RoleMentor),
 	},
 	UpdateProblem: {
-		Cmd:        "!update_problem",
+		Cmd:         "!update_problem",
 		Name:        "update_problem",
 		Usage:       "!update_problem <problem_id> <class_code> <url> [difficulty] [topic] <ProblemName>",
 		Description: "Update a problem's details while preserving its ID for AC records",
@@ -153,7 +134,7 @@ var Commands = map[Command]CommandData{
 			"  !update_problem 3 basicos http://example.com Easy Graphs Updated Problem Name (both)",
 	},
 	ClearClass: {
-		Cmd:        "!clear_class",
+		Cmd:         "!clear_class",
 		Name:        "clear_class",
 		Usage:       "!clear_class <class_code>",
 		Description: "Remove all problems, enrollments, and scores from a class",
@@ -161,7 +142,7 @@ var Commands = map[Command]CommandData{
 		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
 	},
 	CreateClass: {
-		Cmd:        "!create_class",
+		Cmd:         "!create_class",
 		Name:        "create_class",
 		Usage:       "!create_class <class_code> <ClassName>",
 		Description: "Create a new class with the specified code and name",
@@ -169,15 +150,15 @@ var Commands = map[Command]CommandData{
 		ExtraInfo:   "The `class_code` should be one word, while `ClassName` can include multiple words (e.g., \"basicos_1 Basicos 2025\")",
 	},
 	Exterminate: {
-		Cmd:        "!exterminate",
+		Cmd:         "!exterminate",
 		Name:        "exterminate",
 		Usage:       "!exterminate <@user>",
-		Description: "Remove user from all system data including bindings, enrollments, solved problems and pending confirmations",
+		Description: "Remove user from all system data including enrollments, solved problems and pending confirmations",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
-		ExtraInfo:   "Mention the user with @ (e.g., \"@JohnDoe\"). This action cannot be undone.",
+		ExtraInfo:   "Mention the user with @ (e.g., \"@DaddyYorch\"). This action cannot be undone.",
 	},
 	Export: {
-		Cmd:        "!export",
+		Cmd:         "!export",
 		Name:        "export",
 		Usage:       "!export <class_code>",
 		Description: "Export all class data (users, problems, scores) to an Excel file",
@@ -185,7 +166,7 @@ var Commands = map[Command]CommandData{
 		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\"). The Excel file will contain three sheets: Users, Problems, and Scores.",
 	},
 	Users: {
-		Cmd:        "!users",
+		Cmd:         "!users",
 		Name:        "users",
 		Usage:       "!users <class_code>",
 		Description: "Show a list of all users registered in the specified class",
@@ -193,33 +174,26 @@ var Commands = map[Command]CommandData{
 		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
 	},
 	Classes: {
-		Cmd:        "!classes",
+		Cmd:         "!classes",
 		Name:        "classes",
 		Usage:       "!classes",
 		Description: "Show a list of all available classes",
 		UserRoles:   NewUserRoleSet(RoleAll),
 	},
 	MyClasses: {
-		Cmd:        "!my_classes",
+		Cmd:         "!my_classes",
 		Name:        "my_classes",
 		Usage:       "!my_classes",
 		Description: "Show a list of all classes you're currently enrolled in",
 		UserRoles:   NewUserRoleSet(RoleEnrolled),
 	},
 	ClassesOf: {
-		Cmd:        "!classes_of",
+		Cmd:         "!classes_of",
 		Name:        "classes_of",
-		Usage:       "!classes_of <user_name>",
+		Usage:       "!classes_of <@user>",
 		Description: "Show a list of all classes a specific user is enrolled in",
 		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "The `user_name` parameter should be one word (e.g., \"jorge_ibanez\" or \"jorgeibanez\")",
-	},
-	Me: {
-		Cmd:        "!me",
-		Name:        "me",
-		Usage:       "!me",
-		Description: "Show the username bound to your Discord account",
-		UserRoles:   NewUserRoleSet(RoleAll),
+		ExtraInfo:   "Mention the user with @ (e.g., \"@DaddyYorch\").",
 	},
 }
 

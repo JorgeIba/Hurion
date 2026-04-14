@@ -33,12 +33,8 @@ func (service *EnrollmentService) RegisterUserIDIntoClass(userID, classCode stri
 		}
 	}
 
-	// Discord User should have binded a User Name
-	isUserBinded, err := service.Datastore.IsUserBinded(userID)
-	if err != nil {
+	if err := service.Datastore.EnsureUser(userID); err != nil {
 		return serviceerr.MakeGeneralError(err)
-	} else if !isUserBinded {
-		return serviceerr.NewUserNotBindedError(fmt.Sprintf("user %s has not username binded yet", userID), nil)
 	}
 
 	// Check if user was already registered
@@ -81,37 +77,6 @@ func (service *EnrollmentService) DeregisterUserIDFromClass(userID string, class
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
-}
-
-// RegisterUsernameIntoClass registers a user (by username) into a class
-func (service *EnrollmentService) RegisterUsernameIntoClass(userName, classCode string) error {
-	user, err := service.Datastore.GetUserByUserName(userName)
-	if err != nil {
-		switch {
-		case errors.As(err, &dataNotFoundErrEnrollment):
-			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
-		default:
-			return serviceerr.MakeGeneralError(err)
-		}
-	}
-
-	err = service.RegisterUserIDIntoClass(user.UserID, classCode)
-	return err
-}
-
-// DeregisterUsernameFromClass removes a user (by username) from a class.
-func (service *EnrollmentService) DeregisterUsernameFromClass(userName, classCode string) error {
-	user, err := service.Datastore.GetUserByUserName(userName)
-	if err != nil {
-		switch {
-		case errors.As(err, &dataNotFoundErrEnrollment):
-			return serviceerr.NewUserNotFoundError(fmt.Sprintf("username %s not found", userName), err)
-		default:
-			return serviceerr.MakeGeneralError(err)
-		}
-	}
-
-	return service.DeregisterUserIDFromClass(user.UserID, classCode)
 }
 
 // GetListOfUsersByClassCode retrieves all users enrolled in a class

@@ -10,16 +10,16 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// Binds an existing (or not) user id to a single user name.
-func (db *DB) BindUser(user User) error {
+// EnsureUser ensures that a user with the given ID exists in the database.
+func (db *DB) EnsureUser(userID string) error {
 	query := `
-		INSERT INTO users (user_id, user_name)
-		VALUES (?, ?)
-		ON CONFLICT(user_id) DO UPDATE SET user_name = excluded.user_name;
+		INSERT INTO users (user_id)
+		VALUES (?)
+		ON CONFLICT(user_id) DO NOTHING;
 	`
 
-	if _, err := db.conn.Exec(query, user.UserID, user.UserName); err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not bind user %s with user name %s", user.UserID, user.UserName), err)
+	if _, err := db.conn.Exec(query, userID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not ensure user %s", userID), err)
 	}
 
 	return nil
@@ -88,54 +88,18 @@ func (db *DB) AddProblem(problem Problem) (int64, error) {
 		return 0, dataerr.NewQueryError(fmt.Sprintf("could not add the problem %s into the class id %d", problem.Name, problem.ClassID), err)
 	}
 
+	if rowsAffected, err := response.RowsAffected(); err != nil {
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when inserting problem %s into class %d", problem.Name, problem.ClassID), err)
+	} else if rowsAffected == 0 {
+		return 0, dataerr.NewRowConflictError(fmt.Sprintf("Problem %s already exists in class %d", problem.Name, problem.ClassID), nil)
+	}
+
 	problemID, err := response.LastInsertId()
 	if err != nil {
 		return 0, dataerr.NewQueryError("could not fetch last insert id", err)
 	}
 
-	if rowsAffected, err := response.RowsAffected(); err != nil {
-		return 0, dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when inserting problem %s into class %d", problem.Name, problem.ClassID), err)
-	} else if rowsAffected == 0 {
-		return problemID, dataerr.NewRowConflictError(fmt.Sprintf("Problem %s already exists on class %d with ID %d", problem.Name, problem.ClassID, problemID), nil)
-	}
-
 	return problemID, nil
-}
-
-func (db *DB) RemoveProblemByNameAndClassID(problemName string, classID int64) (int64, error) {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to remove problem %s from class %d", problemName, classID), err)
-	}
-
-	// First, get the problem ID
-	var problemID int64
-	query := "SELECT id FROM problems WHERE name = ? AND class_id = ?"
-	err = tx.QueryRow(query, problemName, classID).Scan(&problemID)
-	if err != nil {
-		tx.Rollback()
-		return 0, dataerr.NewQueryError(fmt.Sprintf("could not find problem %s in class %d", problemName, classID), err)
-	}
-
-	// Delete in order: pending confirmations -> solved problems -> problem itself
-	queries := []string{
-		"DELETE FROM pending_confirmations WHERE problem_id = ?",
-		"DELETE FROM solved_problems WHERE problem_id = ?",
-		"DELETE FROM problems WHERE id = ?",
-	}
-
-	for _, query := range queries {
-		if _, err := tx.Exec(query, problemID); err != nil {
-			tx.Rollback()
-			return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove problem %s from class %d", problemName, classID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to remove problem %s from class %d", problemName, classID), err)
-	}
-
-	return 1, nil
 }
 
 func (db *DB) RemoveProblemByID(problemID int64) (int64, error) {
@@ -173,7 +137,7 @@ func (db *DB) AddAC(userID string, problemID int64) error {
 	`
 	_, err := db.conn.Exec(query, userID, problemID)
 	if err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not AC the problem for the user %s in the class %d", userID, problemID), err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not AC the problem %d for user %s", problemID, userID), err)
 	}
 
 	return nil
@@ -186,7 +150,7 @@ func (db *DB) RemoveAC(userID string, problemID int64) error {
 	`
 	_, err := db.conn.Exec(query, userID, problemID)
 	if err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not remove the AC of problem for the user %s from the class %d", userID, problemID), err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not remove the AC of problem %d for user %s", problemID, userID), err)
 	}
 
 	return nil
@@ -266,12 +230,12 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 	query := `
 		SELECT 
 			sp.user_id,
-			COALESCE(u.user_name, 'Unknown') AS user_name,
+			u.user_id,
 			sp.problem_id,
 			sp.solved_at
 		FROM solved_problems sp
-		LEFT JOIN users u ON sp.user_id = u.user_id
 		JOIN problems p ON sp.problem_id = p.id
+		JOIN users u ON sp.user_id = u.user_id
 		WHERE p.class_id = ?
 	`
 
@@ -284,17 +248,17 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 	solvedProblemsIDByUser := make(map[User][]SolvedProblem)
 
 	for rows.Next() {
-		var userID, userName string
+		var userID, displayUserID string
 		var problemID int64
 		var solvedAt time.Time
 
-		if err := rows.Scan(&userID, &userName, &problemID, &solvedAt); err != nil {
+		if err := rows.Scan(&userID, &displayUserID, &problemID, &solvedAt); err != nil {
 			return nil, dataerr.NewQueryError("could not scan row", err)
 		}
 
 		user := User{
 			UserID:   userID,
-			UserName: userName,
+			UserName: displayUserID,
 		}
 		solvedProblemsIDByUser[user] = append(solvedProblemsIDByUser[user], SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
 	}
@@ -363,52 +327,26 @@ func (db *DB) CreateClass(class Class) (int64, error) {
 	return classID, nil
 }
 
-func (db *DB) GetUserByUserName(userName string) (User, error) {
-	query := `SELECT user_id, user_name FROM users WHERE user_name = ?`
-
-	var user User
-	err := db.conn.QueryRow(query, userName).Scan(&user.UserID, &user.UserName)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return User{}, dataerr.NewNotFoundError(fmt.Sprintf("user with name %s not found", userName), nil)
-		}
-		return User{}, dataerr.NewQueryError(fmt.Sprintf("could not get user by name %s", userName), err)
-	}
-	return user, nil
-}
-
 func (db *DB) GetUserByUserID(userID string) (User, error) {
 	query := `
-		SELECT user_name, user_id
+		SELECT user_id
 		FROM users
 		WHERE user_id = ?
 	`
 
 	var user User
-	err := db.conn.QueryRow(query, userID).Scan(&user.UserName, &user.UserID)
+	err := db.conn.QueryRow(query, userID).Scan(&user.UserID)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return User{}, dataerr.NewNotFoundError(fmt.Sprintf("no user found with id %s", userID), nil)
 		}
-		return User{}, dataerr.NewQueryError(fmt.Sprintf("could not get user name for user id %s", userID), err)
+		return User{}, dataerr.NewQueryError(fmt.Sprintf("could not get user for user id %s", userID), err)
 	}
+
+	user.UserName = user.UserID
 
 	return user, nil
-}
-
-func (db *DB) GetClassByClassID(classID int64) (Class, error) {
-	query := `SELECT id, class_code, name FROM classes WHERE id = ?`
-
-	var class Class
-	err := db.conn.QueryRow(query, classID).Scan(&class.ID, &class.ClassCode, &class.Name)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with id %d not found", classID), nil)
-		}
-		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class from class id %d", classID), err)
-	}
-	return class, nil
 }
 
 func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
@@ -439,23 +377,6 @@ func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error
 	}
 
 	return count > 0, nil
-}
-
-func (db *DB) IsUserBinded(userID string) (bool, error) {
-	query := `
-		SELECT EXISTS(
-			SELECT 1
-			FROM users
-			WHERE user_id = ?
-		)
-	`
-
-	var exists bool
-	if err := db.conn.QueryRow(query, userID).Scan(&exists); err != nil {
-		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if user %s is binded", userID), err)
-	}
-
-	return exists, nil
 }
 
 func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
@@ -496,7 +417,7 @@ func (db *DB) GetPendingConfirmation(messageID string) (string, int64, error) {
 	err := db.conn.QueryRow(query, messageID).Scan(&userID, &problemID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", -1, dataerr.NewNotFoundError(fmt.Sprintf("not pending confimation with message id %s", messageID), nil)
+			return "", -1, dataerr.NewNotFoundError(fmt.Sprintf("no pending confirmation with message id %s", messageID), nil)
 		}
 		return "", 0, dataerr.NewQueryError(fmt.Sprintf("could not get pending confirmation from message id %s", messageID), err)
 	}
@@ -538,7 +459,7 @@ func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
 	query := `
 		SELECT 
 			u.user_id,
-			COALESCE(u.user_name, 'Unknown') AS user_name
+			u.user_id
 		FROM enrollments e
 		JOIN users u ON e.user_id = u.user_id
 		WHERE e.class_id = ?
@@ -662,40 +583,6 @@ func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error)
 	var exists bool
 	if err := db.conn.QueryRow(query, userID, problemID).Scan(&exists); err != nil {
 		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if user %s has solved problem %d", userID, problemID), err)
-	}
-
-	return exists, nil
-}
-
-func (db *DB) IsUsernameAvailable(userName string, excludeUserID string) (bool, error) {
-	query := `
-		SELECT EXISTS(
-			SELECT 1
-			FROM users
-			WHERE user_name = ? AND user_id != ?
-		)
-	`
-
-	var exists bool
-	if err := db.conn.QueryRow(query, userName, excludeUserID).Scan(&exists); err != nil {
-		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if username %s is available", userName), err)
-	}
-
-	return !exists, nil
-}
-
-func (db *DB) HasUsernameBound(userID string) (bool, error) {
-	query := `
-		SELECT EXISTS(
-			SELECT 1
-			FROM users
-			WHERE user_id = ?
-		)
-	`
-
-	var exists bool
-	if err := db.conn.QueryRow(query, userID).Scan(&exists); err != nil {
-		return false, dataerr.NewQueryError(fmt.Sprintf("could not check if user %s has username bound", userID), err)
 	}
 
 	return exists, nil

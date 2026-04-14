@@ -152,7 +152,7 @@ func formatScoresSheet(f *excelize.File, sheetName string, tableScore presentati
 		return presentationerr.NewStyleCreationError("failed to create plain style", err)
 	}
 
-	// Apply header style to first row (usernames)
+	// Apply header style to first row (user IDs)
 	for colIdx := range tableScore.Header {
 		cell := makeCellRef(colIdx, 1)
 		f.SetCellStyle(sheetName, cell, cell, headerStyle)

@@ -115,20 +115,8 @@ func (service *ScoreService) GetScoreByClassCode(classCode string) (service_mode
 	}, nil
 }
 
-// GetNeighborsScoreForUsername retrieves the score with neighbors around a specific user
-func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode string) (service_model.Score, error) {
-	// Get userID from username
-	user, err := service.Datastore.GetUserByUserName(userName)
-	if err != nil {
-		switch {
-		case errors.As(err, &dataNotFoundErrScore):
-			return service_model.Score{}, serviceerr.NewUserNotFoundError(fmt.Sprintf("username `%s` not found", userName), err)
-		default:
-			return service_model.Score{}, serviceerr.MakeGeneralError(err)
-		}
-	}
-	userID := user.UserID
-
+// GetNeighborsScoreForUserID retrieves the score with neighbors around a specific user
+func (service *ScoreService) GetNeighborsScoreForUserID(userID, classCode string) (service_model.Score, error) {
 	score, err := service.GetScoreByClassCode(classCode)
 	if err != nil {
 		return service_model.Score{}, err
@@ -144,7 +132,7 @@ func (service *ScoreService) GetNeighborsScoreForUsername(userName, classCode st
 	}
 
 	if userIndex == -1 {
-		err := serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user `%s` is not registered in class `%s`", userName, classCode), nil)
+		err := serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user <@%s> is not registered in class `%s`", userID, classCode), nil)
 		return service_model.Score{}, err
 	}
 

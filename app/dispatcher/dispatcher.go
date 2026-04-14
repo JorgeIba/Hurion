@@ -47,18 +47,30 @@ func (d *Dispatcher) Stop() {
 }
 
 func (d *Dispatcher) dispatch(msg MessageResponse) {
+	allowedMentions := resolveAllowedMentions(msg)
+
 	switch msg.Type {
 	case SimpleMessage:
-		d.Session.ChannelMessageSend(msg.ChannelID, msg.Content)
+		d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+			Content:         msg.Content,
+			AllowedMentions: allowedMentions,
+		})
 
 	case ReplyMessage:
-		d.Session.ChannelMessageSendReply(msg.ChannelID, msg.Content, &discordgo.MessageReference{
-			MessageID: msg.ReplyTo,
-			ChannelID: msg.ChannelID,
+		d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+			Content: msg.Content,
+			Reference: &discordgo.MessageReference{
+				MessageID: msg.ReplyTo,
+				ChannelID: msg.ChannelID,
+			},
+			AllowedMentions: allowedMentions,
 		})
 
 	case EmbedMessage:
-		d.Session.ChannelMessageSendEmbed(msg.ChannelID, msg.Embed)
+		d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+			Embed:           msg.Embed,
+			AllowedMentions: allowedMentions,
+		})
 
 	case Reaction:
 		for _, r := range msg.Reactions {
@@ -68,9 +80,10 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 	case FileMessage:
 		if len(msg.Files) > 0 {
 			d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
-				Content: msg.Content,
-				Embeds:  msg.Embeds,
-				Files:   msg.Files,
+				Content:         msg.Content,
+				Embeds:          msg.Embeds,
+				Files:           msg.Files,
+				AllowedMentions: allowedMentions,
 			})
 		}
 	case PaginationEmbed:
@@ -89,9 +102,13 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 			Color:       0xff6b35, // Orange
 		}
 
-		sentMsg, err := d.Session.ChannelMessageSendEmbedReply(msg.ChannelID, embed, &discordgo.MessageReference{
-			MessageID: msg.ReplyTo,
-			ChannelID: msg.ChannelID,
+		sentMsg, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+			Embed: embed,
+			Reference: &discordgo.MessageReference{
+				MessageID: msg.ReplyTo,
+				ChannelID: msg.ChannelID,
+			},
+			AllowedMentions: allowedMentions,
 		})
 
 		if err == nil {
@@ -106,6 +123,32 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 
 func (d *Dispatcher) Send(msg MessageResponse) {
 	d.Output <- msg
+}
+
+func resolveAllowedMentions(msg MessageResponse) *discordgo.MessageAllowedMentions {
+	if msg.MentionPolicy == MentionPolicyCustom && msg.AllowedMentions != nil {
+		return msg.AllowedMentions
+	}
+
+	switch msg.MentionPolicy {
+	case MentionPolicyUsers:
+		return &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers},
+		}
+	case MentionPolicyAll:
+		return &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{
+				discordgo.AllowedMentionTypeUsers,
+				discordgo.AllowedMentionTypeRoles,
+				discordgo.AllowedMentionTypeEveryone,
+			},
+		}
+	}
+
+	// Fail closed: unknown/none/custom-without-value all suppress mentions.
+	return &discordgo.MessageAllowedMentions{
+		Parse: []discordgo.AllowedMentionType{},
+	}
 }
 
 func MakeSimpleMessage(channelID, message string) MessageResponse {

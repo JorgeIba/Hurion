@@ -14,6 +14,19 @@ const (
 	ConfirmationMessage
 )
 
+type MentionPolicy int
+
+const (
+	// MentionPolicyNone suppresses all mentions (safe default).
+	MentionPolicyNone MentionPolicy = iota
+	// MentionPolicyUsers allows only user mentions.
+	MentionPolicyUsers
+	// MentionPolicyAll allows users, roles, and everyone mentions.
+	MentionPolicyAll
+	// MentionPolicyCustom uses MessageResponse.AllowedMentions as-is.
+	MentionPolicyCustom
+)
+
 type MessageResponse struct {
 	Type      MessageType
 	Session   *discordgo.Session
@@ -24,4 +37,7 @@ type MessageResponse struct {
 	Embeds    []*discordgo.MessageEmbed // optional
 	Reactions []string                  // optional
 	Files     []*discordgo.File         // optional
+
+	MentionPolicy   MentionPolicy
+	AllowedMentions *discordgo.MessageAllowedMentions // used when MentionPolicyCustom
 }

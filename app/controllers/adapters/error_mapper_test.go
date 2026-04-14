@@ -23,8 +23,8 @@ func TestMapError(t *testing.T) {
 		{
 			name:   "nil error returns fallback",
 			err:    nil,
-			action: ActionBindUser,
-			args:   []any{"jorge"},
+			action: ActionRegisterInClass,
+			args:   []any{"basicos_1", "jorge"},
 			want:   "Unexpected error.",
 		},
 		{
@@ -36,10 +36,10 @@ func TestMapError(t *testing.T) {
 		},
 		{
 			name:   "service message is ignored, template is used instead",
-			err:    serviceerr.NewConflictError("username already taken from service", nil),
-			action: ActionBindUser,
-			args:   []any{"jorge"},
-			want:   "Username `jorge` is already taken by another user. Please choose a different username.",
+			err:    serviceerr.NewConflictError("from service", nil),
+			action: ActionMentorAddProblem,
+			args:   []any{"basicos_1", "https://leetcode.com/problems/two-sum", "Two Sum"},
+			want:   "Problem `Two Sum` already exists on class `basicos_1` with URL `https://leetcode.com/problems/two-sum`",
 		},
 		{
 			name:   "template supports multiple args",
@@ -56,18 +56,11 @@ func TestMapError(t *testing.T) {
 			want:   "Class code `basicos_404` not found for user `jorge`.",
 		},
 		{
-			name:   "semantic user not binded for register action",
-			err:    serviceerr.NewUserNotBindedError("", nil),
-			action: ActionRegisterInClass,
-			args:   []any{"basicos_1", "jorge"},
-			want:   "User `jorge` is not binded yet. Use `!bind <username>` first.",
-		},
-		{
 			name:   "semantic problem not found for enrolled propose AC",
 			err:    serviceerr.NewProblemNotFoundError("", nil),
 			action: ActionEnrolledProposeAC,
-			args:   []any{"jorge", int64(404)},
-			want:   "Problem `404` not found for user `jorge`",
+			args:   []any{"<@123>", int64(404)},
+			want:   "Problem `404` not found for user `<@123>`",
 		},
 		{
 			name:   "semantic duplicate for mentor add problem",
@@ -80,50 +73,50 @@ func TestMapError(t *testing.T) {
 			name:   "semantic class not found for mentor register action",
 			err:    serviceerr.NewClassCodeNotFoundError("", nil),
 			action: ActionMentorRegisterUser,
-			args:   []any{"jorge", "basicos_404"},
-			want:   "Class code `basicos_404` not found for username `jorge`",
+			args:   []any{"<@123>", "basicos_404"},
+			want:   "Class code `basicos_404` not found for user `<@123>`",
 		},
 		{
-			name:   "semantic user not found for mentor register action",
+			name:   "semantic user not found for mentor register",
 			err:    serviceerr.NewUserNotFoundError("", nil),
 			action: ActionMentorRegisterUser,
-			args:   []any{"jorge_not_found"},
-			want:   "Username `jorge_not_found` not found",
+			args:   []any{"<@123>", "basicos_1"},
+			want:   "User `<@123>` not found",
 		},
 		{
 			name:   "semantic class code not found for score by user and class",
 			err:    serviceerr.NewClassCodeNotFoundError("", nil),
 			action: ActionScoreByUserAndClass,
-			args:   []any{"jorge", "basicos_404"},
+			args:   []any{"<@123>", "basicos_404"},
 			want:   "Class code `basicos_404` not found",
 		},
 		{
 			name:   "semantic problem not found for mentor undo AC",
 			err:    serviceerr.NewProblemNotFoundError("", nil),
 			action: ActionMentorUndoAC,
-			args:   []any{"jorge", int64(77)},
-			want:   "Problem id `77` not found for username `jorge`",
+			args:   []any{"<@123>", int64(77)},
+			want:   "Problem id `77` not found for user `<@123>`",
+		},
+		{
+			name:   "semantic conflict for mentor undo AC",
+			err:    serviceerr.NewConflictError("", nil),
+			action: ActionMentorUndoAC,
+			args:   []any{"<@123>", int64(77)},
+			want:   "User `<@123>` has not solved problem `77` yet or is not enrolled in the class",
+		},
+		{
+			name:   "wrapped class not found is mapped correctly",
+			err:    fmt.Errorf("outer: %w", serviceerr.NewClassCodeNotFoundError("", nil)),
+			action: ActionListProblemsByClass,
+			args:   []any{"basicos_1"},
+			want:   "Class code `basicos_1` not found",
 		},
 		{
 			name:   "missing template args falls back to action default",
 			err:    serviceerr.NewConflictError("", nil),
 			action: ActionMentorAddProblem,
-			args:   []any{"basicos_1"}, // Not enough args for fmt.Sprintf
-			want:   "Unexpected error while adding problem.",
-		},
-		{
-			name:   "unmapped error kind falls back to action default",
-			err:    serviceerr.NewInternalError("", nil),
-			action: ActionRegisterInClass,
-			args:   []any{"basicos_1", "jorge"},
-			want:   "Unexpected internal error bro.",
-		},
-		{
-			name:   "wrapped semantic error is resolved via error chain",
-			err:    fmt.Errorf("outer wrap: %w", serviceerr.NewClassCodeNotFoundError("", fmt.Errorf("inner"))),
-			action: ActionListProblemsByClass,
 			args:   []any{"basicos_1"},
-			want:   "Class code `basicos_1` not found",
+			want:   "Unexpected error while adding problem.",
 		},
 		{
 			name:   "unexpected non service error uses action default",
@@ -151,7 +144,7 @@ func TestMapError(t *testing.T) {
 func TestTemplates_AllActionsHaveDefault(t *testing.T) {
 	t.Parallel()
 
-	for action := ActionBindUser; action < ActionSentinel; action++ {
+	for action := ActionRegisterInClass; action < ActionSentinel; action++ {
 		action := action
 		t.Run(fmt.Sprintf("action_%d_has_default", action), func(t *testing.T) {
 			t.Parallel()

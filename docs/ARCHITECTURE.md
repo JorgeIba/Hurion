@@ -88,7 +88,7 @@ The full ER diagram is available in [DB Diagram.pdf](../DB%20Diagram.pdf). The D
 
 | Format | Rule | Examples |
 |---|---|---|
-| `lowercase_snake` | Must be a single word (no spaces) | `class_code` → `basicos_1`, `user_name` → `jorge_ibanez` |
+| `lowercase_snake` | Must be a single word (no spaces) | `class_code` → `basicos_1` |
 | `CamelUpperCase` | Can contain multiple words (quotes not needed) | `ProblemName` → `Two Sum`, `ClassName` → `Basicos 2025` |
 
 The `difficulty` parameter accepts: `Easy`, `Medium`, `Hard`, or `-` to skip.

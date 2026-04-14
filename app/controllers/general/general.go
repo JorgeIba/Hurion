@@ -5,55 +5,31 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/discord"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/image"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 
-func HandleBindUser(c *context.ContextMessage) {
-	userName := c.Args[1]
-	discordID := c.Message.Author.ID
-	discordNickName := c.Message.Author.GlobalName
-
-	logger.Log.Infof("Binding %s to the user name %s...\n", discordNickName, userName)
-
-	if err := c.Services.User.BindUser(service_model.User{UserID: discordID, UserName: userName}); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionBindUser, userName)),
-		)
-
-		return
-	}
-
-	successMessage := fmt.Sprintf("User `%s` binded to the user name `%s`", discordNickName, userName)
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
-	)
-}
-
 func HandleRegisterUserInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
-	discordID, discordNickName := c.Message.Author.ID, c.Message.Author.GlobalName
+	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
 
 	if err := c.Services.Enrollment.RegisterUserIDIntoClass(discordID, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, discordNickName)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, discordNickname)),
 		)
 
 		return
 	}
 
-	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", discordNickName, classCode)
+	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", discordNickname, classCode)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
@@ -147,14 +123,19 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 }
 
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
-	userName, classCode := c.Args[1], c.Args[2]
+	classCode, userParam := c.Args[1], c.Args[2]
 
-	score, err := c.Services.Score.GetNeighborsScoreForUsername(userName, classCode)
+	userID := userParam
+	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
+		userID = id
+	}
+
+	score, err := c.Services.Score.GetNeighborsScoreForUserID(userID, classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionScoreByUserAndClass, userName, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionScoreByUserAndClass, userParam, classCode)),
 		)
 		return
 	}
@@ -178,14 +159,14 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title: fmt.Sprintf("Score of `%s` in the class `%s`", userName, classCode),
+		Title: fmt.Sprintf("Score of <@%s> in the class `%s`", userID, classCode),
 		Image: &discordgo.MessageEmbedImage{
 			URL: "attachment://table.png",
 		},
 		Color: 0x00bfff,
 	}
 
-	logger.Log.Infof("Score of %s in class %s", userName, classCode)
+	logger.Log.Infof("Score of %s in class %s", userID, classCode)
 	c.Dispatcher.Send(dispatcher.MessageResponse{
 		Type:      dispatcher.FileMessage,
 		ChannelID: c.Message.ChannelID,
@@ -207,9 +188,8 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 	}
 
 	var stringBuilder strings.Builder
-
 	for _, user := range users {
-		stringBuilder.WriteString(fmt.Sprintf("* <@%s>: %s\n", user.UserID, user.UserName))
+		stringBuilder.WriteString(fmt.Sprintf("* <@%s>\n", user.UserID))
 	}
 
 	embed := &discordgo.MessageEmbed{
@@ -356,16 +336,12 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 	)
 }
 
-func HandleGetClassesOfUsername(c *context.ContextMessage) {
-	userName := c.Args[1]
+func HandleGetClassesOfUser(c *context.ContextMessage) {
+	userParam := c.Args[1]
 
-	userID, err := c.Services.User.GetUserIDByUsername(userName)
-	if err != nil {
-		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetClassesOfUsername, userName)),
-		)
-		return
+	userID := userParam
+	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
+		userID = id
 	}
 
 	classes, err := c.Services.User.GetClassesByUserID(userID)
@@ -379,7 +355,7 @@ func HandleGetClassesOfUsername(c *context.ContextMessage) {
 
 	if len(classes) == 0 {
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Username `%s` not registered in any class", userName)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> not registered in any class", userID)),
 		)
 		return
 	}
@@ -390,7 +366,7 @@ func HandleGetClassesOfUsername(c *context.ContextMessage) {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("Classes of user %s:", userName),
+		Title:       fmt.Sprintf("Classes of user <@%s>:", userID),
 		Description: stringBuilder.String(),
 		Color:       0x00ffcc,
 	}
@@ -402,60 +378,5 @@ func HandleGetClassesOfUsername(c *context.ContextMessage) {
 			ChannelID: c.Message.ChannelID,
 			Embed:     embed,
 		},
-	)
-}
-
-func HandleGetMyUsername(c *context.ContextMessage) {
-	discordID := c.Message.Author.ID
-
-	userName, err := c.Services.User.GetUsernameByUserID(discordID)
-	if err != nil {
-		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetMyUsername)),
-		)
-		return
-	}
-
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Your username is `%s`", userName)),
-	)
-}
-
-func HandleChangeUsername(c *context.ContextMessage) {
-	newUserName := c.Args[1]
-	discordID := c.Message.Author.ID
-	discordNickName := c.Message.Author.GlobalName
-
-	// Check if user currently has a username bound
-	hasUsernameBound, err := c.Services.User.HasUsernameBound(discordID)
-	if err != nil {
-		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
-		)
-		return
-	}
-
-	if err := c.Services.User.ChangeUsername(service_model.User{UserID: discordID, UserName: newUserName}); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionChangeUsername, newUserName)),
-		)
-
-		return
-	}
-
-	var successMessage string
-	if !hasUsernameBound {
-		successMessage = fmt.Sprintf("User `%s` bound to the username `%s` (no previous username found)", discordNickName, newUserName)
-	} else {
-		successMessage = fmt.Sprintf("User `%s` changed username to `%s`", discordNickName, newUserName)
-	}
-
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
 	)
 }

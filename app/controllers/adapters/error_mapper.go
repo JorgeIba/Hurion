@@ -13,15 +13,12 @@ type Action int
 type ErrorKind int
 
 const (
-	ActionBindUser Action = iota
-	ActionRegisterInClass
+	ActionRegisterInClass Action = iota
 	ActionListProblemsByClass
 	ActionScoreByClass
 	ActionScoreByUserAndClass
 	ActionGetUsersInClass
-	ActionGetClassesOfUsername
-	ActionGetMyUsername
-	ActionChangeUsername
+	ActionGetClassesOfUser
 
 	ActionClearClass
 	ActionCreateClass
@@ -47,8 +44,7 @@ const (
 )
 
 const (
-	errorKindUserNotBinded ErrorKind = iota
-	errorKindUserNotEnrolled
+	errorKindUserNotEnrolled ErrorKind = iota
 	errorKindUserNotFound
 	errorKindClassCodeNotFound
 	errorKindProblemNotFound
@@ -63,13 +59,8 @@ const (
 )
 
 var templates = map[Action]map[ErrorKind]string{
-	ActionBindUser: {
-		errorKindConflict: "Username `%s` is already taken by another user. Please choose a different username.",
-		errorKindDefault:  "Unexpected error while binding your username.",
-	},
 	ActionRegisterInClass: {
 		errorKindClassCodeNotFound: "Class code `%[1]s` not found for user `%[2]s`.",
-		errorKindUserNotBinded:     "User `%[2]s` is not binded yet. Use `!bind <username>` first.",
 		errorKindConflict:          "User `%[2]s` already registered on class `%[1]s`",
 		errorKindDefault:           "Unexpected error while registering in class.",
 	},
@@ -83,7 +74,7 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionScoreByUserAndClass: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found",
-		errorKindUserNotFound:      "Username `%[1]s` not found",
+		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in class `%[2]s`",
 		errorKindDefault:           "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
 	},
@@ -91,17 +82,9 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindClassCodeNotFound: "No class was found with class code `%s`",
 		errorKindDefault:           "Unexpected error while listing users in class.",
 	},
-	ActionGetClassesOfUsername: {
-		errorKindUserNotFound: "Username `%s` not found",
-		errorKindDefault:      "Unexpected error while listing classes for username.",
-	},
-	ActionGetMyUsername: {
-		errorKindUserNotFound: "You are not binded to any username. Use `!bind <username>` to bind your account.",
-		errorKindDefault:      "Unexpected error while fetching your username.",
-	},
-	ActionChangeUsername: {
-		errorKindConflict: "Username `%s` is already taken by another user. Please choose a different username.",
-		errorKindDefault:  "Unexpected error while changing username.",
+	ActionGetClassesOfUser: {
+		errorKindUserNotFound: "User `%s` not found",
+		errorKindDefault:      "Unexpected error while listing classes for user.",
 	},
 	ActionClearClass: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
@@ -120,25 +103,25 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while retrieving class data.",
 	},
 	ActionMentorRegisterUser: {
-		errorKindClassCodeNotFound: "Class code `%[2]s` not found for username `%[1]s`",
-		errorKindUserNotFound:      "Username `%[1]s` not found",
+		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
+		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindDefault:           "Unexpected error while mentor-registering user.",
 	},
 	ActionMentorDeregisterUser: {
-		errorKindClassCodeNotFound: "Class code `%[2]s` not found for username `%[1]s`",
-		errorKindUserNotEnrolled:   "Username `%[1]s` is not enrolled in class `%[2]s`",
-		errorKindUserNotFound:      "Username `%[1]s` not found",
+		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
+		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in class `%[2]s`",
+		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindDefault:           "Unexpected error while mentor-deregistering user.",
 	},
 	ActionMentorAddAC: {
-		errorKindProblemNotFound: "Problem id `%[2]d` not found for username `%[1]s`",
-		errorKindUserNotEnrolled: "Username `%[1]s` is not enrolled in the class of the problem `%[2]d`",
-		errorKindUserNotFound:    "Username `%[1]s` not found",
+		errorKindProblemNotFound: "Problem id `%[2]d` not found for user `%[1]s`",
+		errorKindUserNotEnrolled: "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
+		errorKindUserNotFound:    "User `%[1]s` not found",
 		errorKindDefault:         "Unexpected error while adding AC.",
 	},
 	ActionMentorUndoAC: {
-		errorKindProblemNotFound: "Problem id `%[2]d` not found for username `%[1]s`",
-		errorKindUserNotFound:    "Username `%[1]s` not found",
+		errorKindProblemNotFound: "Problem id `%[2]d` not found for user `%[1]s`",
+		errorKindUserNotFound:    "User `%[1]s` not found",
 		errorKindConflict:        "User `%[1]s` has not solved problem `%[2]d` yet or is not enrolled in the class",
 		errorKindDefault:         "Unexpected error while undoing AC.",
 	},
@@ -203,7 +186,6 @@ func MapError(err error, action Action, args ...any) string {
 }
 
 func getErrorKindFromError(err error) ErrorKind {
-	var userNotBindedErr *serviceerr.UserNotBindedError
 	var userNotEnrolledErr *serviceerr.UserNotEnrolledError
 	var userNotFoundErr *serviceerr.UserNotFoundError
 	var classCodeNotFoundErr *serviceerr.ClassCodeNotFoundError
@@ -217,8 +199,6 @@ func getErrorKindFromError(err error) ErrorKind {
 	case errors.As(err, &internalErr):
 		// Prioritize internal errors to avoid leaking sensitive info from wrapped errors
 		return errorKindInternal
-	case errors.As(err, &userNotBindedErr):
-		return errorKindUserNotBinded
 	case errors.As(err, &userNotEnrolledErr):
 		return errorKindUserNotEnrolled
 	case errors.As(err, &userNotFoundErr):

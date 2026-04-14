@@ -47,7 +47,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 
 	messageID, discordID, discordNickname := c.Message.ID, c.Message.Author.ID, c.Message.Author.GlobalName
 
-	if err = c.Services.Solution.AddPendingACOfUserID(messageID, discordID, problemID); err != nil {
+	if err := c.Services.Solution.AddPendingACOfUserID(messageID, discordID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -57,7 +57,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Info("Adding reactions...")
+	logger.Log.Infof("Proposing AC: user %s, problem %d", discordID, problemID)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
 			Type:      dispatcher.Reaction,
@@ -70,6 +70,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 
 func HandleUndoAC(c *context.ContextMessage) {
 	problemIDs := c.Args[1]
+
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)

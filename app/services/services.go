@@ -30,7 +30,7 @@ func NewServices(datastore data.DataStore) *Services {
 	solutionService := &SolutionService{
 		Datastore: datastore,
 	}
-	
+
 	// Score service depends on problem service
 	scoreService := &ScoreService{
 		Datastore:      datastore,

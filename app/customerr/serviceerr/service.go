@@ -31,17 +31,6 @@ type NotFoundInfoError struct {
 	*ServiceError
 }
 
-type UserNotBindedError struct {
-	*ServiceError
-}
-
-func (e *UserNotBindedError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
-}
-
 type ClassCodeNotFoundError struct {
 	*ServiceError
 }
@@ -129,16 +118,6 @@ func NewNotFoundInfoError(message string, original error) *NotFoundInfoError {
 
 func NewUserNotFoundError(message string, original error) *UserNotFoundError {
 	return &UserNotFoundError{
-		ServiceError: &ServiceError{
-			Code:         404,
-			Message:      message,
-			WrappedError: original,
-		},
-	}
-}
-
-func NewUserNotBindedError(message string, original error) *UserNotBindedError {
-	return &UserNotBindedError{
 		ServiceError: &ServiceError{
 			Code:         404,
 			Message:      message,
