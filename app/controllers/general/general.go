@@ -343,7 +343,7 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Unexpected error."),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetClassesOfUser, userParam)),
 		)
 		return
 	}

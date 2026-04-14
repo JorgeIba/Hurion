@@ -65,11 +65,10 @@ func TestUserService_ExterminateUser(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		userID      string
-		setupMock   func(*mock_data.MockDataStore)
-		wantErr     bool
-		wantErrType error
+		name       string
+		userID     string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:   "success - user exterminated",
@@ -78,7 +77,9 @@ func TestUserService_ExterminateUser(t *testing.T) {
 				m.EXPECT().GetUserByUserID("u1").Return(data.User{UserID: "u1", UserName: "u1"}, nil)
 				m.EXPECT().ExterminateUser("u1").Return(nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name:   "not found - user does not exist",
@@ -86,8 +87,10 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserID("nonexistent").Return(data.User{}, &dataerr.NotFoundError{})
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.UserNotFoundError{},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.UserNotFoundError{}, err)
+			},
 		},
 		{
 			name:   "internal error - get user fails",
@@ -95,8 +98,10 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserID("u2").Return(data.User{}, errors.New("db error"))
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.InternalError{},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 		{
 			name:   "internal error - extermination fails",
@@ -105,8 +110,10 @@ func TestUserService_ExterminateUser(t *testing.T) {
 				m.EXPECT().GetUserByUserID("u3").Return(data.User{UserID: "u3", UserName: "u3"}, nil)
 				m.EXPECT().ExterminateUser("u3").Return(errors.New("deletion failed"))
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.InternalError{},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 	}
 
@@ -121,15 +128,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 
 			svc := &UserService{Datastore: mockStore}
 			err := svc.ExterminateUser(tt.userID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrType != nil {
-					assert.IsType(t, tt.wantErrType, err)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.assertFunc(t, err)
 		})
 	}
 }
@@ -138,12 +137,10 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		userID      string
-		setupMock   func(*mock_data.MockDataStore)
-		wantResult  service_model.User
-		wantErr     bool
-		wantErrType error
+		name       string
+		userID     string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, service_model.User, error)
 	}{
 		{
 			name:   "success",
@@ -151,8 +148,10 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserID("u1").Return(data.User{UserID: "u1", UserName: "u1"}, nil)
 			},
-			wantResult: service_model.User{UserID: "u1", UserName: "u1"},
-			wantErr:    false,
+			assertFunc: func(t *testing.T, res service_model.User, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, service_model.User{UserID: "u1", UserName: "u1"}, res)
+			},
 		},
 		{
 			name:   "not found",
@@ -160,9 +159,10 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserID("none").Return(data.User{}, &dataerr.NotFoundError{})
 			},
-			wantResult:  service_model.User{},
-			wantErr:     true,
-			wantErrType: &serviceerr.UserNotFoundError{},
+			assertFunc: func(t *testing.T, res service_model.User, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.UserNotFoundError{}, err)
+			},
 		},
 		{
 			name:   "internal error",
@@ -170,9 +170,10 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetUserByUserID("u2").Return(data.User{}, errors.New("db error"))
 			},
-			wantResult:  service_model.User{},
-			wantErr:     true,
-			wantErrType: &serviceerr.InternalError{},
+			assertFunc: func(t *testing.T, res service_model.User, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 	}
 
@@ -187,16 +188,7 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 
 			svc := &UserService{Datastore: mockStore}
 			res, err := svc.GetUserByUserID(tt.userID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrType != nil {
-					assert.IsType(t, tt.wantErrType, err)
-				}
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.wantResult, res)
-			}
+			tt.assertFunc(t, res, err)
 		})
 	}
 }
@@ -208,8 +200,7 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 		name       string
 		userID     string
 		setupMock  func(*mock_data.MockDataStore)
-		wantResult []service_model.Class
-		wantErr    bool
+		assertFunc func(*testing.T, []service_model.Class, error)
 	}{
 		{
 			name:   "success",
@@ -217,8 +208,10 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassesByUserID("u1").Return([]data.Class{{ID: 1, Name: "C1"}}, nil)
 			},
-			wantResult: []service_model.Class{{ID: 1, Name: "C1"}},
-			wantErr:    false,
+			assertFunc: func(t *testing.T, res []service_model.Class, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, []service_model.Class{{ID: 1, Name: "C1"}}, res)
+			},
 		},
 		{
 			name:   "error",
@@ -226,8 +219,9 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassesByUserID("u1").Return(nil, errors.New("db fail"))
 			},
-			wantResult: nil,
-			wantErr:    true,
+			assertFunc: func(t *testing.T, res []service_model.Class, err error) {
+				assert.Error(t, err)
+			},
 		},
 	}
 
@@ -242,13 +236,7 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 
 			svc := &UserService{Datastore: mockStore}
 			res, err := svc.GetClassesByUserID(tt.userID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.wantResult, res)
-			}
+			tt.assertFunc(t, res, err)
 		})
 	}
 }

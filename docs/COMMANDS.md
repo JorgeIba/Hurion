@@ -61,3 +61,7 @@ Available to users with the Admin Discord role.
 | `!clear_class` | `!clear_class <class_code>` | Remove all enrollments, problems, and scores from a class | Yes 👍/👎 |
 | `!exterminate` | `!exterminate <@user>` | Permanently delete a user and all their data from the system | Yes 👍/👎 |
 | `!export` | `!export <class_code>` | Export class data (users, problems, scores) to an Excel file | No |
+
+---
+
+> ℹ️ **Note on User Parameters**: While documentation uses `<@user>` (Discord mentions), the bot also supports raw numeric Discord IDs for all commands that take a user as a parameter. This is useful for administrative tasks or when a user is not easily mentionable.

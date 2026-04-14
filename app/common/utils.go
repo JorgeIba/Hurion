@@ -18,5 +18,12 @@ func ExtractUserIDFromMention(mention string) (string, bool) {
 		return "", false
 	}
 
+	// Discord IDs (Snowflakes) are numeric
+	for _, c := range userID {
+		if c < '0' || c > '9' {
+			return "", false
+		}
+	}
+
 	return userID, true
 }

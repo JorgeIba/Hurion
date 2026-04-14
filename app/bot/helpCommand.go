@@ -85,7 +85,7 @@ func buildGeneralHelpMessage() *discordgo.MessageEmbed {
 		Name: "📝 Parameter Naming Conventions",
 		Value: "• `CamelUpperCase` parameters can include spaces (e.g., \"Problem Name 4\")\n" +
 			"• lowercase parameters should be one word (e.g., `class_code`)\n" +
-			"• `@user` parameters should be a Discord mention",
+			"• `@user` parameters should be a Discord mention (`<@userID>`) or a raw ID",
 		Inline: false,
 	})
 
