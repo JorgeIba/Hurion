@@ -17,10 +17,10 @@ func TestUserService_EnsureUser(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		userID  string
-		setup   func(*mock_data.MockDataStore)
-		wantErr bool
+		name       string
+		userID     string
+		setup      func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:   "success",
@@ -28,7 +28,9 @@ func TestUserService_EnsureUser(t *testing.T) {
 			setup: func(m *mock_data.MockDataStore) {
 				m.EXPECT().EnsureUser("u1").Return(nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name:   "datastore error",
@@ -36,7 +38,10 @@ func TestUserService_EnsureUser(t *testing.T) {
 			setup: func(m *mock_data.MockDataStore) {
 				m.EXPECT().EnsureUser("u1").Return(errors.New("db fail"))
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 	}
 
@@ -51,13 +56,7 @@ func TestUserService_EnsureUser(t *testing.T) {
 
 			svc := &UserService{Datastore: mockStore}
 			err := svc.EnsureUser(tt.userID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.IsType(t, &serviceerr.InternalError{}, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.assertFunc(t, err)
 		})
 	}
 }

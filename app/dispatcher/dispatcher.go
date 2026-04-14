@@ -1,10 +1,10 @@
 package dispatcher
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/Necroforger/dgwidgets"
 	"github.com/bwmarrin/discordgo"
 )
@@ -36,7 +36,7 @@ func (d *Dispatcher) Start() {
 func (d *Dispatcher) safeDispatch(response MessageResponse) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Error dispatching message: %v\n", r)
+			logger.Log.Errorf("Error dispatching message: %v\n", r)
 		}
 	}()
 	d.dispatch(response)
@@ -51,40 +51,50 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 
 	switch msg.Type {
 	case SimpleMessage:
-		d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+		if _, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
 			Content:         msg.Content,
 			AllowedMentions: allowedMentions,
-		})
+		}); err != nil {
+			logger.Log.Errorf("Error sending simple message to channel %s: %v\n", msg.ChannelID, err)
+		}
 
 	case ReplyMessage:
-		d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+		if _, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
 			Content: msg.Content,
 			Reference: &discordgo.MessageReference{
 				MessageID: msg.ReplyTo,
 				ChannelID: msg.ChannelID,
 			},
 			AllowedMentions: allowedMentions,
-		})
+		}); err != nil {
+			logger.Log.Errorf("Error sending reply to channel %s: %v\n", msg.ChannelID, err)
+		}
 
 	case EmbedMessage:
-		d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+		if _, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
 			Embed:           msg.Embed,
 			AllowedMentions: allowedMentions,
-		})
+		}); err != nil {
+			logger.Log.Errorf("Error sending embed to channel %s: %v\n", msg.ChannelID, err)
+		}
 
 	case Reaction:
 		for _, r := range msg.Reactions {
-			d.Session.MessageReactionAdd(msg.ChannelID, msg.ReplyTo, r)
+			if err := d.Session.MessageReactionAdd(msg.ChannelID, msg.ReplyTo, r); err != nil {
+				logger.Log.Errorf("Error adding reaction %s to message %s: %v\n", r, msg.ReplyTo, err)
+			}
 		}
 
 	case FileMessage:
 		if len(msg.Files) > 0 {
-			d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
+			if _, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
 				Content:         msg.Content,
 				Embeds:          msg.Embeds,
 				Files:           msg.Files,
 				AllowedMentions: allowedMentions,
-			})
+			}); err != nil {
+				logger.Log.Errorf("Error sending file message to channel %s: %v\n", msg.ChannelID, err)
+			}
 		}
 	case PaginationEmbed:
 		paginator := dgwidgets.NewPaginator(msg.Session, msg.ChannelID)
@@ -114,10 +124,12 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		if err == nil {
 			d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_UP)
 			d.Session.MessageReactionAdd(msg.ChannelID, sentMsg.ID, common.REACTION_THUMBS_DOWN)
+		} else {
+			logger.Log.Errorf("Error sending confirmation message to channel %s: %v\n", msg.ChannelID, err)
 		}
 
 	default:
-		fmt.Println("Unknown message type:", msg.Type)
+		logger.Log.Warnf("Unknown message type: %v\n", msg.Type)
 	}
 }
 

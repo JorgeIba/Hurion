@@ -33,7 +33,7 @@ func (service *SolutionService) AddACToUserID(userID string, problemID int64) er
 	if isBroAbleToAC, err := helpers.CanBroACTheProblem(service.Datastore, userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro <@%s> cannot AC the problem with id: %d", userID, problemID), nil)
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
 	// ACing
@@ -57,7 +57,7 @@ func (service *SolutionService) UndoACByProblemAndUserID(problemID int64, userID
 	if isBroAbleToUndoAC, err := helpers.HasUserSolvedProblem(service.Datastore, userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToUndoAC {
-		return serviceerr.NewConflictError(fmt.Sprintf("user <@%s> has not solved problem %d or is not enrolled in the class", userID, problemID), nil)
+		return serviceerr.NewConflictError(fmt.Sprintf("user %s has not solved problem %d or is not enrolled in the class", userID, problemID), nil)
 	}
 
 	// Undo-ing
@@ -80,7 +80,7 @@ func (service *SolutionService) AddPendingACOfUserID(messageID, userID string, p
 	if isBroAbleToAC, err := helpers.CanBroACTheProblem(service.Datastore, userID, problemID); err != nil {
 		return err
 	} else if !isBroAbleToAC {
-		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro <@%s> cannot AC the problem with id: %d", userID, problemID), nil)
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
 	}
 
 	if err := service.Datastore.AddPendingConfirmation(mapServicePendingConfirmationToDataPendingConfirmation(service_model.PendingConfirmation{

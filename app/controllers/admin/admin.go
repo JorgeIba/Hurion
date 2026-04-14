@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
@@ -96,10 +96,7 @@ func HandleExterminate(c *context.ContextMessage) error {
 	}
 
 	mention := c.Args[1]
-	userID, ok := common.ExtractUserIDFromMention(mention)
-	if !ok {
-		userID = mention
-	}
+	userID := controllers_common.ResolveUserID(mention)
 
 	if err := c.Services.User.ExterminateUser(userID); err != nil {
 		logger.Log.Error(err)

@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
@@ -35,10 +36,7 @@ func HandleRegisterUser(c *context.ContextMessage) {
 	}
 
 	userParam, classCode := c.Args[1], c.Args[2]
-	userID := userParam
-	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
-		userID = id
-	}
+	userID := controllers_common.ResolveUserID(userParam)
 
 	if err := c.Services.Enrollment.RegisterUserIDIntoClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
@@ -72,10 +70,7 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 	}
 
 	userParam, classCode := c.Args[1], c.Args[2]
-	userID := userParam
-	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
-		userID = id
-	}
+	userID := controllers_common.ResolveUserID(userParam)
 
 	if err := c.Services.Enrollment.DeregisterUserIDFromClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
@@ -187,10 +182,7 @@ func HandleAddAC(c *context.ContextMessage) {
 	}
 
 	userParam, problemIDs := c.Args[1], c.Args[2]
-	userID := userParam
-	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
-		userID = id
-	}
+	userID := controllers_common.ResolveUserID(userParam)
 
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
@@ -239,10 +231,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	userParam, problemIDs := c.Args[1], c.Args[2]
-	userID := userParam
-	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
-		userID = id
-	}
+	userID := controllers_common.ResolveUserID(userParam)
 
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {

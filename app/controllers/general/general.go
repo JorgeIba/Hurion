@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/discord"
@@ -17,7 +17,8 @@ import (
 
 func HandleRegisterUserInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
-	discordID, discordNickname := c.Message.Author.ID, c.Message.Author.GlobalName
+	discordID := c.Message.Author.ID
+	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
 
 	if err := c.Services.Enrollment.RegisterUserIDIntoClass(discordID, classCode); err != nil {
 		logger.Log.Error(err)
@@ -125,10 +126,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	classCode, userParam := c.Args[1], c.Args[2]
 
-	userID := userParam
-	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
-		userID = id
-	}
+	userID := controllers_common.ResolveUserID(userParam)
 
 	score, err := c.Services.Score.GetNeighborsScoreForUserID(userID, classCode)
 	if err != nil {
@@ -339,10 +337,7 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 func HandleGetClassesOfUser(c *context.ContextMessage) {
 	userParam := c.Args[1]
 
-	userID := userParam
-	if id, ok := common.ExtractUserIDFromMention(userParam); ok {
-		userID = id
-	}
+	userID := controllers_common.ResolveUserID(userParam)
 
 	classes, err := c.Services.User.GetClassesByUserID(userID)
 	if err != nil {
