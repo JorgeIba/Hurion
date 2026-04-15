@@ -10,21 +10,20 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// EnsureUser ensures that a user with the given ID exists in the database.
-func (db *DB) EnsureUser(userID string) error {
+// EnsureUser ensures that a user with the given ID and display name exists in the database.
+func (db *DB) EnsureUser(user User) error {
 	query := `
-		INSERT INTO users (user_id)
-		VALUES (?)
-		ON CONFLICT(user_id) DO NOTHING;
+		INSERT INTO users (user_id, display_name)
+		VALUES (?, ?)
+		ON CONFLICT(user_id) DO UPDATE SET display_name = excluded.display_name;
 	`
 
-	if _, err := db.conn.Exec(query, userID); err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not ensure user %s", userID), err)
+	if _, err := db.conn.Exec(query, user.UserID, user.DisplayName); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not ensure user %s", user.UserID), err)
 	}
 
 	return nil
 }
-
 func (db *DB) RegisterUserIntoClass(userID string, classID int64) error {
 	query := `
 		INSERT INTO enrollments (user_id, class_id)
@@ -230,7 +229,7 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 	query := `
 		SELECT 
 			sp.user_id,
-			u.user_id,
+			u.display_name,
 			sp.problem_id,
 			sp.solved_at
 		FROM solved_problems sp
@@ -238,7 +237,6 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 		JOIN users u ON sp.user_id = u.user_id
 		WHERE p.class_id = ?
 	`
-
 	rows, err := db.conn.Query(query, classID)
 	if err != nil {
 		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get solved problems for the class %d", classID), err)
@@ -257,8 +255,8 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 		}
 
 		user := User{
-			UserID:   userID,
-			UserName: displayUserID,
+			UserID:      userID,
+			DisplayName: displayUserID,
 		}
 		solvedProblemsIDByUser[user] = append(solvedProblemsIDByUser[user], SolvedProblem{UserID: userID, ProblemID: problemID, SolvedAt: solvedAt})
 	}
@@ -329,13 +327,13 @@ func (db *DB) CreateClass(class Class) (int64, error) {
 
 func (db *DB) GetUserByUserID(userID string) (User, error) {
 	query := `
-		SELECT user_id
+		SELECT user_id, display_name
 		FROM users
 		WHERE user_id = ?
 	`
 
 	var user User
-	err := db.conn.QueryRow(query, userID).Scan(&user.UserID)
+	err := db.conn.QueryRow(query, userID).Scan(&user.UserID, &user.DisplayName)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -343,8 +341,6 @@ func (db *DB) GetUserByUserID(userID string) (User, error) {
 		}
 		return User{}, dataerr.NewQueryError(fmt.Sprintf("could not get user for user id %s", userID), err)
 	}
-
-	user.UserName = user.UserID
 
 	return user, nil
 }
@@ -459,12 +455,11 @@ func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
 	query := `
 		SELECT 
 			u.user_id,
-			u.user_id
+			u.display_name
 		FROM enrollments e
 		JOIN users u ON e.user_id = u.user_id
 		WHERE e.class_id = ?
 	`
-
 	rows, err := db.conn.Query(query, classID)
 	if err != nil {
 		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get users from class id %d", classID), err)
@@ -474,7 +469,7 @@ func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
 	users := make([]User, 0)
 	for rows.Next() {
 		var user User
-		if err := rows.Scan(&user.UserID, &user.UserName); err != nil {
+		if err := rows.Scan(&user.UserID, &user.DisplayName); err != nil {
 			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan user from class id %d", classID), err)
 		}
 		users = append(users, user)

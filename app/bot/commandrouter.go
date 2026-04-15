@@ -64,7 +64,7 @@ func routerDeregister(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage(Deregister.String(), c.Args),
+			GetConfirmationMessage(c, Deregister.String()),
 		))
 	default:
 		sendUsageError(c, Deregister.Name())
@@ -129,7 +129,7 @@ func routerRemoveProblem(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage(RemoveProblem.String(), c.Args),
+			GetConfirmationMessage(c, RemoveProblem.String()),
 		))
 	default:
 		sendUsageError(c, RemoveProblem.Name())
@@ -144,7 +144,7 @@ func routerClearClass(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage(ClearClass.String(), c.Args),
+			GetConfirmationMessage(c, ClearClass.String()),
 		))
 	default:
 		sendUsageError(c, ClearClass.Name())
@@ -211,7 +211,7 @@ func routerExterminate(c *context.ContextMessage) {
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
 			c.Message.ChannelID,
 			c.Message.ID,
-			GetConfirmationMessage(Exterminate.String(), c.Args),
+			GetConfirmationMessage(c, Exterminate.String()),
 		))
 	default:
 		sendUsageError(c, Exterminate.Name())

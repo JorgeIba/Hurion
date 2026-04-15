@@ -17,20 +17,19 @@ import (
 
 func HandleRegisterUserInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
-	discordID := c.Message.Author.ID
-	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
+	user := c.Executor
 
-	if err := c.Services.Enrollment.RegisterUserIDIntoClass(discordID, classCode); err != nil {
+	if err := c.Services.Enrollment.RegisterUserIDIntoClass(user, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, discordNickname)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, user.DisplayName)),
 		)
 
 		return
 	}
 
-	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", discordNickname, classCode)
+	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", user.DisplayName, classCode)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
@@ -88,6 +87,9 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 		return
 	}
 
+	// Resolve display names
+	controllers_common.ResolveScoreDisplayNames(c, c.ExecutorGuildID, &score)
+
 	// Format score as table
 	scoreTable := adapters.ScoreToTableScore(score)
 
@@ -126,7 +128,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	classCode, userParam := c.Args[1], c.Args[2]
 
-	userID, ok := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ParseUserID(userParam)
 	if !ok {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
@@ -143,6 +145,9 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		)
 		return
 	}
+
+	// Resolve display names
+	controllers_common.ResolveScoreDisplayNames(c, c.ExecutorGuildID, &score)
 
 	// Format score as table
 	scoreTable := adapters.ScoreToTableScore(score)
@@ -193,7 +198,8 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 
 	var stringBuilder strings.Builder
 	for _, user := range users {
-		stringBuilder.WriteString(fmt.Sprintf("* <@%s>\n", user.UserID))
+		displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, user.UserID)
+		stringBuilder.WriteString(fmt.Sprintf("* %s\n", displayName))
 	}
 
 	embed := &discordgo.MessageEmbed{
@@ -227,6 +233,9 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 	var files []*discordgo.File
 	idx := 0
 	for className, score := range scoresMap {
+		// Resolve display names
+		controllers_common.ResolveScoreDisplayNames(c, c.ExecutorGuildID, &score)
+
 		// Format score to table
 		scoreTable := adapters.ScoreToTableScore(score)
 
@@ -343,7 +352,7 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 func HandleGetClassesOfUser(c *context.ContextMessage) {
 	userParam := c.Args[1]
 
-	userID, ok := controllers_common.ResolveUserID(userParam)
+	userID, ok := controllers_common.ParseUserID(userParam)
 	if !ok {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),

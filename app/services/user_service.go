@@ -19,9 +19,9 @@ type UserService struct {
 	Datastore data.DataStore
 }
 
-// EnsureUser ensures that a user with the given ID exists in the database
-func (service *UserService) EnsureUser(userID string) error {
-	err := service.Datastore.EnsureUser(userID)
+// EnsureUser ensures that a user with the given ID and display name exists in the database
+func (service *UserService) EnsureUser(user service_model.User) error {
+	err := service.Datastore.EnsureUser(mapServiceUserToDataUser(user))
 	if err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}

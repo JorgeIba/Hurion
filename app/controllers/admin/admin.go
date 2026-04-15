@@ -96,7 +96,7 @@ func HandleExterminate(c *context.ContextMessage) error {
 	}
 
 	mention := c.Args[1]
-	userID, ok := controllers_common.ResolveUserID(mention)
+	userID, ok := controllers_common.ParseUserID(mention)
 	if !ok {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", mention)),
@@ -150,10 +150,13 @@ func HandleExportClass(c *context.ContextMessage) error {
 		return fmt.Errorf("error getting data for class %s: %w", classCode, err)
 	}
 
+	// Resolve display names
+	controllers_common.ResolveUsersDisplayNames(c, c.ExecutorGuildID, users)
+	controllers_common.ResolveScoreDisplayNames(c, c.ExecutorGuildID, &score)
+
 	excelizerUsers := adapters.TransformToExcelizerUsers(users)
 	excelizerProblemsByTopic := adapters.TransformToExcelizerProblemsByTopic(problemsByTopic)
 	tableScore := adapters.ScoreToTableScore(score)
-
 	// Generate Excel file and send it as a Discord message
 	excelBytes, filename, err := excelizer.ExportClassToExcel(excelizerUsers, excelizerProblemsByTopic, tableScore, classCode)
 	if err != nil {
@@ -183,7 +186,7 @@ func HandleExportClass(c *context.ContextMessage) error {
 }
 
 func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
-	if c.ExecutorUserID == "" {
+	if c.Executor.UserID == "" {
 		return false, fmt.Errorf("no executor user ID available")
 	}
 
@@ -191,5 +194,5 @@ func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
 		return false, fmt.Errorf("admin commands can only be used in a server, not in DMs")
 	}
 
-	return c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.ExecutorUserID)
+	return c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.Executor.UserID)
 }

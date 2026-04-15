@@ -16,7 +16,7 @@ type QueryDatastore interface {
 }
 
 type UpdateDataStore interface {
-	EnsureUser(userID string) error
+	EnsureUser(user User) error
 	RegisterUserIntoClass(userID string, classID int64) error
 	DeregisterUserFromClass(userID string, classID int64) error
 	AddProblem(problem Problem) (int64, error)

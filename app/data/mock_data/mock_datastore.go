@@ -127,17 +127,17 @@ func (mr *MockDataStoreMockRecorder) DeregisterUserFromClass(userID, classID any
 }
 
 // EnsureUser mocks base method.
-func (m *MockDataStore) EnsureUser(userID string) error {
+func (m *MockDataStore) EnsureUser(user data.User) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureUser", userID)
+	ret := m.ctrl.Call(m, "EnsureUser", user)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureUser indicates an expected call of EnsureUser.
-func (mr *MockDataStoreMockRecorder) EnsureUser(userID any) *gomock.Call {
+func (mr *MockDataStoreMockRecorder) EnsureUser(user any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUser", reflect.TypeOf((*MockDataStore)(nil).EnsureUser), userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUser", reflect.TypeOf((*MockDataStore)(nil).EnsureUser), user)
 }
 
 // ExistsPendingConfirmation mocks base method.

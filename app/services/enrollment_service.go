@@ -20,8 +20,8 @@ type EnrollmentService struct {
 	Datastore data.DataStore
 }
 
-// RegisterUserIDIntoClass registers a user (by userID) into a class
-func (service *EnrollmentService) RegisterUserIDIntoClass(userID, classCode string) error {
+// RegisterUserIDIntoClass registers a user (by User struct) into a class
+func (service *EnrollmentService) RegisterUserIDIntoClass(user service_model.User, classCode string) error {
 	// Get class
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
@@ -33,19 +33,19 @@ func (service *EnrollmentService) RegisterUserIDIntoClass(userID, classCode stri
 		}
 	}
 
-	if err := service.Datastore.EnsureUser(userID); err != nil {
+	if err := service.Datastore.EnsureUser(mapServiceUserToDataUser(user)); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 
 	// Check if user was already registered
-	isAlreadyRegistered, err := service.Datastore.IsUserRegisteredInClass(userID, class.ID)
+	isAlreadyRegistered, err := service.Datastore.IsUserRegisteredInClass(user.UserID, class.ID)
 	if err != nil {
 		return serviceerr.MakeGeneralError(err)
 	} else if isAlreadyRegistered {
-		return serviceerr.NewConflictError(fmt.Sprintf("user %s has already registered to this class", userID), nil)
+		return serviceerr.NewConflictError(fmt.Sprintf("user %s has already registered to this class", user.UserID), nil)
 	}
 
-	if err = service.Datastore.RegisterUserIntoClass(userID, class.ID); err != nil {
+	if err = service.Datastore.RegisterUserIntoClass(user.UserID, class.ID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
