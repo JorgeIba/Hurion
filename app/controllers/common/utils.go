@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"unicode"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/bwmarrin/discordgo"
@@ -22,7 +21,7 @@ func ParseUserID(param string) (string, bool) {
 	}
 
 	for _, c := range param {
-		if !unicode.IsDigit(c) {
+		if !(c >= '0' && c <= '9') {
 			return "", false
 		}
 	}

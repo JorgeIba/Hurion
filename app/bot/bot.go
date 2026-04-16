@@ -149,7 +149,7 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 
 	executor := controllers_common.MapMemberToUser(r.Member)
 	if executor.UserID == "" {
-		executor.UserID = r.UserID
+		executor = controllers_common.MapDiscordUserToUser(r.User)
 	}
 
 	context := &context.ContextMessage{

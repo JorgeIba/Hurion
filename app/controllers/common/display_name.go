@@ -23,9 +23,11 @@ func ResolveDisplayName(c *context.ContextMessage, guildID, userID string) strin
 	}
 
 	// 2. Try DB Cache
-	user, err := c.Services.User.GetUserByUserID(userID)
-	if err == nil && user.DisplayName != "" {
-		return user.DisplayName
+	if c.Services != nil && c.Services.User != nil {
+		user, err := c.Services.User.GetUserByUserID(userID)
+		if err == nil && user.DisplayName != "" {
+			return user.DisplayName
+		}
 	}
 
 	// 3. Fallback
@@ -52,11 +54,10 @@ func ResolveScoreDisplayNames(c *context.ContextMessage, guildID string, score *
 }
 
 // ResolveUsersDisplayNames resolves display names for a list of User objects.
-func ResolveUsersDisplayNames(c *context.ContextMessage, guildID string, users []service_model.User) []service_model.User {
+func ResolveUsersDisplayNames(c *context.ContextMessage, guildID string, users []service_model.User) {
 	for i := range users {
 		users[i].DisplayName = ResolveDisplayName(c, guildID, users[i].UserID)
 	}
-	return users
 }
 
 // MapMemberToUser returns a service_model.User with the display name resolved from the Member object.

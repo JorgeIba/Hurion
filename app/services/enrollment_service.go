@@ -20,8 +20,8 @@ type EnrollmentService struct {
 	Datastore data.DataStore
 }
 
-// RegisterUserIDIntoClass registers a user (by User struct) into a class
-func (service *EnrollmentService) RegisterUserIDIntoClass(user service_model.User, classCode string) error {
+// RegisterUserIntoClass registers a user (by User struct) into a class
+func (service *EnrollmentService) RegisterUserIntoClass(user service_model.User, classCode string) error {
 	// Get class
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {

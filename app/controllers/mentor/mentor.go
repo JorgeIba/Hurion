@@ -50,7 +50,7 @@ func HandleRegisterUser(c *context.ContextMessage) {
 		DisplayName: displayName,
 	}
 
-	if err := c.Services.Enrollment.RegisterUserIDIntoClass(user, classCode); err != nil {
+	if err := c.Services.Enrollment.RegisterUserIntoClass(user, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -89,10 +89,10 @@ func HandleDeregisterUser(c *context.ContextMessage) error {
 		return fmt.Errorf("invalid user parameter")
 	}
 
+	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
 	if err := c.Services.Enrollment.DeregisterUserIDFromClass(userID, classCode); err != nil {
 		logger.Log.Error(err)
 
-		displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorDeregisterUser, displayName, classCode)),
 		)

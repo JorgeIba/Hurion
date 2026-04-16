@@ -346,7 +346,7 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
-				assert.Contains(t, msg.Embeds[0].Title, "<@123>")
+				assert.Contains(t, msg.Embeds[0].Title, "name_123")
 			},
 		},
 		{
@@ -366,7 +366,7 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
-				assert.Contains(t, msg.Embeds[0].Title, "<@123>")
+				assert.Contains(t, msg.Embeds[0].Title, "name_123")
 			},
 		},
 		{

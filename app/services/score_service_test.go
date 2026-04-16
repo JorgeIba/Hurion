@@ -159,14 +159,17 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				// Sorting check (Desc by count)
 				// User 1: 3 AC
 				assert.Equal(t, "u1", res.UserScores[0].User.UserID)
+				assert.Equal(t, "user1", res.UserScores[0].User.DisplayName)
 				assert.Equal(t, 3, res.UserScores[0].CountProblems)
 				
 				// User 2: 2 AC
 				assert.Equal(t, "u2", res.UserScores[1].User.UserID)
+				assert.Equal(t, "user2", res.UserScores[1].User.DisplayName)
 				assert.Equal(t, 2, res.UserScores[1].CountProblems)
 				
 				// User 3: 1 AC
 				assert.Equal(t, "u3", res.UserScores[2].User.UserID)
+				assert.Equal(t, "user3", res.UserScores[2].User.DisplayName)
 				assert.Equal(t, 1, res.UserScores[2].CountProblems)
 
 				// Check problem map for User 2 (Solved P1, P2; Not P3)
@@ -317,8 +320,11 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 				// Index 0 -> max(0, 0-2) to min(3, 0+2) => 0 to 2
 				assert.Len(t, res.UserScores, 3)
 				assert.Equal(t, "id1", res.UserScores[0].User.UserID)
+				assert.Equal(t, "u1", res.UserScores[0].User.DisplayName)
 				assert.Equal(t, "id2", res.UserScores[1].User.UserID)
+				assert.Equal(t, "u2", res.UserScores[1].User.DisplayName)
 				assert.Equal(t, "id3", res.UserScores[2].User.UserID)
+				assert.Equal(t, "u3", res.UserScores[2].User.DisplayName)
 			},
 			wantErr: false,
 		},

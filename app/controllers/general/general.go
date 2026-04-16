@@ -19,7 +19,7 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 	classCode := c.Args[1]
 	user := c.Executor
 
-	if err := c.Services.Enrollment.RegisterUserIDIntoClass(user, classCode); err != nil {
+	if err := c.Services.Enrollment.RegisterUserIntoClass(user, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -149,6 +149,9 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	// Resolve display names
 	controllers_common.ResolveScoreDisplayNames(c, c.ExecutorGuildID, &score)
 
+	// Resolve the target user's name for the title
+	targetDisplayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
+
 	// Format score as table
 	scoreTable := adapters.ScoreToTableScore(score)
 
@@ -168,7 +171,7 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title: fmt.Sprintf("Score of <@%s> in the class `%s`", userID, classCode),
+		Title: fmt.Sprintf("Score of `%s` in the class `%s`", targetDisplayName, classCode),
 		Image: &discordgo.MessageEmbedImage{
 			URL: "attachment://table.png",
 		},

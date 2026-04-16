@@ -21,10 +21,38 @@ func TestEnsureUser_NewUser(t *testing.T) {
 
 	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err, "Error inserting")
-	var dbUserID string
-	err = db.conn.QueryRow("SELECT user_id FROM users WHERE user_id = ?", userID).Scan(&dbUserID)
+	var dbUserID, dbDisplayName string
+	err = db.conn.QueryRow("SELECT user_id, display_name FROM users WHERE user_id = ?", userID).Scan(&dbUserID, &dbDisplayName)
 	assert.NoError(t, err, "User not found")
 	assert.Equal(t, userID, dbUserID, "UserID doesn't match")
+	assert.Equal(t, "Some Name", dbDisplayName, "DisplayName doesn't match")
+}
+
+func TestEnsureUser_OverwriteAndPreserve(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+
+	// 1. Initial insert
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Original Name"})
+	assert.NoError(t, err)
+
+	// 2. Overwrite with new name
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "New Name"})
+	assert.NoError(t, err)
+	var name string
+	err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = ?", userID).Scan(&name)
+	assert.NoError(t, err)
+	assert.Equal(t, "New Name", name)
+
+	// 3. Preserve name when sending empty string (Unknown)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: ""})
+	assert.NoError(t, err)
+	err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = ?", userID).Scan(&name)
+	assert.NoError(t, err)
+	assert.Equal(t, "New Name", name, "Should have preserved the existing name")
 }
 
 func TestEnsureUser_ExistingUser(t *testing.T) {

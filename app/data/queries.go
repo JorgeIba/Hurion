@@ -12,10 +12,15 @@ import (
 
 // EnsureUser ensures that a user with the given ID and display name exists in the database.
 func (db *DB) EnsureUser(user User) error {
+	// Update displayname if the user already exists, but only if the new display name is not empty and not "Unknown"
 	query := `
 		INSERT INTO users (user_id, display_name)
-		VALUES (?, ?)
-		ON CONFLICT(user_id) DO UPDATE SET display_name = excluded.display_name;
+		VALUES (?1, CASE WHEN ?2 = '' THEN 'Unknown' ELSE ?2 END)
+		ON CONFLICT(user_id) DO UPDATE SET 
+			display_name = CASE 
+				WHEN excluded.display_name <> 'Unknown' THEN excluded.display_name 
+				ELSE users.display_name 
+			END;
 	`
 
 	if _, err := db.conn.Exec(query, user.UserID, user.DisplayName); err != nil {

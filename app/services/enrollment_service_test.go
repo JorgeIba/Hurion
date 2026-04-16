@@ -13,7 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
+func TestEnrollmentService_RegisterUserIntoClass(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -115,7 +115,7 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &EnrollmentService{Datastore: mockStore}
-			err := svc.RegisterUserIDIntoClass(tt.user, tt.classCode)
+			err := svc.RegisterUserIntoClass(tt.user, tt.classCode)
 
 			if tt.wantErr {
 				assert.Error(t, err)
