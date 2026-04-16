@@ -149,7 +149,14 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 
 	executor := controllers_common.MapMemberToUser(r.Member)
 	if executor.UserID == "" {
-		executor = controllers_common.MapDiscordUserToUser(r.User)
+		// Try to find the member in the bot's memory (state) to get the DisplayName
+		if m, err := s.State.Member(r.GuildID, r.UserID); err == nil {
+			executor = controllers_common.MapMemberToUser(m)
+		} else {
+			// Failsafe: if not in memory, at least keep the ID and set a fallback name
+			executor.UserID = r.UserID
+			executor.DisplayName = "Unknown"
+		}
 	}
 
 	context := &context.ContextMessage{

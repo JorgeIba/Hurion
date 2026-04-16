@@ -101,7 +101,11 @@ func ScoreToTableScore(score service_model.Score) presentation.TableScore {
 	// Build headers: "(ID) Problem \\ Display Name" followed by user names
 	headers := []string{"(ID) Problem \\ User"}
 	for _, entry := range score.UserScores {
-		headers = append(headers, entry.User.DisplayName)
+		name := sanitizeDisplayName(entry.User.DisplayName)
+		if name == "" {
+			name = entry.User.UserID
+		}
+		headers = append(headers, name)
 	}
 	var table [][]string
 	var rowMetadata []presentation.RowMetadata
