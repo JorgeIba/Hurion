@@ -7,27 +7,25 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
-	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 )
 
 func HandleDeregisterUser(c *context.ContextMessage) error {
 	classCode := c.Args[1]
-	userID := c.Message.Author.ID
-	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
+	user := c.Executor
 
-	if err := c.Services.Enrollment.DeregisterUserIDFromClass(userID, classCode); err != nil {
+	if err := c.Services.Enrollment.DeregisterUserIDFromClass(user.UserID, classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledDeregisterUser, discordNickname, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledDeregisterUser, user.DisplayName, classCode)),
 		)
 
 		return err
 	}
 
-	successMessage := fmt.Sprintf("User `%s` has deregistered from the class `%s` successfully", discordNickname, classCode)
+	successMessage := fmt.Sprintf("User `%s` has deregistered from the class `%s` successfully", user.DisplayName, classCode)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
@@ -48,20 +46,19 @@ func HandleProposeAC(c *context.ContextMessage) {
 	}
 
 	messageID := c.Message.ID
-	userID := c.Message.Author.ID
-	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
+	user := c.Executor
 
-	if err := c.Services.Solution.AddPendingACOfUserID(messageID, userID, problemID); err != nil {
+	if err := c.Services.Solution.AddPendingACOfUserID(messageID, user.UserID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledProposeAC, discordNickname, problemID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledProposeAC, user.DisplayName, problemID)),
 		)
 
 		return
 	}
 
-	logger.Log.Infof("Proposing AC: user %s, problem %d", userID, problemID)
+	logger.Log.Infof("Proposing AC: user %s, problem %d", user.UserID, problemID)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
 			Type:      dispatcher.Reaction,
@@ -84,20 +81,19 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	userID := c.Message.Author.ID
-	discordNickname := controllers_common.GetUserLabel(c.Message.Author, c.Message.Member)
+	user := c.Executor
 
-	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, userID); err != nil {
+	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, user.UserID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledUndoAC, discordNickname, problemID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledUndoAC, user.DisplayName, problemID)),
 		)
 
 		return
 	}
 
-	successMessage := fmt.Sprintf("Problem `%d` has been UnAC-ed successfully by `%s`", problemID, discordNickname)
+	successMessage := fmt.Sprintf("Problem `%d` has been UnAC-ed successfully by `%s`", problemID, user.DisplayName)
 	logger.Log.Info(successMessage)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),

@@ -11,8 +11,8 @@ import (
 
 func mapDataUserToServiceUser(u data.User) service_model.User {
 	return service_model.User{
-		UserID:   u.UserID,
-		UserName: u.UserName,
+		UserID:      u.UserID,
+		DisplayName: u.DisplayName,
 	}
 }
 
@@ -97,8 +97,8 @@ func mapServicePendingConfirmationToDataPendingConfirmation(pc service_model.Pen
 
 func mapServiceUserToDataUser(u service_model.User) data.User {
 	return data.User{
-		UserID:   u.UserID,
-		UserName: u.UserName,
+		UserID:      u.UserID,
+		DisplayName: u.DisplayName,
 	}
 }
 

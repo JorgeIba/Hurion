@@ -29,9 +29,9 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 			name:      "success - raw scores",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
-				u1 := data.User{UserID: "u1", UserName: "user1"}
-				u2 := data.User{UserID: "u2", UserName: "user2"}
-				u3 := data.User{UserID: "u3", UserName: "user3"}
+				u1 := data.User{UserID: "u1", DisplayName: "user1"}
+				u2 := data.User{UserID: "u2", DisplayName: "user2"}
+				u3 := data.User{UserID: "u3", DisplayName: "user3"}
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{
 					u1: {{UserID: "u1", ProblemID: 100}},
@@ -40,9 +40,9 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{u1, u2, u3}, nil)
 			},
 			wantResult: map[service_model.User][]service_model.SolvedProblem{
-				{UserID: "u1", UserName: "user1"}: {{UserID: "u1", ProblemID: 100}},
-				{UserID: "u2", UserName: "user2"}: {},
-				{UserID: "u3", UserName: "user3"}: {{UserID: "u3", ProblemID: 101}},
+				{UserID: "u1", DisplayName: "user1"}: {{UserID: "u1", ProblemID: 100}},
+				{UserID: "u2", DisplayName: "user2"}: {},
+				{UserID: "u3", DisplayName: "user3"}: {{UserID: "u3", ProblemID: 101}},
 			},
 			wantErr: false,
 		},
@@ -123,9 +123,9 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 			name:      "success - 3 users with different solved counts",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
-				u1 := data.User{UserID: "u1", UserName: "user1"}
-				u2 := data.User{UserID: "u2", UserName: "user2"}
-				u3 := data.User{UserID: "u3", UserName: "user3"}
+				u1 := data.User{UserID: "u1", DisplayName: "user1"}
+				u2 := data.User{UserID: "u2", DisplayName: "user2"}
+				u3 := data.User{UserID: "u3", DisplayName: "user3"}
 				
 				problems := []service_model.Problem{
 					{ID: 100, Topic: helpers.PtrStr("T1"), Name: "P1"},
@@ -159,14 +159,17 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				// Sorting check (Desc by count)
 				// User 1: 3 AC
 				assert.Equal(t, "u1", res.UserScores[0].User.UserID)
+				assert.Equal(t, "user1", res.UserScores[0].User.DisplayName)
 				assert.Equal(t, 3, res.UserScores[0].CountProblems)
 				
 				// User 2: 2 AC
 				assert.Equal(t, "u2", res.UserScores[1].User.UserID)
+				assert.Equal(t, "user2", res.UserScores[1].User.DisplayName)
 				assert.Equal(t, 2, res.UserScores[1].CountProblems)
 				
 				// User 3: 1 AC
 				assert.Equal(t, "u3", res.UserScores[2].User.UserID)
+				assert.Equal(t, "user3", res.UserScores[2].User.DisplayName)
 				assert.Equal(t, 1, res.UserScores[2].CountProblems)
 
 				// Check problem map for User 2 (Solved P1, P2; Not P3)
@@ -247,13 +250,13 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 
 				users := []data.User{
-					{UserID: "id1", UserName: "u1"},
-					{UserID: "id2", UserName: "u2"},
-					{UserID: "id3", UserName: "u3"},
-					{UserID: "id4", UserName: "u4"},
-					{UserID: "id5", UserName: "u5"},
-					{UserID: "id6", UserName: "u6"},
-					{UserID: "id7", UserName: "u7"},
+					{UserID: "id1", DisplayName: "u1"},
+					{UserID: "id2", DisplayName: "u2"},
+					{UserID: "id3", DisplayName: "u3"},
+					{UserID: "id4", DisplayName: "u4"},
+					{UserID: "id5", DisplayName: "u5"},
+					{UserID: "id6", DisplayName: "u6"},
+					{UserID: "id7", DisplayName: "u7"},
 				}
 
 				// Crucial: define problems so CountProblems works and sorting is stable
@@ -294,10 +297,10 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 
 				users := []data.User{
-					{UserID: "id1", UserName: "u1"},
-					{UserID: "id2", UserName: "u2"},
-					{UserID: "id3", UserName: "u3"},
-					{UserID: "id4", UserName: "u4"},
+					{UserID: "id1", DisplayName: "u1"},
+					{UserID: "id2", DisplayName: "u2"},
+					{UserID: "id3", DisplayName: "u3"},
+					{UserID: "id4", DisplayName: "u4"},
 				}
 
 				problems := []service_model.Problem{{ID: 1}, {ID: 2}, {ID: 3}, {ID: 4}}
@@ -317,8 +320,11 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 				// Index 0 -> max(0, 0-2) to min(3, 0+2) => 0 to 2
 				assert.Len(t, res.UserScores, 3)
 				assert.Equal(t, "id1", res.UserScores[0].User.UserID)
+				assert.Equal(t, "u1", res.UserScores[0].User.DisplayName)
 				assert.Equal(t, "id2", res.UserScores[1].User.UserID)
+				assert.Equal(t, "u2", res.UserScores[1].User.DisplayName)
 				assert.Equal(t, "id3", res.UserScores[2].User.UserID)
+				assert.Equal(t, "u3", res.UserScores[2].User.DisplayName)
 			},
 			wantErr: false,
 		},

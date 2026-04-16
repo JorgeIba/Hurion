@@ -5,12 +5,13 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 )
 
 type ConfirmationHandler func(originalContext *context.ContextMessage, args []string, confirmationContext *context.ContextMessage)
-type WarningMessageGenerator func(args []string) string
+type WarningMessageGenerator func(c *context.ContextMessage) string
 
 // ConfirmableCommand defines a command that requires confirmation before execution
 type ConfirmableCommand struct {
@@ -24,38 +25,57 @@ type ConfirmableCommand struct {
 // 2. Implement the handler function if it doesn't exist
 var confirmableCommands = map[string]ConfirmableCommand{
 	Exterminate.String(): {
-		WarningMessage: func(args []string) string {
-			userParam := args[1]
-			return fmt.Sprintf("⚠️ **WARNING**: This will permanently delete user `%s` and ALL their data from ALL classes.\n\nAre you sure you want to exterminate this user?", userParam)
+		WarningMessage: func(c *context.ContextMessage) string {
+			if len(c.Args) < 2 {
+				return "⚠️ **WARNING**: Invalid exterminate command."
+			}
+			userParam := c.Args[1]
+			userID, ok := controllers_common.ParseUserID(userParam)
+			displayName := userParam
+			if ok {
+				displayName = controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
+			}
+			return fmt.Sprintf("⚠️ **WARNING**: This will permanently delete user `%s` and ALL their data from ALL classes.\n\nAre you sure you want to exterminate this user?", displayName)
 		},
 		Handler: handleExterminateConfirmation,
 	},
 	ClearClass.String(): {
-		WarningMessage: func(args []string) string {
-			classCode := args[1]
+		WarningMessage: func(c *context.ContextMessage) string {
+			if len(c.Args) < 2 {
+				return "⚠️ **WARNING**: Invalid clear class command."
+			}
+			classCode := c.Args[1]
 			return fmt.Sprintf("⚠️ **WARNING**: This will delete ALL student enrollments, solved problems, and pending confirmations for class `%s`.\n\nThe class itself will remain but will be empty. Are you sure?", classCode)
 		},
 		Handler: handleClearClassConfirmation,
 	},
 	Deregister.String(): {
-		WarningMessage: func(args []string) string {
-			if len(args) == 2 {
+		WarningMessage: func(c *context.ContextMessage) string {
+			if len(c.Args) == 2 {
 				// Enrolled deregistering themselves
-				classCode := args[1]
+				classCode := c.Args[1]
 				return fmt.Sprintf("⚠️ **WARNING**: This will remove you from class `%s` and delete ALL your solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", classCode)
-			} else if len(args) == 3 {
+			} else if len(c.Args) == 3 {
 				// Mentor deregistering a user
-				userParam := args[1]
-				classCode := args[2]
-				return fmt.Sprintf("⚠️ **WARNING**: This will remove user `%s` from class `%s` and delete ALL their solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", userParam, classCode)
+				userParam := c.Args[1]
+				classCode := c.Args[2]
+				userID, ok := controllers_common.ParseUserID(userParam)
+				displayName := userParam
+				if ok {
+					displayName = controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
+				}
+				return fmt.Sprintf("⚠️ **WARNING**: This will remove user `%s` from class `%s` and delete ALL their solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", displayName, classCode)
 			}
 			return "⚠️ **WARNING**: Invalid deregister command."
 		},
 		Handler: handleDeregisterConfirmation,
 	},
 	RemoveProblem.String(): {
-		WarningMessage: func(args []string) string {
-			problemID := args[1]
+		WarningMessage: func(c *context.ContextMessage) string {
+			if len(c.Args) < 2 {
+				return "⚠️ **WARNING**: Invalid remove problem command."
+			}
+			problemID := c.Args[1]
 			return fmt.Sprintf("⚠️ **WARNING**: This will delete problem `%s` and ALL STUDENT ACs (solved_problems) for this problem.\n\nAre you sure you want to remove this problem?", problemID)
 		},
 		Handler: handleRemoveProblemConfirmation,
@@ -64,9 +84,9 @@ var confirmableCommands = map[string]ConfirmableCommand{
 
 // GetConfirmationMessage returns the warning message for a confirmable command
 // Returns empty string if command is not confirmable
-func GetConfirmationMessage(command string, args []string) string {
+func GetConfirmationMessage(c *context.ContextMessage, command string) string {
 	if cmd, exists := confirmableCommands[command]; exists {
-		return cmd.WarningMessage(args)
+		return cmd.WarningMessage(c)
 	}
 	return ""
 }

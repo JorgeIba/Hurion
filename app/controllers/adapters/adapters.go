@@ -34,13 +34,25 @@ func mapServiceProblemsToPresentationProblems(problems []service_model.Problem) 
 // Adapters to Excelizer Types
 // ============================================================================
 
+func sanitizeDisplayName(name string) string {
+	if name == "" {
+		return name
+	}
+	// Prefix with single quote if it starts with =, +, -, or @ to prevent formula injection
+	firstChar := name[0]
+	if firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@' {
+		return "'" + name
+	}
+	return name
+}
+
 // TransformToExcelizerUsers converts service layer users to excelizer users
 func TransformToExcelizerUsers(users []service_model.User) []excelizer.User {
 	result := make([]excelizer.User, len(users))
 	for i, u := range users {
 		result[i] = excelizer.User{
 			ID:   u.UserID,
-			Name: u.UserID,
+			Name: sanitizeDisplayName(u.DisplayName),
 		}
 	}
 	return result
@@ -86,12 +98,15 @@ func TransformToPresentationProblemsByTopic(problemsByTopic []service_model.Prob
 
 // ScoreToTableScore converts a Score struct into a TableScore with semantic metadata
 func ScoreToTableScore(score service_model.Score) presentation.TableScore {
-	// Build headers: "(ID) Problem \\ User ID" followed by user IDs
-	headers := []string{"(ID) Problem \\ User ID"}
+	// Build headers: "(ID) Problem \\ Display Name" followed by user names
+	headers := []string{"(ID) Problem \\ User"}
 	for _, entry := range score.UserScores {
-		headers = append(headers, entry.User.UserID)
+		name := sanitizeDisplayName(entry.User.DisplayName)
+		if name == "" {
+			name = entry.User.UserID
+		}
+		headers = append(headers, name)
 	}
-
 	var table [][]string
 	var rowMetadata []presentation.RowMetadata
 

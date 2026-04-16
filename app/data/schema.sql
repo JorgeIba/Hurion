@@ -1,5 +1,7 @@
 CREATE TABLE IF NOT EXISTS users (
-    user_id TEXT PRIMARY KEY
+    user_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    CONSTRAINT users_display_name_nonempty CHECK (trim(display_name) <> '')
 );
 
 CREATE TABLE IF NOT EXISTS classes (

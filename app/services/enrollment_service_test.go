@@ -13,12 +13,12 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
+func TestEnrollmentService_RegisterUserIntoClass(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name        string
-		userID      string
+		user        service_model.User
 		classCode   string
 		setupMock   func(*mock_data.MockDataStore)
 		wantErr     bool
@@ -26,11 +26,11 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 	}{
 		{
 			name:      "success - registered",
-			userID:    "u1",
+			user:      service_model.User{UserID: "u1", DisplayName: "User 1"},
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().EnsureUser("u1").Return(nil)
+				m.EXPECT().EnsureUser(data.User{UserID: "u1", DisplayName: "User 1"}).Return(nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
 				m.EXPECT().RegisterUserIntoClass("u1", int64(10)).Return(nil)
 			},
@@ -38,7 +38,7 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 		},
 		{
 			name:      "class not found",
-			userID:    "u1",
+			user:      service_model.User{UserID: "u1", DisplayName: "User 1"},
 			classCode: "UNKNOWN",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("UNKNOWN").Return(data.Class{}, &dataerr.NotFoundError{})
@@ -48,7 +48,7 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 		},
 		{
 			name:      "class check generic error",
-			userID:    "u1",
+			user:      service_model.User{UserID: "u1", DisplayName: "User 1"},
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
@@ -58,22 +58,22 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 		},
 		{
 			name:      "ensure user generic error",
-			userID:    "u1",
+			user:      service_model.User{UserID: "u1", DisplayName: "User 1"},
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().EnsureUser("u1").Return(errors.New("db fail"))
+				m.EXPECT().EnsureUser(data.User{UserID: "u1", DisplayName: "User 1"}).Return(errors.New("db fail"))
 			},
 			wantErr:     true,
 			wantErrType: &serviceerr.InternalError{},
 		},
 		{
 			name:      "already registered",
-			userID:    "u1",
+			user:      service_model.User{UserID: "u1", DisplayName: "User 1"},
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().EnsureUser("u1").Return(nil)
+				m.EXPECT().EnsureUser(data.User{UserID: "u1", DisplayName: "User 1"}).Return(nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 			},
 			wantErr:     true,
@@ -81,11 +81,11 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 		},
 		{
 			name:      "IsUserRegisteredInClass generic error",
-			userID:    "u1",
+			user:      service_model.User{UserID: "u1", DisplayName: "User 1"},
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().EnsureUser("u1").Return(nil)
+				m.EXPECT().EnsureUser(data.User{UserID: "u1", DisplayName: "User 1"}).Return(nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, errors.New("db fail"))
 			},
 			wantErr:     true,
@@ -93,11 +93,11 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 		},
 		{
 			name:      "internal error during registration",
-			userID:    "u1",
+			user:      service_model.User{UserID: "u1", DisplayName: "User 1"},
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().EnsureUser("u1").Return(nil)
+				m.EXPECT().EnsureUser(data.User{UserID: "u1", DisplayName: "User 1"}).Return(nil)
 				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
 				m.EXPECT().RegisterUserIntoClass("u1", int64(10)).Return(errors.New("db error"))
 			},
@@ -115,7 +115,7 @@ func TestEnrollmentService_RegisterUserIDIntoClass(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &EnrollmentService{Datastore: mockStore}
-			err := svc.RegisterUserIDIntoClass(tt.userID, tt.classCode)
+			err := svc.RegisterUserIntoClass(tt.user, tt.classCode)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -252,9 +252,9 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil)
+				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1", DisplayName: "User 1"}}, nil)
 			},
-			wantResult: []service_model.User{{UserID: "u1"}},
+			wantResult: []service_model.User{{UserID: "u1", DisplayName: "User 1"}},
 			wantErr:    false,
 		},
 		{

@@ -12,6 +12,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -56,7 +57,7 @@ func TestHandleRegisterUserInClass(t *testing.T) {
 			authorNick: "Jorge Nick",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
-				m.EXPECT().EnsureUser("discord_123").Return(nil)
+				m.EXPECT().EnsureUser(data.User{UserID: "discord_123", DisplayName: "Jorge Nick"}).Return(nil)
 				m.EXPECT().IsUserRegisteredInClass("discord_123", int64(1)).Return(false, nil)
 				m.EXPECT().RegisterUserIntoClass("discord_123", int64(1)).Return(nil)
 			},
@@ -94,6 +95,10 @@ func TestHandleRegisterUserInClass(t *testing.T) {
 				Args:       tt.args,
 				Services:   svc,
 				Dispatcher: disp,
+				Executor: service_model.User{
+					UserID:      tt.authorID,
+					DisplayName: tt.authorNick,
+				},
 				Message: &discordgo.MessageCreate{
 					Message: &discordgo.Message{
 						ChannelID: "chan_123",
@@ -127,15 +132,17 @@ func TestHandleGetUsersInClass(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{
-					{UserID: "123", UserName: "Nick1"},
-					{UserID: "456", UserName: "Nick2"},
+					{UserID: "123", DisplayName: "Jorge"},
+					{UserID: "456", DisplayName: "Luis"},
 				}, nil)
+				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Jorge"}, nil).AnyTimes()
+				m.EXPECT().GetUserByUserID("456").Return(data.User{UserID: "456", DisplayName: "Luis"}, nil).AnyTimes()
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
-				assert.Contains(t, msg.Embed.Description, "<@123>")
-				assert.Contains(t, msg.Embed.Description, "<@456>")
+				assert.Contains(t, msg.Embed.Description, "Jorge")
+				assert.Contains(t, msg.Embed.Description, "Luis")
 			},
 		},
 		{
@@ -162,10 +169,11 @@ func TestHandleGetUsersInClass(t *testing.T) {
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+				Args:            tt.args,
+				Services:        svc,
+				Dispatcher:      disp,
+				ExecutorGuildID: "guild_123",
+				Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
 			HandleGetUsersInClass(ctx)
 			if tt.assertFunc != nil {
@@ -233,10 +241,11 @@ func TestHandleGetListOfProblemsByClass(t *testing.T) {
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+				Args:            tt.args,
+				Services:        svc,
+				Dispatcher:      disp,
+				ExecutorGuildID: "guild_123",
+				Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
 			HandleGetListOfProblemsByClass(ctx)
 			if tt.assertFunc != nil {
@@ -260,11 +269,12 @@ func TestHandleGetScoreByClass(t *testing.T) {
 			args: []string{"!score", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
-					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
+					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
 				}, nil)
+				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "name_123"}, nil).AnyTimes()
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -296,10 +306,11 @@ func TestHandleGetScoreByClass(t *testing.T) {
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+				Args:            tt.args,
+				Services:        svc,
+				Dispatcher:      disp,
+				ExecutorGuildID: "guild_123",
+				Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
 			HandleGetScoreByClass(ctx)
 			if tt.assertFunc != nil {
@@ -322,38 +333,40 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 			name: "successful get user score (mention)",
 			args: []string{"!score", "basicos_1", "<@123>"},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
-					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
+					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
 				}, nil)
+				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "name_123"}, nil).AnyTimes()
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
-				assert.Contains(t, msg.Embeds[0].Title, "<@123>")
+				assert.Contains(t, msg.Embeds[0].Title, "name_123")
 			},
 		},
 		{
 			name: "successful get user score (raw ID)",
 			args: []string{"!score", "basicos_1", "123"},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
-					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
+					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
 				}, nil)
+				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "name_123"}, nil).AnyTimes()
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
-				assert.Contains(t, msg.Embeds[0].Title, "<@123>")
+				assert.Contains(t, msg.Embeds[0].Title, "name_123")
 			},
 		},
 		{
@@ -380,10 +393,11 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+				Args:            tt.args,
+				Services:        svc,
+				Dispatcher:      disp,
+				ExecutorGuildID: "guild_123",
+				Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
 			HandleGetScoreByUserAndClass(ctx)
 			if tt.assertFunc != nil {
@@ -405,12 +419,13 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 			name: "successful get score all classes",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetAllClasses().Return([]data.Class{{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}}, nil).AnyTimes()
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", UserName: "name_123"}}, nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
-					{UserID: "123", UserName: "name_123"}: {{ProblemID: 1}},
+					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
 				}, nil)
+				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "name_123"}, nil).AnyTimes()
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -442,9 +457,10 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 			ctx := &context.ContextMessage{
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+				Services:        svc,
+				Dispatcher:      disp,
+				ExecutorGuildID: "guild_123",
+				Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
 			HandleGetScoreAllClasses(ctx)
 			if tt.assertFunc != nil {
@@ -513,10 +529,11 @@ func TestHandleGetClassesOfUser(t *testing.T) {
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 			ctx := &context.ContextMessage{
-				Args:       tt.args,
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+				Args:            tt.args,
+				Services:        svc,
+				Dispatcher:      disp,
+				ExecutorGuildID: "guild_123",
+				Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
 			HandleGetClassesOfUser(ctx)
 			if tt.assertFunc != nil {
@@ -569,9 +586,10 @@ func TestHandleGetAllClasses(t *testing.T) {
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 			ctx := &context.ContextMessage{
-				Services:   svc,
-				Dispatcher: disp,
-				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+				Services:        svc,
+				Dispatcher:      disp,
+				ExecutorGuildID: "guild_123",
+				Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
 			}
 			HandleGetAllClasses(ctx)
 			if tt.assertFunc != nil {
@@ -629,6 +647,9 @@ func TestHandleGetMyClasses(t *testing.T) {
 			ctx := &context.ContextMessage{
 				Services:   svc,
 				Dispatcher: disp,
+				Executor: service_model.User{
+					UserID: tt.authorID,
+				},
 				Message: &discordgo.MessageCreate{
 					Message: &discordgo.Message{
 						ChannelID: "chan_123",

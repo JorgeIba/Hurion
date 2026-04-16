@@ -19,13 +19,40 @@ func TestEnsureUser_NewUser(t *testing.T) {
 
 	const userID = "12345"
 
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err, "Error inserting")
-
-	var dbUserID string
-	err = db.conn.QueryRow("SELECT user_id FROM users WHERE user_id = ?", userID).Scan(&dbUserID)
+	var dbUserID, dbDisplayName string
+	err = db.conn.QueryRow("SELECT user_id, display_name FROM users WHERE user_id = ?", userID).Scan(&dbUserID, &dbDisplayName)
 	assert.NoError(t, err, "User not found")
 	assert.Equal(t, userID, dbUserID, "UserID doesn't match")
+	assert.Equal(t, "Some Name", dbDisplayName, "DisplayName doesn't match")
+}
+
+func TestEnsureUser_OverwriteAndPreserve(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err, "Unable to create a DB")
+	defer db.CloseDB()
+
+	const userID = "12345"
+
+	// 1. Initial insert
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Original Name"})
+	assert.NoError(t, err)
+
+	// 2. Overwrite with new name
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "New Name"})
+	assert.NoError(t, err)
+	var name string
+	err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = ?", userID).Scan(&name)
+	assert.NoError(t, err)
+	assert.Equal(t, "New Name", name)
+
+	// 3. Preserve name when sending empty string (Unknown)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: ""})
+	assert.NoError(t, err)
+	err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = ?", userID).Scan(&name)
+	assert.NoError(t, err)
+	assert.Equal(t, "New Name", name, "Should have preserved the existing name")
 }
 
 func TestEnsureUser_ExistingUser(t *testing.T) {
@@ -35,10 +62,9 @@ func TestEnsureUser_ExistingUser(t *testing.T) {
 
 	const userID = "12345"
 
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err, "Error inserting")
-
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err, "Error ensuring existing user")
 
 	var count int
@@ -58,7 +84,7 @@ func TestRegisterUserIntoClass_NewUser(t *testing.T) {
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
 	assert.NoError(t, err, "Could not insert class")
 
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err, "Could not ensure user")
 
 	classID, _ := response.LastInsertId()
@@ -85,7 +111,7 @@ func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
 	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
 	assert.NoError(t, err, "Could not insert class")
 
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err, "Could not ensure user")
 
 	classID, _ := response.LastInsertId()
@@ -119,12 +145,11 @@ func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
 	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", classID, "CS101", "Intro to CS")
 	assert.NoError(t, err)
 
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err)
 
 	problemID, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: classID})
 	assert.NoError(t, err)
-
 	// Register user into class
 	err = db.RegisterUserIntoClass(userID, classID)
 	assert.NoError(t, err)
@@ -220,7 +245,7 @@ func TestRemoveProblemByID(t *testing.T) {
 	classID, err := classResult.LastInsertId()
 	assert.NoError(t, err)
 
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err)
 
 	// Add a problem
@@ -468,13 +493,13 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	assert.NoError(t, err)
 
 	user1 := User{
-		UserID:   "user1",
-		UserName: "user1",
+		UserID:      "user1",
+		DisplayName: "user1",
 	}
 
 	user2 := User{
-		UserID:   "user2",
-		UserName: "user2",
+		UserID:      "user2",
+		DisplayName: "user2",
 	}
 
 	var updates = []struct {
@@ -491,12 +516,11 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 		{userID: user2.UserID, problemID: problemID3},
 	}
 
-	err = db.EnsureUser(user1.UserID)
+	err = db.EnsureUser(user1)
 	assert.NoError(t, err)
 
-	err = db.EnsureUser(user2.UserID)
+	err = db.EnsureUser(user2)
 	assert.NoError(t, err)
-
 	for _, update := range updates {
 		err = db.AddAC(update.userID, update.problemID)
 		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
@@ -528,7 +552,7 @@ func TestClearClass(t *testing.T) {
 	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", 1, "CS101", "Intro to CS")
 	assert.NoError(t, err)
 
-	err = db.EnsureUser("user1")
+	err = db.EnsureUser(User{UserID: "user1", DisplayName: "Some Name"})
 	assert.NoError(t, err)
 
 	_, err = db.conn.Exec("INSERT INTO problems (id, name, class_id) VALUES (?, ?, ?)", 1, "Problem 1", 1)
@@ -600,16 +624,15 @@ func TestGetUserByUserID(t *testing.T) {
 
 	const userID = "123"
 	// Preconditions
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err, "Could not insert user")
 
 	// Test
 	user, err := db.GetUserByUserID(userID)
 	assert.NoError(t, err, "Expected no error, but got: ")
 	assert.Equal(t, userID, user.UserID, "UserID doesn't match")
-	assert.Equal(t, userID, user.UserName, "UserName should mirror userID")
+	assert.Equal(t, "Some Name", user.DisplayName, "DisplayName should match the input")
 }
-
 func TestGetClassByClassCode_Success(t *testing.T) {
 	db, err := NewDB(testConfig)
 	assert.NoError(t, err, "Unable to create a DB")
@@ -894,25 +917,24 @@ func TestGetAllUsersByClassID(t *testing.T) {
 
 	users := []User{
 		{
-			UserID:   "1",
-			UserName: "1",
+			UserID:      "1",
+			DisplayName: "Some Name",
 		},
 		{
-			UserID:   "2",
-			UserName: "2",
+			UserID:      "2",
+			DisplayName: "Some Name",
 		},
 		{
-			UserID:   "3",
-			UserName: "3",
+			UserID:      "3",
+			DisplayName: "Some Name",
 		},
 	}
-
 	// Preconditions
 	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
 	assert.NoError(t, err)
 
 	for _, user := range users {
-		err = db.EnsureUser(user.UserID)
+		err = db.EnsureUser(User{UserID: user.UserID, DisplayName: "Some Name"})
 		assert.NoError(t, err)
 		err = db.RegisterUserIntoClass(user.UserID, classID)
 		assert.NoError(t, err)
@@ -1095,8 +1117,8 @@ func TestHasUserSolvedProblem_ReturnsTrue(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	user := User{UserID: "user123", UserName: "user123"}
-	err = db.EnsureUser(user.UserID)
+	user := User{UserID: "user123", DisplayName: "Some Name"}
+	err = db.EnsureUser(user)
 	assert.NoError(t, err)
 
 	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
@@ -1122,8 +1144,8 @@ func TestHasUserSolvedProblem_ReturnsFalse(t *testing.T) {
 	defer db.CloseDB()
 
 	// Preconditions
-	user := User{UserID: "user123", UserName: "user123"}
-	err = db.EnsureUser(user.UserID)
+	user := User{UserID: "user123", DisplayName: "Some Name"}
+	err = db.EnsureUser(user)
 	assert.NoError(t, err)
 
 	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
@@ -1152,7 +1174,7 @@ func TestExterminateUser_CompleteRemoval(t *testing.T) {
 	classID, err := db.CreateClass(Class{ClassCode: "test_class", Name: "Test Class"})
 	assert.NoError(t, err)
 
-	err = db.EnsureUser(userID)
+	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
 	assert.NoError(t, err)
 
 	err = db.RegisterUserIntoClass(userID, classID)
@@ -1213,8 +1235,8 @@ func TestExterminateUser_MultipleUsers(t *testing.T) {
 	defer db.CloseDB()
 
 	users := []User{
-		{UserID: "user1", UserName: "Jorge"},
-		{UserID: "user2", UserName: "Luis"},
+		{UserID: "user1", DisplayName: "Jorge"},
+		{UserID: "user2", DisplayName: "Luis"},
 	}
 
 	// Preconditions
@@ -1222,7 +1244,7 @@ func TestExterminateUser_MultipleUsers(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, user := range users {
-		err = db.EnsureUser(user.UserID)
+		err = db.EnsureUser(User{UserID: user.UserID, DisplayName: "Some Name"})
 		assert.NoError(t, err)
 		err = db.RegisterUserIntoClass(user.UserID, classID)
 		assert.NoError(t, err)

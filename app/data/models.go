@@ -27,8 +27,8 @@ type Class struct {
 }
 
 type User struct {
-	UserID   string
-	UserName string
+	UserID      string
+	DisplayName string
 }
 
 type PendingConfirmation struct {

@@ -80,7 +80,7 @@ func handleConfirmationYes(c *context.ContextMessage) {
 		Services:         c.Services,
 		Dispatcher:       c.Dispatcher,
 		Args:             args,
-		ExecutorUserID:   c.ExecutorUserID,
+		Executor:         c.Executor,
 		ExecutorGuildID:  c.ExecutorGuildID,
 	}
 

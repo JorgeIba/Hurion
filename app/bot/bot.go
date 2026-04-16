@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
@@ -39,6 +40,10 @@ func (bot *Bot) Run() error {
 		log.Fatalln("Error creating the session,", err)
 		return err
 	}
+
+	// Enable intents and state tracking
+	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions | discordgo.IntentsGuildMembers
+	dg.StateEnabled = true
 
 	const bufferSize = 5
 	bot.dispatcher = dispatcher.NewDispatcher(dg, bufferSize)
@@ -102,6 +107,11 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		return
 	}
 
+	executor := controllers_common.MapMemberToUser(m.Member)
+	if executor.UserID == "" {
+		executor = controllers_common.MapDiscordUserToUser(m.Author)
+	}
+
 	context := &context.ContextMessage{
 		Session:          s,
 		Message:          m,
@@ -110,8 +120,8 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		Args:             args,
 		Services:         bot.services,
 		Dispatcher:       bot.dispatcher,
-		ExecutorUserID:   m.Author.ID, // Who is executing
-		ExecutorGuildID:  m.GuildID,   // Where it's executed
+		Executor:         executor,  // Who is executing
+		ExecutorGuildID:  m.GuildID, // Where it's executed
 	}
 
 	cmd := args[0]
@@ -137,6 +147,18 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		return
 	}
 
+	executor := controllers_common.MapMemberToUser(r.Member)
+	if executor.UserID == "" {
+		// Try to find the member in the bot's memory (state) to get the DisplayName
+		if m, err := s.State.Member(r.GuildID, r.UserID); err == nil {
+			executor = controllers_common.MapMemberToUser(m)
+		} else {
+			// Failsafe: if not in memory, at least keep the ID and set a fallback name
+			executor.UserID = r.UserID
+			executor.DisplayName = "Unknown"
+		}
+	}
+
 	context := &context.ContextMessage{
 		Session:          s,
 		MessageReaction:  r,
@@ -144,7 +166,7 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		DiscordFetcher:   bot.discordProvider,
 		Services:         bot.services,
 		Dispatcher:       bot.dispatcher,
-		ExecutorUserID:   r.UserID,  // Who is executing
+		Executor:         executor,  // Who is executing
 		ExecutorGuildID:  r.GuildID, // Where it's executed
 	}
 

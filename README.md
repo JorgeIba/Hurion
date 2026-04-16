@@ -40,6 +40,13 @@ DISCORD_MENTOR_ROLE_ID=123456789012345679
 | `DISCORD_ADMIN_ROLE_ID` | ✅ | Discord role ID for admin-level commands |
 | `DISCORD_MENTOR_ROLE_ID` | ✅ | Discord role ID for mentor-level commands |
 
+### Discord Bot Configuration
+
+For the bot to function correctly, you **must** enable the following **Privileged Gateway Intents** in the [Discord Developer Portal](https://discord.com/developers/applications) under the **Bot** tab:
+
+1.  **Server Members Intent**: Required to resolve member nicknames and server-specific identities. Without this, the bot will fall back to global usernames or "Unknown."
+2.  **Message Content Intent**: Required for the bot to read and process command arguments.
+
 ### Running Locally
 
 ```bash

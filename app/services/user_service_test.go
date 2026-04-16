@@ -18,25 +18,25 @@ func TestUserService_EnsureUser(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		userID     string
+		user       service_model.User
 		setup      func(*mock_data.MockDataStore)
 		assertFunc func(*testing.T, error)
 	}{
 		{
-			name:   "success",
-			userID: "u1",
+			name: "success",
+			user: service_model.User{UserID: "u1", DisplayName: "u1"},
 			setup: func(m *mock_data.MockDataStore) {
-				m.EXPECT().EnsureUser("u1").Return(nil)
+				m.EXPECT().EnsureUser(data.User{UserID: "u1", DisplayName: "u1"}).Return(nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
 		},
 		{
-			name:   "datastore error",
-			userID: "u1",
+			name: "datastore error",
+			user: service_model.User{UserID: "u1", DisplayName: "u1"},
 			setup: func(m *mock_data.MockDataStore) {
-				m.EXPECT().EnsureUser("u1").Return(errors.New("db fail"))
+				m.EXPECT().EnsureUser(data.User{UserID: "u1", DisplayName: "u1"}).Return(errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.Error(t, err)
@@ -55,7 +55,7 @@ func TestUserService_EnsureUser(t *testing.T) {
 			tt.setup(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
-			err := svc.EnsureUser(tt.userID)
+			err := svc.EnsureUser(tt.user)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -74,7 +74,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			name:   "success - user exterminated",
 			userID: "u1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserID("u1").Return(data.User{UserID: "u1", UserName: "u1"}, nil)
+				m.EXPECT().GetUserByUserID("u1").Return(data.User{UserID: "u1", DisplayName: "u1"}, nil)
 				m.EXPECT().ExterminateUser("u1").Return(nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
@@ -107,7 +107,7 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			name:   "internal error - extermination fails",
 			userID: "u3",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserID("u3").Return(data.User{UserID: "u3", UserName: "u3"}, nil)
+				m.EXPECT().GetUserByUserID("u3").Return(data.User{UserID: "u3", DisplayName: "u3"}, nil)
 				m.EXPECT().ExterminateUser("u3").Return(errors.New("deletion failed"))
 			},
 			assertFunc: func(t *testing.T, err error) {
@@ -146,11 +146,11 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 			name:   "success",
 			userID: "u1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetUserByUserID("u1").Return(data.User{UserID: "u1", UserName: "u1"}, nil)
+				m.EXPECT().GetUserByUserID("u1").Return(data.User{UserID: "u1", DisplayName: "u1"}, nil)
 			},
 			assertFunc: func(t *testing.T, res service_model.User, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, service_model.User{UserID: "u1", UserName: "u1"}, res)
+				assert.Equal(t, service_model.User{UserID: "u1", DisplayName: "u1"}, res)
 			},
 		},
 		{

@@ -10,8 +10,8 @@ import (
 
 // User represents a user in the system
 type User struct {
-	UserID   string
-	UserName string
+	UserID      string
+	DisplayName string
 }
 
 // Problem represents a problem within a class
