@@ -9,6 +9,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers/mock_providers"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/bwmarrin/discordgo"
 	"go.uber.org/mock/gomock"
 )
 
@@ -38,6 +39,7 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 	logger.Init()
 
 	ctrl := gomock.NewController(t)
+	t.Cleanup(ctrl.Finish)
 
 	// Initialize in-memory SQLite
 	db, err := data.NewDB(&data.DBConfig{
@@ -47,6 +49,7 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatalf("Failed to initialize in-memory DB: %v", err)
 	}
+	t.Cleanup(db.CloseDB)
 
 	// Initialize services
 	svc := services.NewServices(db)
@@ -57,6 +60,7 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 
 	// Construct ContextMessage
 	ctx := &context.ContextMessage{
+		Session:          &discordgo.Session{}, // Non-nil stub
 		DiscordValidator: mockProvider,
 		DiscordFetcher:   mockProvider,
 		Dispatcher:       fakeDispatcher,

@@ -54,6 +54,10 @@ func NewDB(cfg *DBConfig) (*DB, error) {
 		return nil, dataerr.NewInitializationError("could not ping DB", err)
 	}
 
+	if cfg.DBType == Test {
+		conn.SetMaxOpenConns(1)
+	}
+
 	if err := applySchema(conn); err != nil {
 		return nil, dataerr.NewInitializationError("could not get the schema", err)
 	}

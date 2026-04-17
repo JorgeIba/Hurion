@@ -11,6 +11,8 @@ import (
 )
 
 func TestIntegration_RegisterUser(t *testing.T) {
+	t.Parallel()
+
 	// 1. SETUP Environment
 	env := setupIntegrationEnv(t)
 	env.SeedClass(t, "basicos_1", "Basicos 2026")
@@ -49,6 +51,8 @@ func TestIntegration_RegisterUser(t *testing.T) {
 }
 
 func TestIntegration_ListProblems(t *testing.T) {
+	t.Parallel()
+
 	// 1. SETUP
 	env := setupIntegrationEnv(t)
 	
@@ -72,8 +76,17 @@ func TestIntegration_ListProblems(t *testing.T) {
 	assert.Equal(t, dispatcher.PaginationEmbed, msg.Type)
 	assert.Len(t, msg.Embeds, 1)
 	assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
-	assert.Len(t, msg.Embeds[0].Fields, 3)
-	assert.Contains(t, msg.Embeds[0].Fields[2].Value, "Two Sum")
-	assert.Contains(t, msg.Embeds[0].Fields[2].Value, "Add Two Numbers")
+	
+	// Instead of hardcoding Fields[2], we find the field with Name == "Name"
+	var nameColumnValue string
+	for _, f := range msg.Embeds[0].Fields {
+		if f.Name == "Name" {
+			nameColumnValue = f.Value
+			break
+		}
+	}
+	assert.NotEmpty(t, nameColumnValue, "Expected an embed field with name 'Name'")
+	assert.Contains(t, nameColumnValue, "Two Sum")
+	assert.Contains(t, nameColumnValue, "Add Two Numbers")
 }
 
