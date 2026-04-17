@@ -561,6 +561,12 @@ func TestClearClass(t *testing.T) {
 	_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "user1", 1)
 	assert.NoError(t, err)
 
+	_, err = db.conn.Exec("INSERT INTO class_channels (channel_id, class_code) VALUES (?, ?)", "channel-1", "CS101")
+	assert.NoError(t, err)
+
+	_, err = db.conn.Exec("INSERT INTO class_roles (class_code, role_id) VALUES (?, ?)", "CS101", "role-1")
+	assert.NoError(t, err)
+
 	_, err = db.conn.Exec("INSERT INTO solved_problems (user_id, problem_id) VALUES (?, ?)", "user1", 1)
 	assert.NoError(t, err)
 
@@ -579,6 +585,8 @@ func TestClearClass(t *testing.T) {
 	}{
 		{"SELECT COUNT(*) FROM classes WHERE id = 1", "classes"},
 		{"SELECT COUNT(*) FROM problems WHERE class_id = 1", "problems"},
+		{"SELECT COUNT(*) FROM class_channels WHERE class_code = 'CS101'", "class_channels"},
+		{"SELECT COUNT(*) FROM class_roles WHERE class_code = 'CS101'", "class_roles"},
 		{"SELECT COUNT(*) FROM enrollments WHERE class_id = 1", "enrollments"},
 		{"SELECT COUNT(*) FROM solved_problems WHERE problem_id = 1", "solved_problems"},
 		{"SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = 1", "pending_confirmations"},
@@ -615,6 +623,131 @@ func TestCreateClass(t *testing.T) {
 	assert.Equal(t, classID, dbClassID, "Class ID should match")
 	assert.Equal(t, classCode, dbClassCode, "Class Code should match")
 	assert.Equal(t, className, dbClassName, "Class Name should match")
+}
+
+func TestAddClassChannel_Upsert(t *testing.T) {
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err)
+	defer db.CloseDB()
+
+	_, err = db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+	assert.NoError(t, err)
+
+	err = db.AddClassChannel(ClassChannel{ChannelID: "channel-1", ClassCode: "basicos"})
+	assert.NoError(t, err)
+
+	_, err = db.CreateClass(Class{ClassCode: "intermedios", Name: "Intermedios 2025"})
+	assert.NoError(t, err)
+
+	err = db.AddClassChannel(ClassChannel{ChannelID: "channel-1", ClassCode: "intermedios"})
+	assert.NoError(t, err)
+
+	classCode, err := db.GetClassCodeByChannelID("channel-1")
+	assert.NoError(t, err)
+	assert.Equal(t, "intermedios", classCode)
+}
+
+func TestGetClassCodeByChannelID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err)
+	defer db.CloseDB()
+
+	_, err = db.GetClassCodeByChannelID("unknown-channel")
+	assert.Error(t, err)
+
+	var notFoundErr *dataerr.NotFoundError
+	assert.ErrorAs(t, err, &notFoundErr)
+}
+
+func TestGetClassChannelsByClassCode(t *testing.T) {
+	t.Parallel()
+
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err)
+	defer db.CloseDB()
+
+	_, err = db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+	assert.NoError(t, err)
+
+	err = db.AddClassChannel(ClassChannel{ChannelID: "channel-2", ClassCode: "basicos"})
+	assert.NoError(t, err)
+	err = db.AddClassChannel(ClassChannel{ChannelID: "channel-1", ClassCode: "basicos"})
+	assert.NoError(t, err)
+
+	channels, err := db.GetClassChannelsByClassCode("basicos")
+	assert.NoError(t, err)
+	assert.Len(t, channels, 2)
+	assert.Equal(t, "channel-1", channels[0].ChannelID)
+	assert.Equal(t, "basicos", channels[0].ClassCode)
+	assert.Equal(t, "channel-2", channels[1].ChannelID)
+}
+
+func TestRemoveClassChannelByChannelID(t *testing.T) {
+	t.Parallel()
+
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err)
+	defer db.CloseDB()
+
+	_, err = db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+	assert.NoError(t, err)
+
+	err = db.AddClassChannel(ClassChannel{ChannelID: "channel-1", ClassCode: "basicos"})
+	assert.NoError(t, err)
+
+	err = db.RemoveClassChannelByChannelID("channel-1")
+	assert.NoError(t, err)
+
+	_, err = db.GetClassCodeByChannelID("channel-1")
+	assert.Error(t, err)
+}
+
+func TestAddAndGetClassRolesByClassCode(t *testing.T) {
+	t.Parallel()
+
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err)
+	defer db.CloseDB()
+
+	_, err = db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+	assert.NoError(t, err)
+
+	err = db.AddClassRole(ClassRole{ClassCode: "basicos", RoleID: "role-2"})
+	assert.NoError(t, err)
+	err = db.AddClassRole(ClassRole{ClassCode: "basicos", RoleID: "role-1"})
+	assert.NoError(t, err)
+	err = db.AddClassRole(ClassRole{ClassCode: "basicos", RoleID: "role-1"})
+	assert.NoError(t, err)
+
+	roles, err := db.GetClassRolesByClassCode("basicos")
+	assert.NoError(t, err)
+	assert.Len(t, roles, 2)
+	assert.Equal(t, "role-1", roles[0].RoleID)
+	assert.Equal(t, "basicos", roles[0].ClassCode)
+	assert.Equal(t, "role-2", roles[1].RoleID)
+}
+
+func TestRemoveClassRole(t *testing.T) {
+	t.Parallel()
+
+	db, err := NewDB(testConfig)
+	assert.NoError(t, err)
+	defer db.CloseDB()
+
+	_, err = db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+	assert.NoError(t, err)
+
+	err = db.AddClassRole(ClassRole{ClassCode: "basicos", RoleID: "role-1"})
+	assert.NoError(t, err)
+
+	err = db.RemoveClassRole(ClassRole{ClassCode: "basicos", RoleID: "role-1"})
+	assert.NoError(t, err)
+
+	roles, err := db.GetClassRolesByClassCode("basicos")
+	assert.NoError(t, err)
+	assert.Len(t, roles, 0)
 }
 
 func TestGetUserByUserID(t *testing.T) {

@@ -54,6 +54,34 @@ func (mr *MockDataStoreMockRecorder) AddAC(userID, problemID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAC", reflect.TypeOf((*MockDataStore)(nil).AddAC), userID, problemID)
 }
 
+// AddClassChannel mocks base method.
+func (m *MockDataStore) AddClassChannel(classChannel data.ClassChannel) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddClassChannel", classChannel)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddClassChannel indicates an expected call of AddClassChannel.
+func (mr *MockDataStoreMockRecorder) AddClassChannel(classChannel any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddClassChannel", reflect.TypeOf((*MockDataStore)(nil).AddClassChannel), classChannel)
+}
+
+// AddClassRole mocks base method.
+func (m *MockDataStore) AddClassRole(classRole data.ClassRole) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddClassRole", classRole)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddClassRole indicates an expected call of AddClassRole.
+func (mr *MockDataStoreMockRecorder) AddClassRole(classRole any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddClassRole", reflect.TypeOf((*MockDataStore)(nil).AddClassRole), classRole)
+}
+
 // AddPendingConfirmation mocks base method.
 func (m *MockDataStore) AddPendingConfirmation(confirmation data.PendingConfirmation) error {
 	m.ctrl.T.Helper()
@@ -229,6 +257,51 @@ func (mr *MockDataStoreMockRecorder) GetClassByClassCode(classCode any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassByClassCode", reflect.TypeOf((*MockDataStore)(nil).GetClassByClassCode), classCode)
 }
 
+// GetClassChannelsByClassCode mocks base method.
+func (m *MockDataStore) GetClassChannelsByClassCode(classCode string) ([]data.ClassChannel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassChannelsByClassCode", classCode)
+	ret0, _ := ret[0].([]data.ClassChannel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassChannelsByClassCode indicates an expected call of GetClassChannelsByClassCode.
+func (mr *MockDataStoreMockRecorder) GetClassChannelsByClassCode(classCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassChannelsByClassCode", reflect.TypeOf((*MockDataStore)(nil).GetClassChannelsByClassCode), classCode)
+}
+
+// GetClassCodeByChannelID mocks base method.
+func (m *MockDataStore) GetClassCodeByChannelID(channelID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassCodeByChannelID", channelID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassCodeByChannelID indicates an expected call of GetClassCodeByChannelID.
+func (mr *MockDataStoreMockRecorder) GetClassCodeByChannelID(channelID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassCodeByChannelID", reflect.TypeOf((*MockDataStore)(nil).GetClassCodeByChannelID), channelID)
+}
+
+// GetClassRolesByClassCode mocks base method.
+func (m *MockDataStore) GetClassRolesByClassCode(classCode string) ([]data.ClassRole, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassRolesByClassCode", classCode)
+	ret0, _ := ret[0].([]data.ClassRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassRolesByClassCode indicates an expected call of GetClassRolesByClassCode.
+func (mr *MockDataStoreMockRecorder) GetClassRolesByClassCode(classCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassRolesByClassCode", reflect.TypeOf((*MockDataStore)(nil).GetClassRolesByClassCode), classCode)
+}
+
 // GetClassesByUserID mocks base method.
 func (m *MockDataStore) GetClassesByUserID(userID string) ([]data.Class, error) {
 	m.ctrl.T.Helper()
@@ -361,6 +434,34 @@ func (m *MockDataStore) RemoveAC(userID string, problemID int64) error {
 func (mr *MockDataStoreMockRecorder) RemoveAC(userID, problemID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAC", reflect.TypeOf((*MockDataStore)(nil).RemoveAC), userID, problemID)
+}
+
+// RemoveClassChannelByChannelID mocks base method.
+func (m *MockDataStore) RemoveClassChannelByChannelID(channelID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveClassChannelByChannelID", channelID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveClassChannelByChannelID indicates an expected call of RemoveClassChannelByChannelID.
+func (mr *MockDataStoreMockRecorder) RemoveClassChannelByChannelID(channelID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveClassChannelByChannelID", reflect.TypeOf((*MockDataStore)(nil).RemoveClassChannelByChannelID), channelID)
+}
+
+// RemoveClassRole mocks base method.
+func (m *MockDataStore) RemoveClassRole(classRole data.ClassRole) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveClassRole", classRole)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveClassRole indicates an expected call of RemoveClassRole.
+func (mr *MockDataStoreMockRecorder) RemoveClassRole(classRole any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveClassRole", reflect.TypeOf((*MockDataStore)(nil).RemoveClassRole), classRole)
 }
 
 // RemovePendingConfirmation mocks base method.

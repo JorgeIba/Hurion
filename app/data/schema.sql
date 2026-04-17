@@ -10,6 +10,19 @@ CREATE TABLE IF NOT EXISTS classes (
     name TEXT
 );
 
+CREATE TABLE IF NOT EXISTS class_channels (
+    channel_id TEXT PRIMARY KEY,
+    class_code TEXT NOT NULL,
+    FOREIGN KEY (class_code) REFERENCES classes(class_code) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS class_roles (
+    class_code TEXT NOT NULL,
+    role_id TEXT NOT NULL,
+    PRIMARY KEY (class_code, role_id),
+    FOREIGN KEY (class_code) REFERENCES classes(class_code) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS problems (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,

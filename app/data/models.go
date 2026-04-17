@@ -26,6 +26,16 @@ type Class struct {
 	Name      string
 }
 
+type ClassChannel struct {
+	ChannelID string
+	ClassCode string
+}
+
+type ClassRole struct {
+	ClassCode string
+	RoleID    string
+}
+
 type User struct {
 	UserID      string
 	DisplayName string
