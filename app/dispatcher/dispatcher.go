@@ -13,6 +13,11 @@ const (
 	TIME_ACTIVE_PROBLEMS_LIST = time.Minute * 2
 )
 
+//go:generate go tool mockgen -source=$GOFILE -destination=mock_dispatcher/mock_dispatcher.go -package=mock_dispatcher
+type MessageSender interface {
+	Send(msg MessageResponse)
+}
+
 type Dispatcher struct {
 	Session *discordgo.Session
 	Output  chan MessageResponse
@@ -161,7 +166,6 @@ func resolveAllowedMentions(msg MessageResponse) *discordgo.MessageAllowedMentio
 		}
 	}
 
-	// Fail closed: unknown/none/custom-without-value all suppress mentions.
 	return &discordgo.MessageAllowedMentions{
 		Parse: []discordgo.AllowedMentionType{},
 	}

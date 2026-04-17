@@ -14,7 +14,7 @@ type ContextMessage struct {
 	Message          *discordgo.MessageCreate
 	DiscordValidator providers.DiscordValidator
 	DiscordFetcher   providers.DiscordFetcher
-	Dispatcher       *dispatcher.Dispatcher
+	Dispatcher       dispatcher.MessageSender
 	Args             []string
 	Services         *services.Services
 
