@@ -282,6 +282,8 @@ func (db *DB) ClearClass(classID int64) error {
 	queries := []string{
 		"DELETE FROM pending_confirmations WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
 		"DELETE FROM solved_problems WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
+		"DELETE FROM class_channels WHERE class_code = (SELECT class_code FROM classes WHERE id = ?)",
+		"DELETE FROM class_roles WHERE class_code = (SELECT class_code FROM classes WHERE id = ?)",
 		"DELETE FROM enrollments WHERE class_id = ?",
 		"DELETE FROM problems WHERE class_id = ?",
 		"DELETE FROM classes WHERE id = ?",
@@ -328,6 +330,139 @@ func (db *DB) CreateClass(class Class) (int64, error) {
 	}
 
 	return classID, nil
+}
+
+func (db *DB) AddClassChannel(classChannel ClassChannel) error {
+	query := `
+		INSERT INTO class_channels (channel_id, class_code)
+		VALUES (?, ?)
+		ON CONFLICT(channel_id) DO UPDATE SET class_code = EXCLUDED.class_code;
+	`
+
+	if _, err := db.conn.Exec(query, classChannel.ChannelID, classChannel.ClassCode); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not add channel %s for class %s", classChannel.ChannelID, classChannel.ClassCode), err)
+	}
+
+	return nil
+}
+
+func (db *DB) RemoveClassChannelByChannelID(channelID string) error {
+	query := `
+		DELETE FROM class_channels
+		WHERE channel_id = ?;
+	`
+
+	if _, err := db.conn.Exec(query, channelID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not remove class channel %s", channelID), err)
+	}
+
+	return nil
+}
+
+func (db *DB) AddClassRole(classRole ClassRole) error {
+	query := `
+		INSERT INTO class_roles (class_code, role_id)
+		VALUES (?, ?)
+		ON CONFLICT(class_code, role_id) DO NOTHING;
+	`
+
+	if _, err := db.conn.Exec(query, classRole.ClassCode, classRole.RoleID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not add role %s for class %s", classRole.RoleID, classRole.ClassCode), err)
+	}
+
+	return nil
+}
+
+func (db *DB) RemoveClassRole(classRole ClassRole) error {
+	query := `
+		DELETE FROM class_roles
+		WHERE class_code = ? AND role_id = ?;
+	`
+
+	if _, err := db.conn.Exec(query, classRole.ClassCode, classRole.RoleID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not remove role %s from class %s", classRole.RoleID, classRole.ClassCode), err)
+	}
+
+	return nil
+}
+
+func (db *DB) GetClassCodeByChannelID(channelID string) (string, error) {
+	query := `
+		SELECT class_code
+		FROM class_channels
+		WHERE channel_id = ?;
+	`
+
+	var classCode string
+	err := db.conn.QueryRow(query, channelID).Scan(&classCode)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", dataerr.NewNotFoundError(fmt.Sprintf("class channel for channel id %s not found", channelID), nil)
+		}
+		return "", dataerr.NewQueryError(fmt.Sprintf("could not get class code by channel id %s", channelID), err)
+	}
+
+	return classCode, nil
+}
+
+func (db *DB) GetClassChannelsByClassCode(classCode string) ([]ClassChannel, error) {
+	query := `
+		SELECT channel_id, class_code
+		FROM class_channels
+		WHERE class_code = ?
+		ORDER BY channel_id;
+	`
+
+	rows, err := db.conn.Query(query, classCode)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get class channels for class %s", classCode), err)
+	}
+	defer rows.Close()
+
+	channels := make([]ClassChannel, 0)
+	for rows.Next() {
+		var classChannel ClassChannel
+		if err := rows.Scan(&classChannel.ChannelID, &classChannel.ClassCode); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class channel for class %s", classCode), err)
+		}
+		channels = append(channels, classChannel)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating class channels for class %s", classCode), err)
+	}
+
+	return channels, nil
+}
+
+func (db *DB) GetClassRolesByClassCode(classCode string) ([]ClassRole, error) {
+	query := `
+		SELECT class_code, role_id
+		FROM class_roles
+		WHERE class_code = ?
+		ORDER BY role_id;
+	`
+
+	rows, err := db.conn.Query(query, classCode)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get class roles for class %s", classCode), err)
+	}
+	defer rows.Close()
+
+	roles := make([]ClassRole, 0)
+	for rows.Next() {
+		var classRole ClassRole
+		if err := rows.Scan(&classRole.ClassCode, &classRole.RoleID); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class role for class %s", classCode), err)
+		}
+		roles = append(roles, classRole)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating class roles for class %s", classCode), err)
+	}
+
+	return roles, nil
 }
 
 func (db *DB) GetUserByUserID(userID string) (User, error) {

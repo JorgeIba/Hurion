@@ -5,6 +5,9 @@ type QueryDatastore interface {
 	GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error)
 	GetUserByUserID(userID string) (User, error)
 	GetClassByClassCode(classCode string) (Class, error)
+	GetClassCodeByChannelID(channelID string) (string, error)
+	GetClassChannelsByClassCode(classCode string) ([]ClassChannel, error)
+	GetClassRolesByClassCode(classCode string) ([]ClassRole, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
 	ExistsPendingConfirmation(messageID string) (bool, error)
@@ -19,6 +22,10 @@ type UpdateDataStore interface {
 	EnsureUser(user User) error
 	RegisterUserIntoClass(userID string, classID int64) error
 	DeregisterUserFromClass(userID string, classID int64) error
+	AddClassChannel(classChannel ClassChannel) error
+	RemoveClassChannelByChannelID(channelID string) error
+	AddClassRole(classRole ClassRole) error
+	RemoveClassRole(classRole ClassRole) error
 	AddProblem(problem Problem) (int64, error)
 	RemoveProblemByID(problemID int64) (int64, error)
 	AddAC(userID string, problemID int64) error
