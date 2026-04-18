@@ -14,19 +14,19 @@ generate:
 	@go generate ./...
 	@echo "==> Mocks generated successfully."
 
-## test: Generate mocks and run both unit and integration test suites
-test: generate test-unit test-integration
-	@echo "==> All tests completed successfully."
-
-## test-unit: Run application/unit tests
-test-unit:
+## test-unit: Run application/unit tests (depends on generate)
+test-unit: generate
 	@echo "==> Running unit tests (app)..."
 	@go test -v ./app/...
 
-## test-integration: Run integration tests
-test-integration:
+## test-integration: Run integration tests (depends on generate)
+test-integration: generate
 	@echo "==> Running integration tests..."
 	@go test -v ./integration/...
+
+## test: Generate mocks and run both unit and integration test suites
+test: test-unit test-integration
+	@echo "==> All tests completed successfully."
 
 ## coverage: Run tests with coverage and generate HTML report
 coverage: generate

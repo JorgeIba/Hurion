@@ -157,7 +157,7 @@ func verifyIsConfirmationMessage(c *context.ContextMessage) bool {
 		return false
 	}
 
-	if confirmationMsg.ReferencedMessage == nil {
+	if confirmationMsg.ReferencedMessage == nil || confirmationMsg.ReferencedMessage.Author == nil {
 		return false
 	}
 

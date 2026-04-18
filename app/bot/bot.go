@@ -113,14 +113,15 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 
 	context := &context.ContextMessage{
-		Message:          m,
-		DiscordValidator: bot.discordProvider,
-		DiscordFetcher:   bot.discordProvider,
-		Args:             args,
-		Services:         bot.services,
-		Dispatcher:       bot.dispatcher,
-		Executor:         executor,  // Who is executing
-		ExecutorGuildID:  m.GuildID, // Where it's executed
+		Message:                m,
+		DiscordValidator:       bot.discordProvider,
+		DiscordFetcher:         bot.discordProvider,
+		DiscordMessageModifier: bot.discordProvider,
+		Args:                   args,
+		Services:               bot.services,
+		Dispatcher:             bot.dispatcher,
+		Executor:               executor,  // Who is executing
+		ExecutorGuildID:        m.GuildID, // Where it's executed
 	}
 
 	cmd := args[0]
@@ -159,13 +160,14 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 	}
 
 	context := &context.ContextMessage{
-		MessageReaction:  r,
-		DiscordValidator: bot.discordProvider,
-		DiscordFetcher:   bot.discordProvider,
-		Services:         bot.services,
-		Dispatcher:       bot.dispatcher,
-		Executor:         executor,  // Who is executing
-		ExecutorGuildID:  r.GuildID, // Where it's executed
+		MessageReaction:        r,
+		DiscordValidator:       bot.discordProvider,
+		DiscordFetcher:         bot.discordProvider,
+		DiscordMessageModifier: bot.discordProvider,
+		Services:               bot.services,
+		Dispatcher:             bot.dispatcher,
+		Executor:               executor,  // Who is executing
+		ExecutorGuildID:        r.GuildID, // Where it's executed
 	}
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
