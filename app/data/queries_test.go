@@ -670,6 +670,10 @@ func TestClearClass(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
 				require.NoError(t, err)
+				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				require.NoError(t, err)
+				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				require.NoError(t, err)
 				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
@@ -690,6 +694,12 @@ func TestClearClass(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
 				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE class_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM class_channels WHERE class_code = 'c1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM class_roles WHERE class_code = 'c1'").Scan(&count)
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
 			},
@@ -778,6 +788,405 @@ func TestCreateClass(t *testing.T) {
 
 			id, err := db.CreateClass(tt.class)
 			tt.assertFunc(t, db, id, err)
+		})
+	}
+}
+
+func TestAddClassChannel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classChan  ClassChannel
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should upsert channel to latest class",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				_, err = db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
+				require.NoError(t, err)
+				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				require.NoError(t, err)
+			},
+			classChan: ClassChannel{ChannelID: "ch-1", ClassCode: "c2"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				classCode, getErr := db.GetClassCodeByChannelID("ch-1")
+				assert.NoError(t, getErr)
+				assert.Equal(t, "c2", classCode)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classChan: ClassChannel{ChannelID: "ch-1", ClassCode: "c1"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.AddClassChannel(tt.classChan)
+			tt.assertFunc(t, db, err)
+		})
+	}
+}
+
+func TestGetClassCodeByChannelID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		channelID  string
+		assertFunc func(t *testing.T, db *DB, classCode string, err error)
+	}{
+		{
+			name: "should get class code for mapped channel",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				require.NoError(t, err)
+			},
+			channelID: "ch-1",
+			assertFunc: func(t *testing.T, db *DB, classCode string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "c1", classCode)
+			},
+		},
+		{
+			name:      "should return error for unknown channel",
+			channelID: "missing",
+			assertFunc: func(t *testing.T, db *DB, classCode string, err error) {
+				assert.Error(t, err)
+				assert.Equal(t, "", classCode)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			channelID: "ch-1",
+			assertFunc: func(t *testing.T, db *DB, classCode string, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			classCode, err := db.GetClassCodeByChannelID(tt.channelID)
+			tt.assertFunc(t, db, classCode, err)
+		})
+	}
+}
+
+func TestGetClassChannelsByClassCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classCode  string
+		assertFunc func(t *testing.T, db *DB, channels []ClassChannel, err error)
+	}{
+		{
+			name: "should return channels sorted by channel_id",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-2", ClassCode: "c1"})
+				require.NoError(t, err)
+				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				require.NoError(t, err)
+			},
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, channels []ClassChannel, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, channels, 2)
+				assert.Equal(t, "ch-1", channels[0].ChannelID)
+				assert.Equal(t, "ch-2", channels[1].ChannelID)
+			},
+		},
+		{
+			name:      "should return empty list for class without channels",
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, channels []ClassChannel, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, channels, 0)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, channels []ClassChannel, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			channels, err := db.GetClassChannelsByClassCode(tt.classCode)
+			tt.assertFunc(t, db, channels, err)
+		})
+	}
+}
+
+func TestRemoveClassChannelByChannelID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		channelID  string
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should remove class channel mapping",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				require.NoError(t, err)
+			},
+			channelID: "ch-1",
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				_, getErr := db.GetClassCodeByChannelID("ch-1")
+				assert.Error(t, getErr)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			channelID: "ch-1",
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.RemoveClassChannelByChannelID(tt.channelID)
+			tt.assertFunc(t, db, err)
+		})
+	}
+}
+
+func TestAddClassRole(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classRole  ClassRole
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should ignore duplicate role and keep one row",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				require.NoError(t, err)
+			},
+			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				roles, getErr := db.GetClassRolesByClassCode("c1")
+				assert.NoError(t, getErr)
+				assert.Len(t, roles, 1)
+				assert.Equal(t, "r1", roles[0].RoleID)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.AddClassRole(tt.classRole)
+			tt.assertFunc(t, db, err)
+		})
+	}
+}
+
+func TestGetClassRolesByClassCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classCode  string
+		assertFunc func(t *testing.T, db *DB, roles []ClassRole, err error)
+	}{
+		{
+			name: "should return roles sorted by role_id",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r2"})
+				require.NoError(t, err)
+				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				require.NoError(t, err)
+			},
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, roles []ClassRole, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, roles, 2)
+				assert.Equal(t, "r1", roles[0].RoleID)
+				assert.Equal(t, "r2", roles[1].RoleID)
+			},
+		},
+		{
+			name:      "should return empty list for class without roles",
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, roles []ClassRole, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, roles, 0)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, roles []ClassRole, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			roles, err := db.GetClassRolesByClassCode(tt.classCode)
+			tt.assertFunc(t, db, roles, err)
+		})
+	}
+}
+
+func TestRemoveClassRole(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classRole  ClassRole
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should remove class role mapping",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				require.NoError(t, err)
+			},
+			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				roles, getErr := db.GetClassRolesByClassCode("c1")
+				assert.NoError(t, getErr)
+				assert.Len(t, roles, 0)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.RemoveClassRole(tt.classRole)
+			tt.assertFunc(t, db, err)
 		})
 	}
 }
@@ -1533,7 +1942,7 @@ func TestHasUserSolvedProblem(t *testing.T) {
 			},
 		},
 		{
-			name:      "should return false if not solved",
+			name: "should return false if not solved",
 			userID:    "u1",
 			problemID: 1,
 			assertFunc: func(t *testing.T, db *DB, solved bool, err error) {
