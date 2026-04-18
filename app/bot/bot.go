@@ -51,7 +51,7 @@ func (bot *Bot) Run() error {
 
 	// Initialize provider and services
 	bot.discordProvider = providers.NewProviderDiscord(
-		dg,
+		providers.NewDiscordGoSessionAdapter(dg),
 		os.Getenv("DISCORD_ADMIN_ROLE_ID"),
 		os.Getenv("DISCORD_MENTOR_ROLE_ID"),
 	)
@@ -113,7 +113,6 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 
 	context := &context.ContextMessage{
-		Session:          s,
 		Message:          m,
 		DiscordValidator: bot.discordProvider,
 		DiscordFetcher:   bot.discordProvider,
@@ -160,7 +159,6 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 	}
 
 	context := &context.ContextMessage{
-		Session:          s,
 		MessageReaction:  r,
 		DiscordValidator: bot.discordProvider,
 		DiscordFetcher:   bot.discordProvider,

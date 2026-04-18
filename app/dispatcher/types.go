@@ -29,7 +29,6 @@ const (
 
 type MessageResponse struct {
 	Type      MessageType
-	Session   *discordgo.Session
 	ChannelID string
 	Content   string
 	ReplyTo   string                    // optional

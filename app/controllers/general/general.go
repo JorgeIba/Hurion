@@ -65,7 +65,6 @@ func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
 			Type:      dispatcher.PaginationEmbed,
-			Session:   c.Session,
 			ChannelID: c.Message.ChannelID,
 			Embeds:    embeds,
 		},

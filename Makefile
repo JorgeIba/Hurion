@@ -3,7 +3,7 @@ BINARY_NAME=huron-bot
 BUILD_DIR=./bin
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test generate clean
+.PHONY: all build test test-unit test-integration generate clean
 
 # By default, running 'make' executes build
 all: build
@@ -14,10 +14,19 @@ generate:
 	@go generate ./...
 	@echo "==> Mocks generated successfully."
 
-## test: Generate mocks and then run all project tests
-test: generate
-	@echo "==> Running tests..."
+## test: Generate mocks and run both unit and integration test suites
+test: generate test-unit test-integration
+	@echo "==> All tests completed successfully."
+
+## test-unit: Run application/unit tests
+test-unit:
+	@echo "==> Running unit tests (app)..."
 	@go test -v ./app/...
+
+## test-integration: Run integration tests
+test-integration:
+	@echo "==> Running integration tests..."
+	@go test -v ./integration/...
 
 ## coverage: Run tests with coverage and generate HTML report
 coverage: generate
