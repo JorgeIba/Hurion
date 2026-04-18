@@ -1,1285 +1,1632 @@
 package data
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var testConfig *DBConfig = &DBConfig{DBPath: ":memory:", DBType: Test}
-
-// Ensure user
-func TestEnsureUser_NewUser(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err, "Error inserting")
-	var dbUserID, dbDisplayName string
-	err = db.conn.QueryRow("SELECT user_id, display_name FROM users WHERE user_id = ?", userID).Scan(&dbUserID, &dbDisplayName)
-	assert.NoError(t, err, "User not found")
-	assert.Equal(t, userID, dbUserID, "UserID doesn't match")
-	assert.Equal(t, "Some Name", dbDisplayName, "DisplayName doesn't match")
+// setupDB returns a brand new, isolated in-memory database for testing.
+// Every call creates a fresh instance with the schema applied.
+func setupDB(t *testing.T) *DB {
+	t.Helper()
+	cfg := &DBConfig{DBPath: ":memory:", DBType: Test}
+	db, err := NewDB(cfg)
+	require.NoError(t, err, "failed to create test db")
+	return db
 }
 
-func TestEnsureUser_OverwriteAndPreserve(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestEnsureUser(t *testing.T) {
+	t.Parallel()
 
-	const userID = "12345"
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		user       User
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should insert new user",
+			user: User{UserID: "123", DisplayName: "John Doe"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var name string
+				err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = '123'").Scan(&name)
+				assert.NoError(t, err)
+				assert.Equal(t, "John Doe", name)
+			},
+		},
+		{
+			name: "should preserve name when new name is empty",
+			setup: func(t *testing.T, db *DB) {
+				err := db.EnsureUser(User{UserID: "123", DisplayName: "Original Name"})
+				require.NoError(t, err)
+			},
+			user: User{UserID: "123", DisplayName: ""},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var name string
+				err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = '123'").Scan(&name)
+				assert.NoError(t, err)
+				assert.Equal(t, "Original Name", name, "Logic check: empty name should not overwrite")
+			},
+		},
+		{
+			name: "should update name if not empty",
+			setup: func(t *testing.T, db *DB) {
+				err := db.EnsureUser(User{UserID: "123", DisplayName: "Old Name"})
+				require.NoError(t, err)
+			},
+			user: User{UserID: "123", DisplayName: "New Name"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var name string
+				err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = '123'").Scan(&name)
+				assert.NoError(t, err)
+				assert.Equal(t, "New Name", name)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			user: User{UserID: "123", DisplayName: "John Doe"},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// 1. Initial insert
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Original Name"})
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	// 2. Overwrite with new name
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "New Name"})
-	assert.NoError(t, err)
-	var name string
-	err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = ?", userID).Scan(&name)
-	assert.NoError(t, err)
-	assert.Equal(t, "New Name", name)
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	// 3. Preserve name when sending empty string (Unknown)
-	err = db.EnsureUser(User{UserID: userID, DisplayName: ""})
-	assert.NoError(t, err)
-	err = db.conn.QueryRow("SELECT display_name FROM users WHERE user_id = ?", userID).Scan(&name)
-	assert.NoError(t, err)
-	assert.Equal(t, "New Name", name, "Should have preserved the existing name")
+			err := db.EnsureUser(tt.user)
+			tt.assertFunc(t, db, err)
+		})
+	}
 }
 
-func TestEnsureUser_ExistingUser(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestRegisterUserIntoClass(t *testing.T) {
+	t.Parallel()
 
-	const userID = "12345"
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should register user into class",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
+				require.NoError(t, err)
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = 'u1' AND class_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err, "Error inserting")
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err, "Error ensuring existing user")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", userID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "Only one user row should exist")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.RegisterUserIntoClass(tt.userID, tt.classID)
+			tt.assertFunc(t, db, err)
+		})
+	}
 }
 
-// Register
-func TestRegisterUserIntoClass_NewUser(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestDeregisterUserFromClass(t *testing.T) {
+	t.Parallel()
 
-	const userID = "12345"
-	// Preconditions
-	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
-	assert.NoError(t, err, "Could not insert class")
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should successfully deregister user",
+			setup: func(t *testing.T, db *DB) {
+				classID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u1", classID)
+				require.NoError(t, err)
+				problemID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: classID})
+				require.NoError(t, err)
+				err = db.AddAC("u1", problemID)
+				require.NoError(t, err)
+				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: problemID})
+				require.NoError(t, err)
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = 'u1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count, "Enrollment should be gone")
 
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err, "Could not ensure user")
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = 'u1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count, "ACs should be gone")
 
-	classID, _ := response.LastInsertId()
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = 'u1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count, "Pending confirmations should be gone")
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Register a user
-	err = db.RegisterUserIntoClass(userID, classID)
-	assert.NoError(t, err, "Expected not error, but got: ")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	// Verify
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
-	assert.NoError(t, err, "Could not query enrollments correctly")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	assert.Equal(t, 1, count, "User should be registered in the class")
+			err := db.DeregisterUserFromClass(tt.userID, tt.classID)
+			tt.assertFunc(t, db, err)
+		})
+	}
 }
 
-func TestRegisterUserIntoClass_ExistingUser(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestAddProblem(t *testing.T) {
+	t.Parallel()
 
-	const userID = "12345"
-	// Preconditions
-	response, err := db.conn.Exec("INSERT INTO classes (class_code, name) VALUES (?, ?)", "basicos", "Basicos 2025")
-	assert.NoError(t, err, "Could not insert class")
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		problem    Problem
+		assertFunc func(t *testing.T, db *DB, id int64, err error)
+	}{
+		{
+			name: "should successfully add problem",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+			},
+			problem: Problem{Name: "p1", URL: "u1", ClassID: 1},
+			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
+				assert.NoError(t, err)
+				assert.Greater(t, id, int64(0))
+				var name string
+				err = db.conn.QueryRow("SELECT name FROM problems WHERE id = ?", id).Scan(&name)
+				assert.NoError(t, err)
+				assert.Equal(t, "p1", name)
+			},
+		},
+		{
+			name: "should fail if problem name exists in class",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+			},
+			problem: Problem{Name: "p1", URL: "u2", ClassID: 1},
+			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
+				assert.Error(t, err)
+				assert.Equal(t, int64(0), id)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			problem: Problem{Name: "p1", URL: "u1", ClassID: 1},
+			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err, "Could not ensure user")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	classID, _ := response.LastInsertId()
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	// Register a user
-	err = db.RegisterUserIntoClass(userID, classID)
-	assert.NoError(t, err, "Expected no error, but got: ")
-
-	// Try to register it again
-	err = db.RegisterUserIntoClass(userID, classID)
-	assert.NoError(t, err, "Expected no error, but got: ")
-
-	// Verify
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
-	assert.NoError(t, err, "Could not query enrollments correctly: ")
-
-	assert.Equal(t, 1, count, "User should be registered in the class")
-}
-
-// Deregister
-func TestDeregisterUserIntoClass_ExistingUser(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-	const classID = int64(1)
-
-	// Preconditions: Create class, user, and problem
-	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", classID, "CS101", "Intro to CS")
-	assert.NoError(t, err)
-
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err)
-
-	problemID, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: classID})
-	assert.NoError(t, err)
-	// Register user into class
-	err = db.RegisterUserIntoClass(userID, classID)
-	assert.NoError(t, err)
-
-	// Add AC and pending confirmation for this user in this class
-	err = db.AddAC(userID, problemID)
-	assert.NoError(t, err)
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg456", UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err)
-
-	// Verify data exists before deregistration
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "User should be registered")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "AC should exist")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "Pending confirmation should exist")
-
-	// Act: Deregister user
-	err = db.DeregisterUserFromClass(userID, classID)
-	assert.NoError(t, err)
-
-	// Verify: Enrollment, ACs, and pending confirmations should be deleted
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND class_id = ?", userID, classID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "User should not be registered in the class")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "ACs should be deleted")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = ? AND problem_id = ?", userID, problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "Pending confirmations should be deleted")
-}
-
-// Add problem
-func TestAddProblem_New(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	// Precondition
-	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
-	assert.NoError(t, err)
-	classID, err := classResult.LastInsertId()
-	assert.NoError(t, err)
-
-	// Test 1: Add a problem without difficulty and topic
-	problemID1, err := db.AddProblem(Problem{Name: "Sorting Algorithms", URL: "url", ClassID: classID})
-	assert.NoError(t, err)
-	assert.Greater(t, problemID1, int64(0), "Problem ID should be greater than 0")
-
-	// Test 2: Add a problem with difficulty and topic
-	difficulty := string(DifficultyMedium)
-	topic := "Sorting"
-	problemID2, err := db.AddProblem(Problem{
-		Name:       "Binary Search",
-		URL:        "url2",
-		ClassID:    classID,
-		Difficulty: &difficulty,
-		Topic:      &topic,
-	})
-	assert.NoError(t, err)
-	assert.Greater(t, problemID2, int64(0), "Problem ID should be greater than 0")
-
-	// Verify the problem with difficulty and topic
-	problem, err := db.GetProblemByID(problemID2)
-	assert.NoError(t, err)
-	assert.NotNil(t, problem.Difficulty)
-	assert.Equal(t, "Medium", *problem.Difficulty)
-	assert.NotNil(t, problem.Topic)
-	assert.Equal(t, "Sorting", *problem.Topic)
+			id, err := db.AddProblem(tt.problem)
+			tt.assertFunc(t, db, id, err)
+		})
+	}
 }
 
 func TestRemoveProblemByID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const problemName = "Sorting Algorithms"
-	const userID = "user123"
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		problemID  int64
+		assertFunc func(t *testing.T, db *DB, affected int64, err error)
+	}{
+		{
+			name: "should remove problem and its dependencies",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+			},
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, affected int64, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, int64(1), affected)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
 
-	// Preconditions: Create class, user, problem
-	classResult, err := db.conn.Exec(`INSERT INTO classes (class_code, name) VALUES ('intermedios', 'Intermedios 2024')`)
-	assert.NoError(t, err)
-	classID, err := classResult.LastInsertId()
-	assert.NoError(t, err)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, affected int64, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	// Add a problem
-	problemID, err := db.AddProblem(Problem{Name: problemName, URL: "url", ClassID: classID})
-	assert.NoError(t, err)
-	assert.Greater(t, problemID, int64(0), "Problem ID should be greater than 0")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	// Add AC and pending confirmation for this problem
-	err = db.AddAC(userID, problemID)
-	assert.NoError(t, err)
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg123", UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err)
-
-	// Verify data exists before deletion
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "AC should exist")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count, "Pending confirmation should exist")
-
-	// Act: Remove the problem
-	rowsAffected, err := db.RemoveProblemByID(problemID)
-	assert.NoError(t, err)
-	assert.Equal(t, int64(1), rowsAffected, "One row should have been removed")
-
-	// Verify: Problem and all related data should be deleted
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "Problem should be deleted")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "ACs should be deleted")
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = ?", problemID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "Pending confirmations should be deleted")
+			affected, err := db.RemoveProblemByID(tt.problemID)
+			tt.assertFunc(t, db, affected, err)
+		})
+	}
 }
 
 func TestAddAC(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const userID = "user123"
-	const classID = int64(1)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		problemID  int64
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should successfully add AC",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+			},
+			userID:    "u1",
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = 'u1' AND problem_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID:    "u1",
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Preconditions
-	problemID, err := db.AddProblem(Problem{Name: "Sorting", URL: "url", ClassID: classID})
-	assert.NoError(t, err, "Problem trying to adding the problem")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	// Verify
-	err = db.AddAC(userID, problemID)
-	assert.NoError(t, err, "Problem trying to ACing the problem for the user")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	err = db.AddAC(userID, problemID)
-	assert.NoError(t, err, "Re-adding the same AC should not fail")
-
-	var count int64
-	err = db.conn.QueryRow(`
-		SELECT COUNT(*)
-		FROM solved_problems sp
-		JOIN problems p ON sp.problem_id = p.id
-		WHERE sp.user_id = ? AND p.class_id = ?;
-	`, userID, classID).Scan(&count)
-	assert.NoError(t, err, "Cannot check the count for problems solved")
-
-	assert.Equal(t, int64(1), count, "A single problem should have been solved")
+			err := db.AddAC(tt.userID, tt.problemID)
+			tt.assertFunc(t, db, err)
+		})
+	}
 }
 
 func TestRemoveAC(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const userID = "user123"
-	const classID = int64(1)
-	queryCount := fmt.Sprintf(`
-		SELECT COUNT(*) 
-		FROM solved_problems sp 
-		JOIN problems p ON sp.problem_id = p.id 
-		WHERE sp.user_id = '%s' AND p.class_id = %d;
-	`, userID, classID)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		problemID  int64
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should remove AC",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+			},
+			userID:    "u1",
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = 'u1' AND problem_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID:    "u1",
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Preconditions
-	problemID, err := db.AddProblem(Problem{Name: "Sorting", URL: "url", ClassID: classID})
-	assert.NoError(t, err, "Precondition failed, problem could not be added")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	err = db.AddAC(userID, problemID)
-	assert.NoError(t, err, "Precondition failed, problem could not be checked as solved")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	var count int64
-	err = db.conn.QueryRow(queryCount).Scan(&count)
-	assert.NoError(t, err, "Cannot check the count for problems solved")
-	assert.Equal(t, int64(1), count, "A problem should have been added to solved list")
-
-	// Verify
-	err = db.RemoveAC(userID, problemID)
-	assert.NoError(t, err, "Problem trying to remove the AC of the problem for the user")
-	err = db.conn.QueryRow(queryCount).Scan(&count)
-	assert.NoError(t, err, "Cannot check the count for problems solved")
-	assert.Equal(t, int64(0), count, "Solved problem should been removed")
+			err := db.RemoveAC(tt.userID, tt.problemID)
+			tt.assertFunc(t, db, err)
+		})
+	}
 }
 
 func TestGetProblemsByClass(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const classID = int64(1)
-	const classID2 = int64(2)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, problems []Problem, err error)
+	}{
+		{
+			name: "should get problems for class",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID})
+				require.NoError(t, err)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, problems []Problem, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, problems, 2)
+				assert.Equal(t, "p1", problems[0].Name)
+				assert.Equal(t, "p2", problems[1].Name)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, problems []Problem, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Preconditions
-	difficulty := string(DifficultyHard)
-	topic := "Algorithms"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 1", URL: "url1", ClassID: classID})
-	assert.NoError(t, err, "Precondition failed, problem 1 could not be added")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	_, err = db.AddProblem(Problem{
-		Name:       "Sorting Stuff 2",
-		URL:        "url2",
-		ClassID:    classID,
-		Difficulty: &difficulty,
-		Topic:      &topic,
-	})
-	assert.NoError(t, err, "Precondition failed, problem 2 could not be added")
-
-	_, err = db.AddProblem(Problem{Name: "Sorting Stuff 3", URL: "url3", ClassID: classID2})
-	assert.NoError(t, err, "Precondition failed, problem 3 could not be added")
-
-	// Do
-	problemsList1, err := db.GetProblemsByClass(classID)
-	assert.NoError(t, err, "List 1 could not be retrieved")
-
-	problemsList2, err := db.GetProblemsByClass(classID2)
-	assert.NoError(t, err, "List 2 could not be retrieved")
-
-	// Verify
-	assert.Equal(t, 2, len(problemsList1), "Length are not the same")
-	assert.Equal(t, 1, len(problemsList2), "Length are not the same")
-
-	// Verify problem with difficulty and topic
-	assert.NotNil(t, problemsList1[1].Difficulty, "Difficulty should not be nil")
-	assert.Equal(t, "Hard", *problemsList1[1].Difficulty)
-	assert.NotNil(t, problemsList1[1].Topic, "Topic should not be nil")
-	assert.Equal(t, "Algorithms", *problemsList1[1].Topic)
-
-	// Verify problem without difficulty and topic
-	assert.Nil(t, problemsList1[0].Difficulty, "Difficulty should be nil")
-	assert.Nil(t, problemsList1[0].Topic, "Topic should be nil")
+			problems, err := db.GetProblemsByClass(tt.classID)
+			tt.assertFunc(t, db, problems, err)
+		})
+	}
 }
 
-func TestGetAllSolvedProblemsByUser(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestGetSolvedProblemsByUserAndClass(t *testing.T) {
+	t.Parallel()
 
-	// Preconditions
-	problemID1, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: 1})
-	assert.NoError(t, err)
-
-	problemID2, err := db.AddProblem(Problem{Name: "Problem 2", URL: "url", ClassID: 1})
-	assert.NoError(t, err)
-
-	problemID3, err := db.AddProblem(Problem{Name: "Problem 3", URL: "url", ClassID: 2})
-	assert.NoError(t, err)
-
-	problemID4, err := db.AddProblem(Problem{Name: "Problem 4", URL: "url", ClassID: 2})
-	assert.NoError(t, err)
-
-	const userID1 = "user1"
-	const userID2 = "user2"
-	var updates = []struct {
-		userID    string
-		problemID int64
-		classID   int64
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, solved []SolvedProblem, err error)
 	}{
-		{userID: userID1, problemID: problemID1},
-		{userID: userID1, problemID: problemID2},
-		{userID: userID1, problemID: problemID3},
-		{userID: userID1, problemID: problemID4},
-
-		{userID: userID2, problemID: problemID2},
-		{userID: userID2, problemID: problemID3},
+		{
+			name: "should return solved problems",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, solved []SolvedProblem, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, solved, 1)
+				assert.Equal(t, int64(1), solved[0].ProblemID)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, solved []SolvedProblem, err error) {
+				assert.Error(t, err)
+			},
+		},
 	}
 
-	for _, update := range updates {
-		err = db.AddAC(update.userID, update.problemID)
-		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			solved, err := db.GetSolvedProblemsByUserAndClass(tt.userID, tt.classID)
+			tt.assertFunc(t, db, solved, err)
+		})
 	}
-
-	// Act
-	listUser1Class1, err := db.GetSolvedProblemsByUserAndClass(userID1, 1)
-	assert.NoError(t, err, "Problem trying to get the list")
-	listUser1Class1OnlyIDs := lo.Map(listUser1Class1, func(problem SolvedProblem, _ int) int64 {
-		return problem.ProblemID
-	})
-
-	listUser1Class2, err := db.GetSolvedProblemsByUserAndClass(userID1, 2)
-	assert.NoError(t, err, "Problem trying to get the list")
-	listUser1Class2OnlyIDs := lo.Map(listUser1Class2, func(problem SolvedProblem, _ int) int64 {
-		return problem.ProblemID
-	})
-
-	listUser2Class1, err := db.GetSolvedProblemsByUserAndClass(userID2, 1)
-	assert.NoError(t, err, "Problem trying to get the list")
-	listUser2Class1OnlyIDs := lo.Map(listUser2Class1, func(problem SolvedProblem, _ int) int64 {
-		return problem.ProblemID
-	})
-
-	listUser2Class2, err := db.GetSolvedProblemsByUserAndClass(userID2, 2)
-	assert.NoError(t, err, "Problem trying to get the list")
-	listUser2Class2OnlyIDs := lo.Map(listUser2Class2, func(problem SolvedProblem, _ int) int64 {
-		return problem.ProblemID
-	})
-
-	// Verify
-	assert.Equal(t, []int64{problemID1, problemID2}, listUser1Class1OnlyIDs, "List should have matched")
-	assert.Equal(t, []int64{problemID3, problemID4}, listUser1Class2OnlyIDs, "List should have matched")
-
-	assert.Equal(t, []int64{problemID2}, listUser2Class1OnlyIDs, "List should have matched")
-	assert.Equal(t, []int64{problemID3}, listUser2Class2OnlyIDs, "List should have matched")
 }
 
 func TestGetAllSolvedProblemsByClass(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	// Preconditions
-	problemID1, err := db.AddProblem(Problem{Name: "Problem 1", URL: "url", ClassID: 1})
-	assert.NoError(t, err)
-
-	problemID2, err := db.AddProblem(Problem{Name: "Problem 2", URL: "url", ClassID: 1})
-	assert.NoError(t, err)
-
-	problemID3, err := db.AddProblem(Problem{Name: "Problem 3", URL: "url", ClassID: 1})
-	assert.NoError(t, err)
-
-	problemID4, err := db.AddProblem(Problem{Name: "Problem 4", URL: "url", ClassID: 2})
-	assert.NoError(t, err)
-
-	user1 := User{
-		UserID:      "user1",
-		DisplayName: "user1",
-	}
-
-	user2 := User{
-		UserID:      "user2",
-		DisplayName: "user2",
-	}
-
-	var updates = []struct {
-		userID    string
-		problemID int64
-		classID   int64
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, solved map[User][]SolvedProblem, err error)
 	}{
-		{userID: user1.UserID, problemID: problemID1},
-		{userID: user1.UserID, problemID: problemID2},
-		{userID: user1.UserID, problemID: problemID3},
-		{userID: user1.UserID, problemID: problemID4},
-
-		{userID: user2.UserID, problemID: problemID2},
-		{userID: user2.UserID, problemID: problemID3},
+		{
+			name: "should group solved problems by user",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID1, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				pID2, err := db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u2", DisplayName: "User 2"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID1)
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID2)
+				require.NoError(t, err)
+				err = db.AddAC("u2", pID1)
+				require.NoError(t, err)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, solved map[User][]SolvedProblem, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, solved, 2)
+				user1 := User{UserID: "u1", DisplayName: "User 1"}
+				assert.Len(t, solved[user1], 2)
+				user2 := User{UserID: "u2", DisplayName: "User 2"}
+				assert.Len(t, solved[user2], 1)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, solved map[User][]SolvedProblem, err error) {
+				assert.Error(t, err)
+			},
+		},
 	}
 
-	err = db.EnsureUser(user1)
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	err = db.EnsureUser(user2)
-	assert.NoError(t, err)
-	for _, update := range updates {
-		err = db.AddAC(update.userID, update.problemID)
-		assert.NoError(t, err, "Problem trying to ACing the problem for the user")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			solved, err := db.GetAllSolvedProblemsByClass(tt.classID)
+			tt.assertFunc(t, db, solved, err)
+		})
 	}
-
-	// Act
-	solvedProblemsClass1, err := db.GetAllSolvedProblemsByClass(1)
-	assert.NoError(t, err, "Problem trying to get the list")
-
-	solvedProblemsClass2, err := db.GetAllSolvedProblemsByClass(2)
-	assert.NoError(t, err, "Problem trying to get the list")
-
-	// Verify
-	assert.Equal(t, 2, len(solvedProblemsClass1))
-	assert.Equal(t, 3, len(solvedProblemsClass1[user1]))
-	assert.Equal(t, 2, len(solvedProblemsClass1[user2]))
-
-	assert.Equal(t, 1, len(solvedProblemsClass2))
-	assert.Equal(t, 1, len(solvedProblemsClass2[user1]))
-	assert.Equal(t, 0, len(solvedProblemsClass2[user2]))
 }
 
 func TestClearClass(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	// Preconditions: Create class, user, problem, enrollment, AC, and pending confirmation
-	_, err = db.conn.Exec("INSERT INTO classes (id, class_code, name) VALUES (?, ?, ?)", 1, "CS101", "Intro to CS")
-	assert.NoError(t, err)
-
-	err = db.EnsureUser(User{UserID: "user1", DisplayName: "Some Name"})
-	assert.NoError(t, err)
-
-	_, err = db.conn.Exec("INSERT INTO problems (id, name, class_id) VALUES (?, ?, ?)", 1, "Problem 1", 1)
-	assert.NoError(t, err)
-
-	_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "user1", 1)
-	assert.NoError(t, err)
-
-	_, err = db.conn.Exec("INSERT INTO solved_problems (user_id, problem_id) VALUES (?, ?)", "user1", 1)
-	assert.NoError(t, err)
-
-	_, err = db.conn.Exec("INSERT INTO pending_confirmations (message_id, user_id, problem_id) VALUES (?, ?, ?)", "msg789", "user1", 1)
-	assert.NoError(t, err)
-
-	// Act: Clear the class
-	err = db.ClearClass(1)
-	assert.NoError(t, err)
-
-	// Verify: All related data should be deleted
-	var count int
-	queries := []struct {
-		query string
-		desc  string
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, err error)
 	}{
-		{"SELECT COUNT(*) FROM classes WHERE id = 1", "classes"},
-		{"SELECT COUNT(*) FROM problems WHERE class_id = 1", "problems"},
-		{"SELECT COUNT(*) FROM enrollments WHERE class_id = 1", "enrollments"},
-		{"SELECT COUNT(*) FROM solved_problems WHERE problem_id = 1", "solved_problems"},
-		{"SELECT COUNT(*) FROM pending_confirmations WHERE problem_id = 1", "pending_confirmations"},
+		{
+			name: "should wipe class and all its associations",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u1", cID)
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM classes WHERE id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE class_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE class_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
 	}
 
-	for _, q := range queries {
-		err = db.conn.QueryRow(q.query).Scan(&count)
-		assert.NoError(t, err, "Could not check %s", q.desc)
-		assert.Equal(t, 0, count, "Expected 0 rows in %s, but found %d", q.desc, count)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.ClearClass(tt.classID)
+			tt.assertFunc(t, db, err)
+		})
 	}
 }
 
 func TestCreateClass(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	classCode := "avanzados"
-	className := "Avanzados 2025"
-
-	// Act
-	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
-	assert.NoError(t, err, "Unexpected error")
-
-	// Verify
-	var dbClassID int64
-	var dbClassCode, dbClassName string
-	query := "SELECT id, class_code, name FROM classes WHERE id = ?"
-	err = db.conn.QueryRow(query, classID).Scan(&dbClassID, &dbClassCode, &dbClassName)
-	if err != nil {
-		t.Fatalf("could not retrieve inserted class: %v", err)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		class      Class
+		assertFunc func(t *testing.T, db *DB, id int64, err error)
+	}{
+		{
+			name:  "should successfully create class",
+			class: Class{ClassCode: "basicos", Name: "Basicos 2025"},
+			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
+				assert.NoError(t, err)
+				assert.Greater(t, id, int64(0))
+				var code string
+				err = db.conn.QueryRow("SELECT class_code FROM classes WHERE id = ?", id).Scan(&code)
+				assert.NoError(t, err)
+				assert.Equal(t, "basicos", code)
+			},
+		},
+		{
+			name: "should return error if class code already exists",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
+				require.NoError(t, err)
+			},
+			class: Class{ClassCode: "basicos", Name: "Duplicate"},
+			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			class: Class{ClassCode: "any", Name: "any"},
+			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
+				assert.Error(t, err)
+			},
+		},
 	}
 
-	assert.Equal(t, classID, dbClassID, "Class ID should match")
-	assert.Equal(t, classCode, dbClassCode, "Class Code should match")
-	assert.Equal(t, className, dbClassName, "Class Name should match")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			id, err := db.CreateClass(tt.class)
+			tt.assertFunc(t, db, id, err)
+		})
+	}
 }
 
 func TestGetUserByUserID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const userID = "123"
-	// Preconditions
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err, "Could not insert user")
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		assertFunc func(t *testing.T, db *DB, user User, err error)
+	}{
+		{
+			name: "should successfully get user",
+			setup: func(t *testing.T, db *DB) {
+				err := db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, user User, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "u1", user.UserID)
+				assert.Equal(t, "n1", user.DisplayName)
+			},
+		},
+		{
+			name:   "should return error if user not found",
+			userID: "missing",
+			assertFunc: func(t *testing.T, db *DB, user User, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, user User, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Test
-	user, err := db.GetUserByUserID(userID)
-	assert.NoError(t, err, "Expected no error, but got: ")
-	assert.Equal(t, userID, user.UserID, "UserID doesn't match")
-	assert.Equal(t, "Some Name", user.DisplayName, "DisplayName should match the input")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			user, err := db.GetUserByUserID(tt.userID)
+			tt.assertFunc(t, db, user, err)
+		})
+	}
 }
-func TestGetClassByClassCode_Success(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
 
-	const classCode = "basicos"
-	const className = "Basicos 2024"
+func TestGetClassByClassCode(t *testing.T) {
+	t.Parallel()
 
-	// Act
-	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
-	assert.NoError(t, err)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classCode  string
+		assertFunc func(t *testing.T, db *DB, class Class, err error)
+	}{
+		{
+			name: "should successfully get class",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+			},
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, class Class, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "c1", class.ClassCode)
+			},
+		},
+		{
+			name:      "should return error if class not found",
+			classCode: "missing",
+			assertFunc: func(t *testing.T, db *DB, class Class, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classCode: "c1",
+			assertFunc: func(t *testing.T, db *DB, class Class, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Verify
-	class, err := db.GetClassByClassCode(classCode)
-	assert.NoError(t, err)
-	assert.Equal(t, classID, class.ID)
-	assert.Equal(t, classCode, class.ClassCode)
-	assert.Equal(t, className, class.Name)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			class, err := db.GetClassByClassCode(tt.classCode)
+			tt.assertFunc(t, db, class, err)
+		})
+	}
 }
 
-func TestGetClassByClassCode_NotFound(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestIsUserRegisteredInClass(t *testing.T) {
+	t.Parallel()
 
-	// Act
-	_, err = db.GetClassByClassCode("UNKNOWN")
-	assert.Error(t, err)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, registered bool, err error)
+	}{
+		{
+			name: "should return true if registered",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u1", cID)
+				require.NoError(t, err)
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, registered)
+			},
+		},
+		{
+			name:    "should return false if not registered",
+			userID:  "u1",
+			classID: 99,
+			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, registered)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID:  "u1",
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Verify
-	assert.Contains(t, err.Error(), "class with code UNKNOWN not found")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			registered, err := db.IsUserRegisteredInClass(tt.userID, tt.classID)
+			tt.assertFunc(t, db, registered, err)
+		})
+	}
 }
 
 func TestAddPendingConfirmation(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const messageID = "123456"
-	const userID = "789"
-	const problemID = int64(1)
+	tests := []struct {
+		name         string
+		setup        func(t *testing.T, db *DB)
+		confirmation PendingConfirmation
+		assertFunc   func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should successfully add confirmation",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u1", cID)
+				require.NoError(t, err)
+			},
+			confirmation: PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 1},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = 'm1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			confirmation: PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 1},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Act
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err, "Should insert pending confirmation without error")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	// Verify
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = ?", messageID).Scan(&count)
-	assert.NoError(t, err, "Should execute count query without error")
-	assert.Equal(t, 1, count, "Should have exactly one record in pending_confirmations")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.AddPendingConfirmation(tt.confirmation)
+			tt.assertFunc(t, db, err)
+		})
+	}
 }
 
-func TestAddPendingConfirmation_UpdateMessageID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestExistsPendingConfirmation(t *testing.T) {
+	t.Parallel()
 
-	const messageIDPrevious = "123"
-	const messageIDUpdated = "456"
-	const userID = "789"
-	const problemID = int64(1)
-	query := fmt.Sprintf("SELECT message_id FROM pending_confirmations WHERE user_id = %s AND problem_id = %d", userID, problemID)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		messageID  string
+		assertFunc func(t *testing.T, db *DB, exists bool, err error)
+	}{
+		{
+			name: "should return true if exists",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				require.NoError(t, err)
+			},
+			messageID: "m1",
+			assertFunc: func(t *testing.T, db *DB, exists bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, exists)
+			},
+		},
+		{
+			name:      "should return false if not exists",
+			messageID: "missing",
+			assertFunc: func(t *testing.T, db *DB, exists bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, exists)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			messageID: "m1",
+			assertFunc: func(t *testing.T, db *DB, exists bool, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Precondition
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageIDPrevious, UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err, "Expected no error on first insertion")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	var messageID string
-	err = db.conn.QueryRow(query).Scan(&messageID)
-	assert.NoError(t, err, "Expected no error when retrieving the first message_id")
-	assert.Equal(t, messageIDPrevious, messageID, "Expected message_id to be 'msg1'")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	// Act
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageIDUpdated, UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err, "Expected no error on update")
-
-	// Verify
-	err = db.conn.QueryRow(query).Scan(&messageID)
-	assert.NoError(t, err, "Expected no error when retrieving the updated message_id")
-	assert.Equal(t, messageIDUpdated, messageID, "Expected message_id to be updated to 'msg2'")
+			exists, err := db.ExistsPendingConfirmation(tt.messageID)
+			tt.assertFunc(t, db, exists, err)
+		})
+	}
 }
 
-func TestGetPendingConfirmation_Found(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestGetPendingConfirmation(t *testing.T) {
+	t.Parallel()
 
-	const messageID = "123456"
-	const userID = "789"
-	const problemID = int64(1)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		messageID  string
+		assertFunc func(t *testing.T, db *DB, userID string, problemID int64, err error)
+	}{
+		{
+			name: "should successfully get confirmation details",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				require.NoError(t, err)
+			},
+			messageID: "m1",
+			assertFunc: func(t *testing.T, db *DB, userID string, problemID int64, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "u1", userID)
+				assert.Equal(t, int64(1), problemID)
+			},
+		},
+		{
+			name:      "should return error if not found",
+			messageID: "missing",
+			assertFunc: func(t *testing.T, db *DB, userID string, problemID int64, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			messageID: "m1",
+			assertFunc: func(t *testing.T, db *DB, userID string, problemID int64, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Precondition
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err, "Should insert test data without error")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	// Act
-	gotUserID, gotProblemID, err := db.GetPendingConfirmation(messageID)
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	// Vertify
-	assert.NoError(t, err, "Should get pending confirmation without error")
-	assert.Equal(t, userID, gotUserID, "Should return correct userID")
-	assert.Equal(t, problemID, gotProblemID, "Should return correct problemID")
-}
-
-func TestGetPendingConfirmation_NotFound(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const messageID = "nonexistent"
-
-	gotUserID, gotProblemID, err := db.GetPendingConfirmation(messageID)
-	notFoundErrorType := &dataerr.NotFoundError{}
-
-	assert.ErrorAs(t, err, &notFoundErrorType)
-	assert.Empty(t, gotUserID, "Should return empty userID for missing message_id")
-	assert.Equal(t, int64(-1), gotProblemID, "Should return zero problemID for missing message_id")
+			userID, problemID, err := db.GetPendingConfirmation(tt.messageID)
+			tt.assertFunc(t, db, userID, problemID, err)
+		})
+	}
 }
 
 func TestRemovePendingConfirmation(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const messageID = "msg123"
-	const userID = "user123"
-	const problemID = int64(1)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		messageID  string
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should successfully remove confirmation",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				require.NoError(t, err)
+			},
+			messageID: "m1",
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = 'm1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			messageID: "m1",
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Precondition
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err, "Should insert test data without error")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = ?", messageID).Scan(&count)
-	assert.NoError(t, err, "Should execute count query without error")
-	assert.Equal(t, 1, count, "Should have inserted the record from pending_confirmations")
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	// Act
-	err = db.RemovePendingConfirmation(messageID)
-	assert.NoError(t, err, "Should remove pending confirmation without error")
-
-	// Verify
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE message_id = ?", messageID).Scan(&count)
-	assert.NoError(t, err, "Should execute count query without error")
-	assert.Equal(t, 0, count, "Should have removed the record from pending_confirmations")
-}
-
-func TestRemovePendingConfirmation_NotFound(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	messageID := "nonexistent"
-
-	err = db.RemovePendingConfirmation(messageID)
-	assert.NoError(t, err, "Should not return error when removing nonexistent pending confirmation")
-}
-
-func TestIsUserRegisteredInClass_Enrolled(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "user123"
-
-	// Precondition:
-	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2024"})
-	assert.NoError(t, err, "Should insert class without error")
-
-	db.RegisterUserIntoClass(userID, classID)
-	assert.NoError(t, err, "Should insert enrollment without error")
-
-	// Act
-	enrolled, err := db.IsUserRegisteredInClass(userID, classID)
-	assert.NoError(t, err, "Should check enrollment without error")
-	assert.True(t, enrolled, "User should be enrolled in the class")
-}
-
-func TestIsUserRegisteredInClass_NotEnrolled(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "user123"
-
-	// Precondition: insertar solo clase
-	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2024"})
-	assert.NoError(t, err, "Should insert class without error")
-
-	// Act
-	enrolled, err := db.IsUserRegisteredInClass(userID, classID)
-	assert.NoError(t, err, "Should check enrollment without error")
-	assert.False(t, enrolled, "User should NOT be enrolled in the class")
-}
-
-func TestGetClassNameByClassID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const classCode = "basicos"
-	const className = "Basicos 2025"
-
-	// Preconditions
-	_, err = db.CreateClass(Class{ClassCode: classCode, Name: className})
-	assert.NoError(t, err)
-
-	// Act
-	classNameResponse, err := db.GetClassByClassCode(classCode)
-	assert.NoError(t, err)
-	assert.Equal(t, classNameResponse.Name, className)
-	assert.Equal(t, classNameResponse.ClassCode, classCode)
-}
-
-func TestGetClassNameByClassCode(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const classCode = "basicos"
-	const className = "Basicos 2025"
-
-	// Preconditions
-	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
-	assert.NoError(t, err)
-
-	// Act
-	classNameResponse, err := db.GetClassByClassCode(classCode)
-	assert.NoError(t, err)
-	assert.Equal(t, classNameResponse.Name, className)
-	assert.Equal(t, classNameResponse.ID, classID)
+			err := db.RemovePendingConfirmation(tt.messageID)
+			tt.assertFunc(t, db, err)
+		})
+	}
 }
 
 func TestGetProblemByID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const classCode = "basicos"
-	const className = "Basicos 2025"
-	const url = "url"
-	const problemName = "Sorting"
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		problemID  int64
+		assertFunc func(t *testing.T, db *DB, problem Problem, err error)
+	}{
+		{
+			name: "should successfully get problem",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+			},
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, problem Problem, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "p1", problem.Name)
+			},
+		},
+		{
+			name:      "should return error if problem not found",
+			problemID: 99,
+			assertFunc: func(t *testing.T, db *DB, problem Problem, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, problem Problem, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-	// Preconditions
-	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	difficulty := string(DifficultyEasy)
-	topic := "Data Structures"
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
 
-	problemID, err := db.AddProblem(Problem{
-		Name:       problemName,
-		URL:        url,
-		ClassID:    classID,
-		Difficulty: &difficulty,
-		Topic:      &topic,
-	})
-	assert.NoError(t, err)
-
-	// Act
-	problem, err := db.GetProblemByID(problemID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.Equal(t, classID, problem.ClassID)
-	assert.Equal(t, url, problem.URL)
-	assert.Equal(t, problemName, problem.Name)
-	assert.NotNil(t, problem.Difficulty, "Difficulty should not be nil")
-	assert.Equal(t, "Easy", *problem.Difficulty)
-	assert.NotNil(t, problem.Topic, "Topic should not be nil")
-	assert.Equal(t, "Data Structures", *problem.Topic)
+			problem, err := db.GetProblemByID(tt.problemID)
+			tt.assertFunc(t, db, problem, err)
+		})
+	}
 }
 
 func TestGetAllUsersByClassID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	const classCode = "basicos"
-	const className = "Basicos 2025"
-
-	users := []User{
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, users []User, err error)
+	}{
 		{
-			UserID:      "1",
-			DisplayName: "Some Name",
+			name: "should get all users in class",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u2", DisplayName: "User 2"})
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u1", cID)
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u2", cID)
+				require.NoError(t, err)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, users, 2)
+			},
 		},
 		{
-			UserID:      "2",
-			DisplayName: "Some Name",
-		},
-		{
-			UserID:      "3",
-			DisplayName: "Some Name",
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
+				assert.Error(t, err)
+			},
 		},
 	}
-	// Preconditions
-	classID, err := db.CreateClass(Class{ClassCode: classCode, Name: className})
-	assert.NoError(t, err)
 
-	for _, user := range users {
-		err = db.EnsureUser(User{UserID: user.UserID, DisplayName: "Some Name"})
-		assert.NoError(t, err)
-		err = db.RegisterUserIntoClass(user.UserID, classID)
-		assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			users, err := db.GetAllUsersByClassID(tt.classID)
+			tt.assertFunc(t, db, users, err)
+		})
 	}
-
-	// Act
-	usersInClass, err := db.GetAllUsersByClassID(classID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.Equal(t, usersInClass, users)
 }
 
-func TestGetAllClases(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestGetAllClasses(t *testing.T) {
+	t.Parallel()
 
-	classes := []Class{
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		assertFunc func(t *testing.T, db *DB, classes []Class, err error)
+	}{
 		{
-			ClassCode: "code1",
-			Name:      "name1",
+			name: "should return all classes",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.CreateClass(Class{ClassCode: "c2", Name: "n2"})
+				require.NoError(t, err)
+			},
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 2)
+			},
 		},
 		{
-			ClassCode: "code2",
-			Name:      "name2",
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			classes, err := db.GetAllClasses()
+			tt.assertFunc(t, db, classes, err)
+		})
+	}
+}
+
+func TestUpdateProblemByProblemID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		problemID  int64
+		problem    Problem
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should update problem details",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+			},
+			problemID: 1,
+			problem:   Problem{Name: "p2", URL: "u2", ClassID: 1},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var name string
+				err = db.conn.QueryRow("SELECT name FROM problems WHERE id = 1").Scan(&name)
+				assert.NoError(t, err)
+				assert.Equal(t, "p2", name)
+			},
 		},
 		{
-			ClassCode: "code3",
-			Name:      "name3",
+			name:      "should return NotFoundError if problem not found",
+			problemID: 99,
+			problem:   Problem{Name: "p2", URL: "u2", ClassID: 1},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "should return RowConflictError if problem name exists in class",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID})
+				require.NoError(t, err)
+			},
+			problemID: 1,
+			problem:   Problem{Name: "p2", URL: "u3", ClassID: 1},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			problemID: 1,
+			problem:   Problem{Name: "p2", URL: "u2", ClassID: 1},
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
 		},
 	}
 
-	// Preconditions
-	for i := range len(classes) {
-		class := classes[i]
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-		id, err := db.CreateClass(class)
-		assert.NoError(t, err)
-		class.ID = id
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.UpdateProblemByProblemID(tt.problemID, tt.problem)
+			tt.assertFunc(t, db, err)
+		})
 	}
-
-	// Act
-	allClasses, err := db.GetAllClasses()
-	assert.NoError(t, err)
-
-	// Verify
-	assert.Equal(t, 3, len(allClasses))
-}
-
-// UpdateByProblemID Tests
-func TestUpdateByProblemID_Success(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	// Preconditions
-	classID1, err := db.CreateClass(Class{ClassCode: "intermedios", Name: "Intermedios 2024"})
-	assert.NoError(t, err)
-
-	classID2, err := db.CreateClass(Class{ClassCode: "avanzados", Name: "Avanzados 2024"})
-	assert.NoError(t, err)
-
-	originalProblem := Problem{
-		Name:    "Original Problem",
-		URL:     "url",
-		ClassID: classID1,
-	}
-	problemID, err := db.AddProblem(originalProblem)
-	assert.NoError(t, err)
-
-	// Act
-	updatedProblem := Problem{
-		Name:    "Updated Problem Name",
-		URL:     "url2",
-		ClassID: classID2,
-	}
-	err = db.UpdateProblemByProblemID(problemID, updatedProblem)
-	assert.NoError(t, err, "Should update problem without error")
-
-	// Verify
-	retrievedProblem, err := db.GetProblemByID(problemID)
-	assert.NoError(t, err, "Should retrieve updated problem")
-	assert.Equal(t, updatedProblem.Name, retrievedProblem.Name, "Name should be updated")
-	assert.Equal(t, updatedProblem.URL, retrievedProblem.URL, "URL should be updated")
-	assert.Equal(t, updatedProblem.ClassID, retrievedProblem.ClassID, "ClassID should be updated")
-	assert.Equal(t, problemID, retrievedProblem.ID, "ID should remain the same")
-}
-
-func TestUpdateByProblemID_NotFound(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	// Preconditions
-	classID, err := db.CreateClass(Class{ClassCode: "test", Name: "Test Class"})
-	assert.NoError(t, err)
-
-	// Act
-	nonExistentProblemID := int64(99999)
-	updateProblem := Problem{
-		Name:    "Updated Problem",
-		URL:     "url",
-		ClassID: classID,
-	}
-	err = db.UpdateProblemByProblemID(nonExistentProblemID, updateProblem)
-
-	// Verify
-	assert.Error(t, err, "Should return error for non-existent problem")
-	var notFoundErr *dataerr.NotFoundError
-	assert.ErrorAs(t, err, &notFoundErr, "Should return NotFoundError type")
-}
-
-func TestUpdateByProblemID_Conflict(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	classID, err := db.CreateClass(Class{ClassCode: "test", Name: "Test Class"})
-	assert.NoError(t, err)
-
-	problemAID, err := db.AddProblem(Problem{Name: "Two Sum", URL: "url-a", ClassID: classID})
-	assert.NoError(t, err)
-
-	_, err = db.AddProblem(Problem{Name: "Three Sum", URL: "url-b", ClassID: classID})
-	assert.NoError(t, err)
-
-	err = db.UpdateProblemByProblemID(problemAID, Problem{Name: "Three Sum", URL: "url-c", ClassID: classID})
-	assert.Error(t, err, "Should return conflict error when updating to an existing (name,class) pair")
-
-	var conflictErr *dataerr.RowConflictError
-	assert.ErrorAs(t, err, &conflictErr, "Should return RowConflictError type")
 }
 
 func TestGetClassesByUserID(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+	t.Parallel()
 
-	class1 := Class{
-		ClassCode: "class1",
-		Name:      "Class 1",
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		assertFunc func(t *testing.T, db *DB, classes []Class, err error)
+	}{
+		{
+			name: "should return classes user is enrolled in",
+			setup: func(t *testing.T, db *DB) {
+				cID1, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				cID2, err := db.CreateClass(Class{ClassCode: "c2", Name: "n2"})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u1", cID1)
+				require.NoError(t, err)
+				err = db.RegisterUserIntoClass("u1", cID2)
+				require.NoError(t, err)
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 2)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.Error(t, err)
+			},
+		},
 	}
-	class2 := Class{
-		ClassCode: "class2",
-		Name:      "Class 2",
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			classes, err := db.GetClassesByUserID(tt.userID)
+			tt.assertFunc(t, db, classes, err)
+		})
 	}
-	class3 := Class{
-		ClassCode: "class3",
-		Name:      "Class 3",
-	}
-
-	classes := []Class{class1, class2, class3}
-
-	const userID = "user123"
-
-	// Precondition
-	for i := range len(classes) {
-		class := &classes[i]
-		class.ID, err = db.CreateClass(*class)
-		assert.NoError(t, err)
-	}
-
-	for _, class := range classes {
-		err = db.RegisterUserIntoClass(userID, class.ID)
-		assert.NoError(t, err, "Should register user into class without error")
-	}
-
-	// Act
-	classes_response, err := db.GetClassesByUserID(userID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.Len(t, classes_response, 3, "Should return two classes for the user")
 }
 
-func TestHasUserSolvedProblem_ReturnsTrue(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
+func TestHasUserSolvedProblem(t *testing.T) {
+	t.Parallel()
 
-	// Preconditions
-	user := User{UserID: "user123", DisplayName: "Some Name"}
-	err = db.EnsureUser(user)
-	assert.NoError(t, err)
-
-	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
-	assert.NoError(t, err)
-
-	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "url", ClassID: classID})
-	assert.NoError(t, err)
-
-	err = db.AddAC(user.UserID, problemID)
-	assert.NoError(t, err)
-
-	// Act
-	solved, err := db.HasUserSolvedProblem(user.UserID, problemID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.True(t, solved)
-}
-
-func TestHasUserSolvedProblem_ReturnsFalse(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	// Preconditions
-	user := User{UserID: "user123", DisplayName: "Some Name"}
-	err = db.EnsureUser(user)
-	assert.NoError(t, err)
-
-	classID, err := db.CreateClass(Class{ClassCode: "basicos", Name: "Basicos 2025"})
-	assert.NoError(t, err)
-
-	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "url", ClassID: classID})
-	assert.NoError(t, err)
-
-	// Act
-	solved, err := db.HasUserSolvedProblem(user.UserID, problemID)
-	assert.NoError(t, err)
-
-	// Verify
-	assert.False(t, solved)
-}
-
-func TestExterminateUser_CompleteRemoval(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "12345"
-	const userName = "Jorge"
-
-	// Preconditions
-	classID, err := db.CreateClass(Class{ClassCode: "test_class", Name: "Test Class"})
-	assert.NoError(t, err)
-
-	err = db.EnsureUser(User{UserID: userID, DisplayName: "Some Name"})
-	assert.NoError(t, err)
-
-	err = db.RegisterUserIntoClass(userID, classID)
-	assert.NoError(t, err)
-
-	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "http://test.com", ClassID: classID})
-	assert.NoError(t, err)
-
-	err = db.AddAC(userID, problemID)
-	assert.NoError(t, err)
-
-	err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "msg123", UserID: userID, ProblemID: problemID})
-	assert.NoError(t, err)
-
-	// Act
-	err = db.ExterminateUser(userID)
-	assert.NoError(t, err)
-
-	// Verify
-	var count int
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", userID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "User should be removed from users table")
-
-	// Check enrollments table
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ?", userID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "User should be removed from enrollments table")
-
-	// Check solved_problems table
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = ?", userID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "User should be removed from solved_problems table")
-
-	// Check pending_confirmations table
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = ?", userID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count, "User should be removed from pending_confirmations table")
-}
-
-func TestExterminateUser_NonexistentUser(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	const userID = "nonexistent"
-
-	// Act
-	err = db.ExterminateUser(userID)
-
-	// Verify
-	assert.NoError(t, err, "Exterminating nonexistent user should not return error")
-}
-
-func TestExterminateUser_MultipleUsers(t *testing.T) {
-	db, err := NewDB(testConfig)
-	assert.NoError(t, err, "Unable to create a DB")
-	defer db.CloseDB()
-
-	users := []User{
-		{UserID: "user1", DisplayName: "Jorge"},
-		{UserID: "user2", DisplayName: "Luis"},
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		problemID  int64
+		assertFunc func(t *testing.T, db *DB, solved bool, err error)
+	}{
+		{
+			name: "should return true if solved",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+			},
+			userID:    "u1",
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, solved bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, solved)
+			},
+		},
+		{
+			name: "should return false if not solved",
+			userID:    "u1",
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, solved bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, solved)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID:    "u1",
+			problemID: 1,
+			assertFunc: func(t *testing.T, db *DB, solved bool, err error) {
+				assert.Error(t, err)
+			},
+		},
 	}
 
-	// Preconditions
-	classID, err := db.CreateClass(Class{ClassCode: "test_class", Name: "Test Class"})
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	for _, user := range users {
-		err = db.EnsureUser(User{UserID: user.UserID, DisplayName: "Some Name"})
-		assert.NoError(t, err)
-		err = db.RegisterUserIntoClass(user.UserID, classID)
-		assert.NoError(t, err)
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			solved, err := db.HasUserSolvedProblem(tt.userID, tt.problemID)
+			tt.assertFunc(t, db, solved, err)
+		})
+	}
+}
+
+func TestExterminateUser(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		userID     string
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should completely wipe user and data",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = 'u1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = 'u1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+			},
+		},
+		{
+			name: "should return error if db closed (transaction fail)",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
 	}
 
-	problemID, err := db.AddProblem(Problem{Name: "Test Problem", URL: "url", ClassID: classID})
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
 
-	for _, user := range users {
-		err = db.AddAC(user.UserID, problemID)
-		assert.NoError(t, err)
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.ExterminateUser(tt.userID)
+			tt.assertFunc(t, db, err)
+		})
 	}
-
-	// Act
-	err = db.ExterminateUser(users[0].UserID)
-	assert.NoError(t, err)
-
-	// Verify
-	var count int
-
-	// User1 should be completely removed
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", users[0].UserID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count)
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ?", users[0].UserID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, count)
-
-	// User2 should still exist
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", users[1].UserID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count)
-
-	err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = ?", users[1].UserID).Scan(&count)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, count)
 }
