@@ -43,7 +43,7 @@ func handleConfirmationNo(c *context.ContextMessage) {
 
 func handleConfirmationYes(c *context.ContextMessage) {
 	// Get the confirmation message
-	confirmationMsg, err := c.Session.ChannelMessage(c.MessageReaction.ChannelID, c.MessageReaction.MessageID)
+	confirmationMsg, err := c.DiscordFetcher.FetchMessage(c.MessageReaction.ChannelID, c.MessageReaction.MessageID)
 	if err != nil {
 		return
 	}
@@ -53,7 +53,7 @@ func handleConfirmationYes(c *context.ContextMessage) {
 	}
 
 	// Fetch the original message directly to get complete data
-	originalMsg, err := c.Session.ChannelMessage(confirmationMsg.ReferencedMessage.ChannelID, confirmationMsg.ReferencedMessage.ID)
+	originalMsg, err := c.DiscordFetcher.FetchMessage(confirmationMsg.ReferencedMessage.ChannelID, confirmationMsg.ReferencedMessage.ID)
 	if err != nil {
 		logger.Log.Errorf("Failed to fetch original message: %v", err)
 		return
@@ -73,15 +73,15 @@ func handleConfirmationYes(c *context.ContextMessage) {
 
 	// Create new context with original message data
 	originalContext := &context.ContextMessage{
-		Session:          c.Session,
-		Message:          &discordgo.MessageCreate{Message: originalMsg},
-		DiscordValidator: c.DiscordValidator,
-		DiscordFetcher:   c.DiscordFetcher,
-		Services:         c.Services,
-		Dispatcher:       c.Dispatcher,
-		Args:             args,
-		Executor:         c.Executor,
-		ExecutorGuildID:  c.ExecutorGuildID,
+		Message:                &discordgo.MessageCreate{Message: originalMsg},
+		DiscordValidator:       c.DiscordValidator,
+		DiscordFetcher:         c.DiscordFetcher,
+		DiscordMessageModifier: c.DiscordMessageModifier,
+		Services:               c.Services,
+		Dispatcher:             c.Dispatcher,
+		Args:                   args,
+		Executor:               c.Executor,
+		ExecutorGuildID:        c.ExecutorGuildID,
 	}
 
 	executeConfirmedCommand(originalContext, args, c)
@@ -94,11 +94,17 @@ func setMessageAsCancelled(c *context.ContextMessage) {
 		Description: "❌ Operation was cancelled by user.",
 		Color:       0xff0000, // Red
 	}
-	c.Session.ChannelMessageEditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, cancelledEmbed)
+	if err := c.DiscordMessageModifier.EditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, cancelledEmbed); err != nil {
+		logger.Log.Errorf("Failed to mark message as cancelled: %v", err)
+	}
 
 	// Remove reactions
-	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_UP, c.Session.State.User.ID)
-	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_DOWN, c.Session.State.User.ID)
+	if err := c.DiscordMessageModifier.RemoveBotReaction(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_UP); err != nil {
+		logger.Log.Errorf("Failed to remove thumbs up reaction: %v", err)
+	}
+	if err := c.DiscordMessageModifier.RemoveBotReaction(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_DOWN); err != nil {
+		logger.Log.Errorf("Failed to remove thumbs down reaction: %v", err)
+	}
 }
 
 func setMessageAsExecuted(c *context.ContextMessage, message string) {
@@ -108,11 +114,17 @@ func setMessageAsExecuted(c *context.ContextMessage, message string) {
 		Description: fmt.Sprintf("✅ %s.", message),
 		Color:       0x00ff00, // Green
 	}
-	c.Session.ChannelMessageEditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, successEmbed)
+	if err := c.DiscordMessageModifier.EditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, successEmbed); err != nil {
+		logger.Log.Errorf("Failed to mark message as executed: %v", err)
+	}
 
 	// Remove reactions
-	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_UP, c.Session.State.User.ID)
-	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_DOWN, c.Session.State.User.ID)
+	if err := c.DiscordMessageModifier.RemoveBotReaction(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_UP); err != nil {
+		logger.Log.Errorf("Failed to remove thumbs up reaction: %v", err)
+	}
+	if err := c.DiscordMessageModifier.RemoveBotReaction(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_DOWN); err != nil {
+		logger.Log.Errorf("Failed to remove thumbs down reaction: %v", err)
+	}
 }
 
 func setMessageAsError(c *context.ContextMessage) {
@@ -122,15 +134,21 @@ func setMessageAsError(c *context.ContextMessage) {
 		Description: "Something went wrong while processing your request.",
 		Color:       0xff0000, // Red
 	}
-	c.Session.ChannelMessageEditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, errorEmbed)
+	if err := c.DiscordMessageModifier.EditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, errorEmbed); err != nil {
+		logger.Log.Errorf("Failed to mark message as error: %v", err)
+	}
 
 	// Remove reactions
-	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_UP, c.Session.State.User.ID)
-	c.Session.MessageReactionRemove(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_DOWN, c.Session.State.User.ID)
+	if err := c.DiscordMessageModifier.RemoveBotReaction(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_UP); err != nil {
+		logger.Log.Errorf("Failed to remove thumbs up reaction: %v", err)
+	}
+	if err := c.DiscordMessageModifier.RemoveBotReaction(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, common.REACTION_THUMBS_DOWN); err != nil {
+		logger.Log.Errorf("Failed to remove thumbs down reaction: %v", err)
+	}
 }
 
 func verifyIsConfirmationMessage(c *context.ContextMessage) bool {
-	confirmationMsg, err := c.Session.ChannelMessage(c.MessageReaction.ChannelID, c.MessageReaction.MessageID)
+	confirmationMsg, err := c.DiscordFetcher.FetchMessage(c.MessageReaction.ChannelID, c.MessageReaction.MessageID)
 	if err != nil {
 		return false
 	}
@@ -139,7 +157,7 @@ func verifyIsConfirmationMessage(c *context.ContextMessage) bool {
 		return false
 	}
 
-	if confirmationMsg.ReferencedMessage == nil {
+	if confirmationMsg.ReferencedMessage == nil || confirmationMsg.ReferencedMessage.Author == nil {
 		return false
 	}
 

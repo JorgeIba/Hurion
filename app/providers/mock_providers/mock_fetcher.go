@@ -10,6 +10,9 @@
 package mock_providers
 
 import (
+	reflect "reflect"
+
+	discordgo "github.com/bwmarrin/discordgo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -35,4 +38,34 @@ func NewMockDiscordFetcher(ctrl *gomock.Controller) *MockDiscordFetcher {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDiscordFetcher) EXPECT() *MockDiscordFetcherMockRecorder {
 	return m.recorder
+}
+
+// FetchMessage mocks base method.
+func (m *MockDiscordFetcher) FetchMessage(channelID, messageID string) (*discordgo.Message, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchMessage", channelID, messageID)
+	ret0, _ := ret[0].(*discordgo.Message)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FetchMessage indicates an expected call of FetchMessage.
+func (mr *MockDiscordFetcherMockRecorder) FetchMessage(channelID, messageID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchMessage", reflect.TypeOf((*MockDiscordFetcher)(nil).FetchMessage), channelID, messageID)
+}
+
+// GetCachedMember mocks base method.
+func (m *MockDiscordFetcher) GetCachedMember(guildID, userID string) (*discordgo.Member, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCachedMember", guildID, userID)
+	ret0, _ := ret[0].(*discordgo.Member)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCachedMember indicates an expected call of GetCachedMember.
+func (mr *MockDiscordFetcherMockRecorder) GetCachedMember(guildID, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedMember", reflect.TypeOf((*MockDiscordFetcher)(nil).GetCachedMember), guildID, userID)
 }

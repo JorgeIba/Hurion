@@ -29,6 +29,14 @@ const (
 	channelTimeout = 1 * time.Second
 )
 
+// newMockDiscordFetcher creates a fetcher with default behavior for GetCachedMember (cache miss)
+func newMockDiscordFetcher(ctrl *gomock.Controller) *mock_providers.MockDiscordFetcher {
+	fetcher := mock_providers.NewMockDiscordFetcher(ctrl)
+	// Default: GetCachedMember always returns cache miss so other layers are tested
+	fetcher.EXPECT().GetCachedMember(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
+	return fetcher
+}
+
 func awaitMessage(t *testing.T, out chan dispatcher.MessageResponse) dispatcher.MessageResponse {
 	t.Helper()
 
@@ -196,7 +204,7 @@ func TestHandleRegisterUser(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)
@@ -309,7 +317,7 @@ func TestHandleDeregisterUser(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)
@@ -411,7 +419,7 @@ func TestHandleAddAC(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)
@@ -504,7 +512,7 @@ func TestHandleUndoAC(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)
@@ -600,7 +608,7 @@ func TestHandleAddProblem(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)
@@ -695,7 +703,7 @@ func TestHandleRemoveProblem(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)
@@ -926,7 +934,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)
@@ -1035,7 +1043,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			mockFetch := mock_providers.NewMockDiscordFetcher(ctrl)
+			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
 			svc := services.NewServices(mockStore)
 			out := make(chan dispatcher.MessageResponse, 1)

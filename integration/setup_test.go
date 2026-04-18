@@ -9,7 +9,6 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers/mock_providers"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
-	"github.com/bwmarrin/discordgo"
 	"go.uber.org/mock/gomock"
 )
 
@@ -18,7 +17,9 @@ type testEnv struct {
 	Ctx          *context.ContextMessage
 	DB           *data.DB
 	Services     *services.Services
-	MockProvider *mock_providers.MockDiscordProvider
+	Validator    *mock_providers.MockDiscordValidator
+	Fetcher      *mock_providers.MockDiscordFetcher
+	Modifier     *mock_providers.MockDiscordMessageModifier
 	Dispatcher   *FakeDispatcher
 	Ctrl         *gomock.Controller
 }
@@ -55,23 +56,27 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 	svc := services.NewServices(db)
 
 	// Initialize mocks
-	mockProvider := mock_providers.NewMockDiscordProvider(ctrl)
+	validator := mock_providers.NewMockDiscordValidator(ctrl)
+	fetcher := mock_providers.NewMockDiscordFetcher(ctrl)
+	modifier := mock_providers.NewMockDiscordMessageModifier(ctrl)
 	fakeDispatcher := &FakeDispatcher{}
 
 	// Construct ContextMessage
 	ctx := &context.ContextMessage{
-		Session:          &discordgo.Session{}, // Non-nil stub
-		DiscordValidator: mockProvider,
-		DiscordFetcher:   mockProvider,
-		Dispatcher:       fakeDispatcher,
-		Services:         svc,
+		DiscordValidator:       validator,
+		DiscordFetcher:         fetcher,
+		DiscordMessageModifier: modifier,
+		Dispatcher:             fakeDispatcher,
+		Services:               svc,
 	}
 
 	return &testEnv{
 		Ctx:          ctx,
 		DB:           db,
 		Services:     svc,
-		MockProvider: mockProvider,
+		Validator:    validator,
+		Fetcher:      fetcher,
+		Modifier:     modifier,
 		Dispatcher:   fakeDispatcher,
 		Ctrl:         ctrl,
 	}

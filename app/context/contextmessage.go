@@ -9,14 +9,14 @@ import (
 )
 
 type ContextMessage struct {
-	Session          *discordgo.Session
-	MessageReaction  *discordgo.MessageReactionAdd
-	Message          *discordgo.MessageCreate
-	DiscordValidator providers.DiscordValidator
-	DiscordFetcher   providers.DiscordFetcher
-	Dispatcher       dispatcher.MessageSender
-	Args             []string
-	Services         *services.Services
+	MessageReaction        *discordgo.MessageReactionAdd
+	Message                *discordgo.MessageCreate
+	DiscordValidator       providers.DiscordValidator
+	DiscordFetcher         providers.DiscordFetcher
+	DiscordMessageModifier providers.DiscordMessageModifier
+	Dispatcher             dispatcher.MessageSender
+	Args                   []string
+	Services               *services.Services
 
 	// Executor identifies who is executing the command/action.
 	// It is the single source of truth for permission checks.

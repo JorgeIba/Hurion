@@ -15,9 +15,9 @@ func ResolveDisplayName(c *context.ContextMessage, guildID, userID string) strin
 	}
 
 	// 1. Try Discord In-Memory State Cache
-	if c.Session != nil && c.Session.State != nil {
-		member, err := c.Session.State.Member(guildID, userID)
-		if err == nil {
+	if c.DiscordFetcher != nil {
+		member, err := c.DiscordFetcher.GetCachedMember(guildID, userID)
+		if err == nil && member != nil {
 			return GetDisplayNameFromMember(member)
 		}
 	}

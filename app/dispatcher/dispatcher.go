@@ -102,7 +102,7 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 			}
 		}
 	case PaginationEmbed:
-		paginator := dgwidgets.NewPaginator(msg.Session, msg.ChannelID)
+		paginator := dgwidgets.NewPaginator(d.Session, msg.ChannelID)
 		paginator.Add(msg.Embeds...)
 
 		paginator.SetPageFooters()
