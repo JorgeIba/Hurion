@@ -126,7 +126,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				u1 := data.User{UserID: "u1", DisplayName: "user1"}
 				u2 := data.User{UserID: "u2", DisplayName: "user2"}
 				u3 := data.User{UserID: "u3", DisplayName: "user3"}
-				
+
 				problems := []service_model.Problem{
 					{ID: 100, Topic: helpers.PtrStr("T1"), Name: "P1"},
 					{ID: 101, Topic: helpers.PtrStr("T1"), Name: "P2"},
@@ -134,16 +134,16 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				}
 
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
-				
+
 				// Mock solve status
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{
 					u1: {{ProblemID: 100}, {ProblemID: 101}, {ProblemID: 102}}, // Solved 3
-					u2: {{ProblemID: 100}, {ProblemID: 101}},                  // Solved 2
+					u2: {{ProblemID: 100}, {ProblemID: 101}},                   // Solved 2
 					u3: {{ProblemID: 100}},                                     // Solved 1
 				}, nil)
-				
+
 				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{u1, u2, u3}, nil)
-				
+
 				// Mock ProblemService instead of DataStore for problems
 				groupedProblems := []service_model.ProblemsByTopic{
 					{
@@ -155,18 +155,18 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, res service_model.Score) {
 				assert.Len(t, res.UserScores, 3)
-				
+
 				// Sorting check (Desc by count)
 				// User 1: 3 AC
 				assert.Equal(t, "u1", res.UserScores[0].User.UserID)
 				assert.Equal(t, "user1", res.UserScores[0].User.DisplayName)
 				assert.Equal(t, 3, res.UserScores[0].CountProblems)
-				
+
 				// User 2: 2 AC
 				assert.Equal(t, "u2", res.UserScores[1].User.UserID)
 				assert.Equal(t, "user2", res.UserScores[1].User.DisplayName)
 				assert.Equal(t, 2, res.UserScores[1].CountProblems)
-				
+
 				// User 3: 1 AC
 				assert.Equal(t, "u3", res.UserScores[2].User.UserID)
 				assert.Equal(t, "user3", res.UserScores[2].User.DisplayName)
@@ -177,7 +177,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 				p1 := res.ProblemsByTopic[0].Problems[0]
 				p2 := res.ProblemsByTopic[0].Problems[1]
 				p3 := res.ProblemsByTopic[0].Problems[2]
-				
+
 				assert.True(t, res.UserScores[1].Problems[p1.ID])
 				assert.True(t, res.UserScores[1].Problems[p2.ID])
 				assert.False(t, res.UserScores[1].Problems[p3.ID])
@@ -417,7 +417,7 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 				assert.Len(t, res, 2)
 				assert.Contains(t, res, "Class 1")
 				assert.Contains(t, res, "Class 2")
-				
+
 				assert.Equal(t, "u1", res["Class 1"].UserScores[0].User.UserID)
 				assert.Equal(t, "u2", res["Class 2"].UserScores[0].User.UserID)
 			},

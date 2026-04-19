@@ -1,4 +1,5 @@
 package integration
+
 import (
 	"errors"
 	"testing"
@@ -6,7 +7,6 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"

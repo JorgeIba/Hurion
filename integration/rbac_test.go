@@ -18,7 +18,7 @@ func TestIntegration_RBAC_StudentCannotAddProblem(t *testing.T) {
 	env.SeedClass(t, classCode, "Basicos 2026")
 
 	studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
-	
+
 	// Stub that student is NOT a mentor
 	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
 		return false, nil
@@ -54,7 +54,7 @@ func TestIntegration_RBAC_MentorCanAddProblem(t *testing.T) {
 	env.SeedClass(t, classCode, "Basicos 2026")
 
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	
+
 	// Stub that user IS a mentor
 	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
 		return true, nil

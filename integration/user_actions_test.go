@@ -48,7 +48,7 @@ func TestIntegration_DeregisterUser(t *testing.T) {
 	env := setupIntegrationEnv(t)
 	classCode := "basicos_1"
 	env.SeedClass(t, classCode, "Basicos 2026")
-	
+
 	testUser := service_model.User{UserID: "user_to_leave", DisplayName: "I am leaving"}
 	env.SeedUser(t, testUser.UserID, testUser.DisplayName)
 	env.SeedEnrollment(t, testUser.UserID, classCode)
@@ -120,7 +120,7 @@ func TestIntegration_ListProblems(t *testing.T) {
 	assert.Equal(t, dispatcher.PaginationEmbed, msg.Type)
 	assert.Len(t, msg.Embeds, 1)
 	assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
-	
+
 	var nameColumnValue string
 	for _, f := range msg.Embeds[0].Fields {
 		if f.Name == "Name" {

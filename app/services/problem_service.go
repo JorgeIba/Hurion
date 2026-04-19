@@ -16,8 +16,9 @@ var (
 	dataConflictErrProblem = &dataerr.RowConflictError{}
 )
 
-//go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 // ProblemService defines problem management operations
+//
+//go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 type ProblemService interface {
 	CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error)
 	RemoveProblemFromClass(problemID int64) error

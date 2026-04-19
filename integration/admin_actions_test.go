@@ -36,9 +36,11 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 	env.AssertClassNotExists(t, classCode)
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	lastMsg := sentMsgs[len(sentMsgs)-1]
-	assert.Contains(t, lastMsg.Content, "has been removed successfully")
+	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
+	if len(sentMsgs) > 0 {
+		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Contains(t, lastMsg.Content, "has been removed successfully")
+	}
 }
 
 func TestIntegration_ExterminateUser_Logic(t *testing.T) {
@@ -69,6 +71,9 @@ func TestIntegration_ExterminateUser_Logic(t *testing.T) {
 	assert.Error(t, err, "User should be deleted from DB")
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "completely removed from the system")
+	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
+	if len(sentMsgs) > 0 {
+		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Contains(t, lastMsg.Content, "completely removed from the system")
+	}
 }

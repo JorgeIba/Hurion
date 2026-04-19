@@ -1,7 +1,7 @@
 package integration
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,7 +26,7 @@ func TestIntegration_AC_Propose(t *testing.T) {
 	env.SeedUser(t, student.UserID, student.DisplayName)
 	env.SeedEnrollment(t, student.UserID, "basicos_1")
 
-	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", fmt.Sprintf("%d", problemID)})
+	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", strconv.FormatInt(problemID, 10)})
 	ctx.Message.ID = "msg_propose_123"
 
 	// 2. ACT
@@ -34,11 +34,13 @@ func TestIntegration_AC_Propose(t *testing.T) {
 
 	// 3. ASSERT: Reaction request sent
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	lastMsg := sentMsgs[len(sentMsgs)-1]
-	assert.Equal(t, dispatcher.Reaction, lastMsg.Type)
-	assert.Contains(t, lastMsg.Reactions, common.REACTION_YES)
-	assert.Contains(t, lastMsg.Reactions, common.REACTION_NO)
+	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
+	if len(sentMsgs) > 0 {
+		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Equal(t, dispatcher.Reaction, lastMsg.Type)
+		assert.Contains(t, lastMsg.Reactions, common.REACTION_YES)
+		assert.Contains(t, lastMsg.Reactions, common.REACTION_NO)
+	}
 
 	// 4. ASSERT: DB has pending record
 	exists, err := env.Services.Solution.ExistsPendingConfirmation("msg_propose_123")
@@ -55,10 +57,10 @@ func TestIntegration_AC_Accept(t *testing.T) {
 	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
 	student := service_model.User{UserID: "student_1", DisplayName: "Student One"}
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	
+
 	env.SeedUser(t, student.UserID, student.DisplayName)
 	env.SeedEnrollment(t, student.UserID, "basicos_1")
-	
+
 	// Pre-seed the pending confirmation
 	messageID := "msg_existing_456"
 	env.SeedPendingConfirmation(t, messageID, student.UserID, problemID)
@@ -106,10 +108,10 @@ func TestIntegration_AC_Reject(t *testing.T) {
 	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
 	student := service_model.User{UserID: "student_1", DisplayName: "Student One"}
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	
+
 	env.SeedUser(t, student.UserID, student.DisplayName)
 	env.SeedEnrollment(t, student.UserID, "basicos_1")
-	
+
 	messageID := "msg_to_be_rejected_789"
 	env.SeedPendingConfirmation(t, messageID, student.UserID, problemID)
 

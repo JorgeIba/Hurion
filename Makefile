@@ -37,6 +37,8 @@ coverage: generate
 
 ## build: Compile the bot and save binary to ./bin
 build:
+	@echo "==> Formatting code..."
+	@go fmt ./...
 	@echo "==> Compiling binary..."
 	@mkdir -p $(BUILD_DIR)
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) app/main.go
