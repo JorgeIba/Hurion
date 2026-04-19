@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
@@ -17,7 +18,7 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 	env := setupIntegrationEnv(t)
 	classCode := "basicos_1"
 	classID := env.SeedClass(t, classCode, "Basicos 2026")
-	env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
 	env.SeedUser(t, "student_1", "Student")
@@ -34,8 +35,9 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 
 	admin.HandleClearClass(ctx)
 
-	// 3. ASSERT
+	// 3. ASSERT: Class and its problems must be gone
 	env.AssertClassNotExists(t, classCode)
+	env.AssertProblemNotExists(t, problemID)
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
@@ -50,33 +52,38 @@ func TestIntegration_ExterminateUser_Logic(t *testing.T) {
 
 	// 1. SETUP
 	env := setupIntegrationEnv(t)
-	env.SeedClass(t, "class_1", "Class One")
-	env.SeedClass(t, "class_2", "Class Two")
+	class1ID := env.SeedClass(t, "class_1", "Class One")
+	class2ID := env.SeedClass(t, "class_2", "Class Two")
+	p1 := env.SeedProblem(t, "P1", "url", class1ID, "Easy", "Arrays")
+	p2 := env.SeedProblem(t, "P2", "url", class2ID, "Easy", "Arrays")
 
-	testUser := service_model.User{UserID: "999888777", DisplayName: "Dead Man Walking"}
-	env.SeedUser(t, testUser.UserID, testUser.DisplayName)
-	env.SeedEnrollment(t, testUser.UserID, "class_1")
-	env.SeedEnrollment(t, testUser.UserID, "class_2")
+	testUserID := "999888777"
+	env.SeedUser(t, testUserID, "Dead Man Walking")
+	env.SeedEnrollment(t, testUserID, "class_1")
+	env.SeedEnrollment(t, testUserID, "class_2")
+	env.SeedAC(t, testUserID, p1)
+	env.SeedAC(t, testUserID, p2)
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
 	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
 		return userID == adminUser.UserID, nil
 	}
 
-	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!exterminate", "<@999888777>"})
+	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!exterminate", fmt.Sprintf("<@%s>", testUserID)})
 
 	// 2. ACT
 	admin.HandleExterminate(ctx)
 
-	// 3. ASSERT: User should be gone from all tables
-	env.AssertUserNotExists(t, testUser.UserID)
+	// 3. ASSERT: Deep wipe verification
+	env.AssertUserNotExists(t, testUserID)
+	env.AssertEnrollmentNotExists(t, testUserID, "class_1")
+	env.AssertEnrollmentNotExists(t, testUserID, "class_2")
+	env.AssertProblemNotSolved(t, testUserID, p1)
+	env.AssertProblemNotSolved(t, testUserID, p2)
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
-	if len(sentMsgs) > 0 {
-		lastMsg := sentMsgs[len(sentMsgs)-1]
-		assert.Contains(t, lastMsg.Content, "completely removed from the system")
-	}
+	assert.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "completely removed from the system")
 }
 
 func TestIntegration_CreateClass_AlreadyExists(t *testing.T) {

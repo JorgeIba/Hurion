@@ -50,15 +50,6 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	p2 := env.SeedProblem(t, "P2", "url", classID, "Easy", "Arrays")
 
 	// Seed 7 users to test neighborhood (2 before, 2 after + target = 5 total)
-	// Rankings (by CountProblems desc, then UserID asc):
-	// 1. U1 (2 AC) - UserID 1
-	// 2. U2 (1 AC) - UserID 2
-	// 3. U3 (1 AC) - UserID 3
-	// 4. U4 (1 AC) - UserID 4  <-- TARGET (Middle)
-	// 5. U5 (0 AC) - UserID 5
-	// 6. U6 (0 AC) - UserID 6
-	// 7. U7 (0 AC) - UserID 7
-
 	userIDs := []string{"111", "222", "333", "444", "555", "666", "777"}
 	for i, id := range userIDs {
 		env.SeedUser(t, id, fmt.Sprintf("User %d", i+1))
@@ -66,16 +57,15 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	}
 
 	// Assign ACs
-	targetUserID := "444"
-	targetDisplayName := "User 4"
-
 	env.SeedAC(t, "111", p1)
 	env.SeedAC(t, "111", p2)
 	env.SeedAC(t, "222", p1)
 	env.SeedAC(t, "333", p1)
-	env.SeedAC(t, targetUserID, p1) // Target has 1 AC
+	env.SeedAC(t, "444", p1) // Target has 1 AC
 
-	// Stub fetcher for all users to resolve names in table
+	targetUserID := "444"
+	targetDisplayName := "User 4"
+
 	env.Fetcher.GetCachedMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
 		for i, id := range userIDs {
 			if id == userID {
@@ -101,12 +91,9 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	assert.Equal(t, dispatcher.FileMessage, lastMsg.Type)
 	assert.Contains(t, lastMsg.Embeds[0].Title, targetDisplayName)
 
-	// Since the controller renders the score to a PNG image, we verify the logical
-	// correctness of the neighborhood and sorting by querying the service directly.
 	score, err := env.Services.Score.GetNeighborsScoreForUserID(targetUserID, classCode)
 	assert.NoError(t, err)
 
-	// We expect 5 users in the neighborhood (2 before, 2 after + target)
 	assert.Len(t, score.UserScores, 5)
 	assert.Equal(t, "222", score.UserScores[0].User.UserID)
 	assert.Equal(t, "333", score.UserScores[1].User.UserID)
@@ -114,7 +101,6 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	assert.Equal(t, "555", score.UserScores[3].User.UserID)
 	assert.Equal(t, "666", score.UserScores[4].User.UserID)
 
-	// Verify deterministic sorting: CountProblems desc, then UserID asc
 	for i := 0; i < len(score.UserScores)-1; i++ {
 		curr, next := score.UserScores[i], score.UserScores[i+1]
 		if curr.CountProblems == next.CountProblems {
@@ -123,6 +109,71 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 			assert.Greater(t, curr.CountProblems, next.CountProblems, "Score sort failed")
 		}
 	}
+}
+
+func TestIntegration_General_GetScoreByUserAndClass_TopRanked(t *testing.T) {
+	t.Parallel()
+
+	// 1. SETUP
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	classID := env.SeedClass(t, classCode, "Basicos 2026")
+	p1 := env.SeedProblem(t, "P1", "url", classID, "Easy", "Arrays")
+
+	// Seed 5 users
+	userIDs := []string{"111", "222", "333", "444", "555"}
+	for i, id := range userIDs {
+		env.SeedUser(t, id, fmt.Sprintf("User %d", i+1))
+		env.SeedEnrollment(t, id, classCode)
+	}
+
+	// U1 is top
+	env.SeedAC(t, "111", p1)
+
+	targetUserID := "111"
+
+	ctx := env.NewContext("999", "Exec", "guild_1", []string{"!score_user", classCode, fmt.Sprintf("<@%s>", targetUserID)})
+
+	// 2. ACT
+	general.HandleGetScoreByUserAndClass(ctx)
+
+	// 3. ASSERT
+	score, err := env.Services.Score.GetNeighborsScoreForUserID(targetUserID, classCode)
+	assert.NoError(t, err)
+
+	assert.Len(t, score.UserScores, 3, "Top ranked user should have 0 neighbors above and 2 below")
+	assert.Equal(t, "111", score.UserScores[0].User.UserID, "Target should be at index 0")
+}
+
+func TestIntegration_General_GetUsersInClass_DisplayNamePriority(t *testing.T) {
+	t.Parallel()
+
+	// 1. SETUP
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	env.SeedClass(t, classCode, "Basicos 2026")
+
+	userID := "111222333"
+	env.SeedUser(t, userID, "DB Name") // DB has one name
+	env.SeedEnrollment(t, userID, classCode)
+
+	// Stub fetcher returns a different Nickname (higher priority)
+	env.Fetcher.GetCachedMemberFunc = func(guildID, userIDArg string) (*discordgo.Member, error) {
+		return &discordgo.Member{
+			User: &discordgo.User{ID: userID, Username: "Discord Username", GlobalName: "Discord Global"},
+			Nick: "Discord Nickname",
+		}, nil
+	}
+
+	ctx := env.NewContext("555666777", "User One", "guild_1", []string{"!users", classCode})
+
+	// 2. ACT
+	general.HandleGetUsersInClass(ctx)
+
+	// 3. ASSERT: Should use Nickname
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	assert.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Embed.Description, "Discord Nickname")
 }
 
 func TestIntegration_General_GetUsersInClass(t *testing.T) {

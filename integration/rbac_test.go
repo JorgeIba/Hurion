@@ -5,6 +5,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,6 +35,7 @@ func TestIntegration_RBAC_StudentCannotAddProblem(t *testing.T) {
 	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
 	if len(sentMsgs) > 0 {
 		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Equal(t, dispatcher.SimpleMessage, lastMsg.Type)
 		assert.Contains(t, lastMsg.Content, "Bro has not enough permissions (is not mentor)")
 	}
 
@@ -104,6 +106,7 @@ func TestIntegration_RBAC_NonAdminCannotCreateClass(t *testing.T) {
 	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
 	if len(sentMsgs) > 0 {
 		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Equal(t, dispatcher.SimpleMessage, lastMsg.Type)
 		assert.Contains(t, lastMsg.Content, "is not admin")
 	}
 
