@@ -131,6 +131,21 @@ func (env *testEnv) AssertUserExists(t *testing.T, userID, expectedName string) 
 	}
 }
 
+// AssertUserNotExists verifies that the given user ID does not exist in the database
+func (env *testEnv) AssertUserNotExists(t *testing.T, userID string) {
+	t.Helper()
+	_, err := env.DB.GetUserByUserID(userID)
+	if err == nil {
+		t.Errorf("expected user %q to not exist, but it does", userID)
+		return
+	}
+
+	var notFoundErr *dataerr.NotFoundError
+	if !errors.As(err, &notFoundErr) {
+		t.Fatalf("unexpected DB error while checking user existence: %v", err)
+	}
+}
+
 // AssertEnrollmentExists verifies that the user is enrolled in the given class code
 func (env *testEnv) AssertEnrollmentExists(t *testing.T, userID, classCode string) {
 	t.Helper()
@@ -144,6 +159,22 @@ func (env *testEnv) AssertEnrollmentExists(t *testing.T, userID, classCode strin
 	}
 	if !isEnrolled {
 		t.Errorf("Expected user %q to be enrolled in class %q", userID, classCode)
+	}
+}
+
+// AssertEnrollmentNotExists verifies that the user is NOT enrolled in the given class code
+func (env *testEnv) AssertEnrollmentNotExists(t *testing.T, userID, classCode string) {
+	t.Helper()
+	class, err := env.DB.GetClassByClassCode(classCode)
+	if err != nil {
+		t.Fatalf("Failed to find class %q for enrollment check: %v", classCode, err)
+	}
+	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
+	if err != nil {
+		t.Fatalf("Failed to query enrollment: %v", err)
+	}
+	if isEnrolled {
+		t.Errorf("expected user %q to not be enrolled in class %q, but they are", userID, classCode)
 	}
 }
 
@@ -223,12 +254,27 @@ func (env *testEnv) AssertClassNotExists(t *testing.T, classCode string) {
 	t.Helper()
 	_, err := env.DB.GetClassByClassCode(classCode)
 	if err == nil {
-		t.Errorf("Expected class %q to be deleted, but it still exists", classCode)
+		t.Errorf("expected class %q to not exist, but it does", classCode)
 		return
 	}
 
 	var notFoundErr *dataerr.NotFoundError
 	if !errors.As(err, &notFoundErr) {
-		t.Fatalf("Unexpected error checking class existence: %v", err)
+		t.Fatalf("unexpected DB error while checking class existence: %v", err)
+	}
+}
+
+// AssertProblemNotExists verifies that the given problem ID does not exist in the database
+func (env *testEnv) AssertProblemNotExists(t *testing.T, problemID int64) {
+	t.Helper()
+	_, err := env.DB.GetProblemByID(problemID)
+	if err == nil {
+		t.Errorf("expected problem %d to not exist, but it does", problemID)
+		return
+	}
+
+	var notFoundErr *dataerr.NotFoundError
+	if !errors.As(err, &notFoundErr) {
+		t.Fatalf("unexpected DB error while checking problem existence: %v", err)
 	}
 }

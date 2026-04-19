@@ -67,8 +67,7 @@ func TestIntegration_ExterminateUser_Logic(t *testing.T) {
 	admin.HandleExterminate(ctx)
 
 	// 3. ASSERT: User should be gone from all tables
-	_, err := env.DB.GetUserByUserID(testUser.UserID)
-	assert.Error(t, err, "User should be deleted from DB")
+	env.AssertUserNotExists(t, testUser.UserID)
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")

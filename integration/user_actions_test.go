@@ -64,11 +64,7 @@ func TestIntegration_DeregisterUser(t *testing.T) {
 	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "deregistered from the class")
 
 	// 4. ASSERT Database: Enrollment should be gone
-	class, err := env.DB.GetClassByClassCode(classCode)
-	assert.NoError(t, err)
-	isEnrolled, err := env.DB.IsUserRegisteredInClass(testUser.UserID, class.ID)
-	assert.NoError(t, err)
-	assert.False(t, isEnrolled, "User should no longer be enrolled")
+	env.AssertEnrollmentNotExists(t, testUser.UserID, classCode)
 }
 
 func TestIntegration_UndoAC(t *testing.T) {
