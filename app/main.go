@@ -37,8 +37,8 @@ func main() {
 
 	db, err := data.NewDB(
 		&data.DBConfig{
-			DBPath:  dbPath,
-			DBType:  data.Prod,
+			DBPath: dbPath,
+			DBType: data.Prod,
 		},
 	)
 

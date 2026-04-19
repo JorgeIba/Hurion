@@ -4,33 +4,25 @@ import (
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers/mock_providers"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
-	"go.uber.org/mock/gomock"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/bwmarrin/discordgo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // testEnv holds the environment for integration tests
 type testEnv struct {
-	Ctx          *context.ContextMessage
-	DB           *data.DB
-	Services     *services.Services
-	Validator    *mock_providers.MockDiscordValidator
-	Fetcher      *mock_providers.MockDiscordFetcher
-	Modifier     *mock_providers.MockDiscordMessageModifier
-	Dispatcher   *FakeDispatcher
-	Ctrl         *gomock.Controller
-}
-
-// FakeDispatcher captures messages instead of sending them to Discord
-type FakeDispatcher struct {
-	SentMessages []dispatcher.MessageResponse
-}
-
-func (f *FakeDispatcher) Send(msg dispatcher.MessageResponse) {
-	f.SentMessages = append(f.SentMessages, msg)
+	Ctx        *context.ContextMessage
+	DB         *data.DB
+	Services   *services.Services
+	Validator  *StubDiscordProvider
+	Fetcher    *StubDiscordProvider
+	Modifier   *StubDiscordProvider
+	Dispatcher *FakeDispatcher
 }
 
 // setupIntegrationEnv initializes a fresh in-memory database and wires all services
@@ -39,46 +31,37 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 
 	logger.Init()
 
-	ctrl := gomock.NewController(t)
-	t.Cleanup(ctrl.Finish)
-
 	// Initialize in-memory SQLite
 	db, err := data.NewDB(&data.DBConfig{
 		DBPath: ":memory:",
 		DBType: data.Test,
 	})
-	if err != nil {
-		t.Fatalf("Failed to initialize in-memory DB: %v", err)
-	}
+	require.NoError(t, err, "failed to initialize in-memory DB")
 	t.Cleanup(db.CloseDB)
 
 	// Initialize services
 	svc := services.NewServices(db)
 
-	// Initialize mocks
-	validator := mock_providers.NewMockDiscordValidator(ctrl)
-	fetcher := mock_providers.NewMockDiscordFetcher(ctrl)
-	modifier := mock_providers.NewMockDiscordMessageModifier(ctrl)
+	// Initialize Stub Providers (Quiet by default)
+	stub := &StubDiscordProvider{}
 	fakeDispatcher := &FakeDispatcher{}
 
 	// Construct ContextMessage
 	ctx := &context.ContextMessage{
-		DiscordValidator:       validator,
-		DiscordFetcher:         fetcher,
-		DiscordMessageModifier: modifier,
+		DiscordValidator:       stub,
+		DiscordFetcher:         stub,
+		DiscordMessageModifier: stub,
 		Dispatcher:             fakeDispatcher,
 		Services:               svc,
 	}
-
 	return &testEnv{
-		Ctx:          ctx,
-		DB:           db,
-		Services:     svc,
-		Validator:    validator,
-		Fetcher:      fetcher,
-		Modifier:     modifier,
-		Dispatcher:   fakeDispatcher,
-		Ctrl:         ctrl,
+		Ctx:        ctx,
+		DB:         db,
+		Services:   svc,
+		Validator:  stub,
+		Fetcher:    stub,
+		Modifier:   stub,
+		Dispatcher: fakeDispatcher,
 	}
 }
 
@@ -93,24 +76,41 @@ func (env *testEnv) SeedClass(t *testing.T, classCode, name string) int64 {
 		ClassCode: classCode,
 		Name:      name,
 	})
-	if err != nil {
-		t.Fatalf("Failed to seed class: %v", err)
-	}
+	require.NoError(t, err, "failed to seed class %q", classCode)
 	return id
 }
 
 // SeedProblem inserts a problem related to a class ID using the DataStore repository
-func (env *testEnv) SeedProblem(t *testing.T, name, url string, classID int64, difficulty, topic string) {
+func (env *testEnv) SeedProblem(t *testing.T, name, url string, classID int64, difficulty, topic string) int64 {
 	t.Helper()
-	_, err := env.DB.AddProblem(data.Problem{
+	id, err := env.DB.AddProblem(data.Problem{
 		Name:       name,
 		URL:        url,
 		ClassID:    classID,
 		Difficulty: &difficulty,
 		Topic:      &topic,
 	})
-	if err != nil {
-		t.Fatalf("Failed to seed problem: %v", err)
+	require.NoError(t, err, "failed to seed problem %q", name)
+	return id
+}
+
+// NewContext creates a pre-wired ContextMessage for testing a command
+func (env *testEnv) NewContext(userID, displayName, guildID string, args []string) *context.ContextMessage {
+	return &context.ContextMessage{
+		Message: &discordgo.MessageCreate{
+			Message: &discordgo.Message{
+				ChannelID: "channel_1",
+				Author:    &discordgo.User{ID: userID, Username: displayName},
+			},
+		},
+		Args:                   args,
+		Executor:               service_model.User{UserID: userID, DisplayName: displayName},
+		ExecutorGuildID:        guildID,
+		DiscordValidator:       env.Validator,
+		DiscordFetcher:         env.Fetcher,
+		DiscordMessageModifier: env.Modifier,
+		Dispatcher:             env.Dispatcher,
+		Services:               env.Services,
 	}
 }
 
@@ -118,26 +118,127 @@ func (env *testEnv) SeedProblem(t *testing.T, name, url string, classID int64, d
 func (env *testEnv) AssertUserExists(t *testing.T, userID, expectedName string) {
 	t.Helper()
 	dbUser, err := env.DB.GetUserByUserID(userID)
-	if err != nil {
-		t.Fatalf("Failed to query user %q: %v", userID, err)
+	require.NoError(t, err, "failed to query user %q", userID)
+	assert.Equal(t, expectedName, dbUser.DisplayName)
+}
+
+// AssertUserNotExists verifies that the given user ID does not exist in the database
+func (env *testEnv) AssertUserNotExists(t *testing.T, userID string) {
+	t.Helper()
+	_, err := env.DB.GetUserByUserID(userID)
+	if !assert.Error(t, err, "expected user %q to not exist, but it does", userID) {
+		return
 	}
-	if dbUser.DisplayName != expectedName {
-		t.Errorf("Expected user display name %q, got %q", expectedName, dbUser.DisplayName)
-	}
+
+	var notFoundErr *dataerr.NotFoundError
+	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking user existence")
 }
 
 // AssertEnrollmentExists verifies that the user is enrolled in the given class code
 func (env *testEnv) AssertEnrollmentExists(t *testing.T, userID, classCode string) {
 	t.Helper()
 	class, err := env.DB.GetClassByClassCode(classCode)
-	if err != nil {
-		t.Fatalf("Failed to find class %q for enrollment check: %v", classCode, err)
-	}
+	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
+
 	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
+	require.NoError(t, err, "failed to query enrollment")
+	assert.True(t, isEnrolled, "expected user %q to be enrolled in class %q", userID, classCode)
+}
+
+// AssertEnrollmentNotExists verifies that the user is NOT enrolled in the given class code
+func (env *testEnv) AssertEnrollmentNotExists(t *testing.T, userID, classCode string) {
+	t.Helper()
+	class, err := env.DB.GetClassByClassCode(classCode)
+	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
+
+	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
+	require.NoError(t, err, "failed to query enrollment")
+	assert.False(t, isEnrolled, "expected user %q to not be enrolled in class %q, but they are", userID, classCode)
+}
+
+// SeedUser ensures a user exists in the database
+func (env *testEnv) SeedUser(t *testing.T, userID, displayName string) {
+	t.Helper()
+	err := env.DB.EnsureUser(data.User{
+		UserID:      userID,
+		DisplayName: displayName,
+	})
 	if err != nil {
-		t.Fatalf("Failed to query enrollment: %v", err)
+		t.Fatalf("Failed to seed user: %v", err)
 	}
-	if !isEnrolled {
-		t.Errorf("Expected user %q to be enrolled in class %q", userID, classCode)
+}
+
+// SeedEnrollment registers a user into a class
+func (env *testEnv) SeedEnrollment(t *testing.T, userID, classCode string) {
+	t.Helper()
+	class, err := env.DB.GetClassByClassCode(classCode)
+	if err != nil {
+		t.Fatalf("Failed to find class %q for seeding enrollment: %v", classCode, err)
 	}
+	err = env.DB.RegisterUserIntoClass(userID, class.ID)
+	if err != nil {
+		t.Fatalf("Failed to seed enrollment: %v", err)
+	}
+}
+
+// SeedAC adds a solved problem for a user
+func (env *testEnv) SeedAC(t *testing.T, userID string, problemID int64) {
+	t.Helper()
+	err := env.DB.AddAC(userID, problemID)
+	if err != nil {
+		t.Fatalf("Failed to seed AC: %v", err)
+	}
+}
+
+// SeedPendingConfirmation inserts a pending confirmation into the database
+func (env *testEnv) SeedPendingConfirmation(t *testing.T, messageID, userID string, problemID int64) {
+	t.Helper()
+	err := env.DB.AddPendingConfirmation(data.PendingConfirmation{
+		MessageID: messageID,
+		UserID:    userID,
+		ProblemID: problemID,
+	})
+	if err != nil {
+		t.Fatalf("Failed to seed pending confirmation: %v", err)
+	}
+}
+
+// AssertProblemSolved verifies that a user has solved a specific problem
+func (env *testEnv) AssertProblemSolved(t *testing.T, userID string, problemID int64) {
+	t.Helper()
+	isSolved, err := env.DB.HasUserSolvedProblem(userID, problemID)
+	require.NoError(t, err, "failed to query AC status")
+	assert.True(t, isSolved, "expected problem %d to be solved by user %q", problemID, userID)
+}
+
+// AssertProblemNotSolved verifies that a user has NOT solved a specific problem
+func (env *testEnv) AssertProblemNotSolved(t *testing.T, userID string, problemID int64) {
+	t.Helper()
+	isSolved, err := env.DB.HasUserSolvedProblem(userID, problemID)
+	require.NoError(t, err, "failed to query AC status")
+	assert.False(t, isSolved, "expected problem %d NOT to be solved by user %q", problemID, userID)
+}
+
+// AssertClassNotExists verifies that the given class code does not exist in the database
+func (env *testEnv) AssertClassNotExists(t *testing.T, classCode string) {
+	t.Helper()
+	_, err := env.DB.GetClassByClassCode(classCode)
+	if !assert.Error(t, err, "expected class %q to not exist, but it does", classCode) {
+		return
+	}
+
+	var notFoundErr *dataerr.NotFoundError
+	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking class existence")
+}
+
+// AssertProblemNotExists verifies that the given problem ID does not exist in the database
+func (env *testEnv) AssertProblemNotExists(t *testing.T, problemID int64) {
+	t.Helper()
+	_, err := env.DB.GetProblemByID(problemID)
+	if !assert.Error(t, err, "expected problem %d to not exist, but it does", problemID) {
+		return
+	}
+
+	var notFoundErr *dataerr.NotFoundError
+	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking problem existence")
 }
