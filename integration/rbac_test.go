@@ -31,9 +31,11 @@ func TestIntegration_RBAC_StudentCannotAddProblem(t *testing.T) {
 
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	lastMsg := sentMsgs[len(sentMsgs)-1]
-	assert.Contains(t, lastMsg.Content, "Bro has not enough permissions (is not mentor)")
+	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
+	if len(sentMsgs) > 0 {
+		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Contains(t, lastMsg.Content, "Bro has not enough permissions (is not mentor)")
+	}
 
 	// Verify database: no problem should be added
 	class, err := env.DB.GetClassByClassCode(classCode)
@@ -65,8 +67,11 @@ func TestIntegration_RBAC_MentorCanAddProblem(t *testing.T) {
 
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "Success Problem")
+	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
+	if len(sentMsgs) > 0 {
+		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Contains(t, lastMsg.Content, "Success Problem")
+	}
 
 	// Verify database
 	class, err := env.DB.GetClassByClassCode(classCode)
@@ -96,9 +101,11 @@ func TestIntegration_RBAC_NonAdminCannotCreateClass(t *testing.T) {
 
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	lastMsg := sentMsgs[len(sentMsgs)-1]
-	assert.Contains(t, lastMsg.Content, "is not admin")
+	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
+	if len(sentMsgs) > 0 {
+		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Contains(t, lastMsg.Content, "is not admin")
+	}
 
 	// Verify database: no class should be created
 	env.AssertClassNotExists(t, "new_class")
@@ -123,8 +130,11 @@ func TestIntegration_RBAC_AdminCanCreateClass(t *testing.T) {
 
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "created correctly")
+	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
+	if len(sentMsgs) > 0 {
+		lastMsg := sentMsgs[len(sentMsgs)-1]
+		assert.Contains(t, lastMsg.Content, "created correctly")
+	}
 
 	// Verify database
 	_, err := env.DB.GetClassByClassCode("power_class")
