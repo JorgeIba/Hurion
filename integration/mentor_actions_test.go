@@ -268,7 +268,12 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupIntegrationEnv(t)
-			student := service_model.User{UserID: "student_1", DisplayName: "Student"}
+			student := service_model.User{UserID: "111", DisplayName: "Student"}
+
+			// Seed something to verify it is NOT deleted/modified
+			classCode := "protected_class"
+			classID := env.SeedClass(t, classCode, "Protected")
+			problemID := env.SeedProblem(t, "Stayin Alive", "url", classID, "Hard", "Safety")
 
 			// Mock NOT mentor
 			env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
@@ -284,6 +289,10 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			sentMsgs := env.Dispatcher.GetSentMessages()
 			assert.NotEmpty(t, sentMsgs)
 			assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not mentor")
+
+			// Verify DB side-effects: problem should still exist
+			_, err := env.DB.GetProblemByID(problemID)
+			assert.NoError(t, err, "DB state should not change after unauthorized access")
 		})
 	}
 }

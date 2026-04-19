@@ -46,22 +46,50 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	env := setupIntegrationEnv(t)
 	classCode := "basicos_1"
 	classID := env.SeedClass(t, classCode, "Basicos 2026")
-	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+	p1 := env.SeedProblem(t, "P1", "url", classID, "Easy", "Arrays")
+	p2 := env.SeedProblem(t, "P2", "url", classID, "Easy", "Arrays")
 
-	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
-	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, classCode)
-	env.SeedAC(t, student.UserID, problemID)
+	// Seed 7 users to test neighborhood (2 before, 2 after + target = 5 total)
+	// Rankings (by CountProblems desc, then UserID asc):
+	// 1. U1 (2 AC) - UserID 1
+	// 2. U2 (1 AC) - UserID 2
+	// 3. U3 (1 AC) - UserID 3
+	// 4. U4 (1 AC) - UserID 4  <-- TARGET (Middle)
+	// 5. U5 (0 AC) - UserID 5
+	// 6. U6 (0 AC) - UserID 6
+	// 7. U7 (0 AC) - UserID 7
 
-	// Stub fetcher for target user
-	env.Fetcher.GetCachedMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
-		return &discordgo.Member{
-			User: &discordgo.User{ID: student.UserID, Username: student.DisplayName},
-			Nick: student.DisplayName,
-		}, nil
+	userIDs := []string{"111", "222", "333", "444", "555", "666", "777"}
+	for i, id := range userIDs {
+		env.SeedUser(t, id, fmt.Sprintf("User %d", i+1))
+		env.SeedEnrollment(t, id, classCode)
 	}
 
-	ctx := env.NewContext("444555666", "Another User", "guild_1", []string{"!score_user", classCode, fmt.Sprintf("<@%s>", student.UserID)})
+	// Assign ACs
+	targetUserID := "444"
+	targetDisplayName := "User 4"
+
+	env.SeedAC(t, "111", p1)
+	env.SeedAC(t, "111", p2)
+	env.SeedAC(t, "222", p1)
+	env.SeedAC(t, "333", p1)
+	env.SeedAC(t, targetUserID, p1) // Target has 1 AC
+
+	// Stub fetcher for all users to resolve names in table
+	env.Fetcher.GetCachedMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+		for i, id := range userIDs {
+			if id == userID {
+				name := fmt.Sprintf("User %d", i+1)
+				return &discordgo.Member{
+					User: &discordgo.User{ID: id, Username: name},
+					Nick: name,
+				}, nil
+			}
+		}
+		return nil, fmt.Errorf("not found")
+	}
+
+	ctx := env.NewContext("999", "Exec", "guild_1", []string{"!score_user", classCode, fmt.Sprintf("<@%s>", targetUserID)})
 
 	// 2. ACT
 	general.HandleGetScoreByUserAndClass(ctx)
@@ -71,7 +99,30 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	assert.NotEmpty(t, sentMsgs)
 	lastMsg := sentMsgs[len(sentMsgs)-1]
 	assert.Equal(t, dispatcher.FileMessage, lastMsg.Type)
-	assert.Contains(t, lastMsg.Embeds[0].Title, student.DisplayName)
+	assert.Contains(t, lastMsg.Embeds[0].Title, targetDisplayName)
+
+	// Since the controller renders the score to a PNG image, we verify the logical
+	// correctness of the neighborhood and sorting by querying the service directly.
+	score, err := env.Services.Score.GetNeighborsScoreForUserID(targetUserID, classCode)
+	assert.NoError(t, err)
+
+	// We expect 5 users in the neighborhood (2 before, 2 after + target)
+	assert.Len(t, score.UserScores, 5)
+	assert.Equal(t, "222", score.UserScores[0].User.UserID)
+	assert.Equal(t, "333", score.UserScores[1].User.UserID)
+	assert.Equal(t, "444", score.UserScores[2].User.UserID) // Target
+	assert.Equal(t, "555", score.UserScores[3].User.UserID)
+	assert.Equal(t, "666", score.UserScores[4].User.UserID)
+
+	// Verify deterministic sorting: CountProblems desc, then UserID asc
+	for i := 0; i < len(score.UserScores)-1; i++ {
+		curr, next := score.UserScores[i], score.UserScores[i+1]
+		if curr.CountProblems == next.CountProblems {
+			assert.Less(t, curr.User.UserID, next.User.UserID, "Deterministic sort failed for UserIDs")
+		} else {
+			assert.Greater(t, curr.CountProblems, next.CountProblems, "Score sort failed")
+		}
+	}
 }
 
 func TestIntegration_General_GetUsersInClass(t *testing.T) {

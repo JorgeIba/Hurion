@@ -182,7 +182,11 @@ func TestIntegration_Admin_UnauthorizedAccess(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupIntegrationEnv(t)
-			student := service_model.User{UserID: "student_1", DisplayName: "Student"}
+			student := service_model.User{UserID: "111", DisplayName: "Student"}
+
+			// Seed something to verify it is NOT deleted/modified
+			classCode := "protected_class"
+			env.SeedClass(t, classCode, "Protected")
 
 			// Mock NOT admin
 			env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
@@ -198,6 +202,10 @@ func TestIntegration_Admin_UnauthorizedAccess(t *testing.T) {
 			sentMsgs := env.Dispatcher.GetSentMessages()
 			assert.NotEmpty(t, sentMsgs)
 			assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not admin")
+
+			// Verify DB side-effects: class should still exist
+			_, err := env.DB.GetClassByClassCode(classCode)
+			assert.NoError(t, err, "DB state should not change after unauthorized access")
 		})
 	}
 }
