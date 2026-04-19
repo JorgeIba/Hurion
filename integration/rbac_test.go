@@ -36,7 +36,8 @@ func TestIntegration_RBAC_StudentCannotAddProblem(t *testing.T) {
 	assert.Contains(t, lastMsg.Content, "Bro has not enough permissions (is not mentor)")
 
 	// Verify database: no problem should be added
-	class, _ := env.DB.GetClassByClassCode(classCode)
+	class, err := env.DB.GetClassByClassCode(classCode)
+	assert.NoError(t, err)
 	problems, err := env.DB.GetProblemsByClass(class.ID)
 	assert.NoError(t, err)
 	assert.Empty(t, problems)
@@ -68,8 +69,10 @@ func TestIntegration_RBAC_MentorCanAddProblem(t *testing.T) {
 	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "Success Problem")
 
 	// Verify database
-	class, _ := env.DB.GetClassByClassCode(classCode)
-	problems, _ := env.DB.GetProblemsByClass(class.ID)
+	class, err := env.DB.GetClassByClassCode(classCode)
+	assert.NoError(t, err)
+	problems, err := env.DB.GetProblemsByClass(class.ID)
+	assert.NoError(t, err)
 	assert.Len(t, problems, 1)
 	assert.Equal(t, "Success Problem", problems[0].Name)
 }

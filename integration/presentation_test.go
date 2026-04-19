@@ -32,6 +32,12 @@ func TestIntegration_ScoreGeneration_SmokeTest(t *testing.T) {
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	assert.GreaterOrEqual(t, len(sentMsgs), 1)
+	lastMsg := sentMsgs[len(sentMsgs)-1]
+	
+	// If it's a score generation, it should be an Image (Rendered) or at least a SimpleMessage with success content
+	// The current HandleGetScoreByClass sends a simple message with "Sending info" then the image
+	// Let's assert we got at least one message that isn't an error
+	assert.NotEqual(t, dispatcher.SimpleMessage, lastMsg.Type) // Should be an image/embed
 }
 
 func TestIntegration_ExcelExport_SmokeTest(t *testing.T) {
@@ -62,4 +68,6 @@ func TestIntegration_ExcelExport_SmokeTest(t *testing.T) {
 	assert.GreaterOrEqual(t, len(sentMsgs), 1)
 	lastMsg := sentMsgs[len(sentMsgs)-1]
 	assert.Equal(t, dispatcher.FileMessage, lastMsg.Type)
+	assert.NotEmpty(t, lastMsg.Files)
+	assert.Contains(t, lastMsg.Files[0].Name, classCode)
 }

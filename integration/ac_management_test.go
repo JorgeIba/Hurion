@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
@@ -18,13 +20,13 @@ func TestIntegration_AC_Propose(t *testing.T) {
 	// 1. SETUP
 	env := setupIntegrationEnv(t)
 	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
-	env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
 
 	student := service_model.User{UserID: "student_1", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
 	env.SeedEnrollment(t, student.UserID, "basicos_1")
 
-	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", "1"})
+	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", fmt.Sprintf("%d", problemID)})
 	ctx.Message.ID = "msg_propose_123"
 
 	// 2. ACT
@@ -85,13 +87,14 @@ func TestIntegration_AC_Accept(t *testing.T) {
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	found := false
+	expected := "has been AC-ed"
 	for _, m := range sentMsgs {
-		if m.Type == dispatcher.ReplyMessage && assert.Contains(t, m.Content, "has been AC-ed") {
+		if m.Type == dispatcher.ReplyMessage && strings.Contains(m.Content, expected) {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "Expected success reply message")
+	assert.True(t, found, "Expected success reply message containing %q", expected)
 }
 
 func TestIntegration_AC_Reject(t *testing.T) {
@@ -133,16 +136,18 @@ func TestIntegration_AC_Reject(t *testing.T) {
 	env.AssertProblemNotSolved(t, student.UserID, problemID)
 
 	// Verify DB: Record should be gone from pending_confirmations
-	exists, _ := env.Services.Solution.ExistsPendingConfirmation(messageID)
+	exists, err := env.Services.Solution.ExistsPendingConfirmation(messageID)
+	assert.NoError(t, err)
 	assert.False(t, exists, "Pending confirmation should be removed after rejection")
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	found := false
+	expected := "Keep trying lil bro"
 	for _, m := range sentMsgs {
-		if m.Type == dispatcher.ReplyMessage && assert.Contains(t, m.Content, "Keep trying lil bro") {
+		if m.Type == dispatcher.ReplyMessage && strings.Contains(m.Content, expected) {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "Expected rejection reply message")
+	assert.True(t, found, "Expected rejection reply message containing %q", expected)
 }

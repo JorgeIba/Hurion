@@ -1,10 +1,12 @@
 package integration
-
 import (
+	"errors"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
@@ -222,5 +224,11 @@ func (env *testEnv) AssertClassNotExists(t *testing.T, classCode string) {
 	_, err := env.DB.GetClassByClassCode(classCode)
 	if err == nil {
 		t.Errorf("Expected class %q to be deleted, but it still exists", classCode)
+		return
+	}
+
+	var notFoundErr *dataerr.NotFoundError
+	if !errors.As(err, &notFoundErr) {
+		t.Fatalf("Unexpected error checking class existence: %v", err)
 	}
 }

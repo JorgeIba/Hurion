@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
@@ -63,8 +64,10 @@ func TestIntegration_DeregisterUser(t *testing.T) {
 	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "deregistered from the class")
 
 	// 4. ASSERT Database: Enrollment should be gone
-	class, _ := env.DB.GetClassByClassCode(classCode)
-	isEnrolled, _ := env.DB.IsUserRegisteredInClass(testUser.UserID, class.ID)
+	class, err := env.DB.GetClassByClassCode(classCode)
+	assert.NoError(t, err)
+	isEnrolled, err := env.DB.IsUserRegisteredInClass(testUser.UserID, class.ID)
+	assert.NoError(t, err)
 	assert.False(t, isEnrolled, "User should no longer be enrolled")
 }
 
@@ -81,7 +84,7 @@ func TestIntegration_UndoAC(t *testing.T) {
 	env.SeedEnrollment(t, testUser.UserID, "basicos_1")
 	env.SeedAC(t, testUser.UserID, problemID)
 
-	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!undo_ac", "1"})
+	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!undo_ac", fmt.Sprintf("%d", problemID)})
 
 	// 2. ACT
 	enrolled.HandleUndoAC(ctx)
@@ -100,7 +103,7 @@ func TestIntegration_ListProblems(t *testing.T) {
 
 	// 1. SETUP
 	env := setupIntegrationEnv(t)
-	
+
 	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
 	env.SeedProblem(t, "Two Sum", "https://leetcode.com/problems/two-sum/", classID, "Easy", "Arrays")
 	env.SeedProblem(t, "Add Two Numbers", "https://leetcode.com/problems/add-two-numbers/", classID, "Medium", "Linked Lists")
