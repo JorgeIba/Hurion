@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
@@ -11,6 +10,8 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // testEnv holds the environment for integration tests
@@ -35,9 +36,7 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 		DBPath: ":memory:",
 		DBType: data.Test,
 	})
-	if err != nil {
-		t.Fatalf("Failed to initialize in-memory DB: %v", err)
-	}
+	require.NoError(t, err, "failed to initialize in-memory DB")
 	t.Cleanup(db.CloseDB)
 
 	// Initialize services
@@ -77,9 +76,7 @@ func (env *testEnv) SeedClass(t *testing.T, classCode, name string) int64 {
 		ClassCode: classCode,
 		Name:      name,
 	})
-	if err != nil {
-		t.Fatalf("Failed to seed class: %v", err)
-	}
+	require.NoError(t, err, "failed to seed class %q", classCode)
 	return id
 }
 
@@ -93,9 +90,7 @@ func (env *testEnv) SeedProblem(t *testing.T, name, url string, classID int64, d
 		Difficulty: &difficulty,
 		Topic:      &topic,
 	})
-	if err != nil {
-		t.Fatalf("Failed to seed problem: %v", err)
-	}
+	require.NoError(t, err, "failed to seed problem %q", name)
 	return id
 }
 
@@ -123,59 +118,42 @@ func (env *testEnv) NewContext(userID, displayName, guildID string, args []strin
 func (env *testEnv) AssertUserExists(t *testing.T, userID, expectedName string) {
 	t.Helper()
 	dbUser, err := env.DB.GetUserByUserID(userID)
-	if err != nil {
-		t.Fatalf("Failed to query user %q: %v", userID, err)
-	}
-	if dbUser.DisplayName != expectedName {
-		t.Errorf("Expected user display name %q, got %q", expectedName, dbUser.DisplayName)
-	}
+	require.NoError(t, err, "failed to query user %q", userID)
+	assert.Equal(t, expectedName, dbUser.DisplayName)
 }
 
 // AssertUserNotExists verifies that the given user ID does not exist in the database
 func (env *testEnv) AssertUserNotExists(t *testing.T, userID string) {
 	t.Helper()
 	_, err := env.DB.GetUserByUserID(userID)
-	if err == nil {
-		t.Errorf("expected user %q to not exist, but it does", userID)
+	if !assert.Error(t, err, "expected user %q to not exist, but it does", userID) {
 		return
 	}
 
 	var notFoundErr *dataerr.NotFoundError
-	if !errors.As(err, &notFoundErr) {
-		t.Fatalf("unexpected DB error while checking user existence: %v", err)
-	}
+	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking user existence")
 }
 
 // AssertEnrollmentExists verifies that the user is enrolled in the given class code
 func (env *testEnv) AssertEnrollmentExists(t *testing.T, userID, classCode string) {
 	t.Helper()
 	class, err := env.DB.GetClassByClassCode(classCode)
-	if err != nil {
-		t.Fatalf("Failed to find class %q for enrollment check: %v", classCode, err)
-	}
+	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
+
 	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
-	if err != nil {
-		t.Fatalf("Failed to query enrollment: %v", err)
-	}
-	if !isEnrolled {
-		t.Errorf("Expected user %q to be enrolled in class %q", userID, classCode)
-	}
+	require.NoError(t, err, "failed to query enrollment")
+	assert.True(t, isEnrolled, "expected user %q to be enrolled in class %q", userID, classCode)
 }
 
 // AssertEnrollmentNotExists verifies that the user is NOT enrolled in the given class code
 func (env *testEnv) AssertEnrollmentNotExists(t *testing.T, userID, classCode string) {
 	t.Helper()
 	class, err := env.DB.GetClassByClassCode(classCode)
-	if err != nil {
-		t.Fatalf("Failed to find class %q for enrollment check: %v", classCode, err)
-	}
+	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
+
 	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
-	if err != nil {
-		t.Fatalf("Failed to query enrollment: %v", err)
-	}
-	if isEnrolled {
-		t.Errorf("expected user %q to not be enrolled in class %q, but they are", userID, classCode)
-	}
+	require.NoError(t, err, "failed to query enrollment")
+	assert.False(t, isEnrolled, "expected user %q to not be enrolled in class %q, but they are", userID, classCode)
 }
 
 // SeedUser ensures a user exists in the database
@@ -229,52 +207,38 @@ func (env *testEnv) SeedPendingConfirmation(t *testing.T, messageID, userID stri
 func (env *testEnv) AssertProblemSolved(t *testing.T, userID string, problemID int64) {
 	t.Helper()
 	isSolved, err := env.DB.HasUserSolvedProblem(userID, problemID)
-	if err != nil {
-		t.Fatalf("Failed to query AC status: %v", err)
-	}
-	if !isSolved {
-		t.Errorf("Expected problem %d to be solved by user %q", problemID, userID)
-	}
+	require.NoError(t, err, "failed to query AC status")
+	assert.True(t, isSolved, "expected problem %d to be solved by user %q", problemID, userID)
 }
 
 // AssertProblemNotSolved verifies that a user has NOT solved a specific problem
 func (env *testEnv) AssertProblemNotSolved(t *testing.T, userID string, problemID int64) {
 	t.Helper()
 	isSolved, err := env.DB.HasUserSolvedProblem(userID, problemID)
-	if err != nil {
-		t.Fatalf("Failed to query AC status: %v", err)
-	}
-	if isSolved {
-		t.Errorf("Expected problem %d NOT to be solved by user %q", problemID, userID)
-	}
+	require.NoError(t, err, "failed to query AC status")
+	assert.False(t, isSolved, "expected problem %d NOT to be solved by user %q", problemID, userID)
 }
 
 // AssertClassNotExists verifies that the given class code does not exist in the database
 func (env *testEnv) AssertClassNotExists(t *testing.T, classCode string) {
 	t.Helper()
 	_, err := env.DB.GetClassByClassCode(classCode)
-	if err == nil {
-		t.Errorf("expected class %q to not exist, but it does", classCode)
+	if !assert.Error(t, err, "expected class %q to not exist, but it does", classCode) {
 		return
 	}
 
 	var notFoundErr *dataerr.NotFoundError
-	if !errors.As(err, &notFoundErr) {
-		t.Fatalf("unexpected DB error while checking class existence: %v", err)
-	}
+	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking class existence")
 }
 
 // AssertProblemNotExists verifies that the given problem ID does not exist in the database
 func (env *testEnv) AssertProblemNotExists(t *testing.T, problemID int64) {
 	t.Helper()
 	_, err := env.DB.GetProblemByID(problemID)
-	if err == nil {
-		t.Errorf("expected problem %d to not exist, but it does", problemID)
+	if !assert.Error(t, err, "expected problem %d to not exist, but it does", problemID) {
 		return
 	}
 
 	var notFoundErr *dataerr.NotFoundError
-	if !errors.As(err, &notFoundErr) {
-		t.Fatalf("unexpected DB error while checking problem existence: %v", err)
-	}
+	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking problem existence")
 }
