@@ -10,14 +10,13 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	// We do NOT use t.Parallel() here because we are modifying environment variables
-	// which is a global state and would cause race conditions between tests.
+	t.Parallel()
 
 	tests := []struct {
 		name       string
 		yamlConfig string
 		useFile    string
-		envVars    map[string]string
+		wantErr    bool
 		assertFunc func(t *testing.T, cfg Config)
 	}{
 		{
@@ -48,40 +47,38 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
-			name:    "environment variables should override YAML file values",
-			useFile: "testdata/config.yaml",
-			envVars: map[string]string{
-				"DISCORD_ADMIN_ROLE_ID":  "override-admin",
-				"DISCORD_MENTOR_ROLE_ID": "override-mentor",
-			},
+			name: "should load inline YAML configuration",
+			yamlConfig: `
+admin_role_id: "inline-admin"
+mentor_role_id: "inline-mentor"
+classes: []
+`,
 			assertFunc: func(t *testing.T, cfg Config) {
-				// Overridden values
-				assert.Equal(t, "override-admin", cfg.AdminRoleID)
-				assert.Equal(t, "override-mentor", cfg.MentorRoleID)
-
-				// Ensure non-overridden nested values are still present
-				require.Len(t, cfg.Classes, 3)
-				assert.Equal(t, "basicos", cfg.Classes[0].Code)
+				assert.Equal(t, "inline-admin", cfg.AdminRoleID)
+				assert.Equal(t, "inline-mentor", cfg.MentorRoleID)
+				assert.Empty(t, cfg.Classes)
 			},
 		},
 		{
-			name: "should handle missing config file gracefully (only env vars)",
-			envVars: map[string]string{
-				"DISCORD_MENTOR_ROLE_ID": "env-mentor-id",
-			},
-			assertFunc: func(t *testing.T, cfg Config) {
-				assert.Equal(t, "env-mentor-id", cfg.MentorRoleID)
-				assert.Empty(t, cfg.AdminRoleID)
-			},
+			name: "should error when required fields are missing in YAML",
+			yamlConfig: `
+admin_role_id: "only-admin-present"
+`,
+			wantErr: true,
+		},
+		{
+			name: "should return error for invalid YAML",
+			yamlConfig: `
+admin_role_id: "valid"
+mentor_role_id: [
+`,
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear environment variables before each test to ensure isolation
-			os.Unsetenv("DISCORD_ADMIN_ROLE_ID")
-			os.Unsetenv("DISCORD_MENTOR_ROLE_ID")
-
+			t.Parallel()
 			var configPath string
 			if tt.useFile != "" {
 				configPath = tt.useFile
@@ -92,13 +89,36 @@ func TestLoadConfig(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			for k, v := range tt.envVars {
-				t.Setenv(k, v)
+			cfg, err := LoadConfig(configPath)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
 			}
 
-			cfg, err := LoadConfig(configPath)
 			require.NoError(t, err)
 			tt.assertFunc(t, cfg)
 		})
 	}
+}
+
+func TestLoadConfig_NoEnvOverride(t *testing.T) {
+	// This test ensures that environment variables do NOT override YAML IDs
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	yamlContent := `
+admin_role_id: "yaml-admin"
+mentor_role_id: "yaml-mentor"
+`
+	err := os.WriteFile(configPath, []byte(yamlContent), 0644)
+	require.NoError(t, err)
+
+	// Set environment variables to verify they are ignored for ID configuration
+	os.Setenv("DISCORD_ADMIN_ROLE_ID", "env-admin-override")
+	defer os.Unsetenv("DISCORD_ADMIN_ROLE_ID")
+
+	cfg, err := LoadConfig(configPath)
+	require.NoError(t, err)
+
+	// ASSERTION: The YAML value must persist, environment must be ignored for these IDs
+	assert.Equal(t, "yaml-admin", cfg.AdminRoleID, "Environment variable should NOT override YAML configuration for IDs")
 }
