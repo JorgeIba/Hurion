@@ -10,12 +10,14 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	t.Parallel()
+	// We do NOT use t.Parallel() here because some test cases use t.Setenv(),
+	// and Go does not allow parallel execution when environment variables are being modified.
 
 	tests := []struct {
 		name       string
 		yamlConfig string
 		useFile    string
+		envVars    map[string]string // Used to verify environment isolation
 		wantErr    bool
 		assertFunc func(t *testing.T, cfg Config)
 	}{
@@ -60,6 +62,28 @@ classes: []
 			},
 		},
 		{
+			name: "environment variables should NOT override YAML configuration",
+			yamlConfig: `
+admin_role_id: "original-yaml-admin"
+mentor_role_id: "original-yaml-mentor"
+`,
+			envVars: map[string]string{
+				"DISCORD_ADMIN_ROLE_ID": "malicious-env-override",
+			},
+			assertFunc: func(t *testing.T, cfg Config) {
+				assert.Equal(t, "original-yaml-admin", cfg.AdminRoleID)
+			},
+		},
+		{
+			name: "should error on unknown keys (strict unmarshaling)",
+			yamlConfig: `
+admin_role_id: "val"
+mentor_role_id: "val"
+unknown_field: "this should trigger an error"
+`,
+			wantErr: true,
+		},
+		{
 			name: "should error when required fields are missing in YAML",
 			yamlConfig: `
 admin_role_id: "only-admin-present"
@@ -67,10 +91,20 @@ admin_role_id: "only-admin-present"
 			wantErr: true,
 		},
 		{
-			name: "should return error for invalid YAML",
+			name: "should return error for invalid YAML syntax",
 			yamlConfig: `
 admin_role_id: "valid"
 mentor_role_id: [
+`,
+			wantErr: true,
+		},
+		{
+			name: "should error if class configuration is invalid (missing code)",
+			yamlConfig: `
+admin_role_id: "val"
+mentor_role_id: "val"
+classes:
+  - name: "Missing Code"
 `,
 			wantErr: true,
 		},
@@ -78,7 +112,6 @@ mentor_role_id: [
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			var configPath string
 			if tt.useFile != "" {
 				configPath = tt.useFile
@@ -89,36 +122,21 @@ mentor_role_id: [
 				require.NoError(t, err)
 			}
 
+			// Apply environment variables for isolation test cases
+			for k, v := range tt.envVars {
+				t.Setenv(k, v)
+			}
+
 			cfg, err := LoadConfig(configPath)
 			if tt.wantErr {
-				require.Error(t, err)
+				assert.Error(t, err)
 				return
 			}
 
 			require.NoError(t, err)
-			tt.assertFunc(t, cfg)
+			if tt.assertFunc != nil {
+				tt.assertFunc(t, cfg)
+			}
 		})
 	}
-}
-
-func TestLoadConfig_NoEnvOverride(t *testing.T) {
-	// This test ensures that environment variables do NOT override YAML IDs
-	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "config.yaml")
-	yamlContent := `
-admin_role_id: "yaml-admin"
-mentor_role_id: "yaml-mentor"
-`
-	err := os.WriteFile(configPath, []byte(yamlContent), 0644)
-	require.NoError(t, err)
-
-	// Set environment variables to verify they are ignored for ID configuration
-	os.Setenv("DISCORD_ADMIN_ROLE_ID", "env-admin-override")
-	defer os.Unsetenv("DISCORD_ADMIN_ROLE_ID")
-
-	cfg, err := LoadConfig(configPath)
-	require.NoError(t, err)
-
-	// ASSERTION: The YAML value must persist, environment must be ignored for these IDs
-	assert.Equal(t, "yaml-admin", cfg.AdminRoleID, "Environment variable should NOT override YAML configuration for IDs")
 }
