@@ -66,9 +66,7 @@ func LoadConfig(configPath string) (Config, error) {
 
 	v.SetConfigFile(path)
 	if err := v.ReadInConfig(); err != nil {
-		if configPath != "" {
-			return Config{}, fmt.Errorf("failed to read config file %q: %w", path, err)
-		}
+		return Config{}, fmt.Errorf("failed to read config file %q: %w", path, err)
 	}
 
 	// We explicitly DO NOT bind environment variables for configuration IDs
