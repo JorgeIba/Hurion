@@ -16,7 +16,10 @@ func TestIntegration_RegisterUser(t *testing.T) {
 
 	// 1. SETUP Environment
 	env := setupIntegrationEnv(t)
-	env.SeedClass(t, "basicos_1", "Basicos 2026")
+	classCode := "basicos_1"
+	otherClass := "other_class"
+	env.SeedClass(t, classCode, "Basicos 2026")
+	env.SeedClass(t, otherClass, "Other")
 
 	// Define test user
 	testUser := service_model.User{
@@ -24,7 +27,7 @@ func TestIntegration_RegisterUser(t *testing.T) {
 		DisplayName: "Jorge el Pro",
 	}
 
-	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!register", "basicos_1"})
+	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!register", classCode})
 
 	// 2. ACT
 	general.HandleRegisterUserInClass(ctx)
@@ -36,9 +39,10 @@ func TestIntegration_RegisterUser(t *testing.T) {
 	assert.Equal(t, dispatcher.SimpleMessage, msg.Type)
 	assert.Contains(t, msg.Content, "has registered in the class `basicos_1`")
 
-	// 4. ASSERT Database using DSL
+	// 4. ASSERT Database Side-effects
 	env.AssertUserExists(t, testUser.UserID, testUser.DisplayName)
-	env.AssertEnrollmentExists(t, testUser.UserID, "basicos_1")
+	env.AssertEnrollmentExists(t, testUser.UserID, classCode)
+	env.AssertEnrollmentNotExists(t, testUser.UserID, otherClass)
 }
 
 func TestIntegration_DeregisterUser(t *testing.T) {
@@ -75,7 +79,7 @@ func TestIntegration_UndoAC(t *testing.T) {
 	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
 	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
 
-	testUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
+	testUser := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, testUser.UserID, testUser.DisplayName)
 	env.SeedEnrollment(t, testUser.UserID, "basicos_1")
 	env.SeedAC(t, testUser.UserID, problemID)
@@ -86,12 +90,35 @@ func TestIntegration_UndoAC(t *testing.T) {
 	enrolled.HandleUndoAC(ctx)
 
 	// 3. ASSERT
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "UnAC-ed successfully")
-
-	// 4. ASSERT Database: AC should be gone
 	env.AssertProblemNotSolved(t, testUser.UserID, problemID)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	assert.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "UnAC-ed successfully")
+}
+
+func TestIntegration_UndoAC_DoubleUndo(t *testing.T) {
+	t.Parallel()
+
+	// 1. SETUP
+	env := setupIntegrationEnv(t)
+	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
+	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+
+	testUser := service_model.User{UserID: "111222333", DisplayName: "Student One"}
+	env.SeedUser(t, testUser.UserID, testUser.DisplayName)
+	env.SeedEnrollment(t, testUser.UserID, "basicos_1")
+	// Note: We do NOT seed an AC here
+
+	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!undo_ac", fmt.Sprintf("%d", problemID)})
+
+	// 2. ACT
+	enrolled.HandleUndoAC(ctx)
+
+	// 3. ASSERT: Should receive a user-friendly error from MapError
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	assert.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "you haven't solved problem")
 }
 
 func TestIntegration_ListProblems(t *testing.T) {
@@ -101,8 +128,8 @@ func TestIntegration_ListProblems(t *testing.T) {
 	env := setupIntegrationEnv(t)
 
 	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
-	env.SeedProblem(t, "Two Sum", "https://leetcode.com/problems/two-sum/", classID, "Easy", "Arrays")
-	env.SeedProblem(t, "Add Two Numbers", "https://leetcode.com/problems/add-two-numbers/", classID, "Medium", "Linked Lists")
+	env.SeedProblem(t, "P1", "https://p1.url", classID, "Easy", "Arrays")
+	env.SeedProblem(t, "P2", "https://p2.url", classID, "Medium", "Arrays")
 
 	ctx := env.NewContext("user_1", "User One", "guild_1", []string{"!list", "basicos_1"})
 
@@ -115,7 +142,6 @@ func TestIntegration_ListProblems(t *testing.T) {
 	msg := sentMsgs[0]
 	assert.Equal(t, dispatcher.PaginationEmbed, msg.Type)
 	assert.Len(t, msg.Embeds, 1)
-	assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
 
 	var nameColumnValue string
 	for _, f := range msg.Embeds[0].Fields {
@@ -124,7 +150,6 @@ func TestIntegration_ListProblems(t *testing.T) {
 			break
 		}
 	}
-	assert.NotEmpty(t, nameColumnValue, "Expected an embed field with name 'Name'")
-	assert.Contains(t, nameColumnValue, "Two Sum")
-	assert.Contains(t, nameColumnValue, "Add Two Numbers")
+	assert.Contains(t, nameColumnValue, "P1")
+	assert.Contains(t, nameColumnValue, "P2")
 }

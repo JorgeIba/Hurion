@@ -38,6 +38,7 @@ func TestIntegration_AC_Propose(t *testing.T) {
 	if len(sentMsgs) > 0 {
 		lastMsg := sentMsgs[len(sentMsgs)-1]
 		assert.Equal(t, dispatcher.Reaction, lastMsg.Type)
+		assert.Equal(t, "msg_propose_123", lastMsg.ReplyTo, "Must reply to the specific proposal message")
 		assert.Contains(t, lastMsg.Reactions, common.REACTION_YES)
 		assert.Contains(t, lastMsg.Reactions, common.REACTION_NO)
 	}
