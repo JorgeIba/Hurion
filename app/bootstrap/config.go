@@ -1,0 +1,86 @@
+package bootstrap
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/viper"
+)
+
+const DefaultConfigPath = "config.yaml"
+
+// ClassConfig represents the configuration for a single class.
+type ClassConfig struct {
+	Code       string   `mapstructure:"code"`
+	Name       string   `mapstructure:"name"`
+	ChannelIDs []string `mapstructure:"channel_ids"`
+	RoleIDs    []string `mapstructure:"role_ids"`
+}
+
+// Validate ensures the class configuration is internally consistent.
+func (c ClassConfig) Validate() error {
+	if strings.TrimSpace(c.Code) == "" {
+		return errors.New("class code is required")
+	}
+	if strings.TrimSpace(c.Name) == "" {
+		return errors.New("class name is required")
+	}
+	return nil
+}
+
+// Config represents the global application configuration.
+type Config struct {
+	AdminRoleID  string        `mapstructure:"admin_role_id"`
+	MentorRoleID string        `mapstructure:"mentor_role_id"`
+	Classes      []ClassConfig `mapstructure:"classes"`
+}
+
+// Validate ensures the entire configuration state is valid.
+func (c Config) Validate() error {
+	if strings.TrimSpace(c.AdminRoleID) == "" {
+		return errors.New("admin_role_id is required")
+	}
+	if strings.TrimSpace(c.MentorRoleID) == "" {
+		return errors.New("mentor_role_id is required")
+	}
+
+	for i, class := range c.Classes {
+		if err := class.Validate(); err != nil {
+			return fmt.Errorf("invalid class at index %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+// LoadConfig reads the configuration strictly from a YAML file.
+// Unknown keys in the YAML will trigger an error (Strict Unmarshaling).
+func LoadConfig(configPath string) (Config, error) {
+	v := viper.New()
+
+	path := strings.TrimSpace(configPath)
+	if path == "" {
+		path = DefaultConfigPath
+	}
+
+	v.SetConfigFile(path)
+	if err := v.ReadInConfig(); err != nil {
+		return Config{}, fmt.Errorf("failed to read config file %q: %w", path, err)
+	}
+
+	// We explicitly DO NOT bind environment variables for configuration IDs
+	// to ensure the YAML file remains the sole source of truth for the domain.
+
+	var cfg Config
+	// UnmarshalExact returns an error if the YAML contains keys that do not match the struct.
+	if err := v.UnmarshalExact(&cfg); err != nil {
+		return Config{}, fmt.Errorf("failed to unmarshal config (strict mode): %w", err)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return Config{}, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	return cfg, nil
+}
