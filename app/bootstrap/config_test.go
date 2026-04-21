@@ -32,19 +32,19 @@ func TestLoadConfig(t *testing.T) {
 				// Check Basicos
 				assert.Equal(t, "basicos", cfg.Classes[0].Code)
 				assert.Equal(t, "Basicos 2025", cfg.Classes[0].Name)
-				assert.Equal(t, []string{"chan-b-1", "chan-b-2"}, cfg.Classes[0].ChannelIDs)
+				assert.Equal(t, []string{"chan-b-1", "chan-b-2"}, cfg.Classes[0].RoomIDs)
 				assert.Equal(t, []string{"role-b-1"}, cfg.Classes[0].RoleIDs)
 
 				// Check Avanzados
 				assert.Equal(t, "avanzados", cfg.Classes[1].Code)
 				assert.Equal(t, "Avanzados 2025", cfg.Classes[1].Name)
-				assert.Equal(t, []string{"chan-a-1"}, cfg.Classes[1].ChannelIDs)
+				assert.Equal(t, []string{"chan-a-1"}, cfg.Classes[1].RoomIDs)
 				assert.Equal(t, []string{"role-a-1", "role-a-2"}, cfg.Classes[1].RoleIDs)
 
 				// Check Intermedios
 				assert.Equal(t, "intermedios", cfg.Classes[2].Code)
 				assert.Equal(t, "Intermedios 2025", cfg.Classes[2].Name)
-				assert.Equal(t, []string{"chan-i-1"}, cfg.Classes[2].ChannelIDs)
+				assert.Equal(t, []string{"chan-i-1"}, cfg.Classes[2].RoomIDs)
 				assert.Equal(t, []string{"role-i-1"}, cfg.Classes[2].RoleIDs)
 			},
 		},
@@ -108,6 +108,11 @@ classes:
 `,
 			wantErr: true,
 		},
+		{
+			name:       "should error when explicitly provided file is missing",
+			useFile:    "non_existent.yaml",
+			wantErr:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -122,7 +127,7 @@ classes:
 				require.NoError(t, err)
 			}
 
-			// Apply environment variables for isolation test cases
+			// Apply environment variables to verify isolation
 			for k, v := range tt.envVars {
 				t.Setenv(k, v)
 			}
