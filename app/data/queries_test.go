@@ -670,9 +670,9 @@ func TestClearClass(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
 				require.NoError(t, err)
-				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				err = db.AddClassroom(Classroom{RoomID: "ch-1", ClassCode: "c1"})
 				require.NoError(t, err)
-				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
 				require.NoError(t, err)
 				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
 				require.NoError(t, err)
@@ -696,10 +696,10 @@ func TestClearClass(t *testing.T) {
 				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE class_id = 1").Scan(&count)
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM class_channels WHERE class_code = 'c1'").Scan(&count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM classrooms WHERE class_code = 'c1'").Scan(&count)
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM class_roles WHERE class_code = 'c1'").Scan(&count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM class_access_roles WHERE class_code = 'c1'").Scan(&count)
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
 			},
@@ -792,29 +792,29 @@ func TestCreateClass(t *testing.T) {
 	}
 }
 
-func TestAddClassChannel(t *testing.T) {
+func TestAddClassroom(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, db *DB)
-		classChan  ClassChannel
+		classroom  Classroom
 		assertFunc func(t *testing.T, db *DB, err error)
 	}{
 		{
-			name: "should upsert channel to latest class",
+			name: "should upsert classroom to latest class",
 			setup: func(t *testing.T, db *DB) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				require.NoError(t, err)
 				_, err = db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
 				require.NoError(t, err)
-				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				err = db.AddClassroom(Classroom{RoomID: "ch-1", ClassCode: "c1"})
 				require.NoError(t, err)
 			},
-			classChan: ClassChannel{ChannelID: "ch-1", ClassCode: "c2"},
+			classroom: Classroom{RoomID: "ch-1", ClassCode: "c2"},
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.NoError(t, err)
-				classCode, getErr := db.GetClassCodeByChannelID("ch-1")
+				classCode, getErr := db.GetClassCodeByRoomID("ch-1")
 				assert.NoError(t, getErr)
 				assert.Equal(t, "c2", classCode)
 			},
@@ -824,7 +824,7 @@ func TestAddClassChannel(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				db.CloseDB()
 			},
-			classChan: ClassChannel{ChannelID: "ch-1", ClassCode: "c1"},
+			classroom: Classroom{RoomID: "ch-1", ClassCode: "c1"},
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.Error(t, err)
 			},
@@ -841,38 +841,38 @@ func TestAddClassChannel(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			err := db.AddClassChannel(tt.classChan)
+			err := db.AddClassroom(tt.classroom)
 			tt.assertFunc(t, db, err)
 		})
 	}
 }
 
-func TestGetClassCodeByChannelID(t *testing.T) {
+func TestGetClassCodeByRoomID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, db *DB)
-		channelID  string
+		roomID     string
 		assertFunc func(t *testing.T, db *DB, classCode string, err error)
 	}{
 		{
-			name: "should get class code for mapped channel",
+			name: "should get class code for mapped room",
 			setup: func(t *testing.T, db *DB) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				require.NoError(t, err)
-				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				err = db.AddClassroom(Classroom{RoomID: "ch-1", ClassCode: "c1"})
 				require.NoError(t, err)
 			},
-			channelID: "ch-1",
+			roomID: "ch-1",
 			assertFunc: func(t *testing.T, db *DB, classCode string, err error) {
 				assert.NoError(t, err)
 				assert.Equal(t, "c1", classCode)
 			},
 		},
 		{
-			name:      "should return error for unknown channel",
-			channelID: "missing",
+			name:   "should return error for unknown room",
+			roomID: "missing",
 			assertFunc: func(t *testing.T, db *DB, classCode string, err error) {
 				assert.Error(t, err)
 				assert.Equal(t, "", classCode)
@@ -883,7 +883,7 @@ func TestGetClassCodeByChannelID(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				db.CloseDB()
 			},
-			channelID: "ch-1",
+			roomID: "ch-1",
 			assertFunc: func(t *testing.T, db *DB, classCode string, err error) {
 				assert.Error(t, err)
 			},
@@ -900,45 +900,45 @@ func TestGetClassCodeByChannelID(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			classCode, err := db.GetClassCodeByChannelID(tt.channelID)
+			classCode, err := db.GetClassCodeByRoomID(tt.roomID)
 			tt.assertFunc(t, db, classCode, err)
 		})
 	}
 }
 
-func TestGetClassChannelsByClassCode(t *testing.T) {
+func TestGetClassroomsByClassCode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, db *DB)
 		classCode  string
-		assertFunc func(t *testing.T, db *DB, channels []ClassChannel, err error)
+		assertFunc func(t *testing.T, db *DB, classrooms []Classroom, err error)
 	}{
 		{
-			name: "should return channels sorted by channel_id",
+			name: "should return classrooms sorted by room_id",
 			setup: func(t *testing.T, db *DB) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				require.NoError(t, err)
-				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-2", ClassCode: "c1"})
+				err = db.AddClassroom(Classroom{RoomID: "ch-2", ClassCode: "c1"})
 				require.NoError(t, err)
-				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				err = db.AddClassroom(Classroom{RoomID: "ch-1", ClassCode: "c1"})
 				require.NoError(t, err)
 			},
 			classCode: "c1",
-			assertFunc: func(t *testing.T, db *DB, channels []ClassChannel, err error) {
+			assertFunc: func(t *testing.T, db *DB, classrooms []Classroom, err error) {
 				assert.NoError(t, err)
-				assert.Len(t, channels, 2)
-				assert.Equal(t, "ch-1", channels[0].ChannelID)
-				assert.Equal(t, "ch-2", channels[1].ChannelID)
+				assert.Len(t, classrooms, 2)
+				assert.Equal(t, "ch-1", classrooms[0].RoomID)
+				assert.Equal(t, "ch-2", classrooms[1].RoomID)
 			},
 		},
 		{
-			name:      "should return empty list for class without channels",
+			name:      "should return empty list for class without classrooms",
 			classCode: "c1",
-			assertFunc: func(t *testing.T, db *DB, channels []ClassChannel, err error) {
+			assertFunc: func(t *testing.T, db *DB, classrooms []Classroom, err error) {
 				assert.NoError(t, err)
-				assert.Len(t, channels, 0)
+				assert.Len(t, classrooms, 0)
 			},
 		},
 		{
@@ -947,7 +947,7 @@ func TestGetClassChannelsByClassCode(t *testing.T) {
 				db.CloseDB()
 			},
 			classCode: "c1",
-			assertFunc: func(t *testing.T, db *DB, channels []ClassChannel, err error) {
+			assertFunc: func(t *testing.T, db *DB, classrooms []Classroom, err error) {
 				assert.Error(t, err)
 			},
 		},
@@ -963,33 +963,33 @@ func TestGetClassChannelsByClassCode(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			channels, err := db.GetClassChannelsByClassCode(tt.classCode)
-			tt.assertFunc(t, db, channels, err)
+			classrooms, err := db.GetClassroomsByClassCode(tt.classCode)
+			tt.assertFunc(t, db, classrooms, err)
 		})
 	}
 }
 
-func TestRemoveClassChannelByChannelID(t *testing.T) {
+func TestRemoveClassroomByRoomID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, db *DB)
-		channelID  string
+		roomID     string
 		assertFunc func(t *testing.T, db *DB, err error)
 	}{
 		{
-			name: "should remove class channel mapping",
+			name: "should remove classroom mapping",
 			setup: func(t *testing.T, db *DB) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				require.NoError(t, err)
-				err = db.AddClassChannel(ClassChannel{ChannelID: "ch-1", ClassCode: "c1"})
+				err = db.AddClassroom(Classroom{RoomID: "ch-1", ClassCode: "c1"})
 				require.NoError(t, err)
 			},
-			channelID: "ch-1",
+			roomID: "ch-1",
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.NoError(t, err)
-				_, getErr := db.GetClassCodeByChannelID("ch-1")
+				_, getErr := db.GetClassCodeByRoomID("ch-1")
 				assert.Error(t, getErr)
 			},
 		},
@@ -998,7 +998,7 @@ func TestRemoveClassChannelByChannelID(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				db.CloseDB()
 			},
-			channelID: "ch-1",
+			roomID: "ch-1",
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.Error(t, err)
 			},
@@ -1015,19 +1015,19 @@ func TestRemoveClassChannelByChannelID(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			err := db.RemoveClassChannelByChannelID(tt.channelID)
+			err := db.RemoveClassroomByRoomID(tt.roomID)
 			tt.assertFunc(t, db, err)
 		})
 	}
 }
 
-func TestAddClassRole(t *testing.T) {
+func TestAddClassAccessRole(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, db *DB)
-		classRole  ClassRole
+		classRole  ClassAccessRole
 		assertFunc func(t *testing.T, db *DB, err error)
 	}{
 		{
@@ -1035,13 +1035,13 @@ func TestAddClassRole(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				require.NoError(t, err)
-				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
 				require.NoError(t, err)
 			},
-			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			classRole: ClassAccessRole{ClassCode: "c1", RoleID: "r1"},
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.NoError(t, err)
-				roles, getErr := db.GetClassRolesByClassCode("c1")
+				roles, getErr := db.GetClassAccessRolesByClassCode("c1")
 				assert.NoError(t, getErr)
 				assert.Len(t, roles, 1)
 				assert.Equal(t, "r1", roles[0].RoleID)
@@ -1052,7 +1052,7 @@ func TestAddClassRole(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				db.CloseDB()
 			},
-			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			classRole: ClassAccessRole{ClassCode: "c1", RoleID: "r1"},
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.Error(t, err)
 			},
@@ -1069,33 +1069,33 @@ func TestAddClassRole(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			err := db.AddClassRole(tt.classRole)
+			err := db.AddClassAccessRole(tt.classRole)
 			tt.assertFunc(t, db, err)
 		})
 	}
 }
 
-func TestGetClassRolesByClassCode(t *testing.T) {
+func TestGetClassAccessRolesByClassCode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, db *DB)
 		classCode  string
-		assertFunc func(t *testing.T, db *DB, roles []ClassRole, err error)
+		assertFunc func(t *testing.T, db *DB, roles []ClassAccessRole, err error)
 	}{
 		{
 			name: "should return roles sorted by role_id",
 			setup: func(t *testing.T, db *DB) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				require.NoError(t, err)
-				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r2"})
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r2"})
 				require.NoError(t, err)
-				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
 				require.NoError(t, err)
 			},
 			classCode: "c1",
-			assertFunc: func(t *testing.T, db *DB, roles []ClassRole, err error) {
+			assertFunc: func(t *testing.T, db *DB, roles []ClassAccessRole, err error) {
 				assert.NoError(t, err)
 				assert.Len(t, roles, 2)
 				assert.Equal(t, "r1", roles[0].RoleID)
@@ -1105,7 +1105,7 @@ func TestGetClassRolesByClassCode(t *testing.T) {
 		{
 			name:      "should return empty list for class without roles",
 			classCode: "c1",
-			assertFunc: func(t *testing.T, db *DB, roles []ClassRole, err error) {
+			assertFunc: func(t *testing.T, db *DB, roles []ClassAccessRole, err error) {
 				assert.NoError(t, err)
 				assert.Len(t, roles, 0)
 			},
@@ -1116,7 +1116,7 @@ func TestGetClassRolesByClassCode(t *testing.T) {
 				db.CloseDB()
 			},
 			classCode: "c1",
-			assertFunc: func(t *testing.T, db *DB, roles []ClassRole, err error) {
+			assertFunc: func(t *testing.T, db *DB, roles []ClassAccessRole, err error) {
 				assert.Error(t, err)
 			},
 		},
@@ -1132,33 +1132,33 @@ func TestGetClassRolesByClassCode(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			roles, err := db.GetClassRolesByClassCode(tt.classCode)
+			roles, err := db.GetClassAccessRolesByClassCode(tt.classCode)
 			tt.assertFunc(t, db, roles, err)
 		})
 	}
 }
 
-func TestRemoveClassRole(t *testing.T) {
+func TestRemoveClassAccessRole(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, db *DB)
-		classRole  ClassRole
+		classRole  ClassAccessRole
 		assertFunc func(t *testing.T, db *DB, err error)
 	}{
 		{
-			name: "should remove class role mapping",
+			name: "should remove class access role mapping",
 			setup: func(t *testing.T, db *DB) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				require.NoError(t, err)
-				err = db.AddClassRole(ClassRole{ClassCode: "c1", RoleID: "r1"})
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
 				require.NoError(t, err)
 			},
-			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			classRole: ClassAccessRole{ClassCode: "c1", RoleID: "r1"},
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.NoError(t, err)
-				roles, getErr := db.GetClassRolesByClassCode("c1")
+				roles, getErr := db.GetClassAccessRolesByClassCode("c1")
 				assert.NoError(t, getErr)
 				assert.Len(t, roles, 0)
 			},
@@ -1168,7 +1168,7 @@ func TestRemoveClassRole(t *testing.T) {
 			setup: func(t *testing.T, db *DB) {
 				db.CloseDB()
 			},
-			classRole: ClassRole{ClassCode: "c1", RoleID: "r1"},
+			classRole: ClassAccessRole{ClassCode: "c1", RoleID: "r1"},
 			assertFunc: func(t *testing.T, db *DB, err error) {
 				assert.Error(t, err)
 			},
@@ -1185,7 +1185,7 @@ func TestRemoveClassRole(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			err := db.RemoveClassRole(tt.classRole)
+			err := db.RemoveClassAccessRole(tt.classRole)
 			tt.assertFunc(t, db, err)
 		})
 	}

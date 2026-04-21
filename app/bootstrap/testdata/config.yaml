@@ -3,13 +3,13 @@ mentor_role_id: "mentor-role-456"
 classes:
   - code: "basicos"
     name: "Basicos 2025"
-    channel_ids: ["chan-b-1", "chan-b-2"]
+    room_ids: ["chan-b-1", "chan-b-2"]
     role_ids: ["role-b-1"]
   - code: "avanzados"
     name: "Avanzados 2025"
-    channel_ids: ["chan-a-1"]
+    room_ids: ["chan-a-1"]
     role_ids: ["role-a-1", "role-a-2"]
   - code: "intermedios"
     name: "Intermedios 2025"
-    channel_ids: ["chan-i-1"]
+    room_ids: ["chan-i-1"]
     role_ids: ["role-i-1"]

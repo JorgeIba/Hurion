@@ -26,12 +26,14 @@ type Class struct {
 	Name      string
 }
 
-type ClassChannel struct {
-	ChannelID string
+// Classroom represents a location (e.g., Discord Channel) where a class is taught.
+type Classroom struct {
+	RoomID    string
 	ClassCode string
 }
 
-type ClassRole struct {
+// ClassAccessRole represents a role (e.g., Discord Role) that grants access to a class.
+type ClassAccessRole struct {
 	ClassCode string
 	RoleID    string
 }

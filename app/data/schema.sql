@@ -10,13 +10,13 @@ CREATE TABLE IF NOT EXISTS classes (
     name TEXT
 );
 
-CREATE TABLE IF NOT EXISTS class_channels (
-    channel_id TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS classrooms (
+    room_id TEXT PRIMARY KEY,
     class_code TEXT NOT NULL,
     FOREIGN KEY (class_code) REFERENCES classes(class_code) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS class_roles (
+CREATE TABLE IF NOT EXISTS class_access_roles (
     class_code TEXT NOT NULL,
     role_id TEXT NOT NULL,
     PRIMARY KEY (class_code, role_id),

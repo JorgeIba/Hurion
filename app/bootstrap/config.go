@@ -12,10 +12,10 @@ const DefaultConfigPath = "config.yaml"
 
 // ClassConfig represents the configuration for a single class.
 type ClassConfig struct {
-	Code       string   `mapstructure:"code"`
-	Name       string   `mapstructure:"name"`
-	ChannelIDs []string `mapstructure:"channel_ids"`
-	RoleIDs    []string `mapstructure:"role_ids"`
+	Code    string   `mapstructure:"code"`
+	Name    string   `mapstructure:"name"`
+	RoomIDs []string `mapstructure:"room_ids"`
+	RoleIDs []string `mapstructure:"role_ids"`
 }
 
 // Validate ensures the class configuration is internally consistent.
