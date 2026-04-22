@@ -151,7 +151,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 			return
 		}
 
-		logger.Log.Info("Rejected AC", pendingConfirmation)
+		logger.Log.Infof("Rejected AC by mentor %s: %+v", c.MessageReaction.UserID, pendingConfirmation)
 		c.Dispatcher.Send(
 			dispatcher.MessageResponse{
 				Type:           dispatcher.Reaction,
@@ -172,7 +172,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 			return
 		}
 
-		logger.Log.Infoln("Problem AC-ed", pendingConfirmation)
+		logger.Log.Infof("Problem AC-ed by mentor %s: %+v", c.MessageReaction.UserID, pendingConfirmation)
 		c.Dispatcher.Send(
 			dispatcher.MessageResponse{
 				Type:           dispatcher.Reaction,
@@ -230,7 +230,7 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Infof("Problem %d AC-ed by %s (%s)\n", problemID, userID, displayName)
+	logger.Log.Infof("Problem %d AC-ed by %s (%s) by mentor %s\n", problemID, userID, displayName, c.Executor.UserID)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
 			Type:      dispatcher.Reaction,
@@ -284,7 +284,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	logger.Log.Infof("Problem %d has been UnAC-ed successfully by %s (%s)", problemID, userID, displayName)
+	logger.Log.Infof("Problem %d has been UnAC-ed successfully for user %s (%s) by mentor %s", problemID, userID, displayName, c.Executor.UserID)
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf(
 			"Problem `%d` has been UnAC-ed successfully for <@%s>",
