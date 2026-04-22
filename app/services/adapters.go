@@ -59,6 +59,36 @@ func mapDataClassesToServiceClasses(classes []data.Class) []service_model.Class 
 	return result
 }
 
+func mapDataClassroomToServiceClassroom(r data.Classroom) service_model.Classroom {
+	return service_model.Classroom{
+		RoomID:    r.RoomID,
+		ClassCode: r.ClassCode,
+	}
+}
+
+func mapDataClassroomsToServiceClassrooms(classrooms []data.Classroom) []service_model.Classroom {
+	result := make([]service_model.Classroom, len(classrooms))
+	for i, r := range classrooms {
+		result[i] = mapDataClassroomToServiceClassroom(r)
+	}
+	return result
+}
+
+func mapDataRoleToServiceRole(r data.ClassAccessRole) service_model.ClassAccessRole {
+	return service_model.ClassAccessRole{
+		RoleID:    r.RoleID,
+		ClassCode: r.ClassCode,
+	}
+}
+
+func mapDataRolesToServiceRoles(roles []data.ClassAccessRole) []service_model.ClassAccessRole {
+	result := make([]service_model.ClassAccessRole, len(roles))
+	for i, r := range roles {
+		result[i] = mapDataRoleToServiceRole(r)
+	}
+	return result
+}
+
 func mapDataSolvedProblemToServiceSolvedProblem(sp data.SolvedProblem) service_model.SolvedProblem {
 	return service_model.SolvedProblem{
 		UserID:    sp.UserID,
@@ -118,5 +148,19 @@ func mapServiceClassToDataClass(c service_model.Class) data.Class {
 		ID:        c.ID,
 		ClassCode: c.ClassCode,
 		Name:      c.Name,
+	}
+}
+
+func mapServiceClassroomToDataClassroom(r service_model.Classroom) data.Classroom {
+	return data.Classroom{
+		RoomID:    r.RoomID,
+		ClassCode: r.ClassCode,
+	}
+}
+
+func mapServiceRoleToDataRole(r service_model.ClassAccessRole) data.ClassAccessRole {
+	return data.ClassAccessRole{
+		RoleID:    r.RoleID,
+		ClassCode: r.ClassCode,
 	}
 }

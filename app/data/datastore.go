@@ -6,6 +6,7 @@ type QueryDatastore interface {
 	GetUserByUserID(userID string) (User, error)
 	GetClassByClassCode(classCode string) (Class, error)
 	GetClassCodeByRoomID(roomID string) (string, error)
+	IsRoomRegistered(roomID string) (string, bool, error)
 	GetClassroomsByClassCode(classCode string) ([]Classroom, error)
 	GetClassAccessRolesByClassCode(classCode string) ([]ClassAccessRole, error)
 	IsUserRegisteredInClass(userID string, classID int64) (bool, error)

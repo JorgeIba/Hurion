@@ -64,7 +64,7 @@ func HandleCreateClass(c *context.ContextMessage) {
 	}
 
 	classCode, className := c.Args[1], strings.Join(c.Args[2:], " ")
-	if err := c.Services.Class.CreateClass(classCode, className); err != nil {
+	if _, err := c.Services.Class.CreateClass(classCode, className); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

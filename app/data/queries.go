@@ -405,6 +405,25 @@ func (db *DB) GetClassCodeByRoomID(roomID string) (string, error) {
 	return classCode, nil
 }
 
+func (db *DB) IsRoomRegistered(roomID string) (string, bool, error) {
+	query := `
+		SELECT class_code
+		FROM classrooms
+		WHERE room_id = ?;
+	`
+
+	var classCode string
+	err := db.conn.QueryRow(query, roomID).Scan(&classCode)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, dataerr.NewQueryError(fmt.Sprintf("could not check if room %s is registered", roomID), err)
+	}
+
+	return classCode, true, nil
+}
+
 func (db *DB) GetClassroomsByClassCode(classCode string) ([]Classroom, error) {
 	query := `
 		SELECT room_id, class_code

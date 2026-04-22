@@ -393,6 +393,22 @@ func (mr *MockDataStoreMockRecorder) HasUserSolvedProblem(userID, problemID any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUserSolvedProblem", reflect.TypeOf((*MockDataStore)(nil).HasUserSolvedProblem), userID, problemID)
 }
 
+// IsRoomRegistered mocks base method.
+func (m *MockDataStore) IsRoomRegistered(roomID string) (string, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsRoomRegistered", roomID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// IsRoomRegistered indicates an expected call of IsRoomRegistered.
+func (mr *MockDataStoreMockRecorder) IsRoomRegistered(roomID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRoomRegistered", reflect.TypeOf((*MockDataStore)(nil).IsRoomRegistered), roomID)
+}
+
 // IsUserRegisteredInClass mocks base method.
 func (m *MockDataStore) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
 	m.ctrl.T.Helper()

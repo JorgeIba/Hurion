@@ -31,6 +31,18 @@ type Class struct {
 	Name      string
 }
 
+// Classroom represents a location where a class is taught
+type Classroom struct {
+	RoomID    string
+	ClassCode string
+}
+
+// ClassAccessRole represents a role that grants access to a class
+type ClassAccessRole struct {
+	RoleID    string
+	ClassCode string
+}
+
 // SolvedProblem represents a record of a user solving a problem
 type SolvedProblem struct {
 	UserID    string
