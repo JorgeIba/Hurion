@@ -84,6 +84,11 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		}
 
 	case Reaction:
+		if msg.ClearReactions {
+			if err := d.Session.MessageReactionsRemoveAll(msg.ChannelID, msg.ReplyTo); err != nil {
+				logger.Log.Errorf("Error clearing reactions for message %s: %v\n", msg.ReplyTo, err)
+			}
+		}
 		for _, r := range msg.Reactions {
 			if err := d.Session.MessageReactionAdd(msg.ChannelID, msg.ReplyTo, r); err != nil {
 				logger.Log.Errorf("Error adding reaction %s to message %s: %v\n", r, msg.ReplyTo, err)

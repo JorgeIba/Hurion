@@ -367,7 +367,7 @@ func TestHandleAddAC(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Contains(t, msg.Content, "Problem `100` has been AC-ed")
+				assert.Contains(t, msg.Reactions, common.REACTION_ACCEPTED)
 			},
 		},
 		{
@@ -829,8 +829,9 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Equal(t, dispatcher.ReplyMessage, msg.Type)
-				assert.Contains(t, msg.Content, "Problem `77` has been AC-ed")
+				assert.Equal(t, dispatcher.Reaction, msg.Type)
+				assert.True(t, msg.ClearReactions)
+				assert.Contains(t, msg.Reactions, common.REACTION_ACCEPTED)
 			},
 		},
 		{
@@ -846,8 +847,9 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Equal(t, dispatcher.ReplyMessage, msg.Type)
-				assert.Contains(t, msg.Content, "Keep trying lil bro")
+				assert.Equal(t, dispatcher.Reaction, msg.Type)
+				assert.True(t, msg.ClearReactions)
+				assert.Contains(t, msg.Reactions, common.REACTION_NO)
 			},
 		},
 		{

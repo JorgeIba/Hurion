@@ -2,7 +2,6 @@ package integration
 
 import (
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
@@ -90,14 +89,14 @@ func TestIntegration_AC_Accept(t *testing.T) {
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	found := false
-	expected := "has been AC-ed"
+	expected := common.REACTION_ACCEPTED
 	for _, m := range sentMsgs {
-		if m.Type == dispatcher.ReplyMessage && strings.Contains(m.Content, expected) {
+		if m.Type == dispatcher.Reaction && len(m.Reactions) > 0 && m.Reactions[0] == expected {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "Expected success reply message containing %q", expected)
+	assert.True(t, found, "Expected success reaction containing %q", expected)
 }
 
 func TestIntegration_AC_Reject(t *testing.T) {
@@ -145,12 +144,12 @@ func TestIntegration_AC_Reject(t *testing.T) {
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	found := false
-	expected := "Keep trying lil bro"
+	expected := common.REACTION_NO
 	for _, m := range sentMsgs {
-		if m.Type == dispatcher.ReplyMessage && strings.Contains(m.Content, expected) {
+		if m.Type == dispatcher.Reaction && len(m.Reactions) > 0 && m.Reactions[0] == expected {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "Expected rejection reply message containing %q", expected)
+	assert.True(t, found, "Expected rejection reaction containing %q", expected)
 }

@@ -28,14 +28,15 @@ const (
 )
 
 type MessageResponse struct {
-	Type      MessageType
-	ChannelID string
-	Content   string
-	ReplyTo   string                    // optional
-	Embed     *discordgo.MessageEmbed   // optional
-	Embeds    []*discordgo.MessageEmbed // optional
-	Reactions []string                  // optional
-	Files     []*discordgo.File         // optional
+	Type           MessageType
+	ChannelID      string
+	Content        string
+	ReplyTo        string                    // optional
+	Embed          *discordgo.MessageEmbed   // optional
+	Embeds         []*discordgo.MessageEmbed // optional
+	Reactions      []string                  // optional
+	ClearReactions bool                      // optional, clear existing reactions before adding new ones
+	Files          []*discordgo.File         // optional
 
 	MentionPolicy   MentionPolicy
 	AllowedMentions *discordgo.MessageAllowedMentions // used when MentionPolicyCustom

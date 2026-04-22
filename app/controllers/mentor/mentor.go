@@ -154,10 +154,11 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		logger.Log.Info("Rejected AC", pendingConfirmation)
 		c.Dispatcher.Send(
 			dispatcher.MessageResponse{
-				Type:      dispatcher.ReplyMessage,
-				ChannelID: c.MessageReaction.ChannelID,
-				ReplyTo:   messageID,
-				Content:   "Keep trying lil bro",
+				Type:           dispatcher.Reaction,
+				ChannelID:      c.MessageReaction.ChannelID,
+				ReplyTo:        messageID,
+				ClearReactions: true,
+				Reactions:      []string{common.REACTION_NO},
 			},
 		)
 
@@ -174,10 +175,11 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		logger.Log.Infoln("Problem AC-ed", pendingConfirmation)
 		c.Dispatcher.Send(
 			dispatcher.MessageResponse{
-				Type:      dispatcher.ReplyMessage,
-				ChannelID: c.MessageReaction.ChannelID,
-				ReplyTo:   messageID,
-				Content:   fmt.Sprintf("Good job bro, keep going. Problem `%d` has been AC-ed", pendingConfirmation.ProblemID),
+				Type:           dispatcher.Reaction,
+				ChannelID:      c.MessageReaction.ChannelID,
+				ReplyTo:        messageID,
+				ClearReactions: true,
+				Reactions:      []string{common.REACTION_ACCEPTED},
 			},
 		)
 	}
@@ -231,10 +233,10 @@ func HandleAddAC(c *context.ContextMessage) {
 	logger.Log.Infof("Problem %d AC-ed by %s (%s)\n", problemID, userID, displayName)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
-			Type:      dispatcher.ReplyMessage,
+			Type:      dispatcher.Reaction,
 			ChannelID: c.Message.ChannelID,
 			ReplyTo:   c.Message.ID,
-			Content:   fmt.Sprintf("Good job lil bro <@%s>, keep going. Problem `%d` has been AC-ed", userID, problemID),
+			Reactions: []string{common.REACTION_ACCEPTED},
 		},
 	)
 }
