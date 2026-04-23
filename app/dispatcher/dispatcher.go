@@ -84,9 +84,14 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 		}
 
 	case Reaction:
-		if msg.ClearReactions {
-			if err := d.Session.MessageReactionsRemoveAll(msg.ChannelID, msg.ReplyTo); err != nil {
-				logger.Log.Errorf("Error clearing reactions for message %s: %v\n", msg.ReplyTo, err)
+		botID := "@me"
+		if d.Session.State != nil && d.Session.State.User != nil {
+			botID = d.Session.State.User.ID
+		}
+
+		for _, r := range msg.ClearSpecificReactions {
+			if err := d.Session.MessageReactionRemove(msg.ChannelID, msg.ReplyTo, r, botID); err != nil {
+				logger.Log.Errorf("Error clearing bot reaction %s for message %s: %v\n", r, msg.ReplyTo, err)
 			}
 		}
 		for _, r := range msg.Reactions {

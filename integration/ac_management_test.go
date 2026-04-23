@@ -144,7 +144,7 @@ func TestIntegration_AC_Reject(t *testing.T) {
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	found := false
-	expected := common.REACTION_NO
+	expected := common.REACTION_REJECTED
 	for _, m := range sentMsgs {
 		if m.Type == dispatcher.Reaction && len(m.Reactions) > 0 && m.Reactions[0] == expected {
 			found = true

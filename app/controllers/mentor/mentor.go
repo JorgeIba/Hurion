@@ -154,11 +154,11 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		logger.Log.Infof("Rejected AC by mentor %s: %+v", c.MessageReaction.UserID, pendingConfirmation)
 		c.Dispatcher.Send(
 			dispatcher.MessageResponse{
-				Type:           dispatcher.Reaction,
-				ChannelID:      c.MessageReaction.ChannelID,
-				ReplyTo:        messageID,
-				ClearReactions: true,
-				Reactions:      []string{common.REACTION_NO},
+				Type:                   dispatcher.Reaction,
+				ChannelID:              c.MessageReaction.ChannelID,
+				ReplyTo:                messageID,
+				ClearSpecificReactions: []string{common.REACTION_YES, common.REACTION_NO},
+				Reactions:              []string{common.REACTION_REJECTED},
 			},
 		)
 
@@ -175,11 +175,11 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		logger.Log.Infof("Problem AC-ed by mentor %s: %+v", c.MessageReaction.UserID, pendingConfirmation)
 		c.Dispatcher.Send(
 			dispatcher.MessageResponse{
-				Type:           dispatcher.Reaction,
-				ChannelID:      c.MessageReaction.ChannelID,
-				ReplyTo:        messageID,
-				ClearReactions: true,
-				Reactions:      []string{common.REACTION_ACCEPTED},
+				Type:                   dispatcher.Reaction,
+				ChannelID:              c.MessageReaction.ChannelID,
+				ReplyTo:                messageID,
+				ClearSpecificReactions: []string{common.REACTION_YES, common.REACTION_NO},
+				Reactions:              []string{common.REACTION_ACCEPTED},
 			},
 		)
 	}

@@ -6,4 +6,5 @@ const (
 	REACTION_THUMBS_UP   = "👍"
 	REACTION_THUMBS_DOWN = "👎"
 	REACTION_ACCEPTED    = "🎈"
+	REACTION_REJECTED    = "🗣️"
 )
