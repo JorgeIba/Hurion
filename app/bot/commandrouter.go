@@ -73,8 +73,8 @@ func routerDeregister(c *context.ContextMessage) {
 
 func routerList(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 2:
-		general.HandleGetListOfProblemsByClass(c)
+	case 1, 2:
+		general.HandleGetListOfProblems(c)
 	default:
 		sendUsageError(c, List.Name())
 	}

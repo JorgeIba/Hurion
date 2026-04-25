@@ -66,6 +66,7 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionListProblemsByClass: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!list basicos_1`) or run this command inside a class channel.",
 		errorKindDefault:           "Unexpected error while listing class problems.",
 	},
 	ActionScoreByClass: {

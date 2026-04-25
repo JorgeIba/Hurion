@@ -454,3 +454,131 @@ func TestClassService_AssignAccessRole(t *testing.T) {
 		})
 	}
 }
+
+func TestClassService_GetClassCodeFromRoom(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		roomID     string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(t *testing.T, classCode string, found bool, err error)
+	}{
+		{
+			name:   "success - room is mapped",
+			roomID: "room_1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("room_1").Return("CS101", nil)
+			},
+			assertFunc: func(t *testing.T, classCode string, found bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, found)
+				assert.Equal(t, "CS101", classCode)
+			},
+		},
+		{
+			name:   "success - room is not mapped",
+			roomID: "room_2",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("room_2").Return("", &dataerr.NotFoundError{})
+			},
+			assertFunc: func(t *testing.T, classCode string, found bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, found)
+				assert.Equal(t, "", classCode)
+			},
+		},
+		{
+			name:   "error - datastore failure",
+			roomID: "room_3",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("room_3").Return("", errors.New("db error"))
+			},
+			assertFunc: func(t *testing.T, classCode string, found bool, err error) {
+				assert.Error(t, err)
+				assert.False(t, found)
+				assert.Equal(t, "", classCode)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tc.setupMock(mockStore)
+
+			svc := &ClassService{Datastore: mockStore}
+			classCode, found, err := svc.GetClassCodeFromRoom(tc.roomID)
+			tc.assertFunc(t, classCode, found, err)
+		})
+	}
+}
+
+func TestClassService_GetAccessRoles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		classCode   string
+		setupMock   func(*mock_data.MockDataStore)
+		wantErr     bool
+		wantErrType error
+	}{
+		{
+			name:      "success - retrieved roles",
+			classCode: "c1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassAccessRolesByClassCode("c1").Return([]data.ClassAccessRole{
+					{ClassCode: "c1", RoleID: "r1"},
+				}, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:      "success - no roles for class returns empty list",
+			classCode: "c1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassAccessRolesByClassCode("c1").Return([]data.ClassAccessRole{}, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:      "internal error",
+			classCode: "c1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassAccessRolesByClassCode("c1").Return(nil, errors.New("db error"))
+			},
+			wantErr:     true,
+			wantErrType: &serviceerr.InternalError{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+
+			svc := &ClassService{Datastore: mockStore}
+			_, err := svc.GetAccessRoles(tt.classCode)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrType != nil {
+					assert.IsType(t, tt.wantErrType, err)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

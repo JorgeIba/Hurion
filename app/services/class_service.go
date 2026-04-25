@@ -68,6 +68,22 @@ func (service *ClassService) GetAllClasses() ([]service_model.Class, error) {
 	return mapDataClassesToServiceClasses(classes), nil
 }
 
+// GetClassByClassCode returns a class entity by its unique class code.
+func (service *ClassService) GetClassByClassCode(classCode string) (service_model.Class, error) {
+	class, err := service.Datastore.GetClassByClassCode(classCode)
+
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErrClass):
+			return service_model.Class{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any class", classCode), err)
+		default:
+			return service_model.Class{}, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return mapDataClassToServiceClass(class), nil
+}
+
 // GetClassIDByClassCode retrieves the class ID for a given class code
 func (service *ClassService) GetClassIDByClassCode(classCode string) (int64, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
@@ -172,4 +188,20 @@ func (service *ClassService) GetAccessRoles(classCode string) ([]service_model.C
 	}
 
 	return mapDataRolesToServiceRoles(roles), nil
+}
+
+// GetClassCodeFromRoom resolves the class code linked to a room.
+// The found return value is false when room has no class mapping.
+func (service *ClassService) GetClassCodeFromRoom(roomID string) (string, bool, error) {
+	classCode, err := service.Datastore.GetClassCodeByRoomID(roomID)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErrClass):
+			return "", false, nil
+		default:
+			return "", false, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return classCode, true, nil
 }

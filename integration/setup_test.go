@@ -181,6 +181,24 @@ func (env *testEnv) SeedEnrollment(t *testing.T, userID, classCode string) {
 	}
 }
 
+// SeedClassroom links a Discord room to a class code.
+func (env *testEnv) SeedClassroom(t *testing.T, roomID, classCode string) {
+	t.Helper()
+	err := env.DB.AddClassroom(data.Classroom{RoomID: roomID, ClassCode: classCode})
+	if err != nil {
+		t.Fatalf("Failed to seed classroom mapping: %v", err)
+	}
+}
+
+// SeedClassAccessRole links a Discord role to class access.
+func (env *testEnv) SeedClassAccessRole(t *testing.T, classCode, roleID string) {
+	t.Helper()
+	err := env.DB.AddClassAccessRole(data.ClassAccessRole{ClassCode: classCode, RoleID: roleID})
+	if err != nil {
+		t.Fatalf("Failed to seed class access role: %v", err)
+	}
+}
+
 // SeedAC adds a solved problem for a user
 func (env *testEnv) SeedAC(t *testing.T, userID string, problemID int64) {
 	t.Helper()

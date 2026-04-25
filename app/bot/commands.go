@@ -63,10 +63,10 @@ var Commands = map[Command]CommandData{
 	List: {
 		Cmd:         "!list",
 		Name:        "list",
-		Usage:       "!list <class_code>",
-		Description: "Show the list of problems available for the specified class",
+		Usage:       "!list [class_code]",
+		Description: "Show the list of problems available for a class or infer class from the current channel",
 		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
+		ExtraInfo:   "The optional `class_code` parameter should be one word (e.g., \"basicos_1\"). If omitted, the bot uses the current channel context.",
 	},
 	Score: {
 		Cmd:         "!score",

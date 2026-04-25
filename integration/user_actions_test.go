@@ -134,7 +134,7 @@ func TestIntegration_ListProblems(t *testing.T) {
 	ctx := env.NewContext("user_1", "User One", "guild_1", []string{"!list", "basicos_1"})
 
 	// 2. ACT
-	general.HandleGetListOfProblemsByClass(ctx)
+	general.HandleGetListOfProblems(ctx)
 
 	// 3. ASSERT Dispatcher
 	sentMsgs := env.Dispatcher.GetSentMessages()
@@ -152,4 +152,43 @@ func TestIntegration_ListProblems(t *testing.T) {
 	}
 	assert.Contains(t, nameColumnValue, "P1")
 	assert.Contains(t, nameColumnValue, "P2")
+}
+
+func TestIntegration_ListProblems_ContextualAccessAllowed(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+
+	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
+	env.SeedProblem(t, "P1", "https://p1.url", classID, "Easy", "Arrays")
+	env.SeedClassroom(t, "channel_1", "basicos_1")
+
+	ctx := env.NewContext("user_1", "User One", "guild_1", []string{"!list"})
+
+	general.HandleGetListOfProblems(ctx)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	assert.Len(t, sentMsgs, 1)
+	assert.Equal(t, dispatcher.PaginationEmbed, sentMsgs[0].Type)
+	assert.NotEmpty(t, sentMsgs[0].Embeds)
+}
+
+func TestIntegration_ListProblems_ContextualIgnoresRoles(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+
+	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
+	env.SeedProblem(t, "P1", "https://p1.url", classID, "Easy", "Arrays")
+	env.SeedClassroom(t, "channel_1", "basicos_1")
+	env.SeedClassAccessRole(t, "basicos_1", "role_mentor")
+
+	ctx := env.NewContext("user_1", "User One", "guild_1", []string{"!list"})
+
+	general.HandleGetListOfProblems(ctx)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	assert.Len(t, sentMsgs, 1)
+	assert.Equal(t, dispatcher.PaginationEmbed, sentMsgs[0].Type)
+	assert.NotEmpty(t, sentMsgs[0].Embeds)
 }

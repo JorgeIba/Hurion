@@ -109,9 +109,9 @@ classes:
 			wantErr: true,
 		},
 		{
-			name:       "should error when explicitly provided file is missing",
-			useFile:    "non_existent.yaml",
-			wantErr:    true,
+			name:    "should error when explicitly provided file is missing",
+			useFile: "non_existent.yaml",
+			wantErr: true,
 		},
 	}
 

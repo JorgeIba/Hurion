@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/discord"
@@ -36,30 +37,46 @@ func HandleRegisterUserInClass(c *context.ContextMessage) {
 	)
 }
 
-func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
-
-	groupedProblems, err := c.Services.Problem.GetProblemsGroupedByTopic(classCode)
+func HandleGetListOfProblems(c *context.ContextMessage) {
+	class, err := controllers_common.ResolveClassContext(c, 1)
 	if err != nil {
+		logger.Log.Error(err)
 
+		switch {
+		case serviceerr.IsServiceError(err):
+			// It's a domain error, map it to a user-friendly message
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionListProblemsByClass)),
+			)
+		default:
+			// controller error or unexpected error, send generic message
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
+		return
+	}
+
+	groupedProblems, err := c.Services.Problem.GetProblemsGroupedByTopic(class.ClassCode)
+	if err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionListProblemsByClass, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionListProblemsByClass, class.ClassCode)),
 		)
 
 		return
 	}
 
 	if len(groupedProblems) == 0 {
-		logger.Log.Infof("No problems found for class %s", classCode)
+		logger.Log.Infof("No problems found for class %s", class.ClassCode)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No problems found for class `%s`", classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No problems found for class `%s`", class.ClassCode)),
 		)
 		return
 	}
 
-	embeds := discord.FormatProblemsAsEmbeds(classCode, adapters.TransformToPresentationProblemsByTopic(groupedProblems))
+	embeds := discord.FormatProblemsAsEmbeds(class.ClassCode, adapters.TransformToPresentationProblemsByTopic(groupedProblems))
 
 	logger.Log.Info("Sending info")
 	c.Dispatcher.Send(

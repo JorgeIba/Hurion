@@ -98,3 +98,33 @@ func (service *EnrollmentService) GetListOfUsersByClassCode(classCode string) ([
 
 	return mapDataUsersToServiceUsers(users), nil
 }
+
+// UserWithRolesHasAccessClass checks if at least one user role is allowed in the class.
+func (service *EnrollmentService) UserWithRolesHasAccessClass(roles []string, class service_model.Class) (bool, error) {
+	if class.ClassCode == "" {
+		return false, serviceerr.NewClassCodeNotFoundError("class code is required to validate access", nil)
+	}
+
+	accessRoles, err := service.Datastore.GetClassAccessRolesByClassCode(class.ClassCode)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	// Closed-by-default: classes with no configured roles deny access.
+	if len(accessRoles) == 0 {
+		return false, nil
+	}
+
+	roleSet := make(map[string]bool, len(roles))
+	for _, roleID := range roles {
+		roleSet[roleID] = true
+	}
+
+	for _, accessRole := range accessRoles {
+		if roleSet[accessRole.RoleID] {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}

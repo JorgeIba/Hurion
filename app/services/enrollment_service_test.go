@@ -307,3 +307,97 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 		})
 	}
 }
+
+func TestEnrollmentService_UserWithRolesHasAccessClass(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		roles      []string
+		class      service_model.Class
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(t *testing.T, allowed bool, err error)
+	}{
+		{
+			name:  "success - role intersection grants access",
+			roles: []string{"role_student", "role_mentor"},
+			class: service_model.Class{ClassCode: "CS101"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
+					{ClassCode: "CS101", RoleID: "role_mentor"},
+				}, nil)
+			},
+			assertFunc: func(t *testing.T, allowed bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, allowed)
+			},
+		},
+		{
+			name:  "success - no role intersection denies access",
+			roles: []string{"role_student"},
+			class: service_model.Class{ClassCode: "CS101"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
+					{ClassCode: "CS101", RoleID: "role_mentor"},
+				}, nil)
+			},
+			assertFunc: func(t *testing.T, allowed bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, allowed)
+			},
+		},
+		{
+			name:  "success - class with no configured access roles denies by default",
+			roles: []string{"role_student"},
+			class: service_model.Class{ClassCode: "CS101"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{}, nil)
+			},
+			assertFunc: func(t *testing.T, allowed bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, allowed)
+			},
+		},
+		{
+			name:  "error - class code is required",
+			roles: []string{"role_student"},
+			class: service_model.Class{},
+			setupMock: func(m *mock_data.MockDataStore) {
+			},
+			assertFunc: func(t *testing.T, allowed bool, err error) {
+				assert.Error(t, err)
+				assert.False(t, allowed)
+				assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, err)
+			},
+		},
+		{
+			name:  "error - datastore failure",
+			roles: []string{"role_student"},
+			class: service_model.Class{ClassCode: "CS101"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return(nil, errors.New("db fail"))
+			},
+			assertFunc: func(t *testing.T, allowed bool, err error) {
+				assert.Error(t, err)
+				assert.False(t, allowed)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tc.setupMock(mockStore)
+
+			svc := &EnrollmentService{Datastore: mockStore}
+			allowed, err := svc.UserWithRolesHasAccessClass(tc.roles, tc.class)
+			tc.assertFunc(t, allowed, err)
+		})
+	}
+}

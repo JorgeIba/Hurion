@@ -1942,7 +1942,7 @@ func TestHasUserSolvedProblem(t *testing.T) {
 			},
 		},
 		{
-			name: "should return false if not solved",
+			name:      "should return false if not solved",
 			userID:    "u1",
 			problemID: 1,
 			assertFunc: func(t *testing.T, db *DB, solved bool, err error) {
