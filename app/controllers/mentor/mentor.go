@@ -230,7 +230,7 @@ func HandleAddAC(c *context.ContextMessage) {
 	}
 
 	principal := service_model.Principal{
-		User: service_model.User{UserID: userID, DisplayName: displayName},
+		User:  service_model.User{UserID: userID, DisplayName: displayName},
 		Roles: member.Roles,
 	}
 

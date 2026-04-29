@@ -11,6 +11,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestIntegration_RBAC_Identity covers Identity-based security (IsMentor, IsAdmin checks)
@@ -51,7 +52,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 		mentor.HandleAddProblem(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
-		assert.NotEmpty(t, sentMsgs)
+		require.NotEmpty(t, sentMsgs)
 		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "Success Problem")
 
 		class, _ := env.DB.GetClassByClassCode(classCode)
@@ -70,6 +71,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 		admin.HandleCreateClass(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
 		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not admin")
 		env.AssertClassNotExists(t, "new_class")
 	})
@@ -114,15 +116,16 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 		classID := env.SeedClass(t, "restricted", "Restricted")
 		problemID := env.SeedProblem(t, "P1", "url", classID, "Easy", "Logic")
 		env.SeedClassAccessRole(t, "restricted", "role_student")
-		
+
 		student := service_model.User{UserID: "student_1", DisplayName: "Student"}
 		env.SeedUser(t, student.UserID, student.DisplayName)
 		env.SeedAC(t, student.UserID, problemID)
-		
+
 		ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!undo_ac", fmt.Sprintf("%d", problemID)})
 		enrolled.HandleUndoAC(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
 		assert.Contains(t, sentMsgs[0].Content, "has been UnAC-ed successfully")
 	})
 
@@ -130,7 +133,7 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 		env := setupIntegrationEnv(t)
 		env.SeedClass(t, "class_a", "Class A")
 		env.SeedClassAccessRole(t, "class_a", "role_a")
-		
+
 		classID_B := env.SeedClass(t, "class_b", "Class B")
 		env.SeedClassAccessRole(t, "class_b", "role_b")
 		problemID_B := env.SeedProblem(t, "Problem B", "url", classID_B, "Easy", "Topic")
@@ -143,6 +146,7 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 		enrolled.HandleProposeAC(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
 		assert.Contains(t, sentMsgs[0].Content, "is not enrolled in the class")
 	})
 
@@ -155,13 +159,37 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 
 		student := service_model.User{UserID: "student_1", DisplayName: "Student"}
 		env.SeedUser(t, student.UserID, student.DisplayName)
-		
+
 		ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!list"})
 		ctx.Message.ChannelID = "channel_123"
 
 		general.HandleGetListOfProblems(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
 		assert.Equal(t, dispatcher.PaginationEmbed, sentMsgs[0].Type)
+	})
+
+	t.Run("Mentor - Cannot Add AC if student lacks roles", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classID := env.SeedClass(t, "private_class", "Private")
+		problemID := env.SeedProblem(t, "P1", "url", classID, "Easy", "Topic")
+		env.SeedClassAccessRole(t, "private_class", "role_vip")
+
+		student := service_model.User{UserID: "111222333", DisplayName: "Student"}
+		env.SeedUser(t, student.UserID, student.DisplayName)
+		// student has NO roles
+
+		mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor"}
+		env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
+			return userID == mentorUser.UserID, nil
+		}
+
+		ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!add_ac", fmt.Sprintf("<@%s>", student.UserID), fmt.Sprintf("%d", problemID)})
+		mentor.HandleAddAC(ctx)
+
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not enrolled in the class")
 	})
 }

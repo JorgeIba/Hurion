@@ -1,7 +1,6 @@
 package common
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
@@ -13,24 +12,13 @@ import (
 // ResolveClassContext determines the active class for a command.
 // Logic:
 // 1. If an argument exists at the specified index, try to use it as a class code.
-// 2. If it's a valid class, return it.
-// 3. If it failed with a "Not Found" error, proceed to step 4 (fallback).
-// 4. If it failed with any other error, return that error (abort).
-// 5. Fallback: check if the current channel is a registered Classroom.
+// 2. If an argument is provided, return its result immediately (success or failure). Do NOT fall back.
+// 3. Fallback: If NO argument is provided, check if the current channel is a registered Classroom.
 func ResolveClassContext(c *context.ContextMessage, argIndex int) (service_model.Class, error) {
 	// 1. Try to resolve from argument first
 	if len(c.Args) > argIndex {
 		arg := c.Args[argIndex]
-		class, err := c.Services.Class.GetClassByClassCode(arg)
-		if err == nil {
-			return class, nil
-		}
-
-		// If it's a hard error (not just "not found"), we stop here.
-		var notFoundErr *serviceerr.ClassCodeNotFoundError
-		if !errors.As(err, &notFoundErr) {
-			return service_model.Class{}, err
-		}
+		return c.Services.Class.GetClassByClassCode(arg)
 	}
 
 	// 2. Fallback to channel context
@@ -56,7 +44,10 @@ func ResolveClassContext(c *context.ContextMessage, argIndex int) (service_model
 func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (bool, error) {
 	// Admin Bypass
 	isAdmin, err := c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.Executor.UserID)
-	if err == nil && isAdmin {
+	if err != nil {
+		return false, controllerserr.NewInternalError("error verifying admin status", err)
+	}
+	if isAdmin {
 		return true, nil
 	}
 

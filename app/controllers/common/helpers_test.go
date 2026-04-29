@@ -67,19 +67,17 @@ func TestResolveClassContext(t *testing.T) {
 			},
 		},
 		{
-			name:      "error - invalid class code (falls back to channel and fails)",
+			name:      "error - invalid class code fails immediately",
 			args:      []string{"!list", "invalid_class"},
 			channelID: "room_1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				// 1. Explicit lookup fails
+				// Explicit lookup fails, no fallback
 				m.EXPECT().GetClassByClassCode("invalid_class").Return(data.Class{}, &dataerr.NotFoundError{})
-				// 2. Fallback to channel also fails mapping
-				m.EXPECT().GetClassCodeByRoomID("room_1").Return("", &dataerr.NotFoundError{})
 			},
 			assertFunc: func(t *testing.T, class service_model.Class, err error) {
 				assert.Error(t, err)
 				assert.Equal(t, service_model.Class{}, class)
-				assert.IsType(t, &serviceerr.NotFoundInfoError{}, err)
+				assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, err)
 			},
 		},
 		{

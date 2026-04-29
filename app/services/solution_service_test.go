@@ -81,15 +81,15 @@ func TestSolutionService_UndoAC(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		userID    string
-		problemID int64
-		setupMock func(*mock_data.MockDataStore)
+		name       string
+		userID     string
+		problemID  int64
+		setupMock  func(*mock_data.MockDataStore)
 		assertFunc func(*testing.T, error)
 	}{
 		{
-			name: "success - AC removed",
-			userID: "u1",
+			name:      "success - AC removed",
+			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
@@ -100,8 +100,8 @@ func TestSolutionService_UndoAC(t *testing.T) {
 			},
 		},
 		{
-			name: "not solved",
-			userID: "u1",
+			name:      "not solved",
+			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
