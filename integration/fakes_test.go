@@ -36,7 +36,10 @@ func (s *StubDiscordProvider) GetCachedMember(guildID, userID string) (*discordg
 	if s.GetCachedMemberFunc != nil {
 		return s.GetCachedMemberFunc(guildID, userID)
 	}
-	return nil, nil
+	return &discordgo.Member{
+		User:  &discordgo.User{ID: userID},
+		Roles: []string{},
+	}, nil
 }
 
 func (s *StubDiscordProvider) FetchMessage(channelID, messageID string) (*discordgo.Message, error) {

@@ -100,6 +100,22 @@ func (service *ClassService) GetClassIDByClassCode(classCode string) (int64, err
 	return class.ID, nil
 }
 
+// GetClassByClassID returns a class entity by its unique numeric ID.
+func (service *ClassService) GetClassByClassID(classID int64) (service_model.Class, error) {
+	class, err := service.Datastore.GetClassByClassID(classID)
+
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErrClass):
+			return service_model.Class{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classID %d doesn't match with any class", classID), err)
+		default:
+			return service_model.Class{}, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return mapDataClassToServiceClass(class), nil
+}
+
 // RegisterClassroom assigns a room to a class.
 // It validates that the room is not already registered to a different class.
 func (service *ClassService) RegisterClassroom(classroom service_model.Classroom) error {

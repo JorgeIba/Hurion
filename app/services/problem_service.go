@@ -24,6 +24,7 @@ type ProblemService interface {
 	RemoveProblemFromClass(problemID int64) error
 	UpdateProblemByProblemID(problemID int64, problem service_model.Problem) error
 	GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error)
+	GetProblemByID(problemID int64) (service_model.Problem, error)
 }
 
 // problemService handles problem management operations
@@ -33,6 +34,21 @@ type problemService struct {
 
 func NewProblemService(datastore data.DataStore) ProblemService {
 	return &problemService{Datastore: datastore}
+}
+
+// GetProblemByID retrieves a problem by its unique ID
+func (service *problemService) GetProblemByID(problemID int64) (service_model.Problem, error) {
+	problem, err := service.Datastore.GetProblemByID(problemID)
+	if err != nil {
+		switch {
+		case errors.As(err, &dataNotFoundErrProblem):
+			return service_model.Problem{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
+		default:
+			return service_model.Problem{}, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return mapDataProblemToServiceProblem(problem), nil
 }
 
 // CreateProblemIntoClass creates a new problem in a class

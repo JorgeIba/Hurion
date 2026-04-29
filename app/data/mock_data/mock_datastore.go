@@ -272,6 +272,21 @@ func (mr *MockDataStoreMockRecorder) GetClassByClassCode(classCode any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassByClassCode", reflect.TypeOf((*MockDataStore)(nil).GetClassByClassCode), classCode)
 }
 
+// GetClassByClassID mocks base method.
+func (m *MockDataStore) GetClassByClassID(classID int64) (data.Class, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassByClassID", classID)
+	ret0, _ := ret[0].(data.Class)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassByClassID indicates an expected call of GetClassByClassID.
+func (mr *MockDataStoreMockRecorder) GetClassByClassID(classID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassByClassID", reflect.TypeOf((*MockDataStore)(nil).GetClassByClassID), classID)
+}
+
 // GetClassCodeByRoomID mocks base method.
 func (m *MockDataStore) GetClassCodeByRoomID(roomID string) (string, error) {
 	m.ctrl.T.Helper()

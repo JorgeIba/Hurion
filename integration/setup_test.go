@@ -260,3 +260,20 @@ func (env *testEnv) AssertProblemNotExists(t *testing.T, problemID int64) {
 	var notFoundErr *dataerr.NotFoundError
 	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking problem existence")
 }
+
+// SetRoles configures the stub fetcher to return the given roles for a specific user.
+func (env *testEnv) SetRoles(userID string, roles []string) {
+	env.Fetcher.GetCachedMemberFunc = func(guildID, uID string) (*discordgo.Member, error) {
+		if uID == userID {
+			return &discordgo.Member{
+				User:  &discordgo.User{ID: uID},
+				Roles: roles,
+			}, nil
+		}
+		// Default for other users: no roles
+		return &discordgo.Member{
+			User:  &discordgo.User{ID: uID},
+			Roles: []string{},
+		}, nil
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
 func HandleDeregisterUser(c *context.ContextMessage) error {
@@ -45,10 +46,23 @@ func HandleProposeAC(c *context.ContextMessage) {
 		return
 	}
 
-	messageID := c.Message.ID
 	user := c.Executor
+	member, err := c.DiscordFetcher.GetCachedMember(c.ExecutorGuildID, user.UserID)
+	if err != nil || member == nil {
+		logger.Log.Error("Error fetching member roles or member is nil", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro."),
+		)
+		return
+	}
 
-	if err := c.Services.Solution.AddPendingACOfUserID(messageID, user.UserID, problemID); err != nil {
+	principal := service_model.Principal{
+		User:  user,
+		Roles: member.Roles,
+	}
+
+	messageID := c.Message.ID
+	if err := c.Services.Solution.AddPendingACByPrincipal(messageID, principal, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -82,8 +96,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	user := c.Executor
-
-	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, user.UserID); err != nil {
+	if err = c.Services.Solution.UndoAC(user.UserID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

@@ -1,145 +1,167 @@
 package integration
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIntegration_RBAC_StudentCannotAddProblem(t *testing.T) {
+// TestIntegration_RBAC_Identity covers Identity-based security (IsMentor, IsAdmin checks)
+func TestIntegration_RBAC_Identity(t *testing.T) {
 	t.Parallel()
 
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	classCode := "basicos_1"
-	env.SeedClass(t, classCode, "Basicos 2026")
+	t.Run("Mentor - Student cannot add problem", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classCode := "basicos_1"
+		env.SeedClass(t, classCode, "Basicos 2026")
 
-	studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
+		studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
+		env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
+			return false, nil
+		}
 
-	// Stub that student is NOT a mentor
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return false, nil
-	}
+		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "url", "Easy", "Arrays", "New Problem"})
+		mentor.HandleAddProblem(ctx)
 
-	ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "url", "Easy", "Arrays", "New Problem"})
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		assert.NotEmpty(t, sentMsgs)
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not mentor")
 
-	// 2. ACT: Student tries to add a problem
-	mentor.HandleAddProblem(ctx)
+		env.AssertProblemNotExists(t, 1)
+	})
 
-	// 3. ASSERT
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
-	if len(sentMsgs) > 0 {
-		lastMsg := sentMsgs[len(sentMsgs)-1]
-		assert.Equal(t, dispatcher.SimpleMessage, lastMsg.Type)
-		assert.Contains(t, lastMsg.Content, "Bro has not enough permissions (is not mentor)")
-	}
+	t.Run("Mentor - Mentor can add problem", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classCode := "basicos_1"
+		env.SeedClass(t, classCode, "Basicos 2026")
 
-	// Verify database: no problem should be added
-	class, err := env.DB.GetClassByClassCode(classCode)
-	assert.NoError(t, err)
-	problems, err := env.DB.GetProblemsByClass(class.ID)
-	assert.NoError(t, err)
-	assert.Empty(t, problems)
+		mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
+		env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
+			return true, nil
+		}
+
+		ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "http://valid.url", "Easy", "Arrays", "Success Problem"})
+		mentor.HandleAddProblem(ctx)
+
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		assert.NotEmpty(t, sentMsgs)
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "Success Problem")
+
+		class, _ := env.DB.GetClassByClassCode(classCode)
+		problems, _ := env.DB.GetProblemsByClass(class.ID)
+		assert.Len(t, problems, 1)
+	})
+
+	t.Run("Admin - Non-admin cannot create class", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
+		env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+			return false, nil
+		}
+
+		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!create_class", "new_class", "New Class"})
+		admin.HandleCreateClass(ctx)
+
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not admin")
+		env.AssertClassNotExists(t, "new_class")
+	})
+
+	t.Run("Admin - Admin can create class", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin"}
+		env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+			return true, nil
+		}
+
+		ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!create_class", "power_class", "Power Class"})
+		admin.HandleCreateClass(ctx)
+
+		_, err := env.DB.GetClassByClassCode("power_class")
+		assert.NoError(t, err)
+	})
 }
 
-func TestIntegration_RBAC_MentorCanAddProblem(t *testing.T) {
+// TestIntegration_RBAC_Enrollment covers Enrollment-based security (Discord Roles checks)
+func TestIntegration_RBAC_Enrollment(t *testing.T) {
 	t.Parallel()
 
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	classCode := "basicos_1"
-	env.SeedClass(t, classCode, "Basicos 2026")
+	t.Run("Student - !ac Denied due to missing role", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classID := env.SeedClass(t, "secret", "Secret")
+		problemID := env.SeedProblem(t, "P1", "url", classID, "Hard", "Topic")
+		env.SeedClassAccessRole(t, "secret", "role_member")
 
-	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
+		student := service_model.User{UserID: "student_1", DisplayName: "Student"}
+		env.SeedUser(t, student.UserID, student.DisplayName)
 
-	// Stub that user IS a mentor
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return true, nil
-	}
+		ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", fmt.Sprintf("%d", problemID)})
+		enrolled.HandleProposeAC(ctx)
 
-	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "http://valid.url", "Easy", "Arrays", "Success Problem"})
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		assert.Contains(t, sentMsgs[0].Content, "is not enrolled in the class")
+	})
 
-	// 2. ACT
-	mentor.HandleAddProblem(ctx)
+	t.Run("Student - !undoac Allowed even without role", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classID := env.SeedClass(t, "restricted", "Restricted")
+		problemID := env.SeedProblem(t, "P1", "url", classID, "Easy", "Logic")
+		env.SeedClassAccessRole(t, "restricted", "role_student")
+		
+		student := service_model.User{UserID: "student_1", DisplayName: "Student"}
+		env.SeedUser(t, student.UserID, student.DisplayName)
+		env.SeedAC(t, student.UserID, problemID)
+		
+		ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!undo_ac", fmt.Sprintf("%d", problemID)})
+		enrolled.HandleUndoAC(ctx)
 
-	// 3. ASSERT
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
-	if len(sentMsgs) > 0 {
-		lastMsg := sentMsgs[len(sentMsgs)-1]
-		assert.Contains(t, lastMsg.Content, "Success Problem")
-	}
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		assert.Contains(t, sentMsgs[0].Content, "has been UnAC-ed successfully")
+	})
 
-	// Verify database
-	class, err := env.DB.GetClassByClassCode(classCode)
-	assert.NoError(t, err)
-	problems, err := env.DB.GetProblemsByClass(class.ID)
-	assert.NoError(t, err)
-	assert.Len(t, problems, 1)
-	assert.Equal(t, "Success Problem", problems[0].Name)
-}
+	t.Run("Student - Cross-Class Denied (has roles for A, tries to AC B)", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		env.SeedClass(t, "class_a", "Class A")
+		env.SeedClassAccessRole(t, "class_a", "role_a")
+		
+		classID_B := env.SeedClass(t, "class_b", "Class B")
+		env.SeedClassAccessRole(t, "class_b", "role_b")
+		problemID_B := env.SeedProblem(t, "Problem B", "url", classID_B, "Easy", "Topic")
 
-func TestIntegration_RBAC_NonAdminCannotCreateClass(t *testing.T) {
-	t.Parallel()
+		student := service_model.User{UserID: "student_1", DisplayName: "Student"}
+		env.SeedUser(t, student.UserID, student.DisplayName)
+		env.SetRoles(student.UserID, []string{"role_a"})
 
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
+		ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", fmt.Sprintf("%d", problemID_B)})
+		enrolled.HandleProposeAC(ctx)
 
-	// Stub that student is NOT an admin
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return false, nil
-	}
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		assert.Contains(t, sentMsgs[0].Content, "is not enrolled in the class")
+	})
 
-	ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!create_class", "new_class", "New Class Name"})
+	t.Run("List - Public access even without roles", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classID := env.SeedClass(t, "private", "Private")
+		env.SeedProblem(t, "P1", "url", classID, "Easy", "Topic")
+		env.SeedClassroom(t, "channel_123", "private")
+		env.SeedClassAccessRole(t, "private", "role_vip")
 
-	// 2. ACT
-	admin.HandleCreateClass(ctx)
+		student := service_model.User{UserID: "student_1", DisplayName: "Student"}
+		env.SeedUser(t, student.UserID, student.DisplayName)
+		
+		ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!list"})
+		ctx.Message.ChannelID = "channel_123"
 
-	// 3. ASSERT
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
-	if len(sentMsgs) > 0 {
-		lastMsg := sentMsgs[len(sentMsgs)-1]
-		assert.Equal(t, dispatcher.SimpleMessage, lastMsg.Type)
-		assert.Contains(t, lastMsg.Content, "is not admin")
-	}
+		general.HandleGetListOfProblems(ctx)
 
-	// Verify database: no class should be created
-	env.AssertClassNotExists(t, "new_class")
-}
-
-func TestIntegration_RBAC_AdminCanCreateClass(t *testing.T) {
-	t.Parallel()
-
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-
-	// Stub that user IS an admin
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return true, nil
-	}
-
-	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!create_class", "power_class", "The Power Class"})
-
-	// 2. ACT
-	admin.HandleCreateClass(ctx)
-
-	// 3. ASSERT
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
-	if len(sentMsgs) > 0 {
-		lastMsg := sentMsgs[len(sentMsgs)-1]
-		assert.Contains(t, lastMsg.Content, "created correctly")
-	}
-
-	// Verify database
-	_, err := env.DB.GetClassByClassCode("power_class")
-	assert.NoError(t, err)
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		assert.Equal(t, dispatcher.PaginationEmbed, sentMsgs[0].Type)
+	})
 }

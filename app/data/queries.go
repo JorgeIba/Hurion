@@ -479,6 +479,20 @@ func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
 	return class, nil
 }
 
+func (db *DB) GetClassByClassID(classID int64) (Class, error) {
+	query := `SELECT id, class_code, name FROM classes WHERE id = ?`
+
+	var class Class
+	err := db.conn.QueryRow(query, classID).Scan(&class.ID, &class.ClassCode, &class.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with ID %d not found", classID), nil)
+		}
+		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class with ID %d", classID), err)
+	}
+	return class, nil
+}
+
 func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
 	query := `
 		SELECT COUNT(*)

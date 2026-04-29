@@ -81,7 +81,8 @@ func TestIntegration_UndoAC(t *testing.T) {
 
 	testUser := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, testUser.UserID, testUser.DisplayName)
-	env.SeedEnrollment(t, testUser.UserID, "basicos_1")
+	env.SeedClassAccessRole(t, "basicos_1", "role_enrolled")
+	env.SetRoles(testUser.UserID, []string{"role_enrolled"})
 	env.SeedAC(t, testUser.UserID, problemID)
 
 	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!undo_ac", fmt.Sprintf("%d", problemID)})
@@ -107,7 +108,8 @@ func TestIntegration_UndoAC_DoubleUndo(t *testing.T) {
 
 	testUser := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, testUser.UserID, testUser.DisplayName)
-	env.SeedEnrollment(t, testUser.UserID, "basicos_1")
+	env.SeedClassAccessRole(t, "basicos_1", "role_enrolled")
+	env.SetRoles(testUser.UserID, []string{"role_enrolled"})
 	// Note: We do NOT seed an AC here
 
 	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!undo_ac", fmt.Sprintf("%d", problemID)})

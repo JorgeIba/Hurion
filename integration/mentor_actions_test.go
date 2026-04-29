@@ -92,7 +92,8 @@ func TestIntegration_Mentor_AddAC(t *testing.T) {
 
 	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, "basicos_1")
+	env.SeedClassAccessRole(t, "basicos_1", "role_enrolled")
+	env.SetRoles(student.UserID, []string{"role_enrolled"})
 
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
 	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
@@ -122,7 +123,6 @@ func TestIntegration_Mentor_UndoAC(t *testing.T) {
 
 	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, "basicos_1")
 	env.SeedAC(t, student.UserID, problemID)
 
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}

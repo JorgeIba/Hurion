@@ -118,13 +118,14 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindProblemNotFound: "Problem id `%[2]d` not found for user `%[1]s`",
 		errorKindUserNotEnrolled: "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
 		errorKindUserNotFound:    "User `%[1]s` not found",
-		errorKindDefault:         "Unexpected error while adding AC.",
+		errorKindConflict:        "User `%[1]s` has already solved problem `%[2]d`",
+		errorKindDefault:         "Unexpected error while adding AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorUndoAC: {
 		errorKindProblemNotFound: "Problem id `%[2]d` not found for user `%[1]s`",
 		errorKindUserNotFound:    "User `%[1]s` not found",
 		errorKindConflict:        "User `%[1]s` has not solved problem `%[2]d` yet or is not enrolled in the class",
-		errorKindDefault:         "Unexpected error while undoing AC.",
+		errorKindDefault:         "Unexpected error while undoing AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorAddProblem: {
 		errorKindClassCodeNotFound: "Class code `%[1]s` not found while adding `%[3]s`.",
@@ -157,8 +158,9 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:         "Unexpected error while proposing AC.",
 	},
 	ActionEnrolledUndoAC: {
-		errorKindProblemNotFound: "Problem `%[2]d` not found",
-		errorKindConflict:        "Bro `%[1]s`, you haven't solved problem `%[2]d` yet, so you can't undo it",
+		errorKindProblemNotFound: "Problem `%[2]d` not found.",
+		errorKindUserNotEnrolled: "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
+		errorKindConflict:        "Bro `%[1]s`, you haven't solved problem `%[2]d` yet",
 		errorKindDefault:         "Unexpected error while undoing AC.",
 	},
 }

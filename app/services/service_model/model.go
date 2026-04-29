@@ -14,6 +14,13 @@ type User struct {
 	DisplayName string
 }
 
+// Principal represents the user ACTING on the system right now,
+// containing all their verified security credentials.
+type Principal struct {
+	User
+	Roles []string
+}
+
 // Problem represents a problem within a class
 type Problem struct {
 	ID         int64
