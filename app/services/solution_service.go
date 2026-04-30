@@ -38,39 +38,12 @@ func (service *SolutionService) AddACToUserID(userID string, problemID int64) er
 
 // AddACByPrincipal adds an AC for a user (Authenticated enrollment version).
 func (service *SolutionService) AddACByPrincipal(principal service_model.Principal, problemID int64) error {
-	// 1. Resolve Context & Authorize
-	problem, err := service.Datastore.GetProblemByID(problemID)
+	allowed, err := service.authorizeAC(principal, problemID)
 	if err != nil {
-		if errors.As(err, &dataNotFoundErrSolution) {
-			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
-		}
-		return serviceerr.MakeGeneralError(err)
+		return err
 	}
-
-	class, err := service.Datastore.GetClassByClassID(problem.ClassID)
-	if err != nil {
-		return serviceerr.MakeGeneralError(err)
-	}
-
-	accessRoles, err := service.Datastore.GetClassAccessRolesByClassCode(class.ClassCode)
-	if err != nil {
-		return serviceerr.MakeGeneralError(err)
-	}
-
-	isAuthorized := false
-	roleSet := make(map[string]bool, len(principal.Roles))
-	for _, r := range principal.Roles {
-		roleSet[r] = true
-	}
-	for _, ar := range accessRoles {
-		if roleSet[ar.RoleID] {
-			isAuthorized = true
-			break
-		}
-	}
-
-	if !isAuthorized {
-		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d (missing required roles)", principal.UserID, problemID), nil)
+	if !allowed {
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s cannot AC the problem %d (missing required roles)", principal.UserID, problemID), nil)
 	}
 
 	return service.AddACToUserID(principal.UserID, problemID)
@@ -92,39 +65,12 @@ func (service *SolutionService) UndoAC(userID string, problemID int64) error {
 
 // AddPendingACByPrincipal adds a pending AC confirmation
 func (service *SolutionService) AddPendingACByPrincipal(messageID string, principal service_model.Principal, problemID int64) error {
-	// 1. Resolve Context & Authorize
-	problem, err := service.Datastore.GetProblemByID(problemID)
+	allowed, err := service.authorizeAC(principal, problemID)
 	if err != nil {
-		if errors.As(err, &dataNotFoundErrSolution) {
-			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("are you sure problem %d exists?", problemID), err)
-		}
-		return serviceerr.MakeGeneralError(err)
+		return err
 	}
-
-	class, err := service.Datastore.GetClassByClassID(problem.ClassID)
-	if err != nil {
-		return serviceerr.MakeGeneralError(err)
-	}
-
-	accessRoles, err := service.Datastore.GetClassAccessRolesByClassCode(class.ClassCode)
-	if err != nil {
-		return serviceerr.MakeGeneralError(err)
-	}
-
-	isAuthorized := false
-	roleSet := make(map[string]bool, len(principal.Roles))
-	for _, r := range principal.Roles {
-		roleSet[r] = true
-	}
-	for _, ar := range accessRoles {
-		if roleSet[ar.RoleID] {
-			isAuthorized = true
-			break
-		}
-	}
-
-	if !isAuthorized {
-		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot propose AC for problem %d (missing required roles)", principal.UserID, problemID), nil)
+	if !allowed {
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s cannot propose AC for problem %d (missing required roles)", principal.UserID, problemID), nil)
 	}
 
 	// 2. Business Logic
@@ -191,4 +137,41 @@ func (service *SolutionService) RejectACProposal(messageID string) error {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
+}
+
+// authorizeAC centralizes the logic to verify if a principal is allowed to AC a specific problem.
+func (service *SolutionService) authorizeAC(principal service_model.Principal, problemID int64) (bool, error) {
+	// 1. Resolve Context
+	problem, err := service.Datastore.GetProblemByID(problemID)
+	if err != nil {
+		if errors.As(err, &dataNotFoundErrSolution) {
+			return false, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
+		}
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	class, err := service.Datastore.GetClassByClassID(problem.ClassID)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	accessRoles, err := service.Datastore.GetClassAccessRolesByClassCode(class.ClassCode)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	// 2. Authorize
+	isAuthorized := false
+	roleSet := make(map[string]bool, len(principal.Roles))
+	for _, r := range principal.Roles {
+		roleSet[r] = true
+	}
+	for _, ar := range accessRoles {
+		if roleSet[ar.RoleID] {
+			isAuthorized = true
+			break
+		}
+	}
+
+	return isAuthorized, nil
 }

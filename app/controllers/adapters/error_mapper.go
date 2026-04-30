@@ -124,7 +124,7 @@ var templates = map[Action]map[ErrorKind]string{
 	ActionMentorUndoAC: {
 		errorKindProblemNotFound: "Problem id `%[2]d` not found for user `%[1]s`",
 		errorKindUserNotFound:    "User `%[1]s` not found",
-		errorKindConflict:        "User `%[1]s` has not solved problem `%[2]d` yet or is not enrolled in the class",
+		errorKindConflict:        "User `%[1]s` has not solved problem `%[2]d` yet",
 		errorKindDefault:         "Unexpected error while undoing AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorAddProblem: {

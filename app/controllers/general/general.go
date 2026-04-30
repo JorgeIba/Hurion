@@ -45,8 +45,12 @@ func HandleGetListOfProblems(c *context.ContextMessage) {
 		switch {
 		case serviceerr.IsServiceError(err):
 			// It's a domain error, map it to a user-friendly message
+			var classCodeArg any
+			if len(c.Args) > 1 {
+				classCodeArg = c.Args[1]
+			}
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionListProblemsByClass)),
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionListProblemsByClass, classCodeArg)),
 			)
 		default:
 			// controller error or unexpected error, send generic message
