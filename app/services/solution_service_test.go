@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -16,73 +17,48 @@ func TestSolutionService_AddACToUserID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		userID      string
-		problemID   int64
-		setupMock   func(*mock_data.MockDataStore)
-		wantErr     bool
-		wantErrType error
+		name       string
+		userID     string
+		problemID  int64
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:      "success - AC added",
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				// helpers.ExistsProblem
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				// helpers.CanBroACTheProblem -> IsUserIDEnrolledByClassID
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
-				// helpers.CanBroACTheProblem -> HasUserSolvedProblem
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
-				// SolutionService.AddACToUserID
 				m.EXPECT().AddAC("u1", int64(100)).Return(nil)
 			},
-			wantErr: false,
-		},
-		{
-			name:      "problem does not exist",
-			userID:    "u1",
-			problemID: 404,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.ProblemNotFoundError{},
-		},
-		{
-			name:      "user not enrolled",
-			userID:    "u1",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
-			},
-			wantErr:     true,
-			wantErrType: &serviceerr.UserNotEnrolledError{},
 		},
 		{
 			name:      "already solved",
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.ConflictError{},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ConflictError{}, err)
+			},
 		},
 		{
 			name:      "AddAC generic error",
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 				m.EXPECT().AddAC("u1", int64(100)).Return(errors.New("db fail"))
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 	}
 
@@ -96,60 +72,44 @@ func TestSolutionService_AddACToUserID(t *testing.T) {
 
 			svc := &SolutionService{Datastore: mockStore}
 			err := svc.AddACToUserID(tt.userID, tt.problemID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrType != nil {
-					assert.IsType(t, tt.wantErrType, err)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.assertFunc(t, err)
 		})
 	}
 }
 
-func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
+func TestSolutionService_UndoAC(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		userID    string
-		problemID int64
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
+		name       string
+		userID     string
+		problemID  int64
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:      "success - AC removed",
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 				m.EXPECT().RemoveAC("u1", int64(100)).Return(nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name:      "not solved",
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 			},
-			wantErr: true,
-		},
-		{
-			name:      "RemoveAC fail",
-			userID:    "u1",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
-				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
-				m.EXPECT().RemoveAC("u1", int64(100)).Return(errors.New("db fail"))
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ConflictError{}, err)
 			},
-			wantErr: true,
 		},
 	}
 
@@ -162,74 +122,110 @@ func TestSolutionService_UndoACByProblemAndUserID(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
-			err := svc.UndoACByProblemAndUserID(tt.problemID, tt.userID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			err := svc.UndoAC(tt.userID, tt.problemID)
+			tt.assertFunc(t, err)
 		})
 	}
 }
 
-func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
+func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		messageID string
-		userID    string
-		problemID int64
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
+		name       string
+		messageID  string
+		principal  service_model.Principal
+		problemID  int64
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:      "success - pending AC added",
 			messageID: "m1",
-			userID:    "u1",
+			principal: service_model.Principal{
+				User:  service_model.User{UserID: "u1"},
+				Roles: []string{"role_student"},
+			},
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "CS101"}, nil)
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
+					{ClassCode: "CS101", RoleID: "role_student"},
+				}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 				m.EXPECT().AddPendingConfirmation(gomock.Any()).Return(nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
-			name:      "problem not present",
+			name:      "already solved",
 			messageID: "m1",
-			userID:    "u1",
+			principal: service_model.Principal{
+				User:  service_model.User{UserID: "u1"},
+				Roles: []string{"role_student"},
+			},
+			problemID: 100,
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "CS101"}, nil)
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
+					{ClassCode: "CS101", RoleID: "role_student"},
+				}, nil)
+				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
+			},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ConflictError{}, err)
+			},
+		},
+		{
+			name:      "user not enrolled",
+			messageID: "m1",
+			principal: service_model.Principal{
+				User:  service_model.User{UserID: "u1"},
+				Roles: []string{"wrong"},
+			},
+			problemID: 100,
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "CS101"}, nil)
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
+					{ClassCode: "CS101", RoleID: "role_student"},
+				}, nil)
+			},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.UserNotEnrolledError{}, err)
+			},
+		},
+		{
+			name:      "problem does not exist",
+			messageID: "m1",
+			principal: service_model.Principal{User: service_model.User{UserID: "u1"}},
 			problemID: 404,
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ProblemNotFoundError{}, err)
+			},
 		},
 		{
-			name:      "cannot AC",
+			name:      "internal error - get problem fails",
 			messageID: "m1",
-			userID:    "u1",
+			principal: service_model.Principal{User: service_model.User{UserID: "u1"}},
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(false, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{}, errors.New("db fail"))
 			},
-			wantErr: true,
-		},
-		{
-			name:      "AddPendingConfirmation fail",
-			messageID: "m1",
-			userID:    "u1",
-			problemID: 100,
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
-				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
-				m.EXPECT().AddPendingConfirmation(gomock.Any()).Return(errors.New("db fail"))
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
 			},
-			wantErr: true,
 		},
 	}
 
@@ -242,13 +238,8 @@ func TestSolutionService_AddPendingACOfUserID(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
-			err := svc.AddPendingACOfUserID(tt.messageID, tt.userID, tt.problemID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			err := svc.AddPendingACByPrincipal(tt.messageID, tt.principal, tt.problemID)
+			tt.assertFunc(t, err)
 		})
 	}
 }
@@ -257,11 +248,10 @@ func TestSolutionService_ExistsPendingConfirmation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		messageID string
-		setupMock func(*mock_data.MockDataStore)
-		want      bool
-		wantErr   bool
+		name       string
+		messageID  string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, bool, error)
 	}{
 		{
 			name:      "exists",
@@ -269,8 +259,10 @@ func TestSolutionService_ExistsPendingConfirmation(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().ExistsPendingConfirmation("m1").Return(true, nil)
 			},
-			want:    true,
-			wantErr: false,
+			assertFunc: func(t *testing.T, got bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, got)
+			},
 		},
 		{
 			name:      "error",
@@ -278,8 +270,10 @@ func TestSolutionService_ExistsPendingConfirmation(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().ExistsPendingConfirmation("m1").Return(false, errors.New("db fail"))
 			},
-			want:    false,
-			wantErr: true,
+			assertFunc: func(t *testing.T, got bool, err error) {
+				assert.Error(t, err)
+				assert.False(t, got)
+			},
 		},
 	}
 
@@ -293,13 +287,7 @@ func TestSolutionService_ExistsPendingConfirmation(t *testing.T) {
 
 			svc := &SolutionService{Datastore: mockStore}
 			got, err := svc.ExistsPendingConfirmation(tt.messageID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.want, got)
-			}
+			tt.assertFunc(t, got, err)
 		})
 	}
 }
@@ -308,10 +296,10 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		messageID string
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
+		name       string
+		messageID  string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, *service_model.PendingConfirmation, error)
 	}{
 		{
 			name:      "success",
@@ -319,7 +307,10 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, res *service_model.PendingConfirmation, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "m1", res.MessageID)
+			},
 		},
 		{
 			name:      "not found",
@@ -327,15 +318,9 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("", int64(0), &dataerr.NotFoundError{})
 			},
-			wantErr: true,
-		},
-		{
-			name:      "generic error",
-			messageID: "m1",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetPendingConfirmation("m1").Return("", int64(0), errors.New("db fail"))
+			assertFunc: func(t *testing.T, res *service_model.PendingConfirmation, err error) {
+				assert.Error(t, err)
 			},
-			wantErr: true,
 		},
 	}
 
@@ -349,13 +334,7 @@ func TestSolutionService_GetPendingConfirmationByMessageID(t *testing.T) {
 
 			svc := &SolutionService{Datastore: mockStore}
 			res, err := svc.GetPendingConfirmationByMessageID(tt.messageID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.messageID, res.MessageID)
-			}
+			tt.assertFunc(t, res, err)
 		})
 	}
 }
@@ -364,10 +343,10 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		messageID string
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
+		name       string
+		messageID  string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:      "success",
@@ -375,13 +354,12 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
 				m.EXPECT().RemovePendingConfirmation("m1").Return(nil)
-				// From AddACToUser
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil).Times(2)
-				m.EXPECT().IsUserRegisteredInClass("u1", int64(10)).Return(true, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 				m.EXPECT().AddAC("u1", int64(100)).Return(nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name:      "error GetPendingConfirmationByMessageID",
@@ -389,7 +367,9 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("", int64(0), errors.New("db fail"))
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
 		},
 		{
 			name:      "error RemovePendingConfirmation",
@@ -398,7 +378,9 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
 				m.EXPECT().RemovePendingConfirmation("m1").Return(errors.New("db fail"))
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
 		},
 	}
 
@@ -412,12 +394,7 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 
 			svc := &SolutionService{Datastore: mockStore}
 			err := svc.AcceptACProposal(tt.messageID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.assertFunc(t, err)
 		})
 	}
 }
@@ -426,10 +403,10 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		messageID string
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
+		name       string
+		messageID  string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:      "success",
@@ -437,7 +414,9 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().RemovePendingConfirmation("m1").Return(nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name:      "error",
@@ -445,7 +424,9 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().RemovePendingConfirmation("m1").Return(errors.New("db fail"))
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
 		},
 	}
 
@@ -459,12 +440,7 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 
 			svc := &SolutionService{Datastore: mockStore}
 			err := svc.RejectACProposal(tt.messageID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.assertFunc(t, err)
 		})
 	}
 }

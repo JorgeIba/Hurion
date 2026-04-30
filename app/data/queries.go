@@ -107,27 +107,9 @@ func (db *DB) AddProblem(problem Problem) (int64, error) {
 }
 
 func (db *DB) RemoveProblemByID(problemID int64) (int64, error) {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to remove problem %d", problemID), err)
-	}
-
-	// Delete in order: pending confirmations -> solved problems -> problem itself
-	queries := []string{
-		"DELETE FROM pending_confirmations WHERE problem_id = ?",
-		"DELETE FROM solved_problems WHERE problem_id = ?",
-		"DELETE FROM problems WHERE id = ?",
-	}
-
-	for _, query := range queries {
-		if _, err := tx.Exec(query, problemID); err != nil {
-			tx.Rollback()
-			return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove problem %d", problemID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to remove problem %d", problemID), err)
+	query := "DELETE FROM problems WHERE id = ?"
+	if _, err := db.conn.Exec(query, problemID); err != nil {
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove problem %d", problemID), err)
 	}
 
 	return 1, nil
@@ -274,30 +256,9 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 }
 
 func (db *DB) ClearClass(classID int64) error {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to clear class %d", classID), err)
-	}
-
-	queries := []string{
-		"DELETE FROM pending_confirmations WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-		"DELETE FROM solved_problems WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-		"DELETE FROM classrooms WHERE class_code = (SELECT class_code FROM classes WHERE id = ?)",
-		"DELETE FROM class_access_roles WHERE class_code = (SELECT class_code FROM classes WHERE id = ?)",
-		"DELETE FROM enrollments WHERE class_id = ?",
-		"DELETE FROM problems WHERE class_id = ?",
-		"DELETE FROM classes WHERE id = ?",
-	}
-
-	for _, query := range queries {
-		if _, err := tx.Exec(query, classID); err != nil {
-			tx.Rollback()
-			return dataerr.NewQueryError(fmt.Sprintf("could not execute query to clear class %d", classID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to clear class %d", classID), err)
+	query := "DELETE FROM classes WHERE id = ?"
+	if _, err := db.conn.Exec(query, classID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not clear class %d", classID), err)
 	}
 
 	return nil
@@ -405,6 +366,25 @@ func (db *DB) GetClassCodeByRoomID(roomID string) (string, error) {
 	return classCode, nil
 }
 
+func (db *DB) IsRoomRegistered(roomID string) (string, bool, error) {
+	query := `
+		SELECT class_code
+		FROM classrooms
+		WHERE room_id = ?;
+	`
+
+	var classCode string
+	err := db.conn.QueryRow(query, roomID).Scan(&classCode)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, dataerr.NewQueryError(fmt.Sprintf("could not check if room %s is registered", roomID), err)
+	}
+
+	return classCode, true, nil
+}
+
 func (db *DB) GetClassroomsByClassCode(classCode string) ([]Classroom, error) {
 	query := `
 		SELECT room_id, class_code
@@ -495,6 +475,20 @@ func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
 			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with code %s not found", classCode), nil)
 		}
 		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
+	}
+	return class, nil
+}
+
+func (db *DB) GetClassByClassID(classID int64) (Class, error) {
+	query := `SELECT id, class_code, name FROM classes WHERE id = ?`
+
+	var class Class
+	err := db.conn.QueryRow(query, classID).Scan(&class.ID, &class.ClassCode, &class.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with ID %d not found", classID), nil)
+		}
+		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class with ID %d", classID), err)
 	}
 	return class, nil
 }
@@ -724,27 +718,9 @@ func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error)
 }
 
 func (db *DB) ExterminateUser(userID string) error {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to exterminate user %s", userID), err)
-	}
-
-	queries := []string{
-		"DELETE FROM pending_confirmations WHERE user_id = ?",
-		"DELETE FROM solved_problems WHERE user_id = ?",
-		"DELETE FROM enrollments WHERE user_id = ?",
-		"DELETE FROM users WHERE user_id = ?",
-	}
-
-	for _, query := range queries {
-		if _, err := tx.Exec(query, userID); err != nil {
-			tx.Rollback()
-			return dataerr.NewQueryError(fmt.Sprintf("could not execute query to exterminate user %s", userID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to exterminate user %s", userID), err)
+	query := "DELETE FROM users WHERE user_id = ?"
+	if _, err := db.conn.Exec(query, userID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not exterminate user %s", userID), err)
 	}
 
 	return nil

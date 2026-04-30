@@ -58,10 +58,11 @@ Do NOT use raw SQL in integration tests. Use the helper methods on `testEnv` to 
 - **Assertions**: Use `env.AssertUserExists(t, ...)` and `env.AssertEnrollmentExists(t, ...)` to verify database state.
 
 ### 3. Execution Standard
-Every integration test must initialize its own isolated environment to remain parallel-safe:
+Every integration test must initialize its own isolated environment.
+**Note:** `t.Parallel()` is NOT mandatory for integration tests, so you do not need to enforce it in integration test files or subtests.
+
 ```go
 func TestIntegration_Workflow(t *testing.T) {
-    t.Parallel()
     env := setupIntegrationEnv(t) // 1. Isolated Setup
     
     // 2. ACT (Call a Controller or Service method)

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -45,7 +46,11 @@ func NewDB(cfg *DBConfig) (*DB, error) {
 		}
 	}
 
-	conn, err := sql.Open("sqlite3", cfg.DBPath)
+	params := url.Values{}
+	params.Add("_foreign_keys", "on")
+
+	dsn := fmt.Sprintf("%s?%s", cfg.DBPath, params.Encode())
+	conn, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, dataerr.NewInitializationError("could not open DB", err)
 	}

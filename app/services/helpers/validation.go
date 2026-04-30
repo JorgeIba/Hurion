@@ -63,39 +63,3 @@ func IsUserIDEnrolledByClassID(datastore data.DataStore, userID string, classID 
 
 	return isMyBoyEnrolled, nil
 }
-
-// CanBroACTheProblem checks if a user can AC (solve) a problem
-func CanBroACTheProblem(datastore data.DataStore, userID string, problemID int64) (bool, error) {
-	problem, err := datastore.GetProblemByID(problemID)
-	if err != nil {
-		switch {
-		case errors.As(err, &dataNotFoundErr):
-			return false, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problemID %d doesn't match with any problem", problemID), err)
-		default:
-			return false, serviceerr.MakeGeneralError(err)
-		}
-	}
-
-	if isMyBoyEnrolled, err := IsUserIDEnrolledByClassID(datastore, userID, problem.ClassID); err != nil {
-		return false, err
-	} else if !isMyBoyEnrolled {
-		return false, nil
-	}
-
-	if hasUserSolvedAlready, err := datastore.HasUserSolvedProblem(userID, problemID); err != nil {
-		return false, serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
-	} else if hasUserSolvedAlready {
-		return false, serviceerr.NewConflictError(fmt.Sprintf("user %s has already solved problem %d", userID, problemID), nil)
-	}
-
-	return true, nil
-}
-
-func HasUserSolvedProblem(datastore data.DataStore, userID string, problemID int64) (bool, error) {
-	if hasUserSolvedAlready, err := datastore.HasUserSolvedProblem(userID, problemID); err != nil {
-		return false, serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
-	} else if hasUserSolvedAlready {
-		return true, nil
-	}
-	return false, nil
-}

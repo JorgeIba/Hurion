@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -44,4 +45,21 @@ func GetUserLabel(user *discordgo.User, member *discordgo.Member) string {
 	}
 
 	return "<unknown user>"
+}
+
+// GetMessageChannelID safely retrieves the command/reaction channel ID.
+func GetMessageChannelID(c *context.ContextMessage) string {
+	if c == nil {
+		return ""
+	}
+
+	if c.Message != nil {
+		return c.Message.ChannelID
+	}
+
+	if c.MessageReaction != nil {
+		return c.MessageReaction.ChannelID
+	}
+
+	return ""
 }

@@ -17,7 +17,7 @@ import (
 const (
 	messageErrVerifying      = "There was a problem verifying permissions."
 	messageErrNotPermissions = "Bro has not enough permissions (is not mentor)."
-	messageErrUnexpectec     = "Unexpected error."
+	messageErrUnexpected     = "Unexpected error."
 )
 
 func HandleRegisterUser(c *context.ContextMessage) {
@@ -135,7 +135,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
+			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
 		)
 		return
 	}
@@ -146,7 +146,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
+				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
 			)
 			return
 		}
@@ -165,8 +165,9 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		err := c.Services.Solution.AcceptACProposal(messageID)
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
+
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
+				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
 			)
 			return
 		}
@@ -218,7 +219,23 @@ func HandleAddAC(c *context.ContextMessage) {
 	}
 
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
-	if err := c.Services.Solution.AddACToUserID(userID, problemID); err != nil {
+
+	member, err := controllers_common.GetMemberSafe(c, userID)
+	if err != nil || member == nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify the student's roles with Discord, bro."),
+		)
+		return
+	}
+
+	member.User.DisplayName = displayName // Override display name to ensure it's correct even if cache is stale
+	principal := service_model.Principal{
+		User:  member.User,
+		Roles: member.Roles,
+	}
+
+	if err := c.Services.Solution.AddACByPrincipal(principal, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -227,7 +244,6 @@ func HandleAddAC(c *context.ContextMessage) {
 
 		return
 	}
-
 	logger.Log.Infof("Problem %d AC-ed by %s (%s)\n", problemID, userID, displayName)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
@@ -273,7 +289,8 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
-	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, userID); err != nil {
+
+	if err = c.Services.Solution.UndoAC(userID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

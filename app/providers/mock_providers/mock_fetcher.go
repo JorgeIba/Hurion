@@ -40,6 +40,21 @@ func (m *MockDiscordFetcher) EXPECT() *MockDiscordFetcherMockRecorder {
 	return m.recorder
 }
 
+// FetchMember mocks base method.
+func (m *MockDiscordFetcher) FetchMember(guildID, userID string) (*discordgo.Member, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchMember", guildID, userID)
+	ret0, _ := ret[0].(*discordgo.Member)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FetchMember indicates an expected call of FetchMember.
+func (mr *MockDiscordFetcherMockRecorder) FetchMember(guildID, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchMember", reflect.TypeOf((*MockDiscordFetcher)(nil).FetchMember), guildID, userID)
+}
+
 // FetchMessage mocks base method.
 func (m *MockDiscordFetcher) FetchMessage(channelID, messageID string) (*discordgo.Message, error) {
 	m.ctrl.T.Helper()
