@@ -176,13 +176,37 @@ func TestRequireClassAccess(t *testing.T) {
 			},
 		},
 		{
-			name:       "error - cached member fetch fails",
+			name:       "success - fallback to live fetch works",
 			executorID: "user_1",
 			guildID:    "guild_1",
 			class:      service_model.Class{ClassCode: "basicos_1"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
 				validator.EXPECT().IsAdmin("guild_1", "user_1").Return(false, nil)
+				// 1. Cache Miss
 				fetcher.EXPECT().GetCachedMember("guild_1", "user_1").Return(nil, fmt.Errorf("cache miss"))
+				// 2. API Success
+				fetcher.EXPECT().FetchMember("guild_1", "user_1").Return(&discordgo.Member{Roles: []string{"role_mentor"}}, nil)
+				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
+					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
+					nil,
+				)
+			},
+			assertFunc: func(t *testing.T, allowed bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, allowed)
+			},
+		},
+		{
+			name:       "error - cached and live fetch both fail",
+			executorID: "user_1",
+			guildID:    "guild_1",
+			class:      service_model.Class{ClassCode: "basicos_1"},
+			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
+				validator.EXPECT().IsAdmin("guild_1", "user_1").Return(false, nil)
+				// 1. Cache Miss
+				fetcher.EXPECT().GetCachedMember("guild_1", "user_1").Return(nil, fmt.Errorf("cache miss"))
+				// 2. API Fail
+				fetcher.EXPECT().FetchMember("guild_1", "user_1").Return(nil, fmt.Errorf("api fail"))
 			},
 			assertFunc: func(t *testing.T, allowed bool, err error) {
 				assert.Error(t, err)

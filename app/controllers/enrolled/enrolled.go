@@ -7,6 +7,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
@@ -47,22 +48,21 @@ func HandleProposeAC(c *context.ContextMessage) {
 	}
 
 	user := c.Executor
-	member, err := c.DiscordFetcher.GetCachedMember(c.ExecutorGuildID, user.UserID)
+	member, err := controllers_common.GetMemberSafe(c, user.UserID)
 	if err != nil || member == nil {
-		logger.Log.Error("Error fetching member roles or member is nil", err)
+		logger.Log.Error(err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro."),
 		)
 		return
 	}
-
+	member.DisplayName = user.DisplayName
 	principal := service_model.Principal{
-		User:  user,
+		User:  member.User,
 		Roles: member.Roles,
 	}
 
-	messageID := c.Message.ID
-	if err := c.Services.Solution.AddPendingACByPrincipal(messageID, principal, problemID); err != nil {
+	if err = c.Services.Solution.AddPendingACByPrincipal(c.Message.ID, principal, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

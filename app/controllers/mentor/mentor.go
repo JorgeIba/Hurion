@@ -220,17 +220,18 @@ func HandleAddAC(c *context.ContextMessage) {
 
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
 
-	member, err := c.DiscordFetcher.GetCachedMember(c.ExecutorGuildID, userID)
+	member, err := controllers_common.GetMemberSafe(c, userID)
 	if err != nil || member == nil {
-		logger.Log.Error("Error fetching member roles or member is nil", err)
+		logger.Log.Error(err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify the student's roles with Discord, bro."),
 		)
 		return
 	}
 
+	member.User.DisplayName = displayName // Override display name to ensure it's correct even if cache is stale
 	principal := service_model.Principal{
-		User:  service_model.User{UserID: userID, DisplayName: displayName},
+		User:  member.User,
 		Roles: member.Roles,
 	}
 

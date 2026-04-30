@@ -27,6 +27,7 @@ type DiscordValidator interface {
 type DiscordFetcher interface {
 	FetchMessage(channelID, messageID string) (*discordgo.Message, error)
 	GetCachedMember(guildID, userID string) (*discordgo.Member, error)
+	FetchMember(guildID, userID string) (*discordgo.Member, error)
 }
 
 // DiscordMessageModifier focuses on Discord message mutation operations.

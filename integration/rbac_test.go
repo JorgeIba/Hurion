@@ -1,15 +1,18 @@
 package integration
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -191,5 +194,56 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 		sentMsgs := env.Dispatcher.GetSentMessages()
 		require.NotEmpty(t, sentMsgs)
 		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not enrolled in the class")
+	})
+
+	t.Run("Student - !ac Success via API Fallback (Cache Miss)", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classID := env.SeedClass(t, "fallback", "Fallback")
+		problemID := env.SeedProblem(t, "P1", "url", classID, "Easy", "Topic")
+		env.SeedClassAccessRole(t, "fallback", "role_member")
+
+		student := service_model.User{UserID: "fallback_student", DisplayName: "Fallback Student"}
+		env.SeedUser(t, student.UserID, student.DisplayName)
+
+		// 1. Mock cache to FAIL
+		env.Fetcher.GetCachedMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+			return nil, errors.New("cache miss")
+		}
+
+		// 2. Mock API to SUCCEED
+		env.Fetcher.FetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+			return &discordgo.Member{
+				User:  &discordgo.User{ID: userID},
+				Roles: []string{"role_member"},
+			}, nil
+		}
+
+		ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", fmt.Sprintf("%d", problemID)})
+		enrolled.HandleProposeAC(ctx)
+
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
+		// Should SUCCESS because it fell back to FetchMember
+		// ProposeAC sends a Reaction type response
+		assert.Equal(t, dispatcher.Reaction, sentMsgs[0].Type)
+		assert.Contains(t, sentMsgs[0].Reactions, common.REACTION_YES)
+	})
+
+	t.Run("Student - !ac Denied in DMs (No Guild)", func(t *testing.T) {
+		env := setupIntegrationEnv(t)
+		classID := env.SeedClass(t, "dm_class", "DM Class")
+		problemID := env.SeedProblem(t, "P1", "url", classID, "Easy", "Topic")
+
+		student := service_model.User{UserID: "student_1", DisplayName: "Student"}
+		env.SeedUser(t, student.UserID, student.DisplayName)
+
+		// Create context with EMPTY GuildID (simulating DM)
+		ctx := env.NewContext(student.UserID, student.DisplayName, "", []string{"!ac", fmt.Sprintf("%d", problemID)})
+		enrolled.HandleProposeAC(ctx)
+
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
+		// Should fail with the "only used in a server" message
+		assert.Contains(t, sentMsgs[0].Content, "verify your roles with Discord")
 	})
 }

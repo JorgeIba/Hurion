@@ -40,6 +40,37 @@ func ResolveClassContext(c *context.ContextMessage, argIndex int) (service_model
 	return service_model.Class{}, serviceerr.NewNotFoundInfoError("could not identify the target class", nil)
 }
 
+// GetMemberSafe attempts to get a member from cache first, then falls back to live fetch.
+func GetMemberSafe(c *context.ContextMessage, userID string) (*service_model.Principal, error) {
+	if c.ExecutorGuildID == "" {
+		return nil, controllerserr.NewInternalError("this command can only be used in a server", fmt.Errorf("missing guild context"))
+	}
+
+	// 1. Try cache
+	member, err := c.DiscordFetcher.GetCachedMember(c.ExecutorGuildID, userID)
+	if err == nil && member != nil {
+		return &service_model.Principal{
+			User:  service_model.User{UserID: userID}, // Display name handled separately if needed
+			Roles: member.Roles,
+		}, nil
+	}
+
+	// 2. Fallback to live fetch
+	member, err = c.DiscordFetcher.FetchMember(c.ExecutorGuildID, userID)
+	if err != nil {
+		return nil, controllerserr.NewInternalError("could not fetch user roles from Discord API", err)
+	}
+
+	if member == nil {
+		return nil, controllerserr.NewInternalError("Discord member is nil", fmt.Errorf("api returned nil member"))
+	}
+
+	return &service_model.Principal{
+		User:  service_model.User{UserID: userID},
+		Roles: member.Roles,
+	}, nil
+}
+
 // RequireClassAccess verifies if the user has permission to access a class.
 func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (bool, error) {
 	// Admin Bypass
@@ -52,13 +83,9 @@ func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (b
 	}
 
 	// Get member roles
-	member, err := c.DiscordFetcher.GetCachedMember(c.ExecutorGuildID, c.Executor.UserID)
+	member, err := GetMemberSafe(c, c.Executor.UserID)
 	if err != nil {
-		return false, controllerserr.NewInternalError("error fetching member from discord", err)
-	}
-
-	if member == nil {
-		return false, controllerserr.NewInternalError("could not fetch member roles", fmt.Errorf("member is nil"))
+		return false, err
 	}
 
 	return c.Services.Enrollment.UserWithRolesHasAccessClass(member.Roles, class)

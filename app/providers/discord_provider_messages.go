@@ -68,3 +68,16 @@ func (provider *discordProvider) GetCachedMember(guildID, userID string) (*disco
 
 	return member, nil
 }
+
+func (provider *discordProvider) FetchMember(guildID, userID string) (*discordgo.Member, error) {
+	if provider.session == nil {
+		return nil, discorderr.NewInternalError("discord session not configured", fmt.Errorf("nil session"))
+	}
+
+	member, err := provider.session.GuildMember(guildID, userID)
+	if err != nil {
+		return nil, discorderr.NewInternalError("could not fetch member from API", err)
+	}
+
+	return member, nil
+}

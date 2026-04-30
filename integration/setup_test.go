@@ -263,17 +263,37 @@ func (env *testEnv) AssertProblemNotExists(t *testing.T, problemID int64) {
 
 // SetRoles configures the stub fetcher to return the given roles for a specific user.
 func (env *testEnv) SetRoles(userID string, roles []string) {
-	env.Fetcher.GetCachedMemberFunc = func(guildID, uID string) (*discordgo.Member, error) {
-		if uID == userID {
-			return &discordgo.Member{
-				User:  &discordgo.User{ID: uID},
-				Roles: roles,
-			}, nil
-		}
-		// Default for other users: no roles
-		return &discordgo.Member{
-			User:  &discordgo.User{ID: uID},
-			Roles: []string{},
-		}, nil
+	if env.Fetcher.UserRoles == nil {
+		env.Fetcher.UserRoles = make(map[string][]string)
 	}
+	env.Fetcher.UserRoles[userID] = roles
+}
+
+// SeedRoleToUser adds a specific role to a user in the stub fetcher.
+func (env *testEnv) SeedRoleToUser(userID string, roleID string) {
+	if env.Fetcher.UserRoles == nil {
+		env.Fetcher.UserRoles = make(map[string][]string)
+	}
+	roles := env.Fetcher.UserRoles[userID]
+	for _, r := range roles {
+		if r == roleID {
+			return // Already has the role
+		}
+	}
+	env.Fetcher.UserRoles[userID] = append(roles, roleID)
+}
+
+// UnseedRoleToUser removes a specific role from a user in the stub fetcher.
+func (env *testEnv) UnseedRoleToUser(userID string, roleID string) {
+	if env.Fetcher.UserRoles == nil {
+		return
+	}
+	roles := env.Fetcher.UserRoles[userID]
+	newRoles := []string{}
+	for _, r := range roles {
+		if r != roleID {
+			newRoles = append(newRoles, r)
+		}
+	}
+	env.Fetcher.UserRoles[userID] = newRoles
 }
