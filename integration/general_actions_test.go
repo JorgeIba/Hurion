@@ -23,7 +23,6 @@ func TestIntegration_General_GetScoreByClass(t *testing.T) {
 
 	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, classCode)
 	env.SeedAC(t, student.UserID, problemID)
 
 	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!score", classCode})

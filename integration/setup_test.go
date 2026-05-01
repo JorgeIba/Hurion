@@ -134,28 +134,6 @@ func (env *testEnv) AssertUserNotExists(t *testing.T, userID string) {
 	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking user existence")
 }
 
-// AssertEnrollmentExists verifies that the user is enrolled in the given class code
-func (env *testEnv) AssertEnrollmentExists(t *testing.T, userID, classCode string) {
-	t.Helper()
-	class, err := env.DB.GetClassByClassCode(classCode)
-	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
-
-	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
-	require.NoError(t, err, "failed to query enrollment")
-	assert.True(t, isEnrolled, "expected user %q to be enrolled in class %q", userID, classCode)
-}
-
-// AssertEnrollmentNotExists verifies that the user is NOT enrolled in the given class code
-func (env *testEnv) AssertEnrollmentNotExists(t *testing.T, userID, classCode string) {
-	t.Helper()
-	class, err := env.DB.GetClassByClassCode(classCode)
-	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
-
-	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
-	require.NoError(t, err, "failed to query enrollment")
-	assert.False(t, isEnrolled, "expected user %q to not be enrolled in class %q, but they are", userID, classCode)
-}
-
 // SeedUser ensures a user exists in the database
 func (env *testEnv) SeedUser(t *testing.T, userID, displayName string) {
 	t.Helper()
@@ -165,19 +143,6 @@ func (env *testEnv) SeedUser(t *testing.T, userID, displayName string) {
 	})
 	if err != nil {
 		t.Fatalf("Failed to seed user: %v", err)
-	}
-}
-
-// SeedEnrollment registers a user into a class
-func (env *testEnv) SeedEnrollment(t *testing.T, userID, classCode string) {
-	t.Helper()
-	class, err := env.DB.GetClassByClassCode(classCode)
-	if err != nil {
-		t.Fatalf("Failed to find class %q for seeding enrollment: %v", classCode, err)
-	}
-	_, err = env.DB.GetRawDB().Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", userID, class.ID)
-	if err != nil {
-		t.Fatalf("Failed to seed enrollment: %v", err)
 	}
 }
 

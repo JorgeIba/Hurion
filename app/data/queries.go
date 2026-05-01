@@ -443,22 +443,6 @@ func (db *DB) GetClassByClassID(classID int64) (Class, error) {
 	return class, nil
 }
 
-func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
-	query := `
-		SELECT COUNT(*)
-		FROM enrollments
-		WHERE user_id = ? AND class_id = ?;
-	`
-
-	var count int
-	err := db.conn.QueryRow(query, userID, classID).Scan(&count)
-	if err != nil {
-		return false, dataerr.NewQueryError(fmt.Sprintf("error checking user enrollment from user %s in class %d", userID, classID), err)
-	}
-
-	return count > 0, nil
-}
-
 func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
 	query := `
 		INSERT INTO pending_confirmations (message_id, user_id, problem_id)

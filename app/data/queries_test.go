@@ -548,8 +548,6 @@ func TestClearClass(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID)
-				require.NoError(t, err)
 				err = db.AddAC("u1", pID)
 				require.NoError(t, err)
 			},
@@ -561,9 +559,6 @@ func TestClearClass(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
 				err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE class_id = 1").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count)
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE class_id = 1").Scan(&count)
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
 				err = db.conn.QueryRow("SELECT COUNT(*) FROM classrooms WHERE class_code = 'c1'").Scan(&count)
@@ -1191,8 +1186,6 @@ func TestAddPendingConfirmation(t *testing.T) {
 				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
-				require.NoError(t, err)
-				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID)
 				require.NoError(t, err)
 			},
 			confirmation: PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 1},
