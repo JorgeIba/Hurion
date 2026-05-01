@@ -7,80 +7,8 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
-	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestIntegration_Mentor_RegisterUser(t *testing.T) {
-	t.Parallel()
-
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	classCode := "basicos_1"
-	env.SeedClass(t, classCode, "Basicos 2026")
-
-	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
-
-	targetUserID := "111222333"
-	targetDisplayName := "Student One"
-	// Stub fetcher for display name resolution via GetCachedMember
-	env.Fetcher.GetCachedMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
-		if userID == targetUserID {
-			return &discordgo.Member{
-				User: &discordgo.User{ID: targetUserID, Username: targetDisplayName},
-				Nick: targetDisplayName,
-			}, nil
-		}
-		return nil, fmt.Errorf("user not found")
-	}
-
-	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!m_register", fmt.Sprintf("<@%s>", targetUserID), classCode})
-
-	// 2. ACT
-	mentor.HandleRegisterUser(ctx)
-
-	// 3. ASSERT
-	env.AssertUserExists(t, targetUserID, targetDisplayName)
-	env.AssertEnrollmentExists(t, targetUserID, classCode)
-
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "has registered in the class")
-}
-
-func TestIntegration_Mentor_DeregisterUser(t *testing.T) {
-	t.Parallel()
-
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	classCode := "basicos_1"
-	env.SeedClass(t, classCode, "Basicos 2026")
-
-	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
-	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, classCode)
-
-	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
-
-	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!m_deregister", fmt.Sprintf("<@%s>", student.UserID), classCode})
-
-	// 2. ACT
-	err := mentor.HandleDeregisterUser(ctx)
-	assert.NoError(t, err)
-
-	// 3. ASSERT
-	env.AssertEnrollmentNotExists(t, student.UserID, classCode)
-
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "has been deregistered")
-}
 
 func TestIntegration_Mentor_AddAC(t *testing.T) {
 	t.Parallel()
@@ -209,20 +137,6 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 		handler func(*context.ContextMessage)
 		args    []string
 	}{
-		{
-			name: "RegisterUser unauthorized",
-			handler: func(c *context.ContextMessage) {
-				mentor.HandleRegisterUser(c)
-			},
-			args: []string{"!m_register", "<@123>", "class_1"},
-		},
-		{
-			name: "DeregisterUser unauthorized",
-			handler: func(c *context.ContextMessage) {
-				mentor.HandleDeregisterUser(c)
-			},
-			args: []string{"!m_deregister", "<@123>", "class_1"},
-		},
 		{
 			name: "AddAC unauthorized",
 			handler: func(c *context.ContextMessage) {

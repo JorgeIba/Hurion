@@ -6,7 +6,6 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
 	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 )
 
@@ -48,27 +47,6 @@ var confirmableCommands = map[string]ConfirmableCommand{
 			return fmt.Sprintf("⚠️ **WARNING**: This will COMPLETELY DELETE the class `%s`, including all its student enrollments, solved problems, and settings.\n\nThis action cannot be undone. Are you sure?", classCode)
 		},
 		Handler: handleClearClassConfirmation,
-	},
-	Deregister.String(): {
-		WarningMessage: func(c *context.ContextMessage) string {
-			if len(c.Args) == 2 {
-				// Enrolled deregistering themselves
-				classCode := c.Args[1]
-				return fmt.Sprintf("⚠️ **WARNING**: This will remove you from class `%s` and delete ALL your solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", classCode)
-			} else if len(c.Args) == 3 {
-				// Mentor deregistering a user
-				userParam := c.Args[1]
-				classCode := c.Args[2]
-				userID, ok := controllers_common.ParseUserID(userParam)
-				displayName := userParam
-				if ok {
-					displayName = controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
-				}
-				return fmt.Sprintf("⚠️ **WARNING**: This will remove user `%s` from class `%s` and delete ALL their solved problems and pending confirmations in this class.\n\nAre you sure you want to deregister?", displayName, classCode)
-			}
-			return "⚠️ **WARNING**: Invalid deregister command."
-		},
-		Handler: handleDeregisterConfirmation,
 	},
 	RemoveProblem.String(): {
 		WarningMessage: func(c *context.ContextMessage) string {
@@ -116,27 +94,6 @@ func handleClearClassConfirmation(originalContext *context.ContextMessage, args 
 		setMessageAsError(c)
 	} else {
 		setMessageAsExecuted(c, fmt.Sprintf("Class %s has been cleared", args[1]))
-	}
-}
-
-func handleDeregisterConfirmation(originalContext *context.ContextMessage, args []string, c *context.ContextMessage) {
-	switch len(args) {
-	case 2:
-		// Enrolled user deregistering themselves
-		if err := enrolled.HandleDeregisterUser(originalContext); err != nil {
-			setMessageAsError(c)
-		} else {
-			setMessageAsExecuted(c, fmt.Sprintf("You have been deregistered from class %s", args[1]))
-		}
-	case 3:
-		// Mentor deregistering a user
-		if err := mentor.HandleDeregisterUser(originalContext); err != nil {
-			setMessageAsError(c)
-		} else {
-			setMessageAsExecuted(c, fmt.Sprintf("User %s has been deregistered from class %s", args[1], args[2]))
-		}
-	default:
-		setMessageAsError(c)
 	}
 }
 

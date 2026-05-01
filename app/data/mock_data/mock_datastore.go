@@ -140,20 +140,6 @@ func (mr *MockDataStoreMockRecorder) CreateClass(class any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClass", reflect.TypeOf((*MockDataStore)(nil).CreateClass), class)
 }
 
-// DeregisterUserFromClass mocks base method.
-func (m *MockDataStore) DeregisterUserFromClass(userID string, classID int64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeregisterUserFromClass", userID, classID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeregisterUserFromClass indicates an expected call of DeregisterUserFromClass.
-func (mr *MockDataStoreMockRecorder) DeregisterUserFromClass(userID, classID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterUserFromClass", reflect.TypeOf((*MockDataStore)(nil).DeregisterUserFromClass), userID, classID)
-}
-
 // EnsureUser mocks base method.
 func (m *MockDataStore) EnsureUser(user data.User) error {
 	m.ctrl.T.Helper()
@@ -422,35 +408,6 @@ func (m *MockDataStore) IsRoomRegistered(roomID string) (string, bool, error) {
 func (mr *MockDataStoreMockRecorder) IsRoomRegistered(roomID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRoomRegistered", reflect.TypeOf((*MockDataStore)(nil).IsRoomRegistered), roomID)
-}
-
-// IsUserRegisteredInClass mocks base method.
-func (m *MockDataStore) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUserRegisteredInClass", userID, classID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsUserRegisteredInClass indicates an expected call of IsUserRegisteredInClass.
-func (mr *MockDataStoreMockRecorder) IsUserRegisteredInClass(userID, classID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUserRegisteredInClass", reflect.TypeOf((*MockDataStore)(nil).IsUserRegisteredInClass), userID, classID)
-}
-
-// RegisterUserIntoClass mocks base method.
-func (m *MockDataStore) RegisterUserIntoClass(userID string, classID int64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterUserIntoClass", userID, classID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RegisterUserIntoClass indicates an expected call of RegisterUserIntoClass.
-func (mr *MockDataStoreMockRecorder) RegisterUserIntoClass(userID, classID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterUserIntoClass", reflect.TypeOf((*MockDataStore)(nil).RegisterUserIntoClass), userID, classID)
 }
 
 // RemoveAC mocks base method.

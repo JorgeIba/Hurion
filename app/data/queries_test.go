@@ -95,136 +95,6 @@ func TestEnsureUser(t *testing.T) {
 	}
 }
 
-func TestRegisterUserIntoClass(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		userID     string
-		classID    int64
-		assertFunc func(t *testing.T, db *DB, err error)
-	}{
-		{
-			name: "should register user into class",
-			setup: func(t *testing.T, db *DB) {
-				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
-				require.NoError(t, err)
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.NoError(t, err)
-				var count int
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = 'u1' AND class_id = 1").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 1, count)
-			},
-		},
-		{
-			name: "should return error if db closed",
-			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.Error(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			db := setupDB(t)
-			defer db.CloseDB()
-
-			if tt.setup != nil {
-				tt.setup(t, db)
-			}
-
-			err := db.RegisterUserIntoClass(tt.userID, tt.classID)
-			tt.assertFunc(t, db, err)
-		})
-	}
-}
-
-func TestDeregisterUserFromClass(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		userID     string
-		classID    int64
-		assertFunc func(t *testing.T, db *DB, err error)
-	}{
-		{
-			name: "should successfully deregister user",
-			setup: func(t *testing.T, db *DB) {
-				classID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
-				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", classID)
-				require.NoError(t, err)
-				problemID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: classID})
-				require.NoError(t, err)
-				err = db.AddAC("u1", problemID)
-				require.NoError(t, err)
-				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: problemID})
-				require.NoError(t, err)
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.NoError(t, err)
-				var count int
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = 'u1'").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count, "Enrollment should be gone")
-
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = 'u1'").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count, "ACs should be gone")
-
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = 'u1'").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count, "Pending confirmations should be gone")
-			},
-		},
-		{
-			name: "should return error if db closed",
-			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.Error(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			db := setupDB(t)
-			defer db.CloseDB()
-
-			if tt.setup != nil {
-				tt.setup(t, db)
-			}
-
-			err := db.DeregisterUserFromClass(tt.userID, tt.classID)
-			tt.assertFunc(t, db, err)
-		})
-	}
-}
-
 func TestAddProblem(t *testing.T) {
 	t.Parallel()
 
@@ -678,7 +548,7 @@ func TestClearClass(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
+				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID)
 				require.NoError(t, err)
 				err = db.AddAC("u1", pID)
 				require.NoError(t, err)
@@ -1304,71 +1174,6 @@ func TestGetClassByClassCode(t *testing.T) {
 	}
 }
 
-func TestIsUserRegisteredInClass(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		userID     string
-		classID    int64
-		assertFunc func(t *testing.T, db *DB, registered bool, err error)
-	}{
-		{
-			name: "should return true if registered",
-			setup: func(t *testing.T, db *DB) {
-				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
-				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
-				require.NoError(t, err)
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, registered)
-			},
-		},
-		{
-			name:    "should return false if not registered",
-			userID:  "u1",
-			classID: 99,
-			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
-				assert.NoError(t, err)
-				assert.False(t, registered)
-			},
-		},
-		{
-			name: "should return error if db closed",
-			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
-				assert.Error(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			db := setupDB(t)
-			defer db.CloseDB()
-
-			if tt.setup != nil {
-				tt.setup(t, db)
-			}
-
-			registered, err := db.IsUserRegisteredInClass(tt.userID, tt.classID)
-			tt.assertFunc(t, db, registered, err)
-		})
-	}
-}
-
 func TestAddPendingConfirmation(t *testing.T) {
 	t.Parallel()
 
@@ -1387,7 +1192,7 @@ func TestAddPendingConfirmation(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
+				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID)
 				require.NoError(t, err)
 			},
 			confirmation: PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 1},
@@ -1687,9 +1492,9 @@ func TestGetAllUsersByClassID(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u2", DisplayName: "User 2"})
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
+				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID)
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u2", cID)
+				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u2", cID)
 				require.NoError(t, err)
 			},
 			classID: 1,
@@ -1873,9 +1678,9 @@ func TestGetClassesByUserID(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID1)
+				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID1)
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID2)
+				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID2)
 				require.NoError(t, err)
 			},
 			userID: "u1",

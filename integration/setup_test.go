@@ -175,7 +175,7 @@ func (env *testEnv) SeedEnrollment(t *testing.T, userID, classCode string) {
 	if err != nil {
 		t.Fatalf("Failed to find class %q for seeding enrollment: %v", classCode, err)
 	}
-	err = env.DB.RegisterUserIntoClass(userID, class.ID)
+	_, err = env.DB.GetRawDB().Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", userID, class.ID)
 	if err != nil {
 		t.Fatalf("Failed to seed enrollment: %v", err)
 	}

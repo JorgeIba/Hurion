@@ -29,57 +29,6 @@ func (db *DB) EnsureUser(user User) error {
 
 	return nil
 }
-func (db *DB) RegisterUserIntoClass(userID string, classID int64) error {
-	query := `
-		INSERT INTO enrollments (user_id, class_id)
-		VALUES (?,?)
-		ON CONFLICT(user_id, class_id) DO NOTHING;
-	`
-
-	if _, err := db.conn.Exec(query, userID, classID); err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not register the user %s into class id %d", userID, classID), err)
-	}
-	return nil
-}
-
-func (db *DB) DeregisterUserFromClass(userID string, classID int64) error {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to deregister user %s from class %d", userID, classID), err)
-	}
-
-	// Delete in order: pending confirmations -> solved problems -> enrollment
-	queries := []struct {
-		query string
-		note  string
-	}{
-		{
-			query: "DELETE FROM pending_confirmations WHERE user_id = ? AND problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-			note:  "pending confirmations",
-		},
-		{
-			query: "DELETE FROM solved_problems WHERE user_id = ? AND problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-			note:  "solved problems",
-		},
-		{
-			query: "DELETE FROM enrollments WHERE user_id = ? AND class_id = ?",
-			note:  "enrollment",
-		},
-	}
-
-	for _, q := range queries {
-		if _, err := tx.Exec(q.query, userID, classID); err != nil {
-			tx.Rollback()
-			return dataerr.NewQueryError(fmt.Sprintf("could not delete %s for user %s from class %d", q.note, userID, classID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to deregister user %s from class %d", userID, classID), err)
-	}
-
-	return nil
-}
 
 func (db *DB) AddProblem(problem Problem) (int64, error) {
 	query := `

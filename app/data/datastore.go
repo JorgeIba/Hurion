@@ -10,7 +10,6 @@ type QueryDatastore interface {
 	IsRoomRegistered(roomID string) (string, bool, error)
 	GetClassroomsByClassCode(classCode string) ([]Classroom, error)
 	GetClassAccessRolesByClassCode(classCode string) ([]ClassAccessRole, error)
-	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
 	ExistsPendingConfirmation(messageID string) (bool, error)
 	GetProblemByID(problemID int64) (Problem, error)
@@ -22,8 +21,6 @@ type QueryDatastore interface {
 
 type UpdateDataStore interface {
 	EnsureUser(user User) error
-	RegisterUserIntoClass(userID string, classID int64) error
-	DeregisterUserFromClass(userID string, classID int64) error
 	AddClassroom(classroom Classroom) error
 	RemoveClassroomByRoomID(roomID string) error
 	AddClassAccessRole(role ClassAccessRole) error

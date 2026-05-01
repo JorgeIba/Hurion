@@ -16,27 +16,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func HandleRegisterUserInClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
-	user := c.Executor
-
-	if err := c.Services.Enrollment.RegisterUserIntoClass(user, classCode); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, user.DisplayName)),
-		)
-
-		return
-	}
-
-	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", user.DisplayName, classCode)
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
-	)
-}
-
 func HandleGetListOfProblems(c *context.ContextMessage) {
 	class, err := controllers_common.ResolveClassContext(c, 1)
 	if err != nil {

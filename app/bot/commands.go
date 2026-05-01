@@ -4,8 +4,6 @@ type Command int
 
 const (
 	Help Command = iota
-	Register
-	Deregister
 	List
 	Score
 	AC
@@ -39,26 +37,6 @@ var Commands = map[Command]CommandData{
 		Usage:       "!help [command]",
 		Description: "Show info for all commands or details for a specific command",
 		UserRoles:   NewUserRoleSet(RoleAll),
-	},
-	Register: {
-		Cmd:         "!register",
-		Name:        "register",
-		Usage:       "!register <class_code>\n!register <@user> <class_code>",
-		Description: "Register yourself or another user in a class",
-		UserRoles:   NewUserRoleSet(RoleAll, RoleMentor),
-		ExtraInfo: "**As Regular User:** Use `!register <class_code>` to register yourself in a class.\n" +
-			"**As Mentor:** Use `!register <@user> <class_code>` to register another user in a class.\n" +
-			"The `class_code` parameter should be one word (e.g., \"basicos_1\").",
-	},
-	Deregister: {
-		Cmd:         "!deregister",
-		Name:        "deregister",
-		Usage:       "!deregister <class_code>\n!deregister <@user> <class_code>",
-		Description: "Remove yourself or another user from a class",
-		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
-		ExtraInfo: "**As Enrolled User:** Use `!deregister <class_code>` to remove yourself from a class.\n" +
-			"**As Mentor:** Use `!deregister <@user> <class_code>` to remove another user from a class.\n" +
-			"⚠️ **WARNING:** This will delete ALL solved problems and pending confirmations for the user in this class.",
 	},
 	List: {
 		Cmd:         "!list",

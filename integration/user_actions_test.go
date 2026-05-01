@@ -11,66 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIntegration_RegisterUser(t *testing.T) {
-	t.Parallel()
-
-	// 1. SETUP Environment
-	env := setupIntegrationEnv(t)
-	classCode := "basicos_1"
-	otherClass := "other_class"
-	env.SeedClass(t, classCode, "Basicos 2026")
-	env.SeedClass(t, otherClass, "Other")
-
-	// Define test user
-	testUser := service_model.User{
-		UserID:      "123456789",
-		DisplayName: "Jorge el Pro",
-	}
-
-	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!register", classCode})
-
-	// 2. ACT
-	general.HandleRegisterUserInClass(ctx)
-
-	// 3. ASSERT Dispatcher
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.Len(t, sentMsgs, 1)
-	msg := sentMsgs[0]
-	assert.Equal(t, dispatcher.SimpleMessage, msg.Type)
-	assert.Contains(t, msg.Content, "has registered in the class `basicos_1`")
-
-	// 4. ASSERT Database Side-effects
-	env.AssertUserExists(t, testUser.UserID, testUser.DisplayName)
-	env.AssertEnrollmentExists(t, testUser.UserID, classCode)
-	env.AssertEnrollmentNotExists(t, testUser.UserID, otherClass)
-}
-
-func TestIntegration_DeregisterUser(t *testing.T) {
-	t.Parallel()
-
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	classCode := "basicos_1"
-	env.SeedClass(t, classCode, "Basicos 2026")
-
-	testUser := service_model.User{UserID: "user_to_leave", DisplayName: "I am leaving"}
-	env.SeedUser(t, testUser.UserID, testUser.DisplayName)
-	env.SeedEnrollment(t, testUser.UserID, classCode)
-
-	ctx := env.NewContext(testUser.UserID, testUser.DisplayName, "guild_1", []string{"!deregister", classCode})
-
-	// 2. ACT
-	enrolled.HandleDeregisterUser(ctx)
-
-	// 3. ASSERT
-	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.GreaterOrEqual(t, len(sentMsgs), 1)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "deregistered from the class")
-
-	// 4. ASSERT Database: Enrollment should be gone
-	env.AssertEnrollmentNotExists(t, testUser.UserID, classCode)
-}
-
 func TestIntegration_UndoAC(t *testing.T) {
 	t.Parallel()
 

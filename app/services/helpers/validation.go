@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
@@ -39,27 +38,3 @@ func IsClassCodeValid(datastore data.DataStore, classCode string) (bool, error) 
 	return true, nil
 }
 
-// IsUserIDEnrolledByClassCode checks if a user is enrolled in a class by class code
-func IsUserIDEnrolledByClassCode(datastore data.DataStore, userID, classCode string) (bool, error) {
-	class, err := datastore.GetClassByClassCode(classCode)
-	if err != nil {
-		switch {
-		case errors.As(err, &dataNotFoundErr):
-			return false, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any class", classCode), err)
-		default:
-			return false, serviceerr.MakeGeneralError(err)
-		}
-	}
-
-	return IsUserIDEnrolledByClassID(datastore, userID, class.ID)
-}
-
-// IsUserIDEnrolledByClassID checks if a user is enrolled in a class by class ID
-func IsUserIDEnrolledByClassID(datastore data.DataStore, userID string, classID int64) (bool, error) {
-	isMyBoyEnrolled, err := datastore.IsUserRegisteredInClass(userID, classID)
-	if err != nil {
-		return false, serviceerr.NewInternalError(fmt.Sprintf("error checking if user %s is enrolled in class %d", userID, classID), err)
-	}
-
-	return isMyBoyEnrolled, nil
-}

@@ -38,6 +38,10 @@ func (db *DB) CloseDB() {
 	}
 }
 
+func (db *DB) GetRawDB() *sql.DB {
+	return db.conn
+}
+
 func NewDB(cfg *DBConfig) (*DB, error) {
 	if cfg.DBType == Prod {
 		// 0o755: owner=rwx, group=r-x, others=r-x (standard dir permissions)

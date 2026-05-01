@@ -13,29 +13,6 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
-func HandleDeregisterUser(c *context.ContextMessage) error {
-	classCode := c.Args[1]
-	user := c.Executor
-
-	if err := c.Services.Enrollment.DeregisterUserIDFromClass(user.UserID, classCode); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledDeregisterUser, user.DisplayName, classCode)),
-		)
-
-		return err
-	}
-
-	successMessage := fmt.Sprintf("User `%s` has deregistered from the class `%s` successfully", user.DisplayName, classCode)
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
-	)
-
-	return nil
-}
-
 func HandleProposeAC(c *context.ContextMessage) {
 	problemIDs := c.Args[1]
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
