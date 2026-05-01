@@ -1545,63 +1545,6 @@ func TestGetActiveUsersByClassID(t *testing.T) {
 	}
 }
 
-func TestGetAllUsersByClassID(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		classID    int64
-		assertFunc func(t *testing.T, db *DB, users []User, err error)
-	}{
-		{
-			name: "should get all users in class",
-			setup: func(t *testing.T, db *DB) {
-				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u2", DisplayName: "User 2"})
-				require.NoError(t, err)
-				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u1", cID)
-				require.NoError(t, err)
-				_, err = db.conn.Exec("INSERT INTO enrollments (user_id, class_id) VALUES (?, ?)", "u2", cID)
-				require.NoError(t, err)
-			},
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
-				assert.NoError(t, err)
-				assert.Len(t, users, 2)
-			},
-		},
-		{
-			name: "should return error if db closed",
-			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
-			},
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
-				assert.Error(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			db := setupDB(t)
-			defer db.CloseDB()
-
-			if tt.setup != nil {
-				tt.setup(t, db)
-			}
-
-			users, err := db.GetAllUsersByClassID(tt.classID)
-			tt.assertFunc(t, db, users, err)
-		})
-	}
-}
-
 func TestGetAllClasses(t *testing.T) {
 	t.Parallel()
 

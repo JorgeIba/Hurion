@@ -228,21 +228,6 @@ func (mr *MockDataStoreMockRecorder) GetAllSolvedProblemsByClass(classID any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSolvedProblemsByClass", reflect.TypeOf((*MockDataStore)(nil).GetAllSolvedProblemsByClass), classID)
 }
 
-// GetAllUsersByClassID mocks base method.
-func (m *MockDataStore) GetAllUsersByClassID(classID int64) ([]data.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUsersByClassID", classID)
-	ret0, _ := ret[0].([]data.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllUsersByClassID indicates an expected call of GetAllUsersByClassID.
-func (mr *MockDataStoreMockRecorder) GetAllUsersByClassID(classID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsersByClassID", reflect.TypeOf((*MockDataStore)(nil).GetAllUsersByClassID), classID)
-}
-
 // GetClassAccessRolesByClassCode mocks base method.
 func (m *MockDataStore) GetClassAccessRolesByClassCode(classCode string) ([]data.ClassAccessRole, error) {
 	m.ctrl.T.Helper()

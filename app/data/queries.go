@@ -566,37 +566,6 @@ func (db *DB) GetActiveUsersByClassID(classID int64) ([]User, error) {
 	return users, nil
 }
 
-func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
-	query := `
-		SELECT 
-			u.user_id,
-			u.display_name
-		FROM enrollments e
-		JOIN users u ON e.user_id = u.user_id
-		WHERE e.class_id = ?
-	`
-	rows, err := db.conn.Query(query, classID)
-	if err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get users from class id %d", classID), err)
-	}
-	defer rows.Close()
-
-	users := make([]User, 0)
-	for rows.Next() {
-		var user User
-		if err := rows.Scan(&user.UserID, &user.DisplayName); err != nil {
-			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan user from class id %d", classID), err)
-		}
-		users = append(users, user)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over users from class id %d", classID), err)
-	}
-
-	return users, nil
-}
-
 func (db *DB) GetAllClasses() ([]Class, error) {
 	query := `
 		SELECT id, class_code, name from classes
