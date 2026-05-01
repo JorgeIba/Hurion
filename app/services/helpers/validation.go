@@ -37,4 +37,3 @@ func IsClassCodeValid(datastore data.DataStore, classCode string) (bool, error) 
 	}
 	return true, nil
 }
-

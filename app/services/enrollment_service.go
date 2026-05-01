@@ -31,7 +31,7 @@ func (service *EnrollmentService) GetListOfUsersByClassCode(classCode string) ([
 		}
 	}
 
-	users, err := service.Datastore.GetAllUsersByClassID(class.ID)
+	users, err := service.Datastore.GetActiveUsersByClassID(class.ID)
 	if err != nil {
 		return []service_model.User{}, serviceerr.MakeGeneralError(err)
 	}

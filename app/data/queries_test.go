@@ -1474,6 +1474,77 @@ func TestGetProblemByID(t *testing.T) {
 	}
 }
 
+func TestGetActiveUsersByClassID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, users []User, err error)
+	}{
+		{
+			name: "should only return users with at least one AC in the class",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+
+				// User 1: Active (has AC)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "Active User"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+
+				// User 2: Inactive (no AC in this class)
+				err = db.EnsureUser(User{UserID: "u2", DisplayName: "Inactive User"})
+				require.NoError(t, err)
+
+				// User 3: Active in DIFFERENT class
+				cID2, _ := db.CreateClass(Class{ClassCode: "c2", Name: "n2"})
+				pID2, _ := db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID2})
+				err = db.EnsureUser(User{UserID: "u3", DisplayName: "Other Class User"})
+				require.NoError(t, err)
+				err = db.AddAC("u3", pID2)
+				require.NoError(t, err)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, users, 1)
+				assert.Equal(t, "u1", users[0].UserID)
+			},
+		},
+		{
+			name: "should return empty if no users have solved anything",
+			setup: func(t *testing.T, db *DB) {
+				db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, users, 0)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			users, err := db.GetActiveUsersByClassID(tt.classID)
+			tt.assertFunc(t, db, users, err)
+		})
+	}
+}
+
 func TestGetAllUsersByClassID(t *testing.T) {
 	t.Parallel()
 

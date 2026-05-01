@@ -27,7 +27,7 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1", DisplayName: "User 1"}}, nil)
+				m.EXPECT().GetActiveUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1", DisplayName: "User 1"}}, nil)
 			},
 			assertFunc: func(t *testing.T, res []service_model.User, err error) {
 				assert.NoError(t, err)
@@ -57,11 +57,11 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 			},
 		},
 		{
-			name:      "GetAllUsersByClassID generic error",
+			name:      "GetActiveUsersByClassID generic error",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
+				m.EXPECT().GetActiveUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, res []service_model.User, err error) {
 				assert.Error(t, err)

@@ -126,4 +126,3 @@ func TestIsClassCodeValid(t *testing.T) {
 		})
 	}
 }
-

@@ -183,6 +183,21 @@ func (mr *MockDataStoreMockRecorder) ExterminateUser(userID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExterminateUser", reflect.TypeOf((*MockDataStore)(nil).ExterminateUser), userID)
 }
 
+// GetActiveUsersByClassID mocks base method.
+func (m *MockDataStore) GetActiveUsersByClassID(classID int64) ([]data.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveUsersByClassID", classID)
+	ret0, _ := ret[0].([]data.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveUsersByClassID indicates an expected call of GetActiveUsersByClassID.
+func (mr *MockDataStoreMockRecorder) GetActiveUsersByClassID(classID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveUsersByClassID", reflect.TypeOf((*MockDataStore)(nil).GetActiveUsersByClassID), classID)
+}
+
 // GetAllClasses mocks base method.
 func (m *MockDataStore) GetAllClasses() ([]data.Class, error) {
 	m.ctrl.T.Helper()

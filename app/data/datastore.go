@@ -13,6 +13,7 @@ type QueryDatastore interface {
 	GetPendingConfirmation(messageID string) (string, int64, error)
 	ExistsPendingConfirmation(messageID string) (bool, error)
 	GetProblemByID(problemID int64) (Problem, error)
+	GetActiveUsersByClassID(classID int64) ([]User, error)
 	GetAllUsersByClassID(classID int64) ([]User, error)
 	GetAllClasses() ([]Class, error)
 	GetClassesByUserID(userID string) ([]Class, error)

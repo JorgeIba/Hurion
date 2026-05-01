@@ -54,7 +54,7 @@ func TestHandleGetUsersInClass(t *testing.T) {
 			args: []string{"!users", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{
+				m.EXPECT().GetActiveUsersByClassID(int64(1)).Return([]data.User{
 					{UserID: "123", DisplayName: "Jorge"},
 					{UserID: "456", DisplayName: "Luis"},
 				}, nil)
@@ -235,7 +235,6 @@ func TestHandleGetScoreByClass(t *testing.T) {
 			args: []string{"!score", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
 					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
@@ -305,7 +304,6 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 			args: []string{"!score", "basicos_1", "<@123>"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
 					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
@@ -325,7 +323,6 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 			args: []string{"!score", "basicos_1", "123"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
 					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
@@ -396,7 +393,6 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetAllClasses().Return([]data.Class{{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}}, nil).AnyTimes()
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "123", DisplayName: "name_123"}}, nil)
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
 					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
