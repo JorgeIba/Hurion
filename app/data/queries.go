@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
@@ -620,36 +621,6 @@ func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	return nil
 }
 
-func (db *DB) GetClassesByUserID(userID string) ([]Class, error) {
-	query := `
-		SELECT c.id, c.class_code, c.name
-		FROM enrollments e
-		JOIN classes c ON e.class_id = c.id
-		WHERE e.user_id = ?;
-	`
-
-	rows, err := db.conn.Query(query, userID)
-	if err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get classes for user %s", userID), err)
-	}
-	defer rows.Close()
-
-	var classes []Class
-	for rows.Next() {
-		var class Class
-		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
-			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class for user %s", userID), err)
-		}
-		classes = append(classes, class)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over classes for user %s", userID), err)
-	}
-
-	return classes, nil
-}
-
 func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error) {
 	query := `
 		SELECT EXISTS(
@@ -674,4 +645,78 @@ func (db *DB) ExterminateUser(userID string) error {
 	}
 
 	return nil
+}
+
+func (db *DB) GetClassesWhereUserIsActive(userID string) ([]Class, error) {
+	query := `
+		SELECT DISTINCT c.id, c.class_code, c.name
+		FROM solved_problems sp
+		JOIN problems p ON sp.problem_id = p.id
+		JOIN classes c ON p.class_id = c.id
+		WHERE sp.user_id = ?;
+	`
+
+	rows, err := db.conn.Query(query, userID)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get classes where user %s is active", userID), err)
+	}
+	defer rows.Close()
+
+	var classes []Class
+	for rows.Next() {
+		var class Class
+		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class for active user %s", userID), err)
+		}
+		classes = append(classes, class)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over classes for active user %s", userID), err)
+	}
+
+	return classes, nil
+}
+
+func (db *DB) GetClassesByAccessRoles(roleIDs []string) ([]Class, error) {
+	if len(roleIDs) == 0 {
+		return []Class{}, nil
+	}
+
+	// Build placeholders for IN clause idiomatic way
+	placeholdersArr := make([]string, len(roleIDs))
+	args := make([]any, len(roleIDs))
+	for i, id := range roleIDs {
+		placeholdersArr[i] = "?"
+		args[i] = id
+	}
+	placeholders := strings.Join(placeholdersArr, ",")
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT c.id, c.class_code, c.name
+		FROM classes c
+		JOIN class_access_roles car ON c.class_code = car.class_code
+		WHERE car.role_id IN (%s)
+	`, placeholders)
+
+	rows, err := db.conn.Query(query, args...)
+	if err != nil {
+		return nil, dataerr.NewQueryError("could not get classes by access roles", err)
+	}
+	defer rows.Close()
+
+	var classes []Class
+	for rows.Next() {
+		var class Class
+		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
+			return nil, dataerr.NewQueryError("could not scan class from access roles", err)
+		}
+		classes = append(classes, class)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError("error iterating over classes from access roles", err)
+	}
+
+	return classes, nil
 }

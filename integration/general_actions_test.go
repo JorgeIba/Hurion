@@ -9,6 +9,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIntegration_General_GetScoreByClass(t *testing.T) {
@@ -249,22 +250,23 @@ func TestIntegration_General_GetMyClasses(t *testing.T) {
 	env := setupIntegrationEnv(t)
 	env.SeedClass(t, "class_1", "Class One")
 	env.SeedClass(t, "class_2", "Class Two")
+	env.SeedClassAccessRole(t, "class_1", "role_1")
+	env.SeedClassAccessRole(t, "class_2", "role_2")
 
 	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, "class_1")
-	env.SeedEnrollment(t, student.UserID, "class_2")
+	// Give roles for both classes
+	env.SeedRoleToUser(student.UserID, "role_1")
+	env.SeedRoleToUser(student.UserID, "role_2")
 
 	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!my_classes"})
-	// HandleGetMyClasses uses c.Message.Author.ID directly
-	ctx.Message.Author.ID = student.UserID
 
 	// 2. ACT
 	general.HandleGetMyClasses(ctx)
 
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs)
+	require.NotEmpty(t, sentMsgs)
 	lastMsg := sentMsgs[len(sentMsgs)-1]
 	assert.Equal(t, dispatcher.EmbedMessage, lastMsg.Type)
 	assert.Contains(t, lastMsg.Embed.Description, "class_1")
@@ -277,10 +279,12 @@ func TestIntegration_General_GetClassesOfUser(t *testing.T) {
 	// 1. SETUP
 	env := setupIntegrationEnv(t)
 	env.SeedClass(t, "class_1", "Class One")
+	env.SeedClassAccessRole(t, "class_1", "role_1")
 
 	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, "class_1")
+	// Give role to target user
+	env.SeedRoleToUser(student.UserID, "role_1")
 
 	ctx := env.NewContext("444555666", "Another User", "guild_1", []string{"!user_classes", fmt.Sprintf("<@%s>", student.UserID)})
 
@@ -289,7 +293,7 @@ func TestIntegration_General_GetClassesOfUser(t *testing.T) {
 
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
-	assert.NotEmpty(t, sentMsgs)
+	require.NotEmpty(t, sentMsgs)
 	lastMsg := sentMsgs[len(sentMsgs)-1]
 	assert.Equal(t, dispatcher.EmbedMessage, lastMsg.Type)
 	assert.Contains(t, lastMsg.Embed.Title, student.UserID)

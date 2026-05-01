@@ -288,19 +288,34 @@ func (mr *MockDataStoreMockRecorder) GetClassCodeByRoomID(roomID any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassCodeByRoomID", reflect.TypeOf((*MockDataStore)(nil).GetClassCodeByRoomID), roomID)
 }
 
-// GetClassesByUserID mocks base method.
-func (m *MockDataStore) GetClassesByUserID(userID string) ([]data.Class, error) {
+// GetClassesByAccessRoles mocks base method.
+func (m *MockDataStore) GetClassesByAccessRoles(roleIDs []string) ([]data.Class, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetClassesByUserID", userID)
+	ret := m.ctrl.Call(m, "GetClassesByAccessRoles", roleIDs)
 	ret0, _ := ret[0].([]data.Class)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetClassesByUserID indicates an expected call of GetClassesByUserID.
-func (mr *MockDataStoreMockRecorder) GetClassesByUserID(userID any) *gomock.Call {
+// GetClassesByAccessRoles indicates an expected call of GetClassesByAccessRoles.
+func (mr *MockDataStoreMockRecorder) GetClassesByAccessRoles(roleIDs any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesByUserID", reflect.TypeOf((*MockDataStore)(nil).GetClassesByUserID), userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesByAccessRoles", reflect.TypeOf((*MockDataStore)(nil).GetClassesByAccessRoles), roleIDs)
+}
+
+// GetClassesWhereUserIsActive mocks base method.
+func (m *MockDataStore) GetClassesWhereUserIsActive(userID string) ([]data.Class, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassesWhereUserIsActive", userID)
+	ret0, _ := ret[0].([]data.Class)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassesWhereUserIsActive indicates an expected call of GetClassesWhereUserIsActive.
+func (mr *MockDataStoreMockRecorder) GetClassesWhereUserIsActive(userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesWhereUserIsActive", reflect.TypeOf((*MockDataStore)(nil).GetClassesWhereUserIsActive), userID)
 }
 
 // GetClassroomsByClassCode mocks base method.

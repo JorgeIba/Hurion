@@ -56,11 +56,21 @@ func (service *UserService) GetUserByUserID(userID string) (service_model.User, 
 	return mapDataUserToServiceUser(user), nil
 }
 
-// GetClassesByUserID retrieves all classes that a user is enrolled in
-func (service *UserService) GetClassesByUserID(userID string) ([]service_model.Class, error) {
-	classes, err := service.Datastore.GetClassesByUserID(userID)
+// GetAccessibleClassesByRoles returns all classes a user has access to based on their roles
+func (service *UserService) GetAccessibleClassesByRoles(roles []string) ([]service_model.Class, error) {
+	classes, err := service.Datastore.GetClassesByAccessRoles(roles)
 	if err != nil {
-		return nil, serviceerr.MakeGeneralError(fmt.Errorf("something happened trying to get classes by userID: %s: %v", userID, err))
+		return nil, serviceerr.MakeGeneralError(err)
+	}
+
+	return mapDataClassesToServiceClasses(classes), nil
+}
+
+// GetClassesWhereUserIsActive returns all classes where a user has at least one solve
+func (service *UserService) GetClassesWhereUserIsActive(userID string) ([]service_model.Class, error) {
+	classes, err := service.Datastore.GetClassesWhereUserIsActive(userID)
+	if err != nil {
+		return nil, serviceerr.MakeGeneralError(fmt.Errorf("error fetching classes where user %s is active: %v", userID, err))
 	}
 	return mapDataClassesToServiceClasses(classes), nil
 }
