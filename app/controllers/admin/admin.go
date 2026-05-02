@@ -27,7 +27,7 @@ func HandleClearClass(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return err
+		return nil
 	}
 
 	classCode := c.Args[1]
@@ -93,7 +93,7 @@ func HandleExterminate(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return err
+		return nil
 	}
 
 	mention := c.Args[1]
@@ -135,7 +135,7 @@ func HandleExportClass(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return err
+		return nil
 	}
 
 	classCode := c.Args[1]
@@ -211,7 +211,7 @@ func HandleLinkRoles(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return err
+		return nil
 	}
 
 	classCode := c.Args[1]
@@ -255,7 +255,7 @@ func HandleLinkRooms(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return err
+		return nil
 	}
 
 	classCode := c.Args[1]
