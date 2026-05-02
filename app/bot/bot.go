@@ -128,6 +128,10 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	if len(cmd) > 0 && cmd[0] == '!' {
 		logger.Log.Info(cmd)
 	}
+
+	// Systematic safeguard: ensures every user mentioned exists in the DB before logic runs
+	controllers_common.SyncParticipants(context)
+
 	if router, exists := commandMap[cmd]; exists {
 		router(context)
 	}
@@ -169,6 +173,9 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		Executor:               executor,  // Who is executing
 		ExecutorGuildID:        r.GuildID, // Where it's executed
 	}
+
+	// Systematic safeguard: ensures every user involved exists in the DB before logic runs
+	controllers_common.SyncParticipants(context)
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
 		router(context)

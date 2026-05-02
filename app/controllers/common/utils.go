@@ -1,11 +1,8 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/bwmarrin/discordgo"
 )
 
 // ParseUserID extracts a userID from a mention or verifies if the param is a raw numeric ID.
@@ -66,23 +63,6 @@ func ParseChannelID(param string) (string, bool) {
 	}
 
 	return param, true
-}
-
-// GetUserLabel returns a human-readable label for a Discord user.
-func GetUserLabel(user *discordgo.User, member *discordgo.Member) string {
-	if name := GetDisplayNameFromMember(member); name != "" {
-		return name
-	}
-
-	if name := GetDisplayNameFromUser(user); name != "" {
-		return name
-	}
-
-	if user != nil {
-		return fmt.Sprintf("<@%s>", user.ID)
-	}
-
-	return "<unknown user>"
 }
 
 // GetMessageChannelID safely retrieves the command/reaction channel ID.

@@ -39,6 +39,10 @@ type NotFoundError struct {
 	*DataError
 }
 
+type UserMissingFromDatabaseError struct {
+	*DataError
+}
+
 func NewInitializationError(message string, original error) *InitializationError {
 	return &InitializationError{
 		DataError: &DataError{
@@ -81,6 +85,16 @@ func NewRowConflictError(message string, original error) *RowConflictError {
 
 func NewNotFoundError(message string, original error) *NotFoundError {
 	return &NotFoundError{
+		DataError: &DataError{
+			Code:         500,
+			Message:      message,
+			WrappedError: original,
+		},
+	}
+}
+
+func NewUserMissingFromDatabaseError(message string, original error) *UserMissingFromDatabaseError {
+	return &UserMissingFromDatabaseError{
 		DataError: &DataError{
 			Code:         500,
 			Message:      message,

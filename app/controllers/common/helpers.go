@@ -50,7 +50,10 @@ func GetMemberSafe(c *context.ContextMessage, userID string) (*service_model.Pri
 	member, err := c.DiscordFetcher.GetCachedMember(c.ExecutorGuildID, userID)
 	if err == nil && member != nil {
 		return &service_model.Principal{
-			User:  service_model.User{UserID: userID}, // Display name handled separately if needed
+			User: service_model.User{
+				UserID:      userID,
+				DisplayName: GetDisplayNameFromMember(member),
+			},
 			Roles: member.Roles,
 		}, nil
 	}
@@ -66,7 +69,10 @@ func GetMemberSafe(c *context.ContextMessage, userID string) (*service_model.Pri
 	}
 
 	return &service_model.Principal{
-		User:  service_model.User{UserID: userID},
+		User: service_model.User{
+			UserID:      userID,
+			DisplayName: GetDisplayNameFromMember(member),
+		},
 		Roles: member.Roles,
 	}, nil
 }
@@ -89,4 +95,33 @@ func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (b
 	}
 
 	return c.Services.Enrollment.UserWithRolesHasAccessClass(member.Roles, class)
+}
+
+// SyncParticipants scans the command arguments for user participants and ensures they exist in the DB.
+func SyncParticipants(c *context.ContextMessage) {
+	// Always sync the executor first
+	_ = c.Services.User.EnsureUser(service_model.User{
+		UserID:      c.Executor.UserID,
+		DisplayName: c.Executor.DisplayName,
+	})
+
+	// Scan arguments for other potential users (mentions or raw IDs)
+	for _, arg := range c.Args {
+		userID, ok := ParseUserID(arg)
+		if !ok || userID == c.Executor.UserID {
+			continue
+		}
+
+		// Fetch real info for this participant and sync
+		member, err := GetMemberSafe(c, userID)
+		displayName := "Unknown"
+		if err == nil && member != nil {
+			displayName = member.User.DisplayName
+		}
+
+		_ = c.Services.User.EnsureUser(service_model.User{
+			UserID:      userID,
+			DisplayName: displayName,
+		})
+	}
 }
