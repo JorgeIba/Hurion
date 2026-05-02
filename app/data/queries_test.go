@@ -1520,6 +1520,31 @@ func TestGetActiveUsersByClassID(t *testing.T) {
 				assert.Len(t, users, 0)
 			},
 		},
+		{
+			name: "should return users sorted by display name then user id",
+			setup: func(t *testing.T, db *DB) {
+				cID, _ := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				pID, _ := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+
+				// Insert unsorted
+				_ = db.EnsureUser(User{UserID: "u3", DisplayName: "Zebra"})
+				_ = db.EnsureUser(User{UserID: "u2", DisplayName: "Alpha"})
+				_ = db.EnsureUser(User{UserID: "u1", DisplayName: "Alpha"})
+
+				_ = db.AddAC("u3", pID)
+				_ = db.AddAC("u2", pID)
+				_ = db.AddAC("u1", pID)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, users, 3)
+				// Alpha / u1 -> Alpha / u2 -> Zebra / u3
+				assert.Equal(t, "u1", users[0].UserID)
+				assert.Equal(t, "u2", users[1].UserID)
+				assert.Equal(t, "u3", users[2].UserID)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1708,6 +1733,32 @@ func TestGetClassesWhereUserIsActive(t *testing.T) {
 				assert.Len(t, classes, 0)
 			},
 		},
+		{
+			name: "should return classes sorted by class code",
+			setup: func(t *testing.T, db *DB) {
+				cID3, _ := db.CreateClass(Class{ClassCode: "c3", Name: "Class 3"})
+				cID1, _ := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				cID2, _ := db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
+				_ = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
+
+				pID3, _ := db.AddProblem(Problem{Name: "p3", URL: "u3", ClassID: cID3})
+				pID1, _ := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID1})
+				pID2, _ := db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID2})
+
+				// Insert unsorted
+				_ = db.AddAC("u1", pID3)
+				_ = db.AddAC("u1", pID1)
+				_ = db.AddAC("u1", pID2)
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 3)
+				assert.Equal(t, "c1", classes[0].ClassCode)
+				assert.Equal(t, "c2", classes[1].ClassCode)
+				assert.Equal(t, "c3", classes[2].ClassCode)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1850,6 +1901,65 @@ func TestExterminateUser(t *testing.T) {
 
 			err := db.ExterminateUser(tt.userID)
 			tt.assertFunc(t, db, err)
+		})
+	}
+}
+
+func TestGetClassesByAccessRoles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		roles      []string
+		assertFunc func(t *testing.T, db *DB, classes []Class, err error)
+	}{
+		{
+			name: "should return empty if no roles provided",
+			setup: func(t *testing.T, db *DB) {
+				_, _ = db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
+			},
+			roles: []string{},
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 0)
+			},
+		},
+		{
+			name: "should return classes sorted by class code for multiple roles",
+			setup: func(t *testing.T, db *DB) {
+				_, _ = db.CreateClass(Class{ClassCode: "c3", Name: "Class 3"})
+				_, _ = db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				_, _ = db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
+				
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c3", RoleID: "r2"})
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c2", RoleID: "r1"})
+			},
+			roles: []string{"r1", "r2"},
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 3)
+				assert.Equal(t, "c1", classes[0].ClassCode)
+				assert.Equal(t, "c2", classes[1].ClassCode)
+				assert.Equal(t, "c3", classes[2].ClassCode)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			classes, err := db.GetClassesByAccessRoles(tt.roles)
+			tt.assertFunc(t, db, classes, err)
 		})
 	}
 }

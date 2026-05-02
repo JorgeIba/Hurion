@@ -109,10 +109,10 @@ func SyncParticipants(c *context.ContextMessage) {
 		logger.Log.Errorf("System Safeguard: Failed to sync executor %s: %v", c.Executor.UserID, err)
 	}
 
-	const MIN_LENGTH_FOR_USER_ID = 12 // Arbitrary threshold to skip short args that can't be user IDs
+	const MIN_LENGTH_FOR_USER_ID = 13 // Arbitrary threshold to skip short args that can't be user IDs
 	// Scan arguments for other potential users (mentions or long numeric IDs)
 	for _, arg := range c.Args {
-		// Only check if it's a mention or looks like a Discord Snowflake (length > 15)
+		// Only check if it's a mention or looks like a Discord Snowflake (numeric and length > MIN_LENGTH)
 		isMention := common.IsUserMention(arg)
 		isSnowflake := !isMention && len(arg) > MIN_LENGTH_FOR_USER_ID && isNumeric(arg)
 

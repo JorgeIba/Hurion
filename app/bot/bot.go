@@ -129,10 +129,9 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		logger.Log.Info(cmd)
 	}
 
-	// Systematic safeguard: ensures every user mentioned exists in the DB before logic runs
-	controllers_common.SyncParticipants(context)
-
 	if router, exists := commandMap[cmd]; exists {
+		// Systematic safeguard: ensures every user mentioned exists in the DB before logic runs
+		controllers_common.SyncParticipants(context)
 		router(context)
 	}
 }

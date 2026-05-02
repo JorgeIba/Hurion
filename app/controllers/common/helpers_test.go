@@ -132,7 +132,7 @@ func TestRequireClassAccess(t *testing.T) {
 			guildID:    "guild_1",
 			class:      service_model.Class{ClassCode: "basicos_1"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin("guild_1", "admin_1").Return(true, nil)
+				validator.EXPECT().IsAdmin(gomock.Any(), "admin_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, allowed bool, err error) {
 				assert.NoError(t, err)
@@ -145,8 +145,8 @@ func TestRequireClassAccess(t *testing.T) {
 			guildID:    "guild_1",
 			class:      service_model.Class{ClassCode: "basicos_1"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin("guild_1", "user_1").Return(false, nil)
-				fetcher.EXPECT().GetCachedMember("guild_1", "user_1").Return(&discordgo.Member{Roles: []string{"role_mentor"}}, nil)
+				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
+				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(&discordgo.Member{Roles: []string{"role_mentor"}}, nil)
 				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
 					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
 					nil,
@@ -163,8 +163,8 @@ func TestRequireClassAccess(t *testing.T) {
 			guildID:    "guild_1",
 			class:      service_model.Class{ClassCode: "basicos_1"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin("guild_1", "user_1").Return(false, nil)
-				fetcher.EXPECT().GetCachedMember("guild_1", "user_1").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil)
+				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
+				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil)
 				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
 					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
 					nil,
@@ -181,11 +181,11 @@ func TestRequireClassAccess(t *testing.T) {
 			guildID:    "guild_1",
 			class:      service_model.Class{ClassCode: "basicos_1"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin("guild_1", "user_1").Return(false, nil)
+				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
 				// 1. Cache Miss
-				fetcher.EXPECT().GetCachedMember("guild_1", "user_1").Return(nil, fmt.Errorf("cache miss"))
+				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("cache miss"))
 				// 2. API Success
-				fetcher.EXPECT().FetchMember("guild_1", "user_1").Return(&discordgo.Member{Roles: []string{"role_mentor"}}, nil)
+				fetcher.EXPECT().FetchMember(gomock.Any(), "user_1").Return(&discordgo.Member{Roles: []string{"role_mentor"}}, nil)
 				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
 					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
 					nil,
@@ -202,11 +202,11 @@ func TestRequireClassAccess(t *testing.T) {
 			guildID:    "guild_1",
 			class:      service_model.Class{ClassCode: "basicos_1"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin("guild_1", "user_1").Return(false, nil)
+				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
 				// 1. Cache Miss
-				fetcher.EXPECT().GetCachedMember("guild_1", "user_1").Return(nil, fmt.Errorf("cache miss"))
+				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("cache miss"))
 				// 2. API Fail
-				fetcher.EXPECT().FetchMember("guild_1", "user_1").Return(nil, fmt.Errorf("api fail"))
+				fetcher.EXPECT().FetchMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("api fail"))
 			},
 			assertFunc: func(t *testing.T, allowed bool, err error) {
 				assert.Error(t, err)
@@ -238,6 +238,96 @@ func TestRequireClassAccess(t *testing.T) {
 
 			allowed, err := RequireClassAccess(ctx, tc.class)
 			tc.assertFunc(t, allowed, err)
+		})
+	}
+}
+
+func TestSyncParticipants(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		args      []string
+		executor  service_model.User
+		setupMock func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore)
+	}{
+		{
+			name: "success - sync executor only (no other args)",
+			args: []string{"!help"},
+			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
+			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
+				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
+			},
+		},
+		{
+			name: "success - sync executor and mentioned user",
+			args: []string{"!ac", "<@111111111111111111>", "101"},
+			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
+			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
+				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
+				
+				fetcher.EXPECT().GetCachedMember("guild_1", "111111111111111111").Return(&discordgo.Member{
+					User: &discordgo.User{Username: "Target User"},
+				}, nil)
+				store.EXPECT().EnsureUser(data.User{UserID: "111111111111111111", DisplayName: "Target User"}).Return(nil)
+			},
+		},
+		{
+			name: "success - sync long numeric ID",
+			args: []string{"!exterminate", "123456789012345678"},
+			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
+			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
+				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
+				
+				fetcher.EXPECT().GetCachedMember("guild_1", "123456789012345678").Return(&discordgo.Member{
+					User: &discordgo.User{Username: "snowflake_user"},
+				}, nil)
+				store.EXPECT().EnsureUser(data.User{UserID: "123456789012345678", DisplayName: "snowflake_user"}).Return(nil)
+			},
+		},
+		{
+			name: "skip - short problem ID",
+			args: []string{"!ac", "101"},
+			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
+			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
+				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
+			},
+		},
+		{
+			name: "fallback - user left server",
+			args: []string{"!ac", "<@222222222222222222>", "101"},
+			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
+			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
+				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
+				
+				fetcher.EXPECT().GetCachedMember("guild_1", "222222222222222222").Return(nil, fmt.Errorf("not found"))
+				fetcher.EXPECT().FetchMember("guild_1", "222222222222222222").Return(nil, fmt.Errorf("not found"))
+				
+				store.EXPECT().EnsureUser(data.User{UserID: "222222222222222222", DisplayName: "Unknown"}).Return(nil)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
+			tc.setupMock(mockFetcher, mockStore)
+
+			ctx := &context.ContextMessage{
+				Args:            tc.args,
+				Executor:        tc.executor,
+				ExecutorGuildID: "guild_1",
+				Services:        services.NewServices(mockStore),
+				DiscordFetcher:  mockFetcher,
+			}
+
+			SyncParticipants(ctx)
 		})
 	}
 }

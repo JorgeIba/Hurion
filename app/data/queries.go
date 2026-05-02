@@ -532,6 +532,7 @@ func (db *DB) GetActiveUsersByClassID(classID int64) ([]User, error) {
 		JOIN problems p ON sp.problem_id = p.id
 		JOIN users u ON sp.user_id = u.user_id
 		WHERE p.class_id = ?
+		ORDER BY u.display_name ASC, u.user_id ASC
 	`
 	rows, err := db.conn.Query(query, classID)
 	if err != nil {
@@ -641,7 +642,8 @@ func (db *DB) GetClassesWhereUserIsActive(userID string) ([]Class, error) {
 		FROM solved_problems sp
 		JOIN problems p ON sp.problem_id = p.id
 		JOIN classes c ON p.class_id = c.id
-		WHERE sp.user_id = ?;
+		WHERE sp.user_id = ?
+		ORDER BY c.class_code ASC;
 	`
 
 	rows, err := db.conn.Query(query, userID)
@@ -685,6 +687,7 @@ func (db *DB) GetClassesByAccessRoles(roleIDs []string) ([]Class, error) {
 		FROM classes c
 		JOIN class_access_roles car ON c.class_code = car.class_code
 		WHERE car.role_id IN (%s)
+		ORDER BY c.class_code ASC
 	`, placeholders)
 
 	rows, err := db.conn.Query(query, args...)
