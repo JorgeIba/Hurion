@@ -3,9 +3,11 @@ package common
 import (
 	"fmt"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/controllerserr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
@@ -100,13 +102,24 @@ func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (b
 // SyncParticipants scans the command arguments for user participants and ensures they exist in the DB.
 func SyncParticipants(c *context.ContextMessage) {
 	// Always sync the executor first
-	_ = c.Services.User.EnsureUser(service_model.User{
+	if err := c.Services.User.EnsureUser(service_model.User{
 		UserID:      c.Executor.UserID,
 		DisplayName: c.Executor.DisplayName,
-	})
+	}); err != nil {
+		logger.Log.Errorf("System Safeguard: Failed to sync executor %s: %v", c.Executor.UserID, err)
+	}
 
-	// Scan arguments for other potential users (mentions or raw IDs)
+	const MIN_LENGTH_FOR_USER_ID = 12 // Arbitrary threshold to skip short args that can't be user IDs
+	// Scan arguments for other potential users (mentions or long numeric IDs)
 	for _, arg := range c.Args {
+		// Only check if it's a mention or looks like a Discord Snowflake (length > 15)
+		isMention := common.IsUserMention(arg)
+		isSnowflake := !isMention && len(arg) > MIN_LENGTH_FOR_USER_ID && isNumeric(arg)
+
+		if !isMention && !isSnowflake {
+			continue
+		}
+
 		userID, ok := ParseUserID(arg)
 		if !ok || userID == c.Executor.UserID {
 			continue
@@ -119,9 +132,20 @@ func SyncParticipants(c *context.ContextMessage) {
 			displayName = member.User.DisplayName
 		}
 
-		_ = c.Services.User.EnsureUser(service_model.User{
+		if err := c.Services.User.EnsureUser(service_model.User{
 			UserID:      userID,
 			DisplayName: displayName,
-		})
+		}); err != nil {
+			logger.Log.Errorf("System Safeguard: Failed to sync participant %s: %v", userID, err)
+		}
 	}
+}
+
+func isNumeric(s string) bool {
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

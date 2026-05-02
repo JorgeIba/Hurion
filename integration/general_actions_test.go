@@ -125,7 +125,8 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	assert.Equal(t, "666", score.UserScores[4].User.UserID)
 
 	// Verify User 7 is NOT in the active user list at all
-	activeUsers, _ := env.DB.GetActiveUsersByClassID(classID)
+	activeUsers, err := env.DB.GetActiveUsersByClassID(classID)
+	require.NoError(t, err)
 	assert.Len(t, activeUsers, 6)
 	for _, u := range activeUsers {
 		assert.NotEqual(t, "777", u.UserID)

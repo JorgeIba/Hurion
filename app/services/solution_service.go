@@ -22,6 +22,11 @@ type SolutionService struct {
 // AddACToUserID adds an AC (accepted solution) for a user.
 // This is a trusted method (no enrollment check).
 func (service *SolutionService) AddACToUserID(userID string, problemID int64) error {
+	// Layer 2 Safeguard: Ensure user exists before linking foreign keys
+	if err := service.Datastore.EnsureUser(data.User{UserID: userID, DisplayName: "Unknown"}); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("failed to ensure user %s exists: %w", userID, err))
+	}
+
 	// 1. Business Logic
 	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(userID, problemID); err != nil {
 		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
@@ -71,6 +76,11 @@ func (service *SolutionService) AddPendingACByPrincipal(messageID string, princi
 	}
 	if !allowed {
 		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s cannot propose AC for problem %d (missing required roles)", principal.UserID, problemID), nil)
+	}
+
+	// Layer 2 Safeguard
+	if err := service.Datastore.EnsureUser(data.User{UserID: principal.UserID, DisplayName: principal.DisplayName}); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("failed to ensure user %s exists: %w", principal.UserID, err))
 	}
 
 	// 2. Business Logic

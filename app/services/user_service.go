@@ -70,7 +70,7 @@ func (service *UserService) GetAccessibleClassesByRoles(roles []string) ([]servi
 func (service *UserService) GetClassesWhereUserIsActive(userID string) ([]service_model.Class, error) {
 	classes, err := service.Datastore.GetClassesWhereUserIsActive(userID)
 	if err != nil {
-		return nil, serviceerr.MakeGeneralError(fmt.Errorf("error fetching classes where user %s is active: %v", userID, err))
+		return nil, serviceerr.MakeGeneralError(fmt.Errorf("error fetching classes where user %s is active: %w", userID, err))
 	}
 	return mapDataClassesToServiceClasses(classes), nil
 }

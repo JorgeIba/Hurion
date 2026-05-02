@@ -129,6 +129,7 @@ func TestHandleAddAC(t *testing.T) {
 				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "CS101"}, nil)
 				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{{ClassCode: "CS101", RoleID: "role_student"}}, nil)
 
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(100)).Return(false, nil)
 				m.EXPECT().AddAC("123", int64(100)).Return(nil)
 			},
@@ -225,6 +226,7 @@ func TestHandleUndoAC(t *testing.T) {
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
 				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(true, nil)
 				m.EXPECT().RemoveAC("123", int64(77)).Return(nil)
 			},
@@ -242,6 +244,7 @@ func TestHandleUndoAC(t *testing.T) {
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
 				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -597,6 +600,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil).Times(2)
 				m.EXPECT().RemovePendingConfirmation("msg_123").Return(nil)
 
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, nil)
 				m.EXPECT().AddAC("123", int64(77)).Return(nil)
 			},
@@ -661,6 +665,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil).Times(2)
 				m.EXPECT().RemovePendingConfirmation("msg_123").Return(nil)
 
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, nil)
 				m.EXPECT().AddAC("123", int64(77)).Return(fmt.Errorf("db error"))
 			},

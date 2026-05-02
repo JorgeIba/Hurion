@@ -165,7 +165,7 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindProblemNotFound:   "Problem `%[2]d` not found for user `%[1]s`",
 		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
-		errorKindConflict:          "User `%s` has already solved problem `%d`",
+		errorKindConflict:          "User `%[1]s` has already solved problem `%[2]d`",
 		errorKindDefault:           "Unexpected error while proposing AC.",
 	},
 	ActionEnrolledUndoAC: {

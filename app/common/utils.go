@@ -4,6 +4,11 @@ import (
 	"strings"
 )
 
+// IsUserMention returns true if the string looks like a Discord user mention.
+func IsUserMention(s string) bool {
+	return (strings.HasPrefix(s, "<@") || strings.HasPrefix(s, "<@!")) && strings.HasSuffix(s, ">")
+}
+
 // ExtractUserIDFromMention extracts the numerical Discord User ID from a mention string.
 // Supported formats: <@123...>, <@!123...>
 func ExtractUserIDFromMention(mention string) (string, bool) {

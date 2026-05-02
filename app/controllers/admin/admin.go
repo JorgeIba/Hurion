@@ -135,11 +135,12 @@ func HandleExportClass(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return nil
+		return err
 	}
 
 	classCode := c.Args[1]
 
+	logger.Log.Infof("Generating Excel export for class %s", classCode)
 	users, problemsByTopic, score, err := c.Services.Score.GetClassExportData(classCode)
 	if err != nil {
 		logger.Log.Error(err)
@@ -199,49 +200,89 @@ func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
 }
 
 func HandleLinkRoles(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil || !isAdmin {
-		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"))
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
+		logger.Log.Errorf("Error checking admin status: %v", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
+		)
+		return err
+	} else if !isAdmin {
+		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
+		)
 		return err
 	}
 
 	classCode := c.Args[1]
 	rolesLinked := 0
+	rolesFailed := 0
 	for i := 2; i < len(c.Args); i++ {
-		roleID, ok := controllers_common.ParseRoleID(c.Args[i])
+		roleParam := c.Args[i]
+		roleID, ok := controllers_common.ParseRoleID(roleParam)
 		if !ok {
+			logger.Log.Warnf("Skipping invalid role param: %s", roleParam)
+			rolesFailed++
 			continue
 		}
 
 		err := c.Services.Class.AssignAccessRole(service_model.ClassAccessRole{ClassCode: classCode, RoleID: roleID})
-		if err == nil {
+		if err != nil {
+			logger.Log.Errorf("Failed to link role %s to class %s: %v", roleID, classCode, err)
+			rolesFailed++
+		} else {
 			rolesLinked++
 		}
 	}
 
-	c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Successfully linked %d roles to class `%s`", rolesLinked, classCode)))
+	msg := fmt.Sprintf("Successfully linked %d roles to class `%s`", rolesLinked, classCode)
+	if rolesFailed > 0 {
+		msg += fmt.Sprintf(" (%d failed/skipped)", rolesFailed)
+	}
+	c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, msg))
 	return nil
 }
 
 func HandleLinkRooms(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil || !isAdmin {
-		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"))
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
+		logger.Log.Errorf("Error checking admin status: %v", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
+		)
+		return err
+	} else if !isAdmin {
+		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
+		)
 		return err
 	}
 
 	classCode := c.Args[1]
 	roomsLinked := 0
+	roomsFailed := 0
 	for i := 2; i < len(c.Args); i++ {
-		roomID, ok := controllers_common.ParseChannelID(c.Args[i])
+		roomParam := c.Args[i]
+		roomID, ok := controllers_common.ParseChannelID(roomParam)
 		if !ok {
+			logger.Log.Warnf("Skipping invalid room param: %s", roomParam)
+			roomsFailed++
 			continue
 		}
 
 		err := c.Services.Class.RegisterClassroom(service_model.Classroom{RoomID: roomID, ClassCode: classCode})
-		if err == nil {
+		if err != nil {
+			logger.Log.Errorf("Failed to link room %s to class %s: %v", roomID, classCode, err)
+			roomsFailed++
+		} else {
 			roomsLinked++
 		}
 	}
 
-	c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Successfully linked %d rooms to class `%s`", roomsLinked, classCode)))
+	msg := fmt.Sprintf("Successfully linked %d rooms to class `%s`", roomsLinked, classCode)
+	if roomsFailed > 0 {
+		msg += fmt.Sprintf(" (%d failed/skipped)", roomsFailed)
+	}
+	c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, msg))
 	return nil
 }
