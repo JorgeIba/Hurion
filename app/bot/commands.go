@@ -12,6 +12,8 @@ const (
 	RemoveProblem
 	ClearClass
 	CreateClass
+	LinkRoles
+	LinkRooms
 	Users
 	Classes
 	UpdateProblem
@@ -126,6 +128,22 @@ var Commands = map[Command]CommandData{
 		Description: "Create a new class with the specified code and name",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
 		ExtraInfo:   "The `class_code` should be one word, while `ClassName` can include multiple words (e.g., \"basicos_1 Basicos 2025\")",
+	},
+	LinkRoles: {
+		Cmd:         "!link_roles",
+		Name:        "link_roles",
+		Usage:       "!link_roles <class_code> <@role1> [@role2] ...",
+		Description: "Link Discord roles to a class for access control",
+		UserRoles:   NewUserRoleSet(RoleAdmin),
+		ExtraInfo:   "Allows users with these roles to submit ACs for the class. Mention multiple roles separated by spaces.",
+	},
+	LinkRooms: {
+		Cmd:         "!link_rooms",
+		Name:        "link_rooms",
+		Usage:       "!link_rooms <class_code> <#channel1> [#channel2] ...",
+		Description: "Link Discord channels to a class as classrooms",
+		UserRoles:   NewUserRoleSet(RoleAdmin),
+		ExtraInfo:   "Sets up default class context for commands run in these channels. Mention multiple channels separated by spaces.",
 	},
 	Exterminate: {
 		Cmd:         "!exterminate",

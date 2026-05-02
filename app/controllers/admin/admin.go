@@ -11,6 +11,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -195,4 +196,52 @@ func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
 	}
 
 	return c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.Executor.UserID)
+}
+
+func HandleLinkRoles(c *context.ContextMessage) error {
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil || !isAdmin {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"))
+		return err
+	}
+
+	classCode := c.Args[1]
+	rolesLinked := 0
+	for i := 2; i < len(c.Args); i++ {
+		roleID, ok := controllers_common.ParseRoleID(c.Args[i])
+		if !ok {
+			continue
+		}
+
+		err := c.Services.Class.AssignAccessRole(service_model.ClassAccessRole{ClassCode: classCode, RoleID: roleID})
+		if err == nil {
+			rolesLinked++
+		}
+	}
+
+	c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Successfully linked %d roles to class `%s`", rolesLinked, classCode)))
+	return nil
+}
+
+func HandleLinkRooms(c *context.ContextMessage) error {
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil || !isAdmin {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"))
+		return err
+	}
+
+	classCode := c.Args[1]
+	roomsLinked := 0
+	for i := 2; i < len(c.Args); i++ {
+		roomID, ok := controllers_common.ParseChannelID(c.Args[i])
+		if !ok {
+			continue
+		}
+
+		err := c.Services.Class.RegisterClassroom(service_model.Classroom{RoomID: roomID, ClassCode: classCode})
+		if err == nil {
+			roomsLinked++
+		}
+	}
+
+	c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Successfully linked %d rooms to class `%s`", roomsLinked, classCode)))
+	return nil
 }

@@ -27,3 +27,47 @@ func ExtractUserIDFromMention(mention string) (string, bool) {
 
 	return userID, true
 }
+
+// ExtractRoleIDFromMention extracts the numerical Discord Role ID from a mention string.
+// Supported format: <@&123...>
+func ExtractRoleIDFromMention(mention string) (string, bool) {
+	if !strings.HasPrefix(mention, "<@&") || !strings.HasSuffix(mention, ">") {
+		return "", false
+	}
+	roleID := strings.TrimPrefix(mention, "<@&")
+	roleID = strings.TrimSuffix(roleID, ">")
+
+	if len(roleID) == 0 {
+		return "", false
+	}
+
+	for _, c := range roleID {
+		if c < '0' || c > '9' {
+			return "", false
+		}
+	}
+
+	return roleID, true
+}
+
+// ExtractChannelIDFromMention extracts the numerical Discord Channel ID from a mention string.
+// Supported format: <#123...>
+func ExtractChannelIDFromMention(mention string) (string, bool) {
+	if !strings.HasPrefix(mention, "<#") || !strings.HasSuffix(mention, ">") {
+		return "", false
+	}
+	channelID := strings.TrimPrefix(mention, "<#")
+	channelID = strings.TrimSuffix(channelID, ">")
+
+	if len(channelID) == 0 {
+		return "", false
+	}
+
+	for _, c := range channelID {
+		if c < '0' || c > '9' {
+			return "", false
+		}
+	}
+
+	return channelID, true
+}
