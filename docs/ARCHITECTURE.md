@@ -78,7 +78,7 @@ graph TB
 
 ## Database Schema
 
-The bot uses **SQLite** with 6 tables: `users`, `classes`, `problems`, `enrollments`, `solved_problems`, and `pending_confirmations`.
+The bot uses **SQLite** with 7 tables: `users`, `classes`, `classrooms`, `class_access_roles`, `problems`, `solved_problems`, and `pending_confirmations`.
 
 The full ER diagram is available in [DB Diagram.pdf](../DB%20Diagram.pdf). The DDL source of truth is [app/data/schema.sql](../app/data/schema.sql).
 
@@ -98,7 +98,7 @@ The `topic` parameter accepts any single word, or `-` to skip.
 
 ## Confirmation Flow
 
-Dangerous commands (`!deregister`, `!remove_problem`, `!clear_class`, `!exterminate`) trigger a **two-step confirmation flow**:
+Dangerous commands (`!remove_problem`, `!clear_class`, `!exterminate`) trigger a **two-step confirmation flow**:
 
 1. The bot sends an embedded warning message with 👍 and 👎 reactions.
 2. The original command author reacts:

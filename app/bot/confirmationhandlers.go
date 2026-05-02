@@ -44,7 +44,7 @@ var confirmableCommands = map[string]ConfirmableCommand{
 				return "⚠️ **WARNING**: Invalid clear class command."
 			}
 			classCode := c.Args[1]
-			return fmt.Sprintf("⚠️ **WARNING**: This will COMPLETELY DELETE the class `%s`, including all its student enrollments, solved problems, and settings.\n\nThis action cannot be undone. Are you sure?", classCode)
+			return fmt.Sprintf("⚠️ **WARNING**: This will COMPLETELY DELETE the class `%s`, including all its solved problems and settings.\n\nThis action cannot be undone. Are you sure?", classCode)
 		},
 		Handler: handleClearClassConfirmation,
 	},
