@@ -76,6 +76,14 @@ graph TB
 
 ---
 
+## Domain Concepts
+
+To ensure clarity across the system, the bot utilizes the following domain concepts:
+- **Enrolled User**: A user is considered "enrolled" or to have "access" to a class if they possess a Discord Role that has been linked to that class via the `class_access_roles` table (managed by `!link_roles`).
+- **Active Student**: A user who has solved at least 1 problem (AC) in a specific class. This drives the `!users` and `!score` logic.
+
+---
+
 ## Database Schema
 
 The bot uses **SQLite** with 7 tables: `users`, `classes`, `classrooms`, `class_access_roles`, `problems`, `solved_problems`, and `pending_confirmations`.

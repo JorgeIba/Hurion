@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/controllerserr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
@@ -27,7 +28,7 @@ func HandleClearClass(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return nil
+		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
 	}
 
 	classCode := c.Args[1]
@@ -93,7 +94,7 @@ func HandleExterminate(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return nil
+		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
 	}
 
 	mention := c.Args[1]
@@ -135,7 +136,7 @@ func HandleExportClass(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return nil
+		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
 	}
 
 	classCode := c.Args[1]
@@ -211,7 +212,7 @@ func HandleLinkRoles(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return nil
+		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
 	}
 
 	classCode := c.Args[1]
@@ -255,7 +256,7 @@ func HandleLinkRooms(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
 		)
-		return nil
+		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
 	}
 
 	classCode := c.Args[1]

@@ -451,7 +451,8 @@ func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
 	`
 	_, err := db.conn.Exec(query, confirmation.MessageID, confirmation.UserID, confirmation.ProblemID)
 	if err != nil {
-		if sqliteErr, ok := err.(sqlite3.Error); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintForeignKey {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintForeignKey {
 			return dataerr.NewUserMissingFromDatabaseError(fmt.Sprintf("user %s not found in database", confirmation.UserID), err)
 		}
 		return dataerr.NewQueryError(fmt.Sprintf("could not add or update pending confirmation for message id %s, user id %s and problem %d", confirmation.MessageID, confirmation.UserID, confirmation.ProblemID), err)
