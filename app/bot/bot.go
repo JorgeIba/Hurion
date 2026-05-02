@@ -173,10 +173,10 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		ExecutorGuildID:        r.GuildID, // Where it's executed
 	}
 
-	// Systematic safeguard: ensures every user involved exists in the DB before logic runs
-	controllers_common.SyncParticipants(context)
-
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
+		// Systematic safeguard: ensures every user involved exists in the DB before logic runs
+		controllers_common.SyncParticipants(context)
+
 		router(context)
 	}
 }
