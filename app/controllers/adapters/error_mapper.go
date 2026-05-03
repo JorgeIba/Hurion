@@ -78,9 +78,9 @@ var templates = map[Action]map[ErrorKind]string{
 	ActionScoreByUserAndClass: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found",
 		errorKindUserNotFound:      "User `%[1]s` not found",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in class `%[2]s`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
-		errorKindDefault:           "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
+		errorKindDefault:           "User `%[1]s` has access to `%[2]s`? I didn't find any AC",
 	},
 	ActionGetUsersInClass: {
 		errorKindClassCodeNotFound: "No class was found with class code `%s`",
@@ -116,14 +116,14 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionMentorDeregisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in class `%[2]s`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindDefault:           "Unexpected error while mentor-deregistering user.",
 	},
 	ActionMentorAddAC: {
 		errorKindProblemNotFound:   "Problem id `%[2]d` not found for user `%[1]s`",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to the class of problem `%[2]d`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindConflict:          "User `%[1]s` has already solved problem `%[2]d`",
@@ -157,20 +157,20 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionEnrolledDeregisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`.",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not registered in class `%[2]s`.",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`.",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindDefault:           "Unexpected error while deregistering from class.",
 	},
 	ActionEnrolledProposeAC: {
 		errorKindProblemNotFound:   "Problem `%[2]d` not found for user `%[1]s`",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to the class of problem `%[2]d`",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindConflict:          "User `%[1]s` has already solved problem `%[2]d`",
 		errorKindDefault:           "Unexpected error while proposing AC.",
 	},
 	ActionEnrolledUndoAC: {
 		errorKindProblemNotFound:   "Problem `%[2]d` not found.",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to the class of problem `%[2]d`",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindConflict:          "Bro `%[1]s`, you haven't solved problem `%[2]d` yet",
 		errorKindDefault:           "Unexpected error while undoing AC.",
