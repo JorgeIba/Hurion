@@ -22,7 +22,6 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
 	env.SeedUser(t, "student_1", "Student")
-	env.SeedEnrollment(t, "student_1", classCode)
 
 	// Stub Admin role
 	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
@@ -59,8 +58,6 @@ func TestIntegration_ExterminateUser_Logic(t *testing.T) {
 
 	testUserID := "999888777"
 	env.SeedUser(t, testUserID, "Dead Man Walking")
-	env.SeedEnrollment(t, testUserID, "class_1")
-	env.SeedEnrollment(t, testUserID, "class_2")
 	env.SeedAC(t, testUserID, p1)
 	env.SeedAC(t, testUserID, p2)
 
@@ -76,8 +73,6 @@ func TestIntegration_ExterminateUser_Logic(t *testing.T) {
 
 	// 3. ASSERT: Deep wipe verification
 	env.AssertUserNotExists(t, testUserID)
-	env.AssertEnrollmentNotExists(t, testUserID, "class_1")
-	env.AssertEnrollmentNotExists(t, testUserID, "class_2")
 	env.AssertProblemNotSolved(t, testUserID, p1)
 	env.AssertProblemNotSolved(t, testUserID, p2)
 
@@ -123,7 +118,6 @@ func TestIntegration_ExportClass_Logic(t *testing.T) {
 
 	student := service_model.User{UserID: "student_1", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, classCode)
 	env.SeedAC(t, student.UserID, problemID)
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}

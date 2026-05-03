@@ -29,22 +29,18 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				u1 := data.User{UserID: "u1", DisplayName: "user1"}
-				u2 := data.User{UserID: "u2", DisplayName: "user2"}
 				u3 := data.User{UserID: "u3", DisplayName: "user3"}
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{
 					u1: {{UserID: "u1", ProblemID: 100}},
 					u3: {{UserID: "u3", ProblemID: 101}},
 				}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{u1, u2, u3}, nil)
 			},
 			assertFunc: func(t *testing.T, res map[service_model.User][]service_model.SolvedProblem, err error) {
 				assert.NoError(t, err)
-				assert.Len(t, res, 3)
+				assert.Len(t, res, 2)
 				// Verify u1 has 1 problem
 				assert.Len(t, res[service_model.User{UserID: "u1", DisplayName: "user1"}], 1)
-				// Verify u2 has 0 problems
-				assert.Len(t, res[service_model.User{UserID: "u2", DisplayName: "user2"}], 0)
 				// Verify u3 has 1 problem
 				assert.Len(t, res[service_model.User{UserID: "u3", DisplayName: "user3"}], 1)
 			},
@@ -81,12 +77,11 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 			},
 		},
 		{
-			name:      "generic error GetAllUsersByClassID",
+			name:      "generic error GetAllSolvedProblemsByClass",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
+				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(nil, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, res map[service_model.User][]service_model.SolvedProblem, err error) {
 				assert.Error(t, err)
@@ -139,7 +134,6 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 					u2: {{ProblemID: 100}, {ProblemID: 101}},
 					u3: {{ProblemID: 100}},
 				}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{u1, u2, u3}, nil)
 
 				groupedProblems := []service_model.ProblemsByTopic{
 					{Topic: "T1", Problems: problems},
@@ -179,12 +173,11 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 			},
 		},
 		{
-			name:      "error in GetProblemsGroupedByTopic",
+			name:      "error_in_GetProblemsGroupedByTopic",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{}, nil)
 				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, res service_model.Score, err error) {
@@ -239,7 +232,6 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 					users[5]: {{ProblemID: 1}, {ProblemID: 2}},
 					users[6]: {{ProblemID: 1}},
 				}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(users, nil)
 			},
 			assertFunc: func(t *testing.T, res service_model.Score, err error) {
 				assert.NoError(t, err)
@@ -277,7 +269,6 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 					users[2]: {{ProblemID: 1}, {ProblemID: 2}},
 					users[3]: {{ProblemID: 1}},
 				}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(users, nil)
 			},
 			assertFunc: func(t *testing.T, res service_model.Score, err error) {
 				assert.NoError(t, err)
@@ -309,7 +300,6 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(nil, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{}, nil)
 				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return(nil, nil)
 			},
 			assertFunc: func(t *testing.T, res service_model.Score, err error) {
@@ -352,12 +342,10 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 
 				m.EXPECT().GetClassByClassCode("C1").Return(data.Class{ID: 1, ClassCode: "C1"}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{{UserID: "u1"}: {{ProblemID: 100}}}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(1)).Return([]data.User{{UserID: "u1"}}, nil)
 				ps.EXPECT().GetProblemsGroupedByTopic("C1").Return([]service_model.ProblemsByTopic{{Problems: []service_model.Problem{{ID: 100}}}}, nil)
 
 				m.EXPECT().GetClassByClassCode("C2").Return(data.Class{ID: 2, ClassCode: "C2"}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(2)).Return(map[data.User][]data.SolvedProblem{{UserID: "u2"}: {{ProblemID: 200}}}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(2)).Return([]data.User{{UserID: "u2"}}, nil)
 				ps.EXPECT().GetProblemsGroupedByTopic("C2").Return([]service_model.ProblemsByTopic{{Problems: []service_model.Problem{{ID: 200}}}}, nil)
 			},
 			assertFunc: func(t *testing.T, res map[string]service_model.Score, err error) {
@@ -420,7 +408,7 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10, ClassCode: "CS101"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil).AnyTimes()
+				m.EXPECT().GetActiveUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil).AnyTimes()
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(map[data.User][]data.SolvedProblem{}, nil)
 				ps.EXPECT().GetProblemsGroupedByTopic("CS101").Return([]service_model.ProblemsByTopic{}, nil)
 			},
@@ -452,11 +440,11 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 			},
 		},
 		{
-			name:      "generic error GetAllUsersByClassID",
+			name:      "GetActiveUsersByClassID generic error",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
+				m.EXPECT().GetActiveUsersByClassID(int64(10)).Return(nil, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, u []service_model.User, p []service_model.ProblemsByTopic, s service_model.Score, err error) {
 				assert.Error(t, err)
@@ -467,8 +455,7 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10, ClassCode: "CS101"}, nil).AnyTimes()
-				m.EXPECT().GetAllUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil)
-				// GetScoreByClassCode will call GetRawScoreByClassCode -> GetAllSolvedProblemsByClass
+				m.EXPECT().GetActiveUsersByClassID(int64(10)).Return([]data.User{{UserID: "u1"}}, nil)
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(10)).Return(nil, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, u []service_model.User, p []service_model.ProblemsByTopic, s service_model.Score, err error) {

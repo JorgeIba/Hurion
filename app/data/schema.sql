@@ -34,14 +34,6 @@ CREATE TABLE IF NOT EXISTS problems (
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS enrollments (
-    user_id TEXT,
-    class_id INTEGER,
-    PRIMARY KEY (user_id, class_id),
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
-);
-
 CREATE TABLE IF NOT EXISTS solved_problems (
     user_id TEXT,
     problem_id INTEGER,

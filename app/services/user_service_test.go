@@ -193,7 +193,71 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 	}
 }
 
-func TestUserService_GetClassesByUserID(t *testing.T) {
+func TestUserService_GetAccessibleClassesByRoles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		roles      []string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, []service_model.Class, error)
+	}{
+		{
+			name:  "success - one accessible class",
+			roles: []string{"role_1"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassesByAccessRoles([]string{"role_1"}).Return([]data.Class{{ClassCode: "c1", Name: "Class 1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, res []service_model.Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, res, 1)
+				assert.Equal(t, "c1", res[0].ClassCode)
+			},
+		},
+		{
+			name:  "success - multiple accessible classes",
+			roles: []string{"role_a", "role_b"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassesByAccessRoles([]string{"role_a", "role_b"}).Return([]data.Class{
+					{ClassCode: "c1"},
+					{ClassCode: "c2"},
+				}, nil)
+			},
+			assertFunc: func(t *testing.T, res []service_model.Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, res, 2)
+			},
+		},
+		{
+			name:  "no access to any class",
+			roles: []string{"other"},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassesByAccessRoles([]string{"other"}).Return([]data.Class{}, nil)
+			},
+			assertFunc: func(t *testing.T, res []service_model.Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, res, 0)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+
+			svc := &UserService{Datastore: mockStore}
+			res, err := svc.GetAccessibleClassesByRoles(tt.roles)
+			tt.assertFunc(t, res, err)
+		})
+	}
+}
+
+func TestUserService_GetClassesWhereUserIsActive(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -206,18 +270,19 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 			name:   "success",
 			userID: "u1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassesByUserID("u1").Return([]data.Class{{ID: 1, Name: "C1"}}, nil)
+				m.EXPECT().GetClassesWhereUserIsActive("u1").Return([]data.Class{{ClassCode: "c1"}}, nil)
 			},
 			assertFunc: func(t *testing.T, res []service_model.Class, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, []service_model.Class{{ID: 1, Name: "C1"}}, res)
+				assert.Len(t, res, 1)
+				assert.Equal(t, "c1", res[0].ClassCode)
 			},
 		},
 		{
-			name:   "error",
+			name:   "datastore error",
 			userID: "u1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassesByUserID("u1").Return(nil, errors.New("db fail"))
+				m.EXPECT().GetClassesWhereUserIsActive("u1").Return(nil, errors.New("db error"))
 			},
 			assertFunc: func(t *testing.T, res []service_model.Class, err error) {
 				assert.Error(t, err)
@@ -235,7 +300,7 @@ func TestUserService_GetClassesByUserID(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &UserService{Datastore: mockStore}
-			res, err := svc.GetClassesByUserID(tt.userID)
+			res, err := svc.GetClassesWhereUserIsActive(tt.userID)
 			tt.assertFunc(t, res, err)
 		})
 	}

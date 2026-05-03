@@ -111,7 +111,7 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 		enrolled.HandleProposeAC(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
-		assert.Contains(t, sentMsgs[0].Content, "is not enrolled in the class")
+		assert.Contains(t, sentMsgs[0].Content, "doesn't have access to the class")
 	})
 
 	t.Run("Student - !undoac Allowed even without role", func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
 		require.NotEmpty(t, sentMsgs)
-		assert.Contains(t, sentMsgs[0].Content, "is not enrolled in the class")
+		assert.Contains(t, sentMsgs[0].Content, "doesn't have access to the class")
 	})
 
 	t.Run("List - Public access even without roles", func(t *testing.T) {
@@ -193,7 +193,7 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
 		require.NotEmpty(t, sentMsgs)
-		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not enrolled in the class")
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "doesn't have access to the class")
 	})
 
 	t.Run("Student - !ac Success via API Fallback (Cache Miss)", func(t *testing.T) {

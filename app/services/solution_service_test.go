@@ -28,6 +28,7 @@ func TestSolutionService_AddACToUserID(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 				m.EXPECT().AddAC("u1", int64(100)).Return(nil)
 			},
@@ -40,6 +41,7 @@ func TestSolutionService_AddACToUserID(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
@@ -52,6 +54,7 @@ func TestSolutionService_AddACToUserID(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 				m.EXPECT().AddAC("u1", int64(100)).Return(errors.New("db fail"))
 			},
@@ -92,6 +95,7 @@ func TestSolutionService_UndoAC(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 				m.EXPECT().RemoveAC("u1", int64(100)).Return(nil)
 			},
@@ -104,6 +108,7 @@ func TestSolutionService_UndoAC(t *testing.T) {
 			userID:    "u1",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
@@ -153,6 +158,7 @@ func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
 					{ClassCode: "CS101", RoleID: "role_student"},
 				}, nil)
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 				m.EXPECT().AddPendingConfirmation(gomock.Any()).Return(nil)
 			},
@@ -174,6 +180,7 @@ func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
 					{ClassCode: "CS101", RoleID: "role_student"},
 				}, nil)
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
@@ -354,6 +361,7 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
 				m.EXPECT().RemovePendingConfirmation("m1").Return(nil)
+				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
 				m.EXPECT().AddAC("u1", int64(100)).Return(nil)
 			},

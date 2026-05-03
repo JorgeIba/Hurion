@@ -16,27 +16,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func HandleRegisterUserInClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
-	user := c.Executor
-
-	if err := c.Services.Enrollment.RegisterUserIntoClass(user, classCode); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, user.DisplayName)),
-		)
-
-		return
-	}
-
-	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", user.DisplayName, classCode)
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
-	)
-}
-
 func HandleGetListOfProblems(c *context.ContextMessage) {
 	class, err := controllers_common.ResolveClassContext(c, 1)
 	if err != nil {
@@ -333,9 +312,16 @@ func HandleGetAllClasses(c *context.ContextMessage) {
 }
 
 func HandleGetMyClasses(c *context.ContextMessage) {
-	discordID := c.Message.Author.ID
+	principal, err := controllers_common.GetMemberSafe(c, c.Executor.UserID)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro."),
+		)
+		return
+	}
 
-	classes, err := c.Services.User.GetClassesByUserID(discordID)
+	classes, err := c.Services.User.GetAccessibleClassesByRoles(principal.Roles)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -346,7 +332,7 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 
 	if len(classes) == 0 {
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "You are not registered in any class"),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "You don't have access to any class roles, bro."),
 		)
 		return
 	}
@@ -383,7 +369,16 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 		return
 	}
 
-	classes, err := c.Services.User.GetClassesByUserID(userID)
+	principal, err := controllers_common.GetMemberSafe(c, userID)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify that user's roles with Discord, bro."),
+		)
+		return
+	}
+
+	classes, err := c.Services.User.GetAccessibleClassesByRoles(principal.Roles)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -394,7 +389,7 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 
 	if len(classes) == 0 {
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> not registered in any class", userID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> doesn't have access to any class roles, bro.", userID)),
 		)
 		return
 	}

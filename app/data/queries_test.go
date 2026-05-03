@@ -95,136 +95,6 @@ func TestEnsureUser(t *testing.T) {
 	}
 }
 
-func TestRegisterUserIntoClass(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		userID     string
-		classID    int64
-		assertFunc func(t *testing.T, db *DB, err error)
-	}{
-		{
-			name: "should register user into class",
-			setup: func(t *testing.T, db *DB) {
-				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
-				require.NoError(t, err)
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.NoError(t, err)
-				var count int
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = 'u1' AND class_id = 1").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 1, count)
-			},
-		},
-		{
-			name: "should return error if db closed",
-			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.Error(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			db := setupDB(t)
-			defer db.CloseDB()
-
-			if tt.setup != nil {
-				tt.setup(t, db)
-			}
-
-			err := db.RegisterUserIntoClass(tt.userID, tt.classID)
-			tt.assertFunc(t, db, err)
-		})
-	}
-}
-
-func TestDeregisterUserFromClass(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		userID     string
-		classID    int64
-		assertFunc func(t *testing.T, db *DB, err error)
-	}{
-		{
-			name: "should successfully deregister user",
-			setup: func(t *testing.T, db *DB) {
-				classID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
-				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", classID)
-				require.NoError(t, err)
-				problemID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: classID})
-				require.NoError(t, err)
-				err = db.AddAC("u1", problemID)
-				require.NoError(t, err)
-				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: problemID})
-				require.NoError(t, err)
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.NoError(t, err)
-				var count int
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE user_id = 'u1'").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count, "Enrollment should be gone")
-
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems WHERE user_id = 'u1'").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count, "ACs should be gone")
-
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations WHERE user_id = 'u1'").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count, "Pending confirmations should be gone")
-			},
-		},
-		{
-			name: "should return error if db closed",
-			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.Error(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			db := setupDB(t)
-			defer db.CloseDB()
-
-			if tt.setup != nil {
-				tt.setup(t, db)
-			}
-
-			err := db.DeregisterUserFromClass(tt.userID, tt.classID)
-			tt.assertFunc(t, db, err)
-		})
-	}
-}
-
 func TestAddProblem(t *testing.T) {
 	t.Parallel()
 
@@ -678,8 +548,6 @@ func TestClearClass(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
-				require.NoError(t, err)
 				err = db.AddAC("u1", pID)
 				require.NoError(t, err)
 			},
@@ -691,9 +559,6 @@ func TestClearClass(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
 				err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE class_id = 1").Scan(&count)
-				assert.NoError(t, err)
-				assert.Equal(t, 0, count)
-				err = db.conn.QueryRow("SELECT COUNT(*) FROM enrollments WHERE class_id = 1").Scan(&count)
 				assert.NoError(t, err)
 				assert.Equal(t, 0, count)
 				err = db.conn.QueryRow("SELECT COUNT(*) FROM classrooms WHERE class_code = 'c1'").Scan(&count)
@@ -1304,71 +1169,6 @@ func TestGetClassByClassCode(t *testing.T) {
 	}
 }
 
-func TestIsUserRegisteredInClass(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		userID     string
-		classID    int64
-		assertFunc func(t *testing.T, db *DB, registered bool, err error)
-	}{
-		{
-			name: "should return true if registered",
-			setup: func(t *testing.T, db *DB) {
-				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
-				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
-				require.NoError(t, err)
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, registered)
-			},
-		},
-		{
-			name:    "should return false if not registered",
-			userID:  "u1",
-			classID: 99,
-			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
-				assert.NoError(t, err)
-				assert.False(t, registered)
-			},
-		},
-		{
-			name: "should return error if db closed",
-			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
-			},
-			userID:  "u1",
-			classID: 1,
-			assertFunc: func(t *testing.T, db *DB, registered bool, err error) {
-				assert.Error(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			db := setupDB(t)
-			defer db.CloseDB()
-
-			if tt.setup != nil {
-				tt.setup(t, db)
-			}
-
-			registered, err := db.IsUserRegisteredInClass(tt.userID, tt.classID)
-			tt.assertFunc(t, db, registered, err)
-		})
-	}
-}
-
 func TestAddPendingConfirmation(t *testing.T) {
 	t.Parallel()
 
@@ -1386,8 +1186,6 @@ func TestAddPendingConfirmation(t *testing.T) {
 				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
-				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
 				require.NoError(t, err)
 			},
 			confirmation: PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 1},
@@ -1669,7 +1467,7 @@ func TestGetProblemByID(t *testing.T) {
 	}
 }
 
-func TestGetAllUsersByClassID(t *testing.T) {
+func TestGetActiveUsersByClassID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -1679,33 +1477,72 @@ func TestGetAllUsersByClassID(t *testing.T) {
 		assertFunc func(t *testing.T, db *DB, users []User, err error)
 	}{
 		{
-			name: "should get all users in class",
+			name: "should only return users with at least one AC in the class",
 			setup: func(t *testing.T, db *DB) {
 				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
 				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
 				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u2", DisplayName: "User 2"})
+
+				// User 1: Active (has AC)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "Active User"})
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID)
+				err = db.AddAC("u1", pID)
 				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u2", cID)
+
+				// User 2: Inactive (no AC in this class)
+				err = db.EnsureUser(User{UserID: "u2", DisplayName: "Inactive User"})
+				require.NoError(t, err)
+
+				// User 3: Active in DIFFERENT class
+				cID2, _ := db.CreateClass(Class{ClassCode: "c2", Name: "n2"})
+				pID2, _ := db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID2})
+				err = db.EnsureUser(User{UserID: "u3", DisplayName: "Other Class User"})
+				require.NoError(t, err)
+				err = db.AddAC("u3", pID2)
 				require.NoError(t, err)
 			},
 			classID: 1,
 			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
 				assert.NoError(t, err)
-				assert.Len(t, users, 2)
+				assert.Len(t, users, 1)
+				assert.Equal(t, "u1", users[0].UserID)
 			},
 		},
 		{
-			name: "should return error if db closed",
+			name: "should return empty if no users have solved anything",
 			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
+				db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
 			},
 			classID: 1,
 			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
-				assert.Error(t, err)
+				assert.NoError(t, err)
+				assert.Len(t, users, 0)
+			},
+		},
+		{
+			name: "should return users sorted by display name then user id",
+			setup: func(t *testing.T, db *DB) {
+				cID, _ := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				pID, _ := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+
+				// Insert unsorted
+				_ = db.EnsureUser(User{UserID: "u3", DisplayName: "Zebra"})
+				_ = db.EnsureUser(User{UserID: "u2", DisplayName: "Alpha"})
+				_ = db.EnsureUser(User{UserID: "u1", DisplayName: "Alpha"})
+
+				_ = db.AddAC("u3", pID)
+				_ = db.AddAC("u2", pID)
+				_ = db.AddAC("u1", pID)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, users []User, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, users, 3)
+				// Alpha / u1 -> Alpha / u2 -> Zebra / u3
+				assert.Equal(t, "u1", users[0].UserID)
+				assert.Equal(t, "u2", users[1].UserID)
+				assert.Equal(t, "u3", users[2].UserID)
 			},
 		},
 	}
@@ -1720,7 +1557,7 @@ func TestGetAllUsersByClassID(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			users, err := db.GetAllUsersByClassID(tt.classID)
+			users, err := db.GetActiveUsersByClassID(tt.classID)
 			tt.assertFunc(t, db, users, err)
 		})
 	}
@@ -1855,7 +1692,7 @@ func TestUpdateProblemByProblemID(t *testing.T) {
 	}
 }
 
-func TestGetClassesByUserID(t *testing.T) {
+func TestGetClassesWhereUserIsActive(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -1865,33 +1702,61 @@ func TestGetClassesByUserID(t *testing.T) {
 		assertFunc func(t *testing.T, db *DB, classes []Class, err error)
 	}{
 		{
-			name: "should return classes user is enrolled in",
+			name: "should only return classes where the user has an AC",
 			setup: func(t *testing.T, db *DB) {
-				cID1, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
-				require.NoError(t, err)
-				cID2, err := db.CreateClass(Class{ClassCode: "c2", Name: "n2"})
-				require.NoError(t, err)
-				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
-				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID1)
-				require.NoError(t, err)
-				err = db.RegisterUserIntoClass("u1", cID2)
-				require.NoError(t, err)
+				cID1, _ := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				cID2, _ := db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
+				_ = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
+
+				pID1, _ := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID1})
+				_, _ = db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID2})
+
+				// User 1 solved a problem in Class 1, but NOT in Class 2
+				_ = db.AddAC("u1", pID1)
 			},
 			userID: "u1",
 			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
 				assert.NoError(t, err)
-				assert.Len(t, classes, 2)
+				assert.Len(t, classes, 1)
+				assert.Equal(t, "c1", classes[0].ClassCode)
 			},
 		},
 		{
-			name: "should return error if db closed",
+			name: "should return empty if user has no solves anywhere",
 			setup: func(t *testing.T, db *DB) {
-				db.CloseDB()
+				_, _ = db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				_ = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
 			},
 			userID: "u1",
 			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
-				assert.Error(t, err)
+				assert.NoError(t, err)
+				assert.Len(t, classes, 0)
+			},
+		},
+		{
+			name: "should return classes sorted by class code",
+			setup: func(t *testing.T, db *DB) {
+				cID3, _ := db.CreateClass(Class{ClassCode: "c3", Name: "Class 3"})
+				cID1, _ := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				cID2, _ := db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
+				_ = db.EnsureUser(User{UserID: "u1", DisplayName: "User 1"})
+
+				pID3, _ := db.AddProblem(Problem{Name: "p3", URL: "u3", ClassID: cID3})
+				pID1, _ := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID1})
+				pID2, _ := db.AddProblem(Problem{Name: "p2", URL: "u2", ClassID: cID2})
+
+				// Insert unsorted
+				_ = db.AddAC("u1", pID3)
+				_ = db.AddAC("u1", pID1)
+				_ = db.AddAC("u1", pID2)
+			},
+			userID: "u1",
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 3)
+				assert.Equal(t, "c1", classes[0].ClassCode)
+				assert.Equal(t, "c2", classes[1].ClassCode)
+				assert.Equal(t, "c3", classes[2].ClassCode)
 			},
 		},
 	}
@@ -1906,7 +1771,7 @@ func TestGetClassesByUserID(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			classes, err := db.GetClassesByUserID(tt.userID)
+			classes, err := db.GetClassesWhereUserIsActive(tt.userID)
 			tt.assertFunc(t, db, classes, err)
 		})
 	}
@@ -2036,6 +1901,65 @@ func TestExterminateUser(t *testing.T) {
 
 			err := db.ExterminateUser(tt.userID)
 			tt.assertFunc(t, db, err)
+		})
+	}
+}
+
+func TestGetClassesByAccessRoles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		roles      []string
+		assertFunc func(t *testing.T, db *DB, classes []Class, err error)
+	}{
+		{
+			name: "should return empty if no roles provided",
+			setup: func(t *testing.T, db *DB) {
+				_, _ = db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
+			},
+			roles: []string{},
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 0)
+			},
+		},
+		{
+			name: "should return classes sorted by class code for multiple roles",
+			setup: func(t *testing.T, db *DB) {
+				_, _ = db.CreateClass(Class{ClassCode: "c3", Name: "Class 3"})
+				_, _ = db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				_, _ = db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
+				
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c3", RoleID: "r2"})
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
+				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c2", RoleID: "r1"})
+			},
+			roles: []string{"r1", "r2"},
+			assertFunc: func(t *testing.T, db *DB, classes []Class, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, classes, 3)
+				assert.Equal(t, "c1", classes[0].ClassCode)
+				assert.Equal(t, "c2", classes[1].ClassCode)
+				assert.Equal(t, "c3", classes[2].ClassCode)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			classes, err := db.GetClassesByAccessRoles(tt.roles)
+			tt.assertFunc(t, db, classes, err)
 		})
 	}
 }

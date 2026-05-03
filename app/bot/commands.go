@@ -4,8 +4,6 @@ type Command int
 
 const (
 	Help Command = iota
-	Register
-	Deregister
 	List
 	Score
 	AC
@@ -14,6 +12,8 @@ const (
 	RemoveProblem
 	ClearClass
 	CreateClass
+	LinkRoles
+	LinkRooms
 	Users
 	Classes
 	UpdateProblem
@@ -39,26 +39,6 @@ var Commands = map[Command]CommandData{
 		Usage:       "!help [command]",
 		Description: "Show info for all commands or details for a specific command",
 		UserRoles:   NewUserRoleSet(RoleAll),
-	},
-	Register: {
-		Cmd:         "!register",
-		Name:        "register",
-		Usage:       "!register <class_code>\n!register <@user> <class_code>",
-		Description: "Register yourself or another user in a class",
-		UserRoles:   NewUserRoleSet(RoleAll, RoleMentor),
-		ExtraInfo: "**As Regular User:** Use `!register <class_code>` to register yourself in a class.\n" +
-			"**As Mentor:** Use `!register <@user> <class_code>` to register another user in a class.\n" +
-			"The `class_code` parameter should be one word (e.g., \"basicos_1\").",
-	},
-	Deregister: {
-		Cmd:         "!deregister",
-		Name:        "deregister",
-		Usage:       "!deregister <class_code>\n!deregister <@user> <class_code>",
-		Description: "Remove yourself or another user from a class",
-		UserRoles:   NewUserRoleSet(RoleEnrolled, RoleMentor),
-		ExtraInfo: "**As Enrolled User:** Use `!deregister <class_code>` to remove yourself from a class.\n" +
-			"**As Mentor:** Use `!deregister <@user> <class_code>` to remove another user from a class.\n" +
-			"⚠️ **WARNING:** This will delete ALL solved problems and pending confirmations for the user in this class.",
 	},
 	List: {
 		Cmd:         "!list",
@@ -137,7 +117,7 @@ var Commands = map[Command]CommandData{
 		Cmd:         "!clear_class",
 		Name:        "clear_class",
 		Usage:       "!clear_class <class_code>",
-		Description: "Remove all problems, enrollments, and scores from a class",
+		Description: "Remove all problems, scores, and participation data from a class",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
 		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
 	},
@@ -149,11 +129,27 @@ var Commands = map[Command]CommandData{
 		UserRoles:   NewUserRoleSet(RoleAdmin),
 		ExtraInfo:   "The `class_code` should be one word, while `ClassName` can include multiple words (e.g., \"basicos_1 Basicos 2025\")",
 	},
+	LinkRoles: {
+		Cmd:         "!link_roles",
+		Name:        "link_roles",
+		Usage:       "!link_roles <class_code> <@role1> [@role2] ...",
+		Description: "Link Discord roles to a class for access control",
+		UserRoles:   NewUserRoleSet(RoleAdmin),
+		ExtraInfo:   "Allows users with these roles to submit ACs for the class. Mention multiple roles separated by spaces.",
+	},
+	LinkRooms: {
+		Cmd:         "!link_rooms",
+		Name:        "link_rooms",
+		Usage:       "!link_rooms <class_code> <#channel1> [#channel2] ...",
+		Description: "Link Discord channels to a class as classrooms",
+		UserRoles:   NewUserRoleSet(RoleAdmin),
+		ExtraInfo:   "Sets up default class context for commands run in these channels. Mention multiple channels separated by spaces.",
+	},
 	Exterminate: {
 		Cmd:         "!exterminate",
 		Name:        "exterminate",
 		Usage:       "!exterminate <@user>",
-		Description: "Remove user from all system data including enrollments, solved problems and pending confirmations",
+		Description: "Remove user from all system data including solved problems and pending confirmations",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
 		ExtraInfo:   "Mention the user with @ (e.g., \"@DaddyYorch\"). This action cannot be undone.",
 	},

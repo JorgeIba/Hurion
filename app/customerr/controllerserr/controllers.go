@@ -69,6 +69,17 @@ func (e *ParsingError) Unwrap() error {
 	return e.WrappedError
 }
 
+type UnauthorizedError struct {
+	*ControllersError
+}
+
+func (e *UnauthorizedError) Unwrap() error {
+	if e == nil || e.ControllersError == nil {
+		return nil
+	}
+	return e.WrappedError
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -97,6 +108,16 @@ func NewParsingError(message string, original error) *ParsingError {
 	return &ParsingError{
 		ControllersError: &ControllersError{
 			Code:         500,
+			Message:      message,
+			WrappedError: original,
+		},
+	}
+}
+
+func NewUnauthorizedError(message string, original error) *UnauthorizedError {
+	return &UnauthorizedError{
+		ControllersError: &ControllersError{
+			Code:         403,
 			Message:      message,
 			WrappedError: original,
 		},

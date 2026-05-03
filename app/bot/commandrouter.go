@@ -15,8 +15,6 @@ type CommandRouter func(c *context.ContextMessage)
 
 var commandMap = map[string]CommandRouter{
 	Help.String():          routerHelp,
-	Register.String():      routerRegister,
-	Deregister.String():    routerDeregister,
 	List.String():          routerList,
 	Score.String():         routerScore,
 	AC.String():            routerProposeAC,
@@ -25,6 +23,8 @@ var commandMap = map[string]CommandRouter{
 	RemoveProblem.String(): routerRemoveProblem,
 	ClearClass.String():    routerClearClass,
 	CreateClass.String():   routerCreateClass,
+	LinkRoles.String():     routerLinkRoles,
+	LinkRooms.String():     routerLinkRooms,
 	Users.String():         routerGetUsersInClass,
 	Classes.String():       routerGetAllClasses,
 	UpdateProblem.String(): routerUpdateProblem,
@@ -43,32 +43,6 @@ func sendUsageError(c *context.ContextMessage, command string) {
 
 func routerHelp(c *context.ContextMessage) {
 	HandleHelp(c)
-}
-
-func routerRegister(c *context.ContextMessage) {
-	switch len(c.Args) {
-	case 2:
-		general.HandleRegisterUserInClass(c)
-	case 3:
-		mentor.HandleRegisterUser(c)
-	default:
-		sendUsageError(c, Register.Name())
-	}
-}
-
-func routerDeregister(c *context.ContextMessage) {
-	switch len(c.Args) {
-	case 2, 3:
-		// This command requires confirmation
-		// confirmationHandler.go will handle it
-		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
-			c.Message.ChannelID,
-			c.Message.ID,
-			GetConfirmationMessage(c, Deregister.String()),
-		))
-	default:
-		sendUsageError(c, Deregister.Name())
-	}
 }
 
 func routerList(c *context.ContextMessage) {
@@ -250,5 +224,21 @@ func HandleHelp(c *context.ContextMessage) {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Usage: `!help [command]`"),
 		)
+	}
+}
+
+func routerLinkRoles(c *context.ContextMessage) {
+	if len(c.Args) >= 3 {
+		admin.HandleLinkRoles(c)
+	} else {
+		sendUsageError(c, LinkRoles.Name())
+	}
+}
+
+func routerLinkRooms(c *context.ContextMessage) {
+	if len(c.Args) >= 3 {
+		admin.HandleLinkRooms(c)
+	} else {
+		sendUsageError(c, LinkRooms.Name())
 	}
 }

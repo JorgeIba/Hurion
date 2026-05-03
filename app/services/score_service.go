@@ -39,22 +39,9 @@ func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[servi
 		return emptyMap, serviceerr.MakeGeneralError(err)
 	}
 
-	// Ensure all users in the class are represented in the score map
-	allUsersData, err := service.Datastore.GetAllUsersByClassID(class.ID)
-	if err != nil {
-		return emptyMap, serviceerr.MakeGeneralError(err)
-	}
-
 	studentsScore := make(map[service_model.User][]service_model.SolvedProblem)
 	for uData, spsData := range studentsScoreData {
 		studentsScore[mapDataUserToServiceUser(uData)] = mapDataSolvedProblemsToServiceSolvedProblems(spsData)
-	}
-
-	for _, uData := range allUsersData {
-		user := mapDataUserToServiceUser(uData)
-		if _, exists := studentsScore[user]; !exists {
-			studentsScore[user] = []service_model.SolvedProblem{}
-		}
 	}
 
 	return studentsScore, nil
@@ -179,8 +166,8 @@ func (service *ScoreService) GetClassExportData(classCode string) ([]service_mod
 		}
 	}
 
-	// Retrieve users
-	usersData, err := service.Datastore.GetAllUsersByClassID(classData.ID)
+	// Retrieve active users (those who have at least one solved problem)
+	usersData, err := service.Datastore.GetActiveUsersByClassID(classData.ID)
 	if err != nil {
 		return nil, nil, service_model.Score{}, serviceerr.MakeGeneralError(err)
 	}

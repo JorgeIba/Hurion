@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 )
 
@@ -46,6 +47,7 @@ const (
 const (
 	errorKindUserNotEnrolled ErrorKind = iota
 	errorKindUserNotFound
+	errorKindUserMissingFromDB
 	errorKindClassCodeNotFound
 	errorKindProblemNotFound
 	errorKindDuplicateProblem
@@ -76,16 +78,18 @@ var templates = map[Action]map[ErrorKind]string{
 	ActionScoreByUserAndClass: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found",
 		errorKindUserNotFound:      "User `%[1]s` not found",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in class `%[2]s`",
-		errorKindDefault:           "User `%[1]s` is registered in `%[2]s`? I didn't find any AC",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
+		errorKindDefault:           "User `%[1]s` has access to `%[2]s`? I didn't find any AC",
 	},
 	ActionGetUsersInClass: {
 		errorKindClassCodeNotFound: "No class was found with class code `%s`",
 		errorKindDefault:           "Unexpected error while listing users in class.",
 	},
 	ActionGetClassesOfUser: {
-		errorKindUserNotFound: "User `%s` not found",
-		errorKindDefault:      "Unexpected error while listing classes for user.",
+		errorKindUserNotFound:      "User `%s` not found",
+		errorKindUserMissingFromDB: "System Error: User `%s` not found in database. Contact Admin.",
+		errorKindDefault:           "Unexpected error while listing classes for user.",
 	},
 	ActionClearClass: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
@@ -96,8 +100,9 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:  "Unexpected error while creating class.",
 	},
 	ActionExterminateUser: {
-		errorKindUserNotFound: "User <@%s> not found in the system",
-		errorKindDefault:      "Unexpected error while exterminating user.",
+		errorKindUserNotFound:      "User <@%s> not found in the system",
+		errorKindUserMissingFromDB: "System Error: User <@%s> not found in database. Contact Admin.",
+		errorKindDefault:           "Unexpected error while exterminating user.",
 	},
 	ActionExportClass: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
@@ -106,26 +111,30 @@ var templates = map[Action]map[ErrorKind]string{
 	ActionMentorRegisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindDefault:           "Unexpected error while mentor-registering user.",
 	},
 	ActionMentorDeregisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not enrolled in class `%[2]s`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindDefault:           "Unexpected error while mentor-deregistering user.",
 	},
 	ActionMentorAddAC: {
-		errorKindProblemNotFound: "Problem id `%[2]d` not found for user `%[1]s`",
-		errorKindUserNotEnrolled: "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
-		errorKindUserNotFound:    "User `%[1]s` not found",
-		errorKindConflict:        "User `%[1]s` has already solved problem `%[2]d`",
-		errorKindDefault:         "Unexpected error while adding AC for user `%[1]s` (problem `%[2]d`).",
+		errorKindProblemNotFound:   "Problem id `%[2]d` not found for user `%[1]s`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to the class of problem `%[2]d`",
+		errorKindUserNotFound:      "User `%[1]s` not found",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
+		errorKindConflict:          "User `%[1]s` has already solved problem `%[2]d`",
+		errorKindDefault:           "Unexpected error while adding AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorUndoAC: {
-		errorKindProblemNotFound: "Problem id `%[2]d` not found for user `%[1]s`",
-		errorKindUserNotFound:    "User `%[1]s` not found",
-		errorKindConflict:        "User `%[1]s` has not solved problem `%[2]d` yet",
-		errorKindDefault:         "Unexpected error while undoing AC for user `%[1]s` (problem `%[2]d`).",
+		errorKindProblemNotFound:   "Problem id `%[2]d` not found for user `%[1]s`",
+		errorKindUserNotFound:      "User `%[1]s` not found",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
+		errorKindConflict:          "User `%[1]s` has not solved problem `%[2]d` yet",
+		errorKindDefault:           "Unexpected error while undoing AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorAddProblem: {
 		errorKindClassCodeNotFound: "Class code `%[1]s` not found while adding `%[3]s`.",
@@ -148,20 +157,23 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionEnrolledDeregisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`.",
-		errorKindUserNotEnrolled:   "User `%[1]s` is not registered in class `%[2]s`.",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`.",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindDefault:           "Unexpected error while deregistering from class.",
 	},
 	ActionEnrolledProposeAC: {
-		errorKindProblemNotFound: "Problem `%[2]d` not found for user `%[1]s`",
-		errorKindUserNotEnrolled: "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
-		errorKindConflict:        "User `%s` has already solved problem `%d`",
-		errorKindDefault:         "Unexpected error while proposing AC.",
+		errorKindProblemNotFound:   "Problem `%[2]d` not found for user `%[1]s`",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to the class of problem `%[2]d`",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
+		errorKindConflict:          "User `%[1]s` has already solved problem `%[2]d`",
+		errorKindDefault:           "Unexpected error while proposing AC.",
 	},
 	ActionEnrolledUndoAC: {
-		errorKindProblemNotFound: "Problem `%[2]d` not found.",
-		errorKindUserNotEnrolled: "User `%[1]s` is not enrolled in the class of the problem `%[2]d`",
-		errorKindConflict:        "Bro `%[1]s`, you haven't solved problem `%[2]d` yet",
-		errorKindDefault:         "Unexpected error while undoing AC.",
+		errorKindProblemNotFound:   "Problem `%[2]d` not found.",
+		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to the class of problem `%[2]d`",
+		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
+		errorKindConflict:          "Bro `%[1]s`, you haven't solved problem `%[2]d` yet",
+		errorKindDefault:           "Unexpected error while undoing AC.",
 	},
 }
 
@@ -189,6 +201,7 @@ func MapError(err error, action Action, args ...any) string {
 }
 
 func getErrorKindFromError(err error) ErrorKind {
+	var userMissingErr *dataerr.UserMissingFromDatabaseError
 	var userNotEnrolledErr *serviceerr.UserNotEnrolledError
 	var userNotFoundErr *serviceerr.UserNotFoundError
 	var classCodeNotFoundErr *serviceerr.ClassCodeNotFoundError
@@ -202,6 +215,8 @@ func getErrorKindFromError(err error) ErrorKind {
 	case errors.As(err, &internalErr):
 		// Prioritize internal errors to avoid leaking sensitive info from wrapped errors
 		return errorKindInternal
+	case errors.As(err, &userMissingErr):
+		return errorKindUserMissingFromDB
 	case errors.As(err, &userNotEnrolledErr):
 		return errorKindUserNotEnrolled
 	case errors.As(err, &userNotFoundErr):
