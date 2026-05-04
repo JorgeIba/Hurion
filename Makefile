@@ -3,7 +3,7 @@ BINARY_NAME=huron-bot
 BUILD_DIR=./bin
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test test-unit test-integration generate clean
+.PHONY: all build test test-unit test-integration generate clean run-seed
 
 # By default, running 'make' executes build
 all: build
@@ -48,6 +48,11 @@ build:
 run: build
 	@echo "==> Starting bot..."
 	@$(BUILD_DIR)/$(BINARY_NAME)
+
+## run-seed: Build and execute the bot with database seeding
+run-seed: build
+	@echo "==> Seeding database and starting bot..."
+	@$(BUILD_DIR)/$(BINARY_NAME) --seed
 
 ## clean: Remove binary and temporary files
 clean:

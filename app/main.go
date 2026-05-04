@@ -1,17 +1,24 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bootstrap"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 )
 
 func main() {
+	// Parse CLI flags
+	seedFlag := flag.Bool("seed", false, "Bootstrap the database from config.yaml")
+	flag.Parse()
+
 	// Validate required environment variables
 	token := os.Getenv("DISCORD_BOT_TOKEN")
 	if token == "" {
@@ -46,7 +53,25 @@ func main() {
 		log.Fatalf("Error creating the DB: %v", err)
 	}
 
-	bot, err := bot.CreateBot(token, db)
+	// Create shared services
+	svcs := services.NewServices(db)
+
+	// Configuration Conciliation
+	if *seedFlag {
+		logger.Log.Info("Loading configuration for seeding...")
+		cfg, err := bootstrap.LoadConfig("")
+		if err != nil {
+			log.Fatalf("Failed to load config for seeding: %v", err)
+		}
+
+		reconciler := bootstrap.NewReconciler(svcs.Class)
+
+		if err := reconciler.Reconcile(cfg); err != nil {
+			log.Fatalf("Failed to reconcile configuration: %v", err)
+		}
+	}
+
+	bot, err := bot.CreateBot(token, db, svcs)
 	if err != nil {
 		log.Fatalf("Error creating the bot: %v", err)
 	}

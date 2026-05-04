@@ -24,13 +24,13 @@ type Bot struct {
 	session         *discordgo.Session
 }
 
-func CreateBot(botToken string, db *data.DB) (*Bot, error) {
+func CreateBot(botToken string, db *data.DB, svcs *services.Services) (*Bot, error) {
 	return &Bot{
 		botToken:        botToken,
 		db:              db,
 		dispatcher:      nil,
 		discordProvider: nil,
-		services:        nil,
+		services:        svcs,
 	}, nil
 }
 
@@ -55,7 +55,6 @@ func (bot *Bot) Run() error {
 		os.Getenv("DISCORD_ADMIN_ROLE_ID"),
 		os.Getenv("DISCORD_MENTOR_ROLE_ID"),
 	)
-	bot.services = services.NewServices(bot.db)
 
 	dg.AddHandler(bot.safeMessageHandler)
 	dg.AddHandler(bot.safeReactionHandler)

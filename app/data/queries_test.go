@@ -1932,7 +1932,7 @@ func TestGetClassesByAccessRoles(t *testing.T) {
 				_, _ = db.CreateClass(Class{ClassCode: "c3", Name: "Class 3"})
 				_, _ = db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
 				_, _ = db.CreateClass(Class{ClassCode: "c2", Name: "Class 2"})
-				
+
 				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c3", RoleID: "r2"})
 				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
 				_ = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c2", RoleID: "r1"})

@@ -252,20 +252,20 @@ func TestSyncParticipants(t *testing.T) {
 		setupMock func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore)
 	}{
 		{
-			name: "success - sync executor only (no other args)",
-			args: []string{"!help"},
+			name:     "success - sync executor only (no other args)",
+			args:     []string{"!help"},
 			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
 				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
 			},
 		},
 		{
-			name: "success - sync executor and mentioned user",
-			args: []string{"!ac", "<@111111111111111111>", "101"},
+			name:     "success - sync executor and mentioned user",
+			args:     []string{"!ac", "<@111111111111111111>", "101"},
 			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
 				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
-				
+
 				fetcher.EXPECT().GetCachedMember("guild_1", "111111111111111111").Return(&discordgo.Member{
 					User: &discordgo.User{Username: "Target User"},
 				}, nil)
@@ -273,12 +273,12 @@ func TestSyncParticipants(t *testing.T) {
 			},
 		},
 		{
-			name: "success - sync long numeric ID",
-			args: []string{"!exterminate", "123456789012345678"},
+			name:     "success - sync long numeric ID",
+			args:     []string{"!exterminate", "123456789012345678"},
 			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
 				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
-				
+
 				fetcher.EXPECT().GetCachedMember("guild_1", "123456789012345678").Return(&discordgo.Member{
 					User: &discordgo.User{Username: "snowflake_user"},
 				}, nil)
@@ -286,23 +286,23 @@ func TestSyncParticipants(t *testing.T) {
 			},
 		},
 		{
-			name: "skip - short problem ID",
-			args: []string{"!ac", "101"},
+			name:     "skip - short problem ID",
+			args:     []string{"!ac", "101"},
 			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
 				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
 			},
 		},
 		{
-			name: "fallback - user left server",
-			args: []string{"!ac", "<@222222222222222222>", "101"},
+			name:     "fallback - user left server",
+			args:     []string{"!ac", "<@222222222222222222>", "101"},
 			executor: service_model.User{UserID: "exec_1", DisplayName: "Exec"},
 			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, store *mock_data.MockDataStore) {
 				store.EXPECT().EnsureUser(data.User{UserID: "exec_1", DisplayName: "Exec"}).Return(nil)
-				
+
 				fetcher.EXPECT().GetCachedMember("guild_1", "222222222222222222").Return(nil, fmt.Errorf("not found"))
 				fetcher.EXPECT().FetchMember("guild_1", "222222222222222222").Return(nil, fmt.Errorf("not found"))
-				
+
 				store.EXPECT().EnsureUser(data.User{UserID: "222222222222222222", DisplayName: "Unknown"}).Return(nil)
 			},
 		},
