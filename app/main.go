@@ -15,6 +15,8 @@ import (
 )
 
 func main() {
+	logger.Init()
+
 	// Parse CLI flags
 	seedFlag := flag.Bool("seed", false, "Bootstrap the database from config.yaml")
 	flag.Parse()
@@ -25,23 +27,12 @@ func main() {
 		log.Fatalf("DISCORD_BOT_TOKEN environment variable is required")
 	}
 
-	adminRoleID := os.Getenv("DISCORD_ADMIN_ROLE_ID")
-	if adminRoleID == "" {
-		log.Fatalf("DISCORD_ADMIN_ROLE_ID environment variable is required")
-	}
-
-	mentorRoleID := os.Getenv("DISCORD_MENTOR_ROLE_ID")
-	if mentorRoleID == "" {
-		log.Fatalf("DISCORD_MENTOR_ROLE_ID environment variable is required")
-	}
-
-	logger.Init()
-
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "./data/db.sqlite"
 	}
 
+	// Initialize database and services
 	db, err := data.NewDB(
 		&data.DBConfig{
 			DBPath: dbPath,

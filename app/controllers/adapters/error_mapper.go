@@ -25,6 +25,8 @@ const (
 	ActionCreateClass
 	ActionExterminateUser
 	ActionExportClass
+	ActionGetClassRoles
+	ActionGetClassRooms
 
 	ActionMentorRegisterUser
 	ActionMentorDeregisterUser
@@ -107,6 +109,16 @@ var templates = map[Action]map[ErrorKind]string{
 	ActionExportClass: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
 		errorKindDefault:           "Unexpected error while retrieving class data.",
+	},
+	ActionGetClassRoles: {
+		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!class_roles basicos_1`) or run this command inside a class channel.",
+		errorKindDefault:           "Unexpected error while getting class roles.",
+	},
+	ActionGetClassRooms: {
+		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!class_rooms basicos_1`) or run this command inside a class channel.",
+		errorKindDefault:           "Unexpected error while getting class rooms.",
 	},
 	ActionMentorRegisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
