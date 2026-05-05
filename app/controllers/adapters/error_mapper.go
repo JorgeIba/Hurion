@@ -112,12 +112,12 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionGetClassRoles: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
-		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!class_roles basicos_1`) or run this command inside a class channel.",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!get_roles basicos_1`) or run this command inside a class channel.",
 		errorKindDefault:           "Unexpected error while getting class roles.",
 	},
 	ActionGetClassRooms: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
-		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!class_rooms basicos_1`) or run this command inside a class channel.",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!get_channels basicos_1`) or run this command inside a class channel.",
 		errorKindDefault:           "Unexpected error while getting class rooms.",
 	},
 	ActionMentorRegisterUser: {
