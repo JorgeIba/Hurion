@@ -299,3 +299,33 @@ func TestIntegration_General_GetClassesOfUser(t *testing.T) {
 	assert.Contains(t, lastMsg.Embed.Title, student.UserID)
 	assert.Contains(t, lastMsg.Embed.Description, "class_1")
 }
+
+func TestIntegration_General_GetRolesAndChannels(t *testing.T) {
+	t.Parallel()
+
+	// 1. SETUP
+	env := setupIntegrationEnv(t)
+	classCode := "basicos"
+	env.SeedClass(t, classCode, "Basicos 2026")
+	env.SeedClassAccessRole(t, classCode, "role_123")
+	env.SeedClassroom(t, "chan_456", classCode)
+
+	t.Run("get_roles explicit", func(t *testing.T) {
+		ctx := env.NewContext("123", "User", "guild_1", []string{"!get_roles", classCode})
+		general.HandleGetClassRoles(ctx)
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "role_123")
+	})
+
+	t.Run("get_channels contextual", func(t *testing.T) {
+		// Run from the linked channel
+		ctx := env.NewContext("123", "User", "guild_1", []string{"!get_channels"})
+		ctx.Message.ChannelID = "chan_456"
+
+		general.HandleGetClassRooms(ctx)
+		sentMsgs := env.Dispatcher.GetSentMessages()
+		require.NotEmpty(t, sentMsgs)
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "chan_456")
+	})
+}

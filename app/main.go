@@ -1,40 +1,44 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bootstrap"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
 )
 
 func main() {
-	// Validate required environment variables
+	logger.Init()
+
+	// 1. Parse CLI flags
+	seedFlag := flag.Bool("seed", false, "Bootstrap the database from config.yaml")
+	flag.Parse()
+
+	// 2. Load Configuration (Source of Truth)
+	cfg, err := bootstrap.LoadConfig(bootstrap.DefaultConfigPath)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// 3. Validate required environment variables
 	token := os.Getenv("DISCORD_BOT_TOKEN")
 	if token == "" {
 		log.Fatalf("DISCORD_BOT_TOKEN environment variable is required")
 	}
-
-	adminRoleID := os.Getenv("DISCORD_ADMIN_ROLE_ID")
-	if adminRoleID == "" {
-		log.Fatalf("DISCORD_ADMIN_ROLE_ID environment variable is required")
-	}
-
-	mentorRoleID := os.Getenv("DISCORD_MENTOR_ROLE_ID")
-	if mentorRoleID == "" {
-		log.Fatalf("DISCORD_MENTOR_ROLE_ID environment variable is required")
-	}
-
-	logger.Init()
 
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "./data/db.sqlite"
 	}
 
+	// 4. Initialize database and services
 	db, err := data.NewDB(
 		&data.DBConfig{
 			DBPath: dbPath,
@@ -45,8 +49,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating the DB: %v", err)
 	}
+	defer db.CloseDB()
 
-	bot, err := bot.CreateBot(token, db)
+	// Create shared services
+	svcs := services.NewServices(db)
+
+	// 5. Configuration Conciliation
+	if *seedFlag {
+		reconciler := bootstrap.NewReconciler(svcs.Class)
+		if err := reconciler.Reconcile(cfg); err != nil {
+			log.Fatalf("Failed to reconcile configuration: %v", err)
+		}
+	}
+
+	bot, err := bot.CreateBot(token, svcs, cfg.AdminRoleID, cfg.MentorRoleID)
 	if err != nil {
 		log.Fatalf("Error creating the bot: %v", err)
 	}

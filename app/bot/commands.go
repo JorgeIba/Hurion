@@ -14,6 +14,8 @@ const (
 	CreateClass
 	LinkRoles
 	LinkRooms
+	GetRoles
+	GetChannels
 	Users
 	Classes
 	UpdateProblem
@@ -144,6 +146,20 @@ var Commands = map[Command]CommandData{
 		Description: "Link Discord channels to a class as classrooms",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
 		ExtraInfo:   "Sets up default class context for commands run in these channels. Mention multiple channels separated by spaces.",
+	},
+	GetRoles: {
+		Cmd:         "!get_roles",
+		Name:        "get_roles",
+		Usage:       "!get_roles [class_code]",
+		Description: "Show all Discord roles linked to a class or infer class from channel",
+		UserRoles:   NewUserRoleSet(RoleAll),
+	},
+	GetChannels: {
+		Cmd:         "!get_channels",
+		Name:        "get_channels",
+		Usage:       "!get_channels [class_code]",
+		Description: "Show all Discord channels linked to a class or infer class from channel",
+		UserRoles:   NewUserRoleSet(RoleAll),
 	},
 	Exterminate: {
 		Cmd:         "!exterminate",

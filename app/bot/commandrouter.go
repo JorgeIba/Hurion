@@ -25,6 +25,8 @@ var commandMap = map[string]CommandRouter{
 	CreateClass.String():   routerCreateClass,
 	LinkRoles.String():     routerLinkRoles,
 	LinkRooms.String():     routerLinkRooms,
+	GetRoles.String():      routerGetClassRoles,
+	GetChannels.String():   routerGetClassRooms,
 	Users.String():         routerGetUsersInClass,
 	Classes.String():       routerGetAllClasses,
 	UpdateProblem.String(): routerUpdateProblem,
@@ -240,5 +242,23 @@ func routerLinkRooms(c *context.ContextMessage) {
 		admin.HandleLinkRooms(c)
 	} else {
 		sendUsageError(c, LinkRooms.Name())
+	}
+}
+
+func routerGetClassRoles(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1, 2:
+		general.HandleGetClassRoles(c)
+	default:
+		sendUsageError(c, GetRoles.Name())
+	}
+}
+
+func routerGetClassRooms(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1, 2:
+		general.HandleGetClassRooms(c)
+	default:
+		sendUsageError(c, GetChannels.Name())
 	}
 }

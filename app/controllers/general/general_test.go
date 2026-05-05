@@ -665,3 +665,136 @@ func TestHandleGetMyClasses(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleGetClassRoles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		channelID  string
+		setupMock  func(m *mock_data.MockDataStore)
+		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
+	}{
+		{
+			name:      "success - explicit class code",
+			args:      []string{"!get_roles", "basicos"},
+			channelID: "chan_other",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 1, ClassCode: "basicos"}, nil)
+				m.EXPECT().GetClassAccessRolesByClassCode("basicos").Return([]data.ClassAccessRole{{RoleID: "role_1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Roles linked to class `basicos`")
+				assert.Contains(t, msg.Content, "role_1")
+			},
+		},
+		{
+			name:      "success - contextual (no args)",
+			args:      []string{"!get_roles"},
+			channelID: "chan_123",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("basicos", nil)
+				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 1, ClassCode: "basicos"}, nil)
+				m.EXPECT().GetClassAccessRolesByClassCode("basicos").Return([]data.ClassAccessRole{{RoleID: "role_1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Roles linked to class `basicos`")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStore := mock_data.NewMockDataStore(ctrl)
+
+			tc.setupMock(mockStore)
+			svc := services.NewServices(mockStore)
+			out := make(chan dispatcher.MessageResponse, 1)
+			disp := &dispatcher.Dispatcher{Output: out}
+			ctx := &context.ContextMessage{
+				Args:       tc.args,
+				Services:   svc,
+				Dispatcher: disp,
+				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: tc.channelID}},
+			}
+			HandleGetClassRoles(ctx)
+			if tc.assertFunc != nil {
+				tc.assertFunc(t, out)
+			}
+		})
+	}
+}
+
+func TestHandleGetClassRooms(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		channelID  string
+		setupMock  func(m *mock_data.MockDataStore)
+		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
+	}{
+		{
+			name:      "success - explicit class code",
+			args:      []string{"!get_channels", "basicos"},
+			channelID: "chan_other",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 1, ClassCode: "basicos"}, nil)
+				m.EXPECT().GetClassroomsByClassCode("basicos").Return([]data.Classroom{{RoomID: "chan_1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Rooms linked to class `basicos`")
+				assert.Contains(t, msg.Content, "chan_1")
+			},
+		},
+		{
+			name:      "success - contextual (no args)",
+			args:      []string{"!get_channels"},
+			channelID: "chan_123",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("basicos", nil)
+				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 1, ClassCode: "basicos"}, nil)
+				m.EXPECT().GetClassroomsByClassCode("basicos").Return([]data.Classroom{{RoomID: "chan_1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Rooms linked to class `basicos`")
+				assert.Contains(t, msg.Content, "chan_1")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStore := mock_data.NewMockDataStore(ctrl)
+
+			tc.setupMock(mockStore)
+			svc := services.NewServices(mockStore)
+			out := make(chan dispatcher.MessageResponse, 1)
+			disp := &dispatcher.Dispatcher{Output: out}
+			ctx := &context.ContextMessage{
+				Args:       tc.args,
+				Services:   svc,
+				Dispatcher: disp,
+				Message:    &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: tc.channelID}},
+			}
+			HandleGetClassRooms(ctx)
+			if tc.assertFunc != nil {
+				tc.assertFunc(t, out)
+			}
+		})
+	}
+}
