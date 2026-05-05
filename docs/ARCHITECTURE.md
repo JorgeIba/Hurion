@@ -78,7 +78,13 @@ graph TB
 
 ## Database Schema
 
-The bot uses **SQLite** with 6 tables: `users`, `classes`, `problems`, `enrollments`, `solved_problems`, and `pending_confirmations`.
+The bot uses **SQLite** with 6 tables:
+- `users`: Stores user IDs and display names.
+- `classes`: Stores class codes and names.
+- `problems`: Stores problem details (name, URL, difficulty, topic).
+- `enrollments`: Tracks which users are in which classes.
+- `solved_problems`: Records successfully solved problems (ACs).
+- `pending_confirmations`: Temporarily stores AC proposals awaiting mentor approval.
 
 The full ER diagram is available in [DB Diagram.pdf](../DB%20Diagram.pdf). The DDL source of truth is [app/data/schema.sql](../app/data/schema.sql).
 
@@ -107,7 +113,8 @@ Dangerous commands (`!deregister`, `!remove_problem`, `!clear_class`, `!extermin
 
 For **AC proposals** (`!ac <problem_id>` by enrolled users):
 
-1. The bot adds ✅ and ❌ reactions to the user's message.
+1. The bot adds ✅ and ❌ reactions to the user's message and records the proposal in `pending_confirmations`.
 2. A **mentor** reacts:
-   - **✅** → The AC is approved and recorded.
-   - **❌** → The proposal is rejected and removed.
+   - **✅** → The AC is approved and recorded in `solved_problems`. The ✅/❌ reactions are replaced by 🎈 (**Accepted**).
+   - **❌** → The proposal is rejected. The ✅/❌ reactions are replaced by 🗣️ (**Rejected**).
+
