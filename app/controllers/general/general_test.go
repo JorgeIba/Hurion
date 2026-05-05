@@ -756,6 +756,21 @@ func TestHandleGetClassRooms(t *testing.T) {
 				assert.Contains(t, msg.Content, "chan_1")
 			},
 		},
+		{
+			name:      "success - contextual (no args)",
+			args:      []string{"!get_channels"},
+			channelID: "chan_123",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("basicos", nil)
+				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 1, ClassCode: "basicos"}, nil)
+				m.EXPECT().GetClassroomsByClassCode("basicos").Return([]data.Classroom{{RoomID: "chan_1"}}, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Rooms linked to class `basicos`")
+				assert.Contains(t, msg.Content, "chan_1")
+			},
+		},
 	}
 
 	for _, tt := range tests {

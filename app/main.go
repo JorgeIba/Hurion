@@ -22,7 +22,7 @@ func main() {
 	flag.Parse()
 
 	// 2. Load Configuration (Source of Truth)
-	cfg, err := bootstrap.LoadConfig("config.yaml")
+	cfg, err := bootstrap.LoadConfig(bootstrap.DefaultConfigPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
