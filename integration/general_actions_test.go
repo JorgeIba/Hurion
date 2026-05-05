@@ -321,8 +321,8 @@ func TestIntegration_General_GetRolesAndChannels(t *testing.T) {
 	t.Run("get_channels contextual", func(t *testing.T) {
 		// Run from the linked channel
 		ctx := env.NewContext("123", "User", "guild_1", []string{"!get_channels"})
-		ctx.Message.ChannelID = "chan_456" 
-		
+		ctx.Message.ChannelID = "chan_456"
+
 		general.HandleGetClassRooms(ctx)
 		sentMsgs := env.Dispatcher.GetSentMessages()
 		require.NotEmpty(t, sentMsgs)
