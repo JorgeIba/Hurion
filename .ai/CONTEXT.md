@@ -18,3 +18,15 @@ The Huron Problem Checker Bot is a Discord bot designed to manage algorithm cour
   - `Mentor`: Class and student management.
   - `Enrolled`: Students registered in at least one class.
   - `General`: Non-enrolled users with basic access.
+
+## Agentic Guidelines: How to Contribute
+- **State Management**: Before making changes, use `ls -R` or `tree` to understand the current file structure if you are unsure.
+- **Verification**: After every code change, run `make test` or at least `go fmt ./...`.
+- **Mocks**: If you change interfaces, run `make generate` to update mocks.
+- **Documentation**: If you add new commands, update `docs/COMMANDS.md`. If you change architecture, update `docs/ARCHITECTURE.md`.
+- **Surgical Changes**: Only modify what is strictly necessary. Avoid refactoring unrelated code.
+- **Layer Integrity**: Ensure logic stays in the correct layer (e.g., business logic in Services, formatting in Presentation).
+- **Confirmation Flow**: When implementing "dangerous" commands, always follow the two-step confirmation pattern described in `docs/ARCHITECTURE.md`.
+- **Async Responses**: Use the `Dispatcher` for all Discord interactions to ensure responses are handled correctly and asynchronously.
+- **Test-First**: Before fixing a bug, try to reproduce it with a unit or integration test.
+

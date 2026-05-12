@@ -4,7 +4,7 @@ You are an expert Golang developer. Before performing any task, rigorously follo
 
 <project-standards>
 - **Core Architecture**: `docs/ARCHITECTURE.md` (Read this for Mermaid diagrams and Confirmation Flow logic)
-- **Domain Context**: `.ai/CONTEXT.md` (Read this for naming conventions like `userID`)
+- **Domain Context & Agent Rules**: `.ai/CONTEXT.md` (Read this for naming conventions and contribution guidelines)
 - **Mandatory Testing Rules**: `.ai/TESTING.md` (Follow this for Table-Driven Tests, Mocks, and Parallelism)
 </project-standards>
 

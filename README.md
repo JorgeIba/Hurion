@@ -10,6 +10,8 @@ Built with [`discordgo`](https://github.com/bwmarrin/discordgo) and backed by **
 
 - [Architecture & Design](docs/ARCHITECTURE.md) — Layered architecture, diagram, DB schema, confirmation flow, parameter conventions.
 - [Commands Reference](docs/COMMANDS.md) — Full list of commands by role (General, Enrolled, Mentor, Admin).
+- [Domain Context & Agent Rules](.ai/CONTEXT.md) — Naming conventions, business rules, and AI contribution guidelines.
+- [Testing Guidelines](.ai/TESTING.md) — Mandatory testing patterns.
 
 ---
 

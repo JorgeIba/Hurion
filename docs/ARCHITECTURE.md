@@ -86,7 +86,14 @@ To ensure clarity across the system, the bot utilizes the following domain conce
 
 ## Database Schema
 
-The bot uses **SQLite** with 7 tables: `users`, `classes`, `classrooms`, `class_access_roles`, `problems`, `solved_problems`, and `pending_confirmations`.
+The bot uses **SQLite** with 7 tables:
+- `users`: Stores user IDs and display names.
+- `classes`: Stores class codes and names.
+- `classrooms`: Stores physical/logical classroom mappings.
+- `class_access_roles`: Links Discord Roles to specific classes for stateless access control.
+- `problems`: Stores problem details (name, URL, difficulty, topic).
+- `solved_problems`: Records successfully solved problems (ACs).
+- `pending_confirmations`: Temporarily stores AC proposals awaiting mentor approval.
 
 The full ER diagram is available in [DB Diagram.pdf](../DB%20Diagram.pdf). The DDL source of truth is [app/data/schema.sql](../app/data/schema.sql).
 
@@ -115,7 +122,8 @@ Dangerous commands (`!remove_problem`, `!clear_class`, `!exterminate`) trigger a
 
 For **AC proposals** (`!ac <problem_id>` by enrolled users):
 
-1. The bot adds ✅ and ❌ reactions to the user's message.
+1. The bot adds ✅ and ❌ reactions to the user's message and records the proposal in `pending_confirmations`.
 2. A **mentor** reacts:
-   - **✅** → The AC is approved and recorded.
-   - **❌** → The proposal is rejected and removed.
+   - **✅** → The AC is approved and recorded in `solved_problems`. The ✅/❌ reactions are replaced by 🎈 (**Accepted**).
+   - **❌** → The proposal is rejected. The ✅/❌ reactions are replaced by 🗣️ (**Rejected**).
+

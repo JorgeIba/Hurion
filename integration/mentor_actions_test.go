@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,7 +40,8 @@ func TestIntegration_Mentor_AddAC(t *testing.T) {
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	assert.NotEmpty(t, sentMsgs)
-	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "has been AC-ed")
+	assert.Equal(t, dispatcher.Reaction, sentMsgs[len(sentMsgs)-1].Type)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Reactions, common.REACTION_ACCEPTED)
 }
 
 func TestIntegration_Mentor_UndoAC(t *testing.T) {

@@ -21,7 +21,7 @@ type DiscordValidator interface {
 	IsMentor(guildID, userID string) (bool, error)
 }
 
-// DiscordFetcher focuses on data retrieval from Discord.
+// DiscordFetcher focuses on fetching Discord data.
 //
 //go:generate go tool mockgen -destination=mock_providers/mock_fetcher.go -package=mock_providers . DiscordFetcher
 type DiscordFetcher interface {
@@ -37,8 +37,6 @@ type DiscordMessageModifier interface {
 	EditEmbed(channelID, messageID string, embed *discordgo.MessageEmbed) error
 	RemoveBotReaction(channelID, messageID, emojiID string) error
 }
-
-// DiscordProvider combines Discord-related capabilities.
 type DiscordProvider interface {
 	DiscordValidator
 	DiscordFetcher
