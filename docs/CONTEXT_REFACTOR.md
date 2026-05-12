@@ -17,7 +17,7 @@ We are transitioning the bot to a **Discord-Native, Stateless Architecture**:
 
 ### [MR 1] Database Normalization (Current)
 - **Goal:** Prepare the database foundation without altering existing business logic.
-- **Changes:** Add `classrooms` and `class_access_roles` tables to map Discord infrastructure to our domain logic. Add corresponding data layer queries. Retain the `enrollments` table during the transition.
+- **Changes:** Add `classrooms` and `class_access_roles` tables to map Discord infrastructure to our domain logic. Add corresponding data layer queries. **Stateless pivot:** Delete the old `enrollments` logic and table in favor of real-time role checks.
 
 ### [MR 2] Configuration & The `--seed` Flag
 - **Goal:** Enable deterministic initialization of classes.

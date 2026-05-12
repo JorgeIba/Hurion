@@ -19,7 +19,7 @@ type EnrollmentService struct {
 	Datastore data.DataStore
 }
 
-// GetListOfUsersByClassCode retrieves all users enrolled in a class
+// GetListOfUsersByClassCode retrieves all active users in a class (users with at least one solve)
 func (service *EnrollmentService) GetListOfUsersByClassCode(classCode string) ([]service_model.User, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {

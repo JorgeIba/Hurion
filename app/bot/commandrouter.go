@@ -137,7 +137,7 @@ func routerCreateClass(c *context.ContextMessage) {
 
 func routerGetUsersInClass(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 2:
+	case 1, 2:
 		general.HandleGetUsersInClass(c)
 	default:
 		sendUsageError(c, Users.Name())

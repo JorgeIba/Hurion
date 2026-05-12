@@ -187,7 +187,15 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 }
 
 func HandleGetUsersInClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetUsersInClass, "")),
+		)
+		return
+	}
+	classCode := class.ClassCode
 
 	users, err := c.Services.Enrollment.GetListOfUsersByClassCode(classCode)
 	if err != nil {
@@ -205,7 +213,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("List of users registered in class %s", classCode),
+		Title:       fmt.Sprintf("List of active users in class %s", classCode),
 		Description: stringBuilder.String(),
 		Color:       0x00ffcc,
 	}

@@ -224,9 +224,6 @@ func getErrorKindFromError(err error) ErrorKind {
 	var internalErr *serviceerr.InternalError
 
 	switch {
-	case errors.As(err, &internalErr):
-		// Prioritize internal errors to avoid leaking sensitive info from wrapped errors
-		return errorKindInternal
 	case errors.As(err, &userMissingErr):
 		return errorKindUserMissingFromDB
 	case errors.As(err, &userNotEnrolledErr):
@@ -243,6 +240,10 @@ func getErrorKindFromError(err error) ErrorKind {
 		return errorKindConflict
 	case errors.As(err, &notFoundErr):
 		return errorKindNotFound
+	case errors.As(err, &internalErr):
+		// InternalError must stay at the end because it unwraps and could shadow
+		// more specific wrapped errors if checked first.
+		return errorKindInternal
 	default:
 		return errorKindDefault
 	}

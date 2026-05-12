@@ -11,13 +11,15 @@ Available to all users.
 | Command | Usage | Description | Confirmation |
 |---|---|---|:---:|
 | `!help` | `!help [command]` | Show info for all commands or details for a specific command | No |
-| `!list` | `!list <class_code>` | Show the list of problems available for a class (paginated embed) | No |
+| `!list` | `!list [class_code]` | Show the list of problems available for a class or infer class from channel | No |
 | `!score` | `!score` | Show scores for **all classes** as image tables | No |
-| `!score` | `!score <class_code>` | Show scores for a **specific class** as an image table | No |
-| `!score` | `!score <class_code> <@user>` | Show a **specific user's** neighborhood ranking in a class | No |
-| `!users` | `!users <class_code>` | List all users with at least one solve in a class | No |
+| `!score` | `!score [class_code]` | Show scores for a **specific class** or infer from channel | No |
+| `!score` | `!score [class_code] <@user>` | Show a **specific user's** neighborhood ranking in a class | No |
+| `!users` | `!users [class_code]` | List all active users in a class or infer from channel | No |
 | `!classes` | `!classes` | List all available classes | No |
 | `!classes_of` | `!classes_of <@user>` | Show all classes a specific user has access to | No |
+| `!get_roles` | `!get_roles [class_code]` | Show all Discord roles linked to a class | No |
+| `!get_channels` | `!get_channels [class_code]` | Show all Discord channels linked to a class | No |
 
 ---
 

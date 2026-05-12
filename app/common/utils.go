@@ -6,6 +6,12 @@ import (
 
 // IsUserMention returns true if the string looks like a Discord user mention.
 func IsUserMention(s string) bool {
+	// User mentions: <@123...> or <@!123...>
+	// Role mentions: <@&123...>
+	// We must exclude the '&' prefix.
+	if strings.HasPrefix(s, "<@&") {
+		return false
+	}
 	return (strings.HasPrefix(s, "<@") || strings.HasPrefix(s, "<@!")) && strings.HasSuffix(s, ">")
 }
 
