@@ -7,6 +7,7 @@ The bot follows a clean **layered architecture** with clear separation of concer
 | Layer | Responsibility | Key Packages |
 |---|---|---|
 | **Discord (Entry Point)** | Receives messages and reactions from Discord via `discordgo` session handlers. | `bot/` |
+| **Context** | Data structure encapsulating the Discord event, dependencies, and executor information. | `context/` |
 | **Command Router** | Parses `!commands`, resolves argument arity, and routes to the correct controller. | `bot/commandrouter.go` |
 | **Reaction Router** | Handles emoji reactions for AC approvals and confirmation flows. | `bot/reactionrouter.go` |
 | **Controllers** | Orchestrate permission checks, call services, and format Discord responses. Organized by role: `admin/`, `enrolled/`, `general/`, `mentor/`. | `controllers/` |
@@ -27,6 +28,7 @@ The bot follows a clean **layered architecture** with clear separation of concer
 graph TB
     subgraph BotLayer["Bot Layer"]
         Discord[Discord Client]
+        Context[Context Resolver]
         Commands[Command Router]
         Reactions[Reaction Router]
     end
@@ -62,12 +64,14 @@ graph TB
     end
 
     %% Internal connections
-    Discord --> Commands
-    Discord --> Reactions
+    Discord --> Context
+    Context --> Commands
+    Context --> Reactions
     Queries --> DB
 
     %% Flow between layers
-    BotLayer --> ControllerLayer
+    Commands --> ControllerLayer
+    Reactions --> ControllerLayer
     ControllerLayer --> ProviderLayer
     ControllerLayer --> ServiceLayer
     ControllerLayer --> PresentationLayer
@@ -86,16 +90,56 @@ To ensure clarity across the system, the bot utilizes the following domain conce
 
 ## Database Schema
 
-The bot uses **SQLite** with 7 tables:
-- `users`: Stores user IDs and display names.
-- `classes`: Stores class codes and names.
-- `classrooms`: Stores physical/logical classroom mappings.
-- `class_access_roles`: Links Discord Roles to specific classes for stateless access control.
-- `problems`: Stores problem details (name, URL, difficulty, topic).
-- `solved_problems`: Records successfully solved problems (ACs).
-- `pending_confirmations`: Temporarily stores AC proposals awaiting mentor approval.
+The bot uses **SQLite** with 7 tables. 
 
-The full ER diagram is available in [DB Diagram.pdf](../DB%20Diagram.pdf). The DDL source of truth is [app/data/schema.sql](../app/data/schema.sql).
+```mermaid
+erDiagram
+    users ||--o{ solved_problems : "has"
+    users ||--o{ pending_confirmations : "proposes"
+    classes ||--o{ classrooms : "has"
+    classes ||--o{ class_access_roles : "grants access via"
+    classes ||--o{ problems : "contains"
+    problems ||--o{ solved_problems : "is solved in"
+    problems ||--o{ pending_confirmations : "awaits confirmation for"
+
+    users {
+        TEXT user_id PK
+        TEXT display_name
+    }
+    classes {
+        INTEGER id PK
+        TEXT class_code UK
+        TEXT name
+    }
+    classrooms {
+        TEXT room_id PK
+        TEXT class_code FK
+    }
+    class_access_roles {
+        TEXT class_code PK, FK
+        TEXT role_id PK
+    }
+    problems {
+        INTEGER id PK
+        TEXT name
+        TEXT url
+        INTEGER class_id FK
+        TEXT difficulty
+        TEXT topic
+    }
+    solved_problems {
+        TEXT user_id PK, FK
+        INTEGER problem_id PK, FK
+        TIMESTAMP solved_at
+    }
+    pending_confirmations {
+        TEXT message_id
+        TEXT user_id PK, FK
+        INTEGER problem_id PK, FK
+    }
+```
+
+The DDL source of truth is [app/data/schema.sql](../app/data/schema.sql).
 
 ---
 
