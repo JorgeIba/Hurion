@@ -27,3 +27,6 @@ local-backups/
 # Coverage artifacts
 /coverage.html
 /coverage.out
+
+# Configuration files
+config.yaml

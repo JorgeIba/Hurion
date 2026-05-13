@@ -17,96 +17,8 @@ import (
 const (
 	messageErrVerifying      = "There was a problem verifying permissions."
 	messageErrNotPermissions = "Bro has not enough permissions (is not mentor)."
-	messageErrUnexpectec     = "Unexpected error."
+	messageErrUnexpected     = "Unexpected error."
 )
-
-func HandleRegisterUser(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
-		)
-		return
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
-		)
-		return
-	}
-
-	userParam, classCode := c.Args[1], c.Args[2]
-	userID, ok := controllers_common.ParseUserID(userParam)
-	if !ok {
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
-		)
-		return
-	}
-
-	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
-	user := service_model.User{
-		UserID:      userID,
-		DisplayName: displayName,
-	}
-
-	if err := c.Services.Enrollment.RegisterUserIntoClass(user, classCode); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorRegisterUser, userParam, classCode)),
-		)
-
-		return
-	}
-
-	logger.Log.Infof("User %s has registered in the class %s\n", userID, classCode)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> has registered in the class `%s`", userID, classCode)),
-	)
-}
-func HandleDeregisterUser(c *context.ContextMessage) error {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
-		)
-		return err
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
-		)
-		return fmt.Errorf("user is not a mentor")
-	}
-
-	userParam, classCode := c.Args[1], c.Args[2]
-	userID, ok := controllers_common.ParseUserID(userParam)
-	if !ok {
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("bro `%s` is not a valid user mention or ID", userParam)),
-		)
-		return fmt.Errorf("invalid user parameter")
-	}
-
-	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
-	if err := c.Services.Enrollment.DeregisterUserIDFromClass(userID, classCode); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorDeregisterUser, displayName, classCode)),
-		)
-
-		return err
-	}
-	successMessage := fmt.Sprintf("User <@%s> has been deregistered from the class %s successfully", userID, classCode)
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
-	)
-
-	return nil
-}
 
 func HandlePendingConfirmation(c *context.ContextMessage) {
 	messageID := c.MessageReaction.MessageID
@@ -135,7 +47,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
+			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
 		)
 		return
 	}
@@ -146,7 +58,7 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
+				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
 			)
 			return
 		}
@@ -166,8 +78,9 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		err := c.Services.Solution.AcceptACProposal(messageID)
 		if err != nil {
 			logger.Log.Errorf("Something happened: %v", err)
+
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpectec),
+				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
 			)
 			return
 		}
@@ -220,7 +133,23 @@ func HandleAddAC(c *context.ContextMessage) {
 	}
 
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
-	if err := c.Services.Solution.AddACToUserID(userID, problemID); err != nil {
+
+	member, err := controllers_common.GetMemberSafe(c, userID)
+	if err != nil || member == nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify the student's roles with Discord, bro."),
+		)
+		return
+	}
+
+	member.User.DisplayName = displayName // Override display name to ensure it's correct even if cache is stale
+	principal := service_model.Principal{
+		User:  member.User,
+		Roles: member.Roles,
+	}
+
+	if err := c.Services.Solution.AddACByPrincipal(principal, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -229,7 +158,6 @@ func HandleAddAC(c *context.ContextMessage) {
 
 		return
 	}
-
 	logger.Log.Infof("Problem %d AC-ed by %s (%s) by mentor %s\n", problemID, userID, displayName, c.Executor.UserID)
 	c.Dispatcher.Send(
 		dispatcher.MessageResponse{
@@ -275,7 +203,8 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
-	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, userID); err != nil {
+
+	if err = c.Services.Solution.UndoAC(userID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

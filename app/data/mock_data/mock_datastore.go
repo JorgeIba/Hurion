@@ -54,6 +54,34 @@ func (mr *MockDataStoreMockRecorder) AddAC(userID, problemID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAC", reflect.TypeOf((*MockDataStore)(nil).AddAC), userID, problemID)
 }
 
+// AddClassAccessRole mocks base method.
+func (m *MockDataStore) AddClassAccessRole(role data.ClassAccessRole) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddClassAccessRole", role)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddClassAccessRole indicates an expected call of AddClassAccessRole.
+func (mr *MockDataStoreMockRecorder) AddClassAccessRole(role any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddClassAccessRole", reflect.TypeOf((*MockDataStore)(nil).AddClassAccessRole), role)
+}
+
+// AddClassroom mocks base method.
+func (m *MockDataStore) AddClassroom(classroom data.Classroom) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddClassroom", classroom)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddClassroom indicates an expected call of AddClassroom.
+func (mr *MockDataStoreMockRecorder) AddClassroom(classroom any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddClassroom", reflect.TypeOf((*MockDataStore)(nil).AddClassroom), classroom)
+}
+
 // AddPendingConfirmation mocks base method.
 func (m *MockDataStore) AddPendingConfirmation(confirmation data.PendingConfirmation) error {
 	m.ctrl.T.Helper()
@@ -112,20 +140,6 @@ func (mr *MockDataStoreMockRecorder) CreateClass(class any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClass", reflect.TypeOf((*MockDataStore)(nil).CreateClass), class)
 }
 
-// DeregisterUserFromClass mocks base method.
-func (m *MockDataStore) DeregisterUserFromClass(userID string, classID int64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeregisterUserFromClass", userID, classID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeregisterUserFromClass indicates an expected call of DeregisterUserFromClass.
-func (mr *MockDataStoreMockRecorder) DeregisterUserFromClass(userID, classID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterUserFromClass", reflect.TypeOf((*MockDataStore)(nil).DeregisterUserFromClass), userID, classID)
-}
-
 // EnsureUser mocks base method.
 func (m *MockDataStore) EnsureUser(user data.User) error {
 	m.ctrl.T.Helper()
@@ -169,6 +183,21 @@ func (mr *MockDataStoreMockRecorder) ExterminateUser(userID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExterminateUser", reflect.TypeOf((*MockDataStore)(nil).ExterminateUser), userID)
 }
 
+// GetActiveUsersByClassID mocks base method.
+func (m *MockDataStore) GetActiveUsersByClassID(classID int64) ([]data.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveUsersByClassID", classID)
+	ret0, _ := ret[0].([]data.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveUsersByClassID indicates an expected call of GetActiveUsersByClassID.
+func (mr *MockDataStoreMockRecorder) GetActiveUsersByClassID(classID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveUsersByClassID", reflect.TypeOf((*MockDataStore)(nil).GetActiveUsersByClassID), classID)
+}
+
 // GetAllClasses mocks base method.
 func (m *MockDataStore) GetAllClasses() ([]data.Class, error) {
 	m.ctrl.T.Helper()
@@ -199,19 +228,19 @@ func (mr *MockDataStoreMockRecorder) GetAllSolvedProblemsByClass(classID any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSolvedProblemsByClass", reflect.TypeOf((*MockDataStore)(nil).GetAllSolvedProblemsByClass), classID)
 }
 
-// GetAllUsersByClassID mocks base method.
-func (m *MockDataStore) GetAllUsersByClassID(classID int64) ([]data.User, error) {
+// GetClassAccessRolesByClassCode mocks base method.
+func (m *MockDataStore) GetClassAccessRolesByClassCode(classCode string) ([]data.ClassAccessRole, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUsersByClassID", classID)
-	ret0, _ := ret[0].([]data.User)
+	ret := m.ctrl.Call(m, "GetClassAccessRolesByClassCode", classCode)
+	ret0, _ := ret[0].([]data.ClassAccessRole)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAllUsersByClassID indicates an expected call of GetAllUsersByClassID.
-func (mr *MockDataStoreMockRecorder) GetAllUsersByClassID(classID any) *gomock.Call {
+// GetClassAccessRolesByClassCode indicates an expected call of GetClassAccessRolesByClassCode.
+func (mr *MockDataStoreMockRecorder) GetClassAccessRolesByClassCode(classCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsersByClassID", reflect.TypeOf((*MockDataStore)(nil).GetAllUsersByClassID), classID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassAccessRolesByClassCode", reflect.TypeOf((*MockDataStore)(nil).GetClassAccessRolesByClassCode), classCode)
 }
 
 // GetClassByClassCode mocks base method.
@@ -229,19 +258,79 @@ func (mr *MockDataStoreMockRecorder) GetClassByClassCode(classCode any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassByClassCode", reflect.TypeOf((*MockDataStore)(nil).GetClassByClassCode), classCode)
 }
 
-// GetClassesByUserID mocks base method.
-func (m *MockDataStore) GetClassesByUserID(userID string) ([]data.Class, error) {
+// GetClassByClassID mocks base method.
+func (m *MockDataStore) GetClassByClassID(classID int64) (data.Class, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetClassesByUserID", userID)
+	ret := m.ctrl.Call(m, "GetClassByClassID", classID)
+	ret0, _ := ret[0].(data.Class)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassByClassID indicates an expected call of GetClassByClassID.
+func (mr *MockDataStoreMockRecorder) GetClassByClassID(classID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassByClassID", reflect.TypeOf((*MockDataStore)(nil).GetClassByClassID), classID)
+}
+
+// GetClassCodeByRoomID mocks base method.
+func (m *MockDataStore) GetClassCodeByRoomID(roomID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassCodeByRoomID", roomID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassCodeByRoomID indicates an expected call of GetClassCodeByRoomID.
+func (mr *MockDataStoreMockRecorder) GetClassCodeByRoomID(roomID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassCodeByRoomID", reflect.TypeOf((*MockDataStore)(nil).GetClassCodeByRoomID), roomID)
+}
+
+// GetClassesByAccessRoles mocks base method.
+func (m *MockDataStore) GetClassesByAccessRoles(roleIDs []string) ([]data.Class, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassesByAccessRoles", roleIDs)
 	ret0, _ := ret[0].([]data.Class)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetClassesByUserID indicates an expected call of GetClassesByUserID.
-func (mr *MockDataStoreMockRecorder) GetClassesByUserID(userID any) *gomock.Call {
+// GetClassesByAccessRoles indicates an expected call of GetClassesByAccessRoles.
+func (mr *MockDataStoreMockRecorder) GetClassesByAccessRoles(roleIDs any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesByUserID", reflect.TypeOf((*MockDataStore)(nil).GetClassesByUserID), userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesByAccessRoles", reflect.TypeOf((*MockDataStore)(nil).GetClassesByAccessRoles), roleIDs)
+}
+
+// GetClassesWhereUserIsActive mocks base method.
+func (m *MockDataStore) GetClassesWhereUserIsActive(userID string) ([]data.Class, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassesWhereUserIsActive", userID)
+	ret0, _ := ret[0].([]data.Class)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassesWhereUserIsActive indicates an expected call of GetClassesWhereUserIsActive.
+func (mr *MockDataStoreMockRecorder) GetClassesWhereUserIsActive(userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesWhereUserIsActive", reflect.TypeOf((*MockDataStore)(nil).GetClassesWhereUserIsActive), userID)
+}
+
+// GetClassroomsByClassCode mocks base method.
+func (m *MockDataStore) GetClassroomsByClassCode(classCode string) ([]data.Classroom, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassroomsByClassCode", classCode)
+	ret0, _ := ret[0].([]data.Classroom)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassroomsByClassCode indicates an expected call of GetClassroomsByClassCode.
+func (mr *MockDataStoreMockRecorder) GetClassroomsByClassCode(classCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassroomsByClassCode", reflect.TypeOf((*MockDataStore)(nil).GetClassroomsByClassCode), classCode)
 }
 
 // GetPendingConfirmation mocks base method.
@@ -320,33 +409,20 @@ func (mr *MockDataStoreMockRecorder) HasUserSolvedProblem(userID, problemID any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUserSolvedProblem", reflect.TypeOf((*MockDataStore)(nil).HasUserSolvedProblem), userID, problemID)
 }
 
-// IsUserRegisteredInClass mocks base method.
-func (m *MockDataStore) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
+// IsRoomRegistered mocks base method.
+func (m *MockDataStore) IsRoomRegistered(roomID string) (string, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUserRegisteredInClass", userID, classID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "IsRoomRegistered", roomID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// IsUserRegisteredInClass indicates an expected call of IsUserRegisteredInClass.
-func (mr *MockDataStoreMockRecorder) IsUserRegisteredInClass(userID, classID any) *gomock.Call {
+// IsRoomRegistered indicates an expected call of IsRoomRegistered.
+func (mr *MockDataStoreMockRecorder) IsRoomRegistered(roomID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUserRegisteredInClass", reflect.TypeOf((*MockDataStore)(nil).IsUserRegisteredInClass), userID, classID)
-}
-
-// RegisterUserIntoClass mocks base method.
-func (m *MockDataStore) RegisterUserIntoClass(userID string, classID int64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterUserIntoClass", userID, classID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RegisterUserIntoClass indicates an expected call of RegisterUserIntoClass.
-func (mr *MockDataStoreMockRecorder) RegisterUserIntoClass(userID, classID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterUserIntoClass", reflect.TypeOf((*MockDataStore)(nil).RegisterUserIntoClass), userID, classID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRoomRegistered", reflect.TypeOf((*MockDataStore)(nil).IsRoomRegistered), roomID)
 }
 
 // RemoveAC mocks base method.
@@ -361,6 +437,34 @@ func (m *MockDataStore) RemoveAC(userID string, problemID int64) error {
 func (mr *MockDataStoreMockRecorder) RemoveAC(userID, problemID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAC", reflect.TypeOf((*MockDataStore)(nil).RemoveAC), userID, problemID)
+}
+
+// RemoveClassAccessRole mocks base method.
+func (m *MockDataStore) RemoveClassAccessRole(role data.ClassAccessRole) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveClassAccessRole", role)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveClassAccessRole indicates an expected call of RemoveClassAccessRole.
+func (mr *MockDataStoreMockRecorder) RemoveClassAccessRole(role any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveClassAccessRole", reflect.TypeOf((*MockDataStore)(nil).RemoveClassAccessRole), role)
+}
+
+// RemoveClassroomByRoomID mocks base method.
+func (m *MockDataStore) RemoveClassroomByRoomID(roomID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveClassroomByRoomID", roomID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveClassroomByRoomID indicates an expected call of RemoveClassroomByRoomID.
+func (mr *MockDataStoreMockRecorder) RemoveClassroomByRoomID(roomID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveClassroomByRoomID", reflect.TypeOf((*MockDataStore)(nil).RemoveClassroomByRoomID), roomID)
 }
 
 // RemovePendingConfirmation mocks base method.

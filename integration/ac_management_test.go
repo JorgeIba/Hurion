@@ -20,10 +20,11 @@ func TestIntegration_AC_Propose(t *testing.T) {
 	env := setupIntegrationEnv(t)
 	classID := env.SeedClass(t, "basicos_1", "Basicos 2026")
 	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+	env.SeedClassAccessRole(t, "basicos_1", "role_enrolled")
 
 	student := service_model.User{UserID: "student_1", DisplayName: "Student One"}
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, "basicos_1")
+	env.SetRoles(student.UserID, []string{"role_enrolled"})
 
 	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!ac", strconv.FormatInt(problemID, 10)})
 	ctx.Message.ID = "msg_propose_123"
@@ -59,7 +60,6 @@ func TestIntegration_AC_Accept(t *testing.T) {
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
 
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, "basicos_1")
 
 	// Pre-seed the pending confirmation
 	messageID := "msg_existing_456"
@@ -110,7 +110,6 @@ func TestIntegration_AC_Reject(t *testing.T) {
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
 
 	env.SeedUser(t, student.UserID, student.DisplayName)
-	env.SeedEnrollment(t, student.UserID, "basicos_1")
 
 	messageID := "msg_to_be_rejected_789"
 	env.SeedPendingConfirmation(t, messageID, student.UserID, problemID)

@@ -5,20 +5,27 @@ type QueryDatastore interface {
 	GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProblem, error)
 	GetUserByUserID(userID string) (User, error)
 	GetClassByClassCode(classCode string) (Class, error)
-	IsUserRegisteredInClass(userID string, classID int64) (bool, error)
+	GetClassByClassID(classID int64) (Class, error)
+	GetClassCodeByRoomID(roomID string) (string, error)
+	IsRoomRegistered(roomID string) (string, bool, error)
+	GetClassroomsByClassCode(classCode string) ([]Classroom, error)
+	GetClassAccessRolesByClassCode(classCode string) ([]ClassAccessRole, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)
 	ExistsPendingConfirmation(messageID string) (bool, error)
 	GetProblemByID(problemID int64) (Problem, error)
-	GetAllUsersByClassID(classID int64) ([]User, error)
+	GetActiveUsersByClassID(classID int64) ([]User, error)
+	GetClassesWhereUserIsActive(userID string) ([]Class, error)
+	GetClassesByAccessRoles(roleIDs []string) ([]Class, error)
 	GetAllClasses() ([]Class, error)
-	GetClassesByUserID(userID string) ([]Class, error)
 	HasUserSolvedProblem(userID string, problemID int64) (bool, error)
 }
 
 type UpdateDataStore interface {
 	EnsureUser(user User) error
-	RegisterUserIntoClass(userID string, classID int64) error
-	DeregisterUserFromClass(userID string, classID int64) error
+	AddClassroom(classroom Classroom) error
+	RemoveClassroomByRoomID(roomID string) error
+	AddClassAccessRole(role ClassAccessRole) error
+	RemoveClassAccessRole(role ClassAccessRole) error
 	AddProblem(problem Problem) (int64, error)
 	RemoveProblemByID(problemID int64) (int64, error)
 	AddAC(userID string, problemID int64) error

@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/discord"
@@ -15,51 +16,50 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func HandleRegisterUserInClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
-	user := c.Executor
-
-	if err := c.Services.Enrollment.RegisterUserIntoClass(user, classCode); err != nil {
+func HandleGetListOfProblems(c *context.ContextMessage) {
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
 		logger.Log.Error(err)
 
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionRegisterInClass, classCode, user.DisplayName)),
-		)
-
+		switch {
+		case serviceerr.IsServiceError(err):
+			// It's a domain error, map it to a user-friendly message
+			var classCodeArg any
+			if len(c.Args) > 1 {
+				classCodeArg = c.Args[1]
+			}
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionListProblemsByClass, classCodeArg)),
+			)
+		default:
+			// controller error or unexpected error, send generic message
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
 		return
 	}
 
-	successMessage := fmt.Sprintf("User `%s` has registered in the class `%s`", user.DisplayName, classCode)
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
-	)
-}
-
-func HandleGetListOfProblemsByClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
-
-	groupedProblems, err := c.Services.Problem.GetProblemsGroupedByTopic(classCode)
+	groupedProblems, err := c.Services.Problem.GetProblemsGroupedByTopic(class.ClassCode)
 	if err != nil {
-
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionListProblemsByClass, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionListProblemsByClass, class.ClassCode)),
 		)
 
 		return
 	}
 
 	if len(groupedProblems) == 0 {
-		logger.Log.Infof("No problems found for class %s", classCode)
+		logger.Log.Infof("No problems found for class %s", class.ClassCode)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No problems found for class `%s`", classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No problems found for class `%s`", class.ClassCode)),
 		)
 		return
 	}
 
-	embeds := discord.FormatProblemsAsEmbeds(classCode, adapters.TransformToPresentationProblemsByTopic(groupedProblems))
+	embeds := discord.FormatProblemsAsEmbeds(class.ClassCode, adapters.TransformToPresentationProblemsByTopic(groupedProblems))
 
 	logger.Log.Info("Sending info")
 	c.Dispatcher.Send(
@@ -187,7 +187,15 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 }
 
 func HandleGetUsersInClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetUsersInClass, "")),
+		)
+		return
+	}
+	classCode := class.ClassCode
 
 	users, err := c.Services.Enrollment.GetListOfUsersByClassCode(classCode)
 	if err != nil {
@@ -205,7 +213,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title:       fmt.Sprintf("List of users registered in class %s", classCode),
+		Title:       fmt.Sprintf("List of active users in class %s", classCode),
 		Description: stringBuilder.String(),
 		Color:       0x00ffcc,
 	}
@@ -312,9 +320,16 @@ func HandleGetAllClasses(c *context.ContextMessage) {
 }
 
 func HandleGetMyClasses(c *context.ContextMessage) {
-	discordID := c.Message.Author.ID
+	principal, err := controllers_common.GetMemberSafe(c, c.Executor.UserID)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro."),
+		)
+		return
+	}
 
-	classes, err := c.Services.User.GetClassesByUserID(discordID)
+	classes, err := c.Services.User.GetAccessibleClassesByRoles(principal.Roles)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -325,7 +340,7 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 
 	if len(classes) == 0 {
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "You are not registered in any class"),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "You don't have access to any class roles, bro."),
 		)
 		return
 	}
@@ -362,7 +377,16 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 		return
 	}
 
-	classes, err := c.Services.User.GetClassesByUserID(userID)
+	principal, err := controllers_common.GetMemberSafe(c, userID)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify that user's roles with Discord, bro."),
+		)
+		return
+	}
+
+	classes, err := c.Services.User.GetAccessibleClassesByRoles(principal.Roles)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -373,7 +397,7 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 
 	if len(classes) == 0 {
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> not registered in any class", userID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("User <@%s> doesn't have access to any class roles, bro.", userID)),
 		)
 		return
 	}
@@ -396,5 +420,107 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 			ChannelID: c.Message.ChannelID,
 			Embed:     embed,
 		},
+	)
+}
+
+func HandleGetClassRoles(c *context.ContextMessage) {
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case serviceerr.IsServiceError(err):
+			// It's a domain error, map it to a user-friendly message
+			var classCodeArg any
+			if len(c.Args) > 1 {
+				classCodeArg = c.Args[1]
+			}
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionGetClassRoles, classCodeArg)),
+			)
+		default:
+			// controller error or unexpected error, send generic message
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
+		return
+	}
+
+	roles, err := c.Services.Class.GetAccessRoles(class.ClassCode)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetClassRoles, class.ClassCode)),
+		)
+		return
+	}
+
+	if len(roles) == 0 {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No roles linked to class `%s`", class.ClassCode)),
+		)
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Roles linked to class `%s`:\n", class.ClassCode))
+	for _, role := range roles {
+		sb.WriteString(fmt.Sprintf("* <@&%s> (`%s`)\n", role.RoleID, role.RoleID))
+	}
+
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, sb.String()),
+	)
+}
+
+func HandleGetClassRooms(c *context.ContextMessage) {
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case serviceerr.IsServiceError(err):
+			// It's a domain error, map it to a user-friendly message
+			var classCodeArg any
+			if len(c.Args) > 1 {
+				classCodeArg = c.Args[1]
+			}
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionGetClassRooms, classCodeArg)),
+			)
+		default:
+			// controller error or unexpected error, send generic message
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
+		return
+	}
+
+	rooms, err := c.Services.Class.GetClassrooms(class.ClassCode)
+	if err != nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetClassRooms, class.ClassCode)),
+		)
+		return
+	}
+
+	if len(rooms) == 0 {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("No rooms linked to class `%s`", class.ClassCode)),
+		)
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Rooms linked to class `%s`:\n", class.ClassCode))
+	for _, room := range rooms {
+		sb.WriteString(fmt.Sprintf("* <#%s> (`%s`)\n", room.RoomID, room.RoomID))
+	}
+
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(c.Message.ChannelID, sb.String()),
 	)
 }

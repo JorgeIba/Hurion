@@ -7,7 +7,6 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
 
@@ -20,23 +19,21 @@ type SolutionService struct {
 	Datastore data.DataStore
 }
 
-// AddACToUserID adds an AC (accepted solution) for a user
+// AddACToUserID adds an AC (accepted solution) for a user.
+// This is a trusted method (no enrollment check).
 func (service *SolutionService) AddACToUserID(userID string, problemID int64) error {
-	// Validate problem exists
-	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
-		return err
-	} else if !isProblemPresent {
-		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
+	// Layer 2 Safeguard: Ensure user exists before linking foreign keys
+	if err := service.Datastore.EnsureUser(data.User{UserID: userID, DisplayName: "Unknown"}); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("failed to ensure user %s exists: %w", userID, err))
 	}
 
-	// Validate user is registered in the class of the problem
-	if isBroAbleToAC, err := helpers.CanBroACTheProblem(service.Datastore, userID, problemID); err != nil {
-		return err
-	} else if !isBroAbleToAC {
-		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
+	// 1. Business Logic
+	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(userID, problemID); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
+	} else if hasUserSolvedAlready {
+		return serviceerr.NewConflictError(fmt.Sprintf("user %s has already solved problem %d", userID, problemID), nil)
 	}
 
-	// ACing
 	if err := service.Datastore.AddAC(userID, problemID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
@@ -44,48 +41,58 @@ func (service *SolutionService) AddACToUserID(userID string, problemID int64) er
 	return nil
 }
 
-// UndoACByProblemAndUserID removes an AC for a user
-func (service *SolutionService) UndoACByProblemAndUserID(problemID int64, userID string) error {
-	// Validate problem exists
-	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
+// AddACByPrincipal adds an AC for a user (Authenticated enrollment version).
+func (service *SolutionService) AddACByPrincipal(principal service_model.Principal, problemID int64) error {
+	allowed, err := service.authorizeAC(principal, problemID)
+	if err != nil {
 		return err
-	} else if !isProblemPresent {
-		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+	}
+	if !allowed {
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s cannot AC the problem %d (missing required roles)", principal.UserID, problemID), nil)
 	}
 
-	// Validate user is registered in the class of the problem
-	if isBroAbleToUndoAC, err := helpers.HasUserSolvedProblem(service.Datastore, userID, problemID); err != nil {
-		return err
-	} else if !isBroAbleToUndoAC {
-		return serviceerr.NewConflictError(fmt.Sprintf("user %s has not solved problem %d or is not enrolled in the class", userID, problemID), nil)
+	return service.AddACToUserID(principal.UserID, problemID)
+}
+
+// UndoAC removes an AC for a user.
+func (service *SolutionService) UndoAC(userID string, problemID int64) error {
+	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(userID, problemID); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
+	} else if !hasUserSolvedAlready {
+		return serviceerr.NewConflictError(fmt.Sprintf("user %s has not solved problem %d", userID, problemID), nil)
 	}
 
-	// Undo-ing
 	if err := service.Datastore.RemoveAC(userID, problemID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
 }
 
-// AddPendingACOfUserID adds a pending AC confirmation
-func (service *SolutionService) AddPendingACOfUserID(messageID, userID string, problemID int64) error {
-	// Validate problem exists
-	if isProblemPresent, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
+// AddPendingACByPrincipal adds a pending AC confirmation
+func (service *SolutionService) AddPendingACByPrincipal(messageID string, principal service_model.Principal, problemID int64) error {
+	allowed, err := service.authorizeAC(principal, problemID)
+	if err != nil {
 		return err
-	} else if !isProblemPresent {
-		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("are you sure problem %d exists?", problemID), nil)
+	}
+	if !allowed {
+		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s cannot propose AC for problem %d (missing required roles)", principal.UserID, problemID), nil)
 	}
 
-	// Validate user is registered in the class of the problem
-	if isBroAbleToAC, err := helpers.CanBroACTheProblem(service.Datastore, userID, problemID); err != nil {
-		return err
-	} else if !isBroAbleToAC {
-		return serviceerr.NewUserNotEnrolledError(fmt.Sprintf("bro %s cannot AC the problem with id: %d", userID, problemID), nil)
+	// Layer 2 Safeguard
+	if err := service.Datastore.EnsureUser(data.User{UserID: principal.UserID, DisplayName: principal.DisplayName}); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("failed to ensure user %s exists: %w", principal.UserID, err))
+	}
+
+	// 2. Business Logic
+	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(principal.UserID, problemID); err != nil {
+		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", principal.UserID, problemID, err))
+	} else if hasUserSolvedAlready {
+		return serviceerr.NewConflictError(fmt.Sprintf("user %s has already solved problem %d", principal.UserID, problemID), nil)
 	}
 
 	if err := service.Datastore.AddPendingConfirmation(mapServicePendingConfirmationToDataPendingConfirmation(service_model.PendingConfirmation{
 		MessageID: messageID,
-		UserID:    userID,
+		UserID:    principal.UserID,
 		ProblemID: problemID,
 	})); err != nil {
 		return serviceerr.MakeGeneralError(err)
@@ -130,11 +137,8 @@ func (service *SolutionService) AcceptACProposal(messageID string) error {
 		return serviceerr.MakeGeneralError(err)
 	}
 
-	if err := service.AddACToUserID(pendingConfirmation.UserID, pendingConfirmation.ProblemID); err != nil {
-		return err
-	}
-
-	return nil
+	// We trust the DB record.
+	return service.AddACToUserID(pendingConfirmation.UserID, pendingConfirmation.ProblemID)
 }
 
 // RejectACProposal rejects a pending AC proposal
@@ -143,4 +147,41 @@ func (service *SolutionService) RejectACProposal(messageID string) error {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil
+}
+
+// authorizeAC centralizes the logic to verify if a principal is allowed to AC a specific problem.
+func (service *SolutionService) authorizeAC(principal service_model.Principal, problemID int64) (bool, error) {
+	// 1. Resolve Context
+	problem, err := service.Datastore.GetProblemByID(problemID)
+	if err != nil {
+		if errors.As(err, &dataNotFoundErrSolution) {
+			return false, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
+		}
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	class, err := service.Datastore.GetClassByClassID(problem.ClassID)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	accessRoles, err := service.Datastore.GetClassAccessRolesByClassCode(class.ClassCode)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	// 2. Authorize
+	isAuthorized := false
+	roleSet := make(map[string]bool, len(principal.Roles))
+	for _, r := range principal.Roles {
+		roleSet[r] = true
+	}
+	for _, ar := range accessRoles {
+		if roleSet[ar.RoleID] {
+			isAuthorized = true
+			break
+		}
+	}
+
+	return isAuthorized, nil
 }

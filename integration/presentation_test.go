@@ -21,7 +21,6 @@ func TestIntegration_ScoreGeneration_SmokeTest(t *testing.T) {
 
 	studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
 	env.SeedUser(t, studentUser.UserID, studentUser.DisplayName)
-	env.SeedEnrollment(t, studentUser.UserID, classCode)
 	env.SeedAC(t, studentUser.UserID, problemID)
 
 	ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!score", classCode})
@@ -52,7 +51,6 @@ func TestIntegration_ExcelExport_SmokeTest(t *testing.T) {
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
 	env.SeedUser(t, "student_1", "Student")
-	env.SeedEnrollment(t, "student_1", classCode)
 
 	// Stub Admin role
 	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {

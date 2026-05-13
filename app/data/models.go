@@ -26,6 +26,18 @@ type Class struct {
 	Name      string
 }
 
+// Classroom represents a location (e.g., Discord Channel) where a class is taught.
+type Classroom struct {
+	RoomID    string
+	ClassCode string
+}
+
+// ClassAccessRole represents a role (e.g., Discord Role) that grants access to a class.
+type ClassAccessRole struct {
+	ClassCode string
+	RoleID    string
+}
+
 type User struct {
 	UserID      string
 	DisplayName string

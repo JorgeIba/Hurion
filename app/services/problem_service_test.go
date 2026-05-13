@@ -18,12 +18,10 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		params      service_model.CreateProblemParams
-		setupMock   func(*mock_data.MockDataStore)
-		wantID      int64
-		wantErr     bool
-		wantErrType error
+		name       string
+		params     service_model.CreateProblemParams
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, int64, error)
 	}{
 		{
 			name: "success - problem created",
@@ -44,20 +42,23 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 					Topic:      helpers.PtrStr("Arrays"),
 				}).Return(int64(100), nil)
 			},
-			wantID:  100,
-			wantErr: false,
+			assertFunc: func(t *testing.T, id int64, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, int64(100), id)
+			},
 		},
 		{
-			name: "class not found in IsClassCodeValid",
+			name: "class not found",
 			params: service_model.CreateProblemParams{
 				ClassCode: "UNKNOWN",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("UNKNOWN").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
-			wantID:      0,
-			wantErr:     true,
-			wantErrType: &serviceerr.ClassCodeNotFoundError{},
+			assertFunc: func(t *testing.T, id int64, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, err)
+			},
 		},
 		{
 			name: "generic error in IsClassCodeValid",
@@ -67,22 +68,10 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
-			wantID:      0,
-			wantErr:     true,
-			wantErrType: &serviceerr.InternalError{},
-		},
-		{
-			name: "generic error in GetClassByClassCode",
-			params: service_model.CreateProblemParams{
-				ClassCode: "CS101",
+			assertFunc: func(t *testing.T, id int64, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
 			},
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
-			},
-			wantID:      0,
-			wantErr:     true,
-			wantErrType: &serviceerr.InternalError{},
 		},
 		{
 			name: "conflict - duplicate problem",
@@ -94,9 +83,24 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
 				m.EXPECT().AddProblem(gomock.Any()).Return(int64(0), &dataerr.RowConflictError{})
 			},
-			wantID:      0,
-			wantErr:     true,
-			wantErrType: &serviceerr.DuplicateProblemError{},
+			assertFunc: func(t *testing.T, id int64, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.DuplicateProblemError{}, err)
+			},
+		},
+		{
+			name: "generic error in GetClassByClassCode",
+			params: service_model.CreateProblemParams{
+				ClassCode: "CS101",
+			},
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
+				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
+			},
+			assertFunc: func(t *testing.T, id int64, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 		{
 			name: "generic error in AddProblem",
@@ -108,9 +112,10 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
 				m.EXPECT().AddProblem(gomock.Any()).Return(int64(0), errors.New("db fail"))
 			},
-			wantID:      0,
-			wantErr:     true,
-			wantErrType: &serviceerr.InternalError{},
+			assertFunc: func(t *testing.T, id int64, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 	}
 
@@ -124,16 +129,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 
 			svc := NewProblemService(mockStore)
 			id, err := svc.CreateProblemIntoClass(tt.params)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrType != nil {
-					assert.IsType(t, tt.wantErrType, err)
-				}
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.wantID, id)
-			}
+			tt.assertFunc(t, id, err)
 		})
 	}
 }
@@ -142,10 +138,10 @@ func TestProblemService_RemoveProblemFromClass(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		problemID int64
-		setupMock func(*mock_data.MockDataStore)
-		wantErr   bool
+		name       string
+		problemID  int64
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:      "success - removed",
@@ -154,7 +150,9 @@ func TestProblemService_RemoveProblemFromClass(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().RemoveProblemByID(int64(100)).Return(int64(1), nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name:      "not found",
@@ -162,7 +160,9 @@ func TestProblemService_RemoveProblemFromClass(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
 		},
 		{
 			name:      "generic error GetProblemByID",
@@ -170,7 +170,9 @@ func TestProblemService_RemoveProblemFromClass(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{}, errors.New("db fail"))
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
 		},
 		{
 			name:      "generic error RemoveProblemByID",
@@ -179,7 +181,9 @@ func TestProblemService_RemoveProblemFromClass(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
 				m.EXPECT().RemoveProblemByID(int64(100)).Return(int64(0), errors.New("db fail"))
 			},
-			wantErr: true,
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
 		},
 	}
 
@@ -193,12 +197,7 @@ func TestProblemService_RemoveProblemFromClass(t *testing.T) {
 
 			svc := NewProblemService(mockStore)
 			err := svc.RemoveProblemFromClass(tt.problemID)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.assertFunc(t, err)
 		})
 	}
 }
@@ -207,12 +206,11 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		problemID   int64
-		problem     service_model.Problem
-		setupMock   func(*mock_data.MockDataStore)
-		wantErr     bool
-		wantErrType error
+		name       string
+		problemID  int64
+		problem    service_model.Problem
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
 	}{
 		{
 			name:      "success",
@@ -222,7 +220,9 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "New Name"}).Return(nil)
 			},
-			wantErr: false,
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name:      "not found",
@@ -230,8 +230,10 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(2)).Return(data.Problem{}, &dataerr.NotFoundError{})
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.ProblemNotFoundError{},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ProblemNotFoundError{}, err)
+			},
 		},
 		{
 			name:      "duplicate conflict on update",
@@ -241,8 +243,10 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "Repeated Name"}).Return(dataerr.NewRowConflictError("problem exists", nil))
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.DuplicateProblemError{},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.DuplicateProblemError{}, err)
+			},
 		},
 		{
 			name:      "generic error UpdateProblemByProblemID",
@@ -251,8 +255,10 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(errors.New("db fail"))
 			},
-			wantErr:     true,
-			wantErrType: &serviceerr.InternalError{},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
 		},
 	}
 
@@ -266,15 +272,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 
 			svc := NewProblemService(mockStore)
 			err := svc.UpdateProblemByProblemID(tt.problemID, tt.problem)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrType != nil {
-					assert.IsType(t, tt.wantErrType, err)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.assertFunc(t, err)
 		})
 	}
 }
@@ -286,8 +284,7 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 		name       string
 		classCode  string
 		setupMock  func(*mock_data.MockDataStore)
-		wantResult []service_model.ProblemsByTopic
-		wantErr    bool
+		assertFunc func(*testing.T, []service_model.ProblemsByTopic, error)
 	}{
 		{
 			name:      "success - grouped",
@@ -300,22 +297,17 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 					{ID: 3, Topic: helpers.PtrStr("Strings"), Difficulty: helpers.PtrStr("1")},
 				}, nil)
 			},
-			wantResult: []service_model.ProblemsByTopic{
-				{
-					Topic: "Math",
-					Problems: []service_model.Problem{
-						{ID: 1, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("1")},
-						{ID: 2, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("2")},
-					},
-				},
-				{
-					Topic: "Strings",
-					Problems: []service_model.Problem{
-						{ID: 3, Topic: helpers.PtrStr("Strings"), Difficulty: helpers.PtrStr("1")},
-					},
-				},
+			assertFunc: func(t *testing.T, res []service_model.ProblemsByTopic, err error) {
+				assert.NoError(t, err)
+				assert.Len(t, res, 2)
+				assert.Equal(t, "Math", res[0].Topic)
+				assert.Len(t, res[0].Problems, 2)
+				assert.Equal(t, int64(1), res[0].Problems[0].ID)
+				assert.Equal(t, int64(2), res[0].Problems[1].ID)
+				assert.Equal(t, "Strings", res[1].Topic)
+				assert.Len(t, res[1].Problems, 1)
+				assert.Equal(t, int64(3), res[1].Problems[0].ID)
 			},
-			wantErr: false,
 		},
 		{
 			name:      "class not found",
@@ -323,8 +315,9 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("NONE").Return(data.Class{}, &dataerr.NotFoundError{})
 			},
-			wantResult: []service_model.ProblemsByTopic{},
-			wantErr:    true,
+			assertFunc: func(t *testing.T, res []service_model.ProblemsByTopic, err error) {
+				assert.Error(t, err)
+			},
 		},
 		{
 			name:      "generic error GetClassByClassCode",
@@ -332,8 +325,9 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
 			},
-			wantResult: []service_model.ProblemsByTopic{},
-			wantErr:    true,
+			assertFunc: func(t *testing.T, res []service_model.ProblemsByTopic, err error) {
+				assert.Error(t, err)
+			},
 		},
 		{
 			name:      "generic error GetProblemsByClass",
@@ -342,8 +336,9 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetProblemsByClass(int64(10)).Return(nil, errors.New("db fail"))
 			},
-			wantResult: []service_model.ProblemsByTopic{},
-			wantErr:    true,
+			assertFunc: func(t *testing.T, res []service_model.ProblemsByTopic, err error) {
+				assert.Error(t, err)
+			},
 		},
 	}
 
@@ -357,13 +352,66 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 
 			svc := NewProblemService(mockStore)
 			res, err := svc.GetProblemsGroupedByTopic(tt.classCode)
+			tt.assertFunc(t, res, err)
+		})
+	}
+}
 
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
+func TestProblemService_GetProblemByID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		problemID  int64
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, service_model.Problem, error)
+	}{
+		{
+			name:      "success",
+			problemID: 100,
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, Name: "P100"}, nil)
+			},
+			assertFunc: func(t *testing.T, p service_model.Problem, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.wantResult, res)
-			}
+				assert.Equal(t, int64(100), p.ID)
+			},
+		},
+		{
+			name:      "not found",
+			problemID: 404,
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(404)).Return(data.Problem{}, &dataerr.NotFoundError{})
+			},
+			assertFunc: func(t *testing.T, p service_model.Problem, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ProblemNotFoundError{}, err)
+			},
+		},
+		{
+			name:      "internal error",
+			problemID: 500,
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(500)).Return(data.Problem{}, errors.New("db fail"))
+			},
+			assertFunc: func(t *testing.T, p service_model.Problem, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+
+			svc := NewProblemService(mockStore)
+			p, err := svc.GetProblemByID(tt.problemID)
+			tt.assertFunc(t, p, err)
 		})
 	}
 }

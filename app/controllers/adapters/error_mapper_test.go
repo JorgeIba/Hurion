@@ -99,10 +99,10 @@ func TestMapError(t *testing.T) {
 		},
 		{
 			name:   "semantic conflict for mentor undo AC",
-			err:    serviceerr.NewConflictError("", nil),
+			err:    serviceerr.NewConflictError("any", nil),
 			action: ActionMentorUndoAC,
 			args:   []any{"<@123>", int64(77)},
-			want:   "User `<@123>` has not solved problem `77` yet or is not enrolled in the class",
+			want:   "User `<@123>` has not solved problem `77` yet",
 		},
 		{
 			name:   "wrapped class not found is mapped correctly",

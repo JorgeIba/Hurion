@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
@@ -25,57 +26,6 @@ func (db *DB) EnsureUser(user User) error {
 
 	if _, err := db.conn.Exec(query, user.UserID, user.DisplayName); err != nil {
 		return dataerr.NewQueryError(fmt.Sprintf("could not ensure user %s", user.UserID), err)
-	}
-
-	return nil
-}
-func (db *DB) RegisterUserIntoClass(userID string, classID int64) error {
-	query := `
-		INSERT INTO enrollments (user_id, class_id)
-		VALUES (?,?)
-		ON CONFLICT(user_id, class_id) DO NOTHING;
-	`
-
-	if _, err := db.conn.Exec(query, userID, classID); err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not register the user %s into class id %d", userID, classID), err)
-	}
-	return nil
-}
-
-func (db *DB) DeregisterUserFromClass(userID string, classID int64) error {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to deregister user %s from class %d", userID, classID), err)
-	}
-
-	// Delete in order: pending confirmations -> solved problems -> enrollment
-	queries := []struct {
-		query string
-		note  string
-	}{
-		{
-			query: "DELETE FROM pending_confirmations WHERE user_id = ? AND problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-			note:  "pending confirmations",
-		},
-		{
-			query: "DELETE FROM solved_problems WHERE user_id = ? AND problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-			note:  "solved problems",
-		},
-		{
-			query: "DELETE FROM enrollments WHERE user_id = ? AND class_id = ?",
-			note:  "enrollment",
-		},
-	}
-
-	for _, q := range queries {
-		if _, err := tx.Exec(q.query, userID, classID); err != nil {
-			tx.Rollback()
-			return dataerr.NewQueryError(fmt.Sprintf("could not delete %s for user %s from class %d", q.note, userID, classID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to deregister user %s from class %d", userID, classID), err)
 	}
 
 	return nil
@@ -107,27 +57,9 @@ func (db *DB) AddProblem(problem Problem) (int64, error) {
 }
 
 func (db *DB) RemoveProblemByID(problemID int64) (int64, error) {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to remove problem %d", problemID), err)
-	}
-
-	// Delete in order: pending confirmations -> solved problems -> problem itself
-	queries := []string{
-		"DELETE FROM pending_confirmations WHERE problem_id = ?",
-		"DELETE FROM solved_problems WHERE problem_id = ?",
-		"DELETE FROM problems WHERE id = ?",
-	}
-
-	for _, query := range queries {
-		if _, err := tx.Exec(query, problemID); err != nil {
-			tx.Rollback()
-			return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove problem %d", problemID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to remove problem %d", problemID), err)
+	query := "DELETE FROM problems WHERE id = ?"
+	if _, err := db.conn.Exec(query, problemID); err != nil {
+		return 0, dataerr.NewQueryError(fmt.Sprintf("could not remove problem %d", problemID), err)
 	}
 
 	return 1, nil
@@ -274,28 +206,9 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 }
 
 func (db *DB) ClearClass(classID int64) error {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to clear class %d", classID), err)
-	}
-
-	queries := []string{
-		"DELETE FROM pending_confirmations WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-		"DELETE FROM solved_problems WHERE problem_id IN (SELECT id FROM problems WHERE class_id = ?)",
-		"DELETE FROM enrollments WHERE class_id = ?",
-		"DELETE FROM problems WHERE class_id = ?",
-		"DELETE FROM classes WHERE id = ?",
-	}
-
-	for _, query := range queries {
-		if _, err := tx.Exec(query, classID); err != nil {
-			tx.Rollback()
-			return dataerr.NewQueryError(fmt.Sprintf("could not execute query to clear class %d", classID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to clear class %d", classID), err)
+	query := "DELETE FROM classes WHERE id = ?"
+	if _, err := db.conn.Exec(query, classID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not clear class %d", classID), err)
 	}
 
 	return nil
@@ -328,6 +241,158 @@ func (db *DB) CreateClass(class Class) (int64, error) {
 	}
 
 	return classID, nil
+}
+
+func (db *DB) AddClassroom(classroom Classroom) error {
+	query := `
+		INSERT INTO classrooms (room_id, class_code)
+		VALUES (?, ?)
+		ON CONFLICT(room_id) DO UPDATE SET class_code = EXCLUDED.class_code;
+	`
+
+	if _, err := db.conn.Exec(query, classroom.RoomID, classroom.ClassCode); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not add classroom %s for class %s", classroom.RoomID, classroom.ClassCode), err)
+	}
+
+	return nil
+}
+
+func (db *DB) RemoveClassroomByRoomID(roomID string) error {
+	query := `
+		DELETE FROM classrooms
+		WHERE room_id = ?;
+	`
+
+	if _, err := db.conn.Exec(query, roomID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not remove classroom %s", roomID), err)
+	}
+
+	return nil
+}
+
+func (db *DB) AddClassAccessRole(classRole ClassAccessRole) error {
+	query := `
+		INSERT INTO class_access_roles (class_code, role_id)
+		VALUES (?, ?)
+		ON CONFLICT(class_code, role_id) DO NOTHING;
+	`
+
+	if _, err := db.conn.Exec(query, classRole.ClassCode, classRole.RoleID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not add role %s for class %s", classRole.RoleID, classRole.ClassCode), err)
+	}
+
+	return nil
+}
+
+func (db *DB) RemoveClassAccessRole(classRole ClassAccessRole) error {
+	query := `
+		DELETE FROM class_access_roles
+		WHERE class_code = ? AND role_id = ?;
+	`
+
+	if _, err := db.conn.Exec(query, classRole.ClassCode, classRole.RoleID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not remove role %s from class %s", classRole.RoleID, classRole.ClassCode), err)
+	}
+
+	return nil
+}
+
+func (db *DB) GetClassCodeByRoomID(roomID string) (string, error) {
+	query := `
+		SELECT class_code
+		FROM classrooms
+		WHERE room_id = ?;
+	`
+
+	var classCode string
+	err := db.conn.QueryRow(query, roomID).Scan(&classCode)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", dataerr.NewNotFoundError(fmt.Sprintf("classroom with id %s not found", roomID), nil)
+		}
+		return "", dataerr.NewQueryError(fmt.Sprintf("could not get class code by room id %s", roomID), err)
+	}
+
+	return classCode, nil
+}
+
+func (db *DB) IsRoomRegistered(roomID string) (string, bool, error) {
+	query := `
+		SELECT class_code
+		FROM classrooms
+		WHERE room_id = ?;
+	`
+
+	var classCode string
+	err := db.conn.QueryRow(query, roomID).Scan(&classCode)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, dataerr.NewQueryError(fmt.Sprintf("could not check if room %s is registered", roomID), err)
+	}
+
+	return classCode, true, nil
+}
+
+func (db *DB) GetClassroomsByClassCode(classCode string) ([]Classroom, error) {
+	query := `
+		SELECT room_id, class_code
+		FROM classrooms
+		WHERE class_code = ?
+		ORDER BY room_id;
+	`
+
+	rows, err := db.conn.Query(query, classCode)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get classrooms for class %s", classCode), err)
+	}
+	defer rows.Close()
+
+	classrooms := make([]Classroom, 0)
+	for rows.Next() {
+		var classroom Classroom
+		if err := rows.Scan(&classroom.RoomID, &classroom.ClassCode); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan classroom for class %s", classCode), err)
+		}
+		classrooms = append(classrooms, classroom)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating classrooms for class %s", classCode), err)
+	}
+
+	return classrooms, nil
+}
+
+func (db *DB) GetClassAccessRolesByClassCode(classCode string) ([]ClassAccessRole, error) {
+	query := `
+		SELECT class_code, role_id
+		FROM class_access_roles
+		WHERE class_code = ?
+		ORDER BY role_id;
+	`
+
+	rows, err := db.conn.Query(query, classCode)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get class access roles for class %s", classCode), err)
+	}
+	defer rows.Close()
+
+	roles := make([]ClassAccessRole, 0)
+	for rows.Next() {
+		var classRole ClassAccessRole
+		if err := rows.Scan(&classRole.ClassCode, &classRole.RoleID); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class access role for class %s", classCode), err)
+		}
+		roles = append(roles, classRole)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating class access roles for class %s", classCode), err)
+	}
+
+	return roles, nil
 }
 
 func (db *DB) GetUserByUserID(userID string) (User, error) {
@@ -364,20 +429,18 @@ func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
 	return class, nil
 }
 
-func (db *DB) IsUserRegisteredInClass(userID string, classID int64) (bool, error) {
-	query := `
-		SELECT COUNT(*)
-		FROM enrollments
-		WHERE user_id = ? AND class_id = ?;
-	`
+func (db *DB) GetClassByClassID(classID int64) (Class, error) {
+	query := `SELECT id, class_code, name FROM classes WHERE id = ?`
 
-	var count int
-	err := db.conn.QueryRow(query, userID, classID).Scan(&count)
+	var class Class
+	err := db.conn.QueryRow(query, classID).Scan(&class.ID, &class.ClassCode, &class.Name)
 	if err != nil {
-		return false, dataerr.NewQueryError(fmt.Sprintf("error checking user enrollment from user %s in class %d", userID, classID), err)
+		if err == sql.ErrNoRows {
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with ID %d not found", classID), nil)
+		}
+		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class with ID %d", classID), err)
 	}
-
-	return count > 0, nil
+	return class, nil
 }
 
 func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
@@ -388,8 +451,13 @@ func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
 	`
 	_, err := db.conn.Exec(query, confirmation.MessageID, confirmation.UserID, confirmation.ProblemID)
 	if err != nil {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintForeignKey {
+			return dataerr.NewUserMissingFromDatabaseError(fmt.Sprintf("user %s not found in database", confirmation.UserID), err)
+		}
 		return dataerr.NewQueryError(fmt.Sprintf("could not add or update pending confirmation for message id %s, user id %s and problem %d", confirmation.MessageID, confirmation.UserID, confirmation.ProblemID), err)
 	}
+
 	return nil
 }
 
@@ -456,18 +524,20 @@ func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
 	return problem, nil
 }
 
-func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
+func (db *DB) GetActiveUsersByClassID(classID int64) ([]User, error) {
 	query := `
-		SELECT 
+		SELECT DISTINCT
 			u.user_id,
 			u.display_name
-		FROM enrollments e
-		JOIN users u ON e.user_id = u.user_id
-		WHERE e.class_id = ?
+		FROM solved_problems sp
+		JOIN problems p ON sp.problem_id = p.id
+		JOIN users u ON sp.user_id = u.user_id
+		WHERE p.class_id = ?
+		ORDER BY u.display_name ASC, u.user_id ASC
 	`
 	rows, err := db.conn.Query(query, classID)
 	if err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get users from class id %d", classID), err)
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get active users from class id %d", classID), err)
 	}
 	defer rows.Close()
 
@@ -481,7 +551,7 @@ func (db *DB) GetAllUsersByClassID(classID int64) ([]User, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over users from class id %d", classID), err)
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over active users from class id %d", classID), err)
 	}
 
 	return users, nil
@@ -541,36 +611,6 @@ func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	return nil
 }
 
-func (db *DB) GetClassesByUserID(userID string) ([]Class, error) {
-	query := `
-		SELECT c.id, c.class_code, c.name
-		FROM enrollments e
-		JOIN classes c ON e.class_id = c.id
-		WHERE e.user_id = ?;
-	`
-
-	rows, err := db.conn.Query(query, userID)
-	if err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get classes for user %s", userID), err)
-	}
-	defer rows.Close()
-
-	var classes []Class
-	for rows.Next() {
-		var class Class
-		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
-			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class for user %s", userID), err)
-		}
-		classes = append(classes, class)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over classes for user %s", userID), err)
-	}
-
-	return classes, nil
-}
-
 func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error) {
 	query := `
 		SELECT EXISTS(
@@ -589,28 +629,86 @@ func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error)
 }
 
 func (db *DB) ExterminateUser(userID string) error {
-	tx, err := db.conn.Begin()
-	if err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not begin transaction to exterminate user %s", userID), err)
-	}
-
-	queries := []string{
-		"DELETE FROM pending_confirmations WHERE user_id = ?",
-		"DELETE FROM solved_problems WHERE user_id = ?",
-		"DELETE FROM enrollments WHERE user_id = ?",
-		"DELETE FROM users WHERE user_id = ?",
-	}
-
-	for _, query := range queries {
-		if _, err := tx.Exec(query, userID); err != nil {
-			tx.Rollback()
-			return dataerr.NewQueryError(fmt.Sprintf("could not execute query to exterminate user %s", userID), err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return dataerr.NewTransactionError(fmt.Sprintf("could not commit transaction to exterminate user %s", userID), err)
+	query := "DELETE FROM users WHERE user_id = ?"
+	if _, err := db.conn.Exec(query, userID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not exterminate user %s", userID), err)
 	}
 
 	return nil
+}
+
+func (db *DB) GetClassesWhereUserIsActive(userID string) ([]Class, error) {
+	query := `
+		SELECT DISTINCT c.id, c.class_code, c.name
+		FROM solved_problems sp
+		JOIN problems p ON sp.problem_id = p.id
+		JOIN classes c ON p.class_id = c.id
+		WHERE sp.user_id = ?
+		ORDER BY c.class_code ASC;
+	`
+
+	rows, err := db.conn.Query(query, userID)
+	if err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("could not get classes where user %s is active", userID), err)
+	}
+	defer rows.Close()
+
+	var classes []Class
+	for rows.Next() {
+		var class Class
+		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan class for active user %s", userID), err)
+		}
+		classes = append(classes, class)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError(fmt.Sprintf("error iterating over classes for active user %s", userID), err)
+	}
+
+	return classes, nil
+}
+
+func (db *DB) GetClassesByAccessRoles(roleIDs []string) ([]Class, error) {
+	if len(roleIDs) == 0 {
+		return []Class{}, nil
+	}
+
+	// Build placeholders for IN clause idiomatic way
+	placeholdersArr := make([]string, len(roleIDs))
+	args := make([]any, len(roleIDs))
+	for i, id := range roleIDs {
+		placeholdersArr[i] = "?"
+		args[i] = id
+	}
+	placeholders := strings.Join(placeholdersArr, ",")
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT c.id, c.class_code, c.name
+		FROM classes c
+		JOIN class_access_roles car ON c.class_code = car.class_code
+		WHERE car.role_id IN (%s)
+		ORDER BY c.class_code ASC
+	`, placeholders)
+
+	rows, err := db.conn.Query(query, args...)
+	if err != nil {
+		return nil, dataerr.NewQueryError("could not get classes by access roles", err)
+	}
+	defer rows.Close()
+
+	var classes []Class
+	for rows.Next() {
+		var class Class
+		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
+			return nil, dataerr.NewQueryError("could not scan class from access roles", err)
+		}
+		classes = append(classes, class)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError("error iterating over classes from access roles", err)
+	}
+
+	return classes, nil
 }

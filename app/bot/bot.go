@@ -2,12 +2,10 @@ package bot
 
 import (
 	"log"
-	"os"
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers"
@@ -17,20 +15,22 @@ import (
 
 type Bot struct {
 	botToken        string
-	db              *data.DB
+	adminRoleID     string
+	mentorRoleID    string
 	dispatcher      *dispatcher.Dispatcher
 	discordProvider providers.DiscordProvider
 	services        *services.Services
 	session         *discordgo.Session
 }
 
-func CreateBot(botToken string, db *data.DB) (*Bot, error) {
+func CreateBot(botToken string, svcs *services.Services, adminRoleID string, mentorRoleID string) (*Bot, error) {
 	return &Bot{
 		botToken:        botToken,
-		db:              db,
+		adminRoleID:     adminRoleID,
+		mentorRoleID:    mentorRoleID,
 		dispatcher:      nil,
 		discordProvider: nil,
-		services:        nil,
+		services:        svcs,
 	}, nil
 }
 
@@ -52,10 +52,9 @@ func (bot *Bot) Run() error {
 	// Initialize provider and services
 	bot.discordProvider = providers.NewProviderDiscord(
 		providers.NewDiscordGoSessionAdapter(dg),
-		os.Getenv("DISCORD_ADMIN_ROLE_ID"),
-		os.Getenv("DISCORD_MENTOR_ROLE_ID"),
+		bot.adminRoleID,
+		bot.mentorRoleID,
 	)
-	bot.services = services.NewServices(bot.db)
 
 	dg.AddHandler(bot.safeMessageHandler)
 	dg.AddHandler(bot.safeReactionHandler)
@@ -79,10 +78,6 @@ func (bot *Bot) Stop() {
 
 	if bot.dispatcher != nil {
 		bot.dispatcher.Stop()
-	}
-
-	if bot.db != nil {
-		bot.db.CloseDB()
 	}
 
 	logger.Log.Info("Bot shut down successfully.")
@@ -128,7 +123,10 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	if len(cmd) > 0 && cmd[0] == '!' {
 		logger.Log.Info(cmd)
 	}
+
 	if router, exists := commandMap[cmd]; exists {
+		// Systematic safeguard: ensures every user mentioned exists in the DB before logic runs
+		controllers_common.SyncParticipants(context)
 		router(context)
 	}
 }
@@ -171,6 +169,9 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 	}
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
+		// Systematic safeguard: ensures every user involved exists in the DB before logic runs
+		controllers_common.SyncParticipants(context)
+
 		router(context)
 	}
 }

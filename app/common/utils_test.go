@@ -72,3 +72,52 @@ func TestExtractUserIDFromMention(t *testing.T) {
 		})
 	}
 }
+
+func TestIsUserMention(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		mention  string
+		expected bool
+	}{
+		{
+			name:     "valid standard mention",
+			mention:  "<@1234567890>",
+			expected: true,
+		},
+		{
+			name:     "valid nickname mention",
+			mention:  "<@!1234567890>",
+			expected: true,
+		},
+		{
+			name:     "role mention (should be false)",
+			mention:  "<@&1234567890>",
+			expected: false,
+		},
+		{
+			name:     "channel mention",
+			mention:  "<#1234567890>",
+			expected: false,
+		},
+		{
+			name:     "plain text",
+			mention:  "1234567890",
+			expected: false,
+		},
+		{
+			name:     "empty brackets",
+			mention:  "<@>",
+			expected: true, // The regex/prefix check currently allows this, which is fine since it's just a shape check. ExtractUserID handles actual validation.
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := IsUserMention(tt.mention)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

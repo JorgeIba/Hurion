@@ -7,32 +7,11 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 )
-
-func HandleDeregisterUser(c *context.ContextMessage) error {
-	classCode := c.Args[1]
-	user := c.Executor
-
-	if err := c.Services.Enrollment.DeregisterUserIDFromClass(user.UserID, classCode); err != nil {
-		logger.Log.Error(err)
-
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionEnrolledDeregisterUser, user.DisplayName, classCode)),
-		)
-
-		return err
-	}
-
-	successMessage := fmt.Sprintf("User `%s` has deregistered from the class `%s` successfully", user.DisplayName, classCode)
-	logger.Log.Info(successMessage)
-	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, successMessage),
-	)
-
-	return nil
-}
 
 func HandleProposeAC(c *context.ContextMessage) {
 	problemIDs := c.Args[1]
@@ -45,10 +24,22 @@ func HandleProposeAC(c *context.ContextMessage) {
 		return
 	}
 
-	messageID := c.Message.ID
 	user := c.Executor
+	member, err := controllers_common.GetMemberSafe(c, user.UserID)
+	if err != nil || member == nil {
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro."),
+		)
+		return
+	}
+	member.DisplayName = user.DisplayName
+	principal := service_model.Principal{
+		User:  member.User,
+		Roles: member.Roles,
+	}
 
-	if err := c.Services.Solution.AddPendingACOfUserID(messageID, user.UserID, problemID); err != nil {
+	if err = c.Services.Solution.AddPendingACByPrincipal(c.Message.ID, principal, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -82,8 +73,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	user := c.Executor
-
-	if err = c.Services.Solution.UndoACByProblemAndUserID(problemID, user.UserID); err != nil {
+	if err = c.Services.Solution.UndoAC(user.UserID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

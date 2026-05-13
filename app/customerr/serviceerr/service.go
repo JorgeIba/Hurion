@@ -1,6 +1,15 @@
 package serviceerr
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ServiceErrorInterface defines the behavior of a domain-level error.
+type ServiceErrorInterface interface {
+	error
+	IsServiceError() bool
+}
 
 type ServiceError struct {
 	Code         int
@@ -19,16 +28,45 @@ func (e *ServiceError) Unwrap() error {
 	return e.WrappedError
 }
 
+func (e *ServiceError) IsServiceError() bool {
+	return true
+}
+
+// ============================================================================
+// Specialized Errors
+// ============================================================================
+
 type InternalError struct {
 	*ServiceError
+}
+
+func (e *InternalError) Unwrap() error {
+	if e == nil || e.ServiceError == nil {
+		return nil
+	}
+	return e.WrappedError
 }
 
 type ConflictError struct {
 	*ServiceError
 }
 
+func (e *ConflictError) Unwrap() error {
+	if e == nil || e.ServiceError == nil {
+		return nil
+	}
+	return e.WrappedError
+}
+
 type NotFoundInfoError struct {
 	*ServiceError
+}
+
+func (e *NotFoundInfoError) Unwrap() error {
+	if e == nil || e.ServiceError == nil {
+		return nil
+	}
+	return e.WrappedError
 }
 
 type ClassCodeNotFoundError struct {
@@ -85,6 +123,10 @@ func (e *UserNotFoundError) Unwrap() error {
 	}
 	return e.WrappedError
 }
+
+// ============================================================================
+// Helpers
+// ============================================================================
 
 func NewInternalError(message string, original error) *InternalError {
 	return &InternalError{
@@ -168,4 +210,10 @@ func NewDuplicateProblemError(message string, original error) *DuplicateProblemE
 
 func MakeGeneralError(err error) *InternalError {
 	return NewInternalError("", err)
+}
+
+// IsServiceError checks if an error implements the ServiceErrorInterface.
+func IsServiceError(err error) bool {
+	var sErr ServiceErrorInterface
+	return errors.As(err, &sErr)
 }

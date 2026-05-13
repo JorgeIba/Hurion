@@ -134,28 +134,6 @@ func (env *testEnv) AssertUserNotExists(t *testing.T, userID string) {
 	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking user existence")
 }
 
-// AssertEnrollmentExists verifies that the user is enrolled in the given class code
-func (env *testEnv) AssertEnrollmentExists(t *testing.T, userID, classCode string) {
-	t.Helper()
-	class, err := env.DB.GetClassByClassCode(classCode)
-	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
-
-	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
-	require.NoError(t, err, "failed to query enrollment")
-	assert.True(t, isEnrolled, "expected user %q to be enrolled in class %q", userID, classCode)
-}
-
-// AssertEnrollmentNotExists verifies that the user is NOT enrolled in the given class code
-func (env *testEnv) AssertEnrollmentNotExists(t *testing.T, userID, classCode string) {
-	t.Helper()
-	class, err := env.DB.GetClassByClassCode(classCode)
-	require.NoError(t, err, "failed to find class %q for enrollment check", classCode)
-
-	isEnrolled, err := env.DB.IsUserRegisteredInClass(userID, class.ID)
-	require.NoError(t, err, "failed to query enrollment")
-	assert.False(t, isEnrolled, "expected user %q to not be enrolled in class %q, but they are", userID, classCode)
-}
-
 // SeedUser ensures a user exists in the database
 func (env *testEnv) SeedUser(t *testing.T, userID, displayName string) {
 	t.Helper()
@@ -168,16 +146,21 @@ func (env *testEnv) SeedUser(t *testing.T, userID, displayName string) {
 	}
 }
 
-// SeedEnrollment registers a user into a class
-func (env *testEnv) SeedEnrollment(t *testing.T, userID, classCode string) {
+// SeedClassroom links a Discord room to a class code.
+func (env *testEnv) SeedClassroom(t *testing.T, roomID, classCode string) {
 	t.Helper()
-	class, err := env.DB.GetClassByClassCode(classCode)
+	err := env.DB.AddClassroom(data.Classroom{RoomID: roomID, ClassCode: classCode})
 	if err != nil {
-		t.Fatalf("Failed to find class %q for seeding enrollment: %v", classCode, err)
+		t.Fatalf("Failed to seed classroom mapping: %v", err)
 	}
-	err = env.DB.RegisterUserIntoClass(userID, class.ID)
+}
+
+// SeedClassAccessRole links a Discord role to class access.
+func (env *testEnv) SeedClassAccessRole(t *testing.T, classCode, roleID string) {
+	t.Helper()
+	err := env.DB.AddClassAccessRole(data.ClassAccessRole{ClassCode: classCode, RoleID: roleID})
 	if err != nil {
-		t.Fatalf("Failed to seed enrollment: %v", err)
+		t.Fatalf("Failed to seed class access role: %v", err)
 	}
 }
 
@@ -241,4 +224,41 @@ func (env *testEnv) AssertProblemNotExists(t *testing.T, problemID int64) {
 
 	var notFoundErr *dataerr.NotFoundError
 	require.ErrorAs(t, err, &notFoundErr, "unexpected DB error while checking problem existence")
+}
+
+// SetRoles configures the stub fetcher to return the given roles for a specific user.
+func (env *testEnv) SetRoles(userID string, roles []string) {
+	if env.Fetcher.UserRoles == nil {
+		env.Fetcher.UserRoles = make(map[string][]string)
+	}
+	env.Fetcher.UserRoles[userID] = roles
+}
+
+// SeedRoleToUser adds a specific role to a user in the stub fetcher.
+func (env *testEnv) SeedRoleToUser(userID string, roleID string) {
+	if env.Fetcher.UserRoles == nil {
+		env.Fetcher.UserRoles = make(map[string][]string)
+	}
+	roles := env.Fetcher.UserRoles[userID]
+	for _, r := range roles {
+		if r == roleID {
+			return // Already has the role
+		}
+	}
+	env.Fetcher.UserRoles[userID] = append(roles, roleID)
+}
+
+// UnseedRoleToUser removes a specific role from a user in the stub fetcher.
+func (env *testEnv) UnseedRoleToUser(userID string, roleID string) {
+	if env.Fetcher.UserRoles == nil {
+		return
+	}
+	roles := env.Fetcher.UserRoles[userID]
+	newRoles := []string{}
+	for _, r := range roles {
+		if r != roleID {
+			newRoles = append(newRoles, r)
+		}
+	}
+	env.Fetcher.UserRoles[userID] = newRoles
 }

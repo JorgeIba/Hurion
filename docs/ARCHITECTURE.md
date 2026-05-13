@@ -76,13 +76,22 @@ graph TB
 
 ---
 
+## Domain Concepts
+
+To ensure clarity across the system, the bot utilizes the following domain concepts:
+- **Enrolled User**: A user is considered "enrolled" or to have "access" to a class if they possess a Discord Role that has been linked to that class via the `class_access_roles` table (managed by `!link_roles`).
+- **Active Student**: A user who has solved at least 1 problem (AC) in a specific class. This drives the `!users` and `!score` logic.
+
+---
+
 ## Database Schema
 
-The bot uses **SQLite** with 6 tables:
+The bot uses **SQLite** with 7 tables:
 - `users`: Stores user IDs and display names.
 - `classes`: Stores class codes and names.
+- `classrooms`: Stores physical/logical classroom mappings.
+- `class_access_roles`: Links Discord Roles to specific classes for stateless access control.
 - `problems`: Stores problem details (name, URL, difficulty, topic).
-- `enrollments`: Tracks which users are in which classes.
 - `solved_problems`: Records successfully solved problems (ACs).
 - `pending_confirmations`: Temporarily stores AC proposals awaiting mentor approval.
 
@@ -104,7 +113,7 @@ The `topic` parameter accepts any single word, or `-` to skip.
 
 ## Confirmation Flow
 
-Dangerous commands (`!deregister`, `!remove_problem`, `!clear_class`, `!exterminate`) trigger a **two-step confirmation flow**:
+Dangerous commands (`!remove_problem`, `!clear_class`, `!exterminate`) trigger a **two-step confirmation flow**:
 
 1. The bot sends an embedded warning message with 👍 and 👎 reactions.
 2. The original command author reacts:

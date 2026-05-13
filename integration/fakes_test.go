@@ -13,9 +13,13 @@ type StubDiscordProvider struct {
 	IsAdminFunc           func(guildID, userID string) (bool, error)
 	IsMentorFunc          func(guildID, userID string) (bool, error)
 	GetCachedMemberFunc   func(guildID, userID string) (*discordgo.Member, error)
+	FetchMemberFunc       func(guildID, userID string) (*discordgo.Member, error)
 	FetchMessageFunc      func(channelID, messageID string) (*discordgo.Message, error)
 	EditEmbedFunc         func(channelID, messageID string, embed *discordgo.MessageEmbed) error
 	RemoveBotReactionFunc func(channelID, messageID, emojiID string) error
+
+	// UserRoles stores roles for specific users to avoid clobbering in tests.
+	UserRoles map[string][]string
 }
 
 func (s *StubDiscordProvider) IsAdmin(guildID, userID string) (bool, error) {
@@ -36,7 +40,25 @@ func (s *StubDiscordProvider) GetCachedMember(guildID, userID string) (*discordg
 	if s.GetCachedMemberFunc != nil {
 		return s.GetCachedMemberFunc(guildID, userID)
 	}
-	return nil, nil
+
+	roles := []string{}
+	if s.UserRoles != nil {
+		if r, ok := s.UserRoles[userID]; ok {
+			roles = r
+		}
+	}
+
+	return &discordgo.Member{
+		User:  &discordgo.User{ID: userID},
+		Roles: roles,
+	}, nil
+}
+
+func (s *StubDiscordProvider) FetchMember(guildID, userID string) (*discordgo.Member, error) {
+	if s.FetchMemberFunc != nil {
+		return s.FetchMemberFunc(guildID, userID)
+	}
+	return s.GetCachedMember(guildID, userID)
 }
 
 func (s *StubDiscordProvider) FetchMessage(channelID, messageID string) (*discordgo.Message, error) {

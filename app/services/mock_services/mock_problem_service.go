@@ -55,6 +55,21 @@ func (mr *MockProblemServiceMockRecorder) CreateProblemIntoClass(params any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProblemIntoClass", reflect.TypeOf((*MockProblemService)(nil).CreateProblemIntoClass), params)
 }
 
+// GetProblemByID mocks base method.
+func (m *MockProblemService) GetProblemByID(problemID int64) (service_model.Problem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProblemByID", problemID)
+	ret0, _ := ret[0].(service_model.Problem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProblemByID indicates an expected call of GetProblemByID.
+func (mr *MockProblemServiceMockRecorder) GetProblemByID(problemID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProblemByID", reflect.TypeOf((*MockProblemService)(nil).GetProblemByID), problemID)
+}
+
 // GetProblemsGroupedByTopic mocks base method.
 func (m *MockProblemService) GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error) {
 	m.ctrl.T.Helper()

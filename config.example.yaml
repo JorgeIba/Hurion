@@ -1,0 +1,43 @@
+# Huron Bot Configuration Example
+# Use this as a template for your config.yaml
+
+# Global Administrative Roles
+admin_role_id: "9999999990"
+mentor_role_id: "9999999991"
+
+classes:
+  # 1. BASICS LEVEL
+  # Accessible by: Basics, Intermediate, and Advanced roles
+  - code: "basics"
+    name: "Basics Level 2026"
+    room_ids:
+      - "1111111112" # basics-general
+      - "1111111113" # basics-followup
+      - "1111111114" # basics-commands
+    role_ids:
+      - "1111111111" # basics role
+      - "2222222222" # intermediate role
+      - "3333333333" # advanced role
+
+  # 2. INTERMEDIATE LEVEL
+  # Accessible by: Intermediate and Advanced roles
+  - code: "intermediate"
+    name: "Intermediate Level 2026"
+    room_ids:
+      - "2222222223" # intermediate-general
+      - "2222222224" # intermediate-followup
+      - "2222222225" # intermediate-commands
+    role_ids:
+      - "2222222222" # intermediate role
+      - "3333333333" # advanced role
+
+  # 3. ADVANCED LEVEL
+  # Accessible by: Only the Advanced role
+  - code: "advanced"
+    name: "Advanced Level 2026"
+    room_ids:
+      - "3333333334" # advanced-general
+      - "3333333335" # advanced-followup
+      - "3333333336" # advanced-commands
+    role_ids:
+      - "3333333333" # advanced role

@@ -14,6 +14,13 @@ type User struct {
 	DisplayName string
 }
 
+// Principal represents the user ACTING on the system right now,
+// containing all their verified security credentials.
+type Principal struct {
+	User
+	Roles []string
+}
+
 // Problem represents a problem within a class
 type Problem struct {
 	ID         int64
@@ -29,6 +36,18 @@ type Class struct {
 	ID        int64
 	ClassCode string
 	Name      string
+}
+
+// Classroom represents a location where a class is taught
+type Classroom struct {
+	RoomID    string
+	ClassCode string
+}
+
+// ClassAccessRole represents a role that grants access to a class
+type ClassAccessRole struct {
+	RoleID    string
+	ClassCode string
 }
 
 // SolvedProblem represents a record of a user solving a problem
