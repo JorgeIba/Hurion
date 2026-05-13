@@ -1,6 +1,6 @@
 # Huron Problem Checker Bot
 
-A Discord bot built in **Go** for managing algorithms courses. It handles user registration, class management, problem assignments, solution tracking, and score visualization — all orchestrated through Discord commands with role-based access control.
+A Discord bot built in **Go** for managing algorithms courses. It handles class management, problem assignments, solution tracking, and score visualization — all orchestrated through Discord commands with **stateless, role-based access control**.
 
 Built with [`discordgo`](https://github.com/bwmarrin/discordgo) and backed by **SQLite**.
 
@@ -8,10 +8,10 @@ Built with [`discordgo`](https://github.com/bwmarrin/discordgo) and backed by **
 
 ## Documentation
 
-- [Architecture & Design](docs/ARCHITECTURE.md) — Layered architecture, diagram, DB schema, confirmation flow, parameter conventions.
+- [Architecture & Design](docs/ARCHITECTURE.md) — Layered architecture, diagram, DB schema, and confirmation flow.
 - [Commands Reference](docs/COMMANDS.md) — Full list of commands by role (General, Enrolled, Mentor, Admin).
-- [Domain Context & Agent Rules](.ai/CONTEXT.md) — Naming conventions, business rules, and AI contribution guidelines.
-- [Testing Guidelines](.ai/TESTING.md) — Mandatory testing patterns.
+- [AI Hub](.ai/CONTEXT.md) — Central source of truth for AI agents and contribution rules.
+- [Testing Guidelines](.ai/TESTING.md) — Mandatory testing patterns and parallelism.
 
 ---
 
@@ -22,62 +22,62 @@ Built with [`discordgo`](https://github.com/bwmarrin/discordgo) and backed by **
 | Requirement | Version |
 |---|---|
 | **Go** | 1.24.1+ |
-| **SQLite3** | Any recent version (bundled via `go-sqlite3`, requires CGo) |
-| **GCC / C Compiler** | Required by `go-sqlite3` (e.g., `gcc` on Linux, MinGW on Windows) |
-| **Docker** *(optional)* | For containerized deployment |
+| **SQLite3** | Bundled via `go-sqlite3` (requires CGo) |
+| **GCC / C Compiler** | Required for CGo (e.g., `gcc` on Linux) |
 
-### Environment Variables
+### Configuration
 
-Create a `.env` file in the project root:
+The bot uses a combination of environment variables and a `config.yaml` file.
 
-```env
-DISCORD_BOT_TOKEN=your_discord_bot_token_here
-DISCORD_ADMIN_ROLE_ID=123456789012345678
-DISCORD_MENTOR_ROLE_ID=123456789012345679
-```
+1. **Environment Variables** (`.env`):
+   ```env
+   DISCORD_BOT_TOKEN=your_token_here
+   DB_PATH=./data/db.sqlite
+   ```
 
-| Variable | Required | Description |
-|---|:---:|---|
-| `DISCORD_BOT_TOKEN` | ✅ | Bot token from the [Discord Developer Portal](https://discord.com/developers/applications) |
-| `DISCORD_ADMIN_ROLE_ID` | ✅ | Discord role ID for admin-level commands |
-| `DISCORD_MENTOR_ROLE_ID` | ✅ | Discord role ID for mentor-level commands |
+2. **Application Config** (`config.yaml`):
+   ```yaml
+   admin_role_id: "1234567890"
+   mentor_role_id: "0987654321"
 
-### Discord Bot Configuration
+   classes:
+     - code: "basicos_1"
+       name: "Basicos 2025"
+       role_ids: ["111111", "222222"]
+       room_ids: ["333333", "444444"]
+   ```
 
-For the bot to function correctly, you **must** enable the following **Privileged Gateway Intents** in the [Discord Developer Portal](https://discord.com/developers/applications) under the **Bot** tab:
+### Database Seeding
 
-1.  **Server Members Intent**: Required to resolve member nicknames and server-specific identities. Without this, the bot will fall back to global usernames or "Unknown."
-2.  **Message Content Intent**: Required for the bot to read and process command arguments.
+To bootstrap classes, roles, and channels from your `config.yaml`, use the provided make command:
 
-### Running Locally
 
 ```bash
-# 1. Clone the repository
-git clone git@github.com:JorgeIba/Huron-Problem-Checker-Bot.git
-cd Huron-Problem-Checker-Bot
+make run-seed
+```
 
-# 2. Install dependencies
-go mod download
+---
 
-# 3. Run tests
-make test
+## Running the Bot
 
-# 4. Run the bot
+```bash
+# Standard run
 make run
 ```
 
 ### Running with Docker
 
+The bot is container-ready and includes **Litestream** for real-time database replication.
+
 ```bash
-# Build and start with Docker Compose
 docker compose up --build -d
-
-# View logs
-docker compose logs -f
-
-# Stop
-docker compose down
 ```
 
-The Docker setup uses a multi-stage build (Go builder → Debian slim runtime) and includes automatic backup scripts. Volumes are mounted at `./local-backup` for database backups.
+For detailed instructions on Docker deployment and persistence, see [README.Docker.md](README.Docker.md).
+
+### Discord Bot Requirements
+
+Enable these **Privileged Gateway Intents** in the Discord Developer Portal:
+1. **Server Members Intent**: To resolve nicknames.
+2. **Message Content Intent**: To process commands.
 

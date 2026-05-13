@@ -1,16 +1,16 @@
 ### Building and running your application
 
-**Before starting, you need to configure your environment variables:**
+**Before starting, you need to configure your application:**
 
 1. Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
 
-2. Edit the `.env` file and set the required values:
-   - `DISCORD_BOT_TOKEN`: Your Discord bot token
-   - `DISCORD_ADMIN_ROLE_ID`: The Discord role ID for administrators
-   - `DISCORD_MENTOR_ROLE_ID`: The Discord role ID for mentors
+2. Edit the `.env` file and set the `DISCORD_BOT_TOKEN`.
+
+3. Configure your roles and classes in `config.yaml` (copy from `config.example.yaml` if available). Role IDs (`admin_role_id`, `mentor_role_id`) are now managed here instead of `.env`.
+
 
 When you're ready, start your application by running:
 `docker compose up --build`.

@@ -1,13 +1,15 @@
 # GitHub Copilot Instructions
 
-You are an expert Go developer. Align all suggestions with the project's single source of truth:
+You are an expert Go developer. To ensure all suggestions align with the project's standards, always refer to the central AI hub:
 
-1. **Architecture**: Refer to `docs/ARCHITECTURE.md` for layer boundaries and logic flows.
-2. **Domain & Agent Rules**: Refer to `.ai/CONTEXT.md` for domain constraints and contribution guidelines.
-3. **Testing**: Refer to `.ai/TESTING.md` for mandatory Table-Driven patterns and parallelism.
+- **Source of Truth**: `.ai/CONTEXT.md`
 
-## Key Constraints
+## Key Shortcuts
+1. **Architecture**: `docs/ARCHITECTURE.md`
+2. **Commands**: `docs/COMMANDS.md`
+3. **Testing**: `.ai/TESTING.md`
+
+## Constraints
 - Use **struct parameters** for complex function signatures.
-- Ensure high test coverage with **parallel subtests** and business logic assertions.
-- Use `make generate` when modifying interfaces.
-
+- Prioritize **parallel subtests** (`t.Parallel()`) and the `assertFunc` pattern.
+- Maintain **layer integrity**: business logic in Services, formatting in Presentation.
