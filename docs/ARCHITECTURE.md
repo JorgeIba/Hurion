@@ -28,7 +28,6 @@ The bot follows a clean **layered architecture** with clear separation of concer
 graph TB
     subgraph BotLayer["Bot Layer"]
         Discord[Discord Client]
-        Context[Context Resolver]
         Commands[Command Router]
         Reactions[Reaction Router]
     end
@@ -170,4 +169,3 @@ For **AC proposals** (`!ac <problem_id>` by enrolled users):
 2. A **mentor** reacts:
    - **✅** → The AC is approved and recorded in `solved_problems`. The ✅/❌ reactions are replaced by 🎈 (**Accepted**).
    - **❌** → The proposal is rejected. The ✅/❌ reactions are replaced by 🗣️ (**Rejected**).
-

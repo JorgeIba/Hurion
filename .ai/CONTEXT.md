@@ -45,6 +45,6 @@ Refer to these documents for specific project knowledge:
 ---
 
 ## Critical Constraints
-- **No `userID` leaks**: Ensure Discord-specific data (IDs) is handled only in the Controller/Provider layers.
+- **No Discord Object Leaks**: Ensure complex Discord objects (Messages, Members, Roles) are handled only in the Controller/Provider layers. The data/service layers must only work with raw string IDs (like `userID`, `roleID`).
 - **No implicit state**: Do not assume a user is enrolled unless verified via real-time role checks.
 - **Agnostic Logic**: Keep documentation and logic tool-agnostic. Use entrypoints for tool-specific instructions.

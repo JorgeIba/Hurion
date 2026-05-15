@@ -25,6 +25,8 @@ Because the `Dockerfile` is configured with the `--seed` flag by default (`CMD [
 
 Since the seeder is idempotent, this is completely safe and ensures your Azure (or local Docker) deployments always have the latest classes and roles applied automatically before the bot connects to Discord.
 
+> **Important**: `config.yaml` is baked into the Docker image during the build process (`COPY config.yaml ...`). If you modify `config.yaml` (e.g., to add a new class), you **must** rebuild your Docker image and push the update to Azure for the changes to take effect.
+
 ### Data Persistence (Litestream)
 
 The bot uses **Litestream** for real-time replication to **Azure Blob Storage**. This allows the container to run on fast, ephemeral storage while ensuring no data loss.
