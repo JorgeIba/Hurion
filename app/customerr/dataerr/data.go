@@ -1,6 +1,9 @@
 package dataerr
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type DataError struct {
 	Code         int
@@ -101,4 +104,14 @@ func NewUserMissingFromDatabaseError(message string, original error) *UserMissin
 			WrappedError: original,
 		},
 	}
+}
+
+func IsNotFound(err error) bool {
+	var target *NotFoundError
+	return errors.As(err, &target)
+}
+
+func IsRowConflict(err error) bool {
+	var target *RowConflictError
+	return errors.As(err, &target)
 }

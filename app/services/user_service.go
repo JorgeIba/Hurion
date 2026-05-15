@@ -1,17 +1,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
-)
-
-var (
-	dataNotFoundErrUser = &dataerr.NotFoundError{}
 )
 
 // UserService handles user management operations
@@ -47,7 +42,7 @@ func (service *UserService) GetUserByUserID(userID string) (service_model.User, 
 	user, err := service.Datastore.GetUserByUserID(userID)
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrUser):
+		case dataerr.IsNotFound(err):
 			return service_model.User{}, serviceerr.NewUserNotFoundError(fmt.Sprintf("userID %s not found", userID), err)
 		default:
 			return service_model.User{}, serviceerr.MakeGeneralError(err)

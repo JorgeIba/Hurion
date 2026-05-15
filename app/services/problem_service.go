@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
@@ -9,11 +8,6 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
-)
-
-var (
-	dataNotFoundErrProblem = &dataerr.NotFoundError{}
-	dataConflictErrProblem = &dataerr.RowConflictError{}
 )
 
 // ProblemService defines problem management operations
@@ -41,7 +35,7 @@ func (service *problemService) GetProblemByID(problemID int64) (service_model.Pr
 	problem, err := service.Datastore.GetProblemByID(problemID)
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrProblem):
+		case dataerr.IsNotFound(err):
 			return service_model.Problem{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
 		default:
 			return service_model.Problem{}, serviceerr.MakeGeneralError(err)
@@ -62,7 +56,7 @@ func (service *problemService) CreateProblemIntoClass(params service_model.Creat
 	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrProblem):
+		case dataerr.IsNotFound(err):
 			return 0, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", params.ClassCode), err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
@@ -78,7 +72,7 @@ func (service *problemService) CreateProblemIntoClass(params service_model.Creat
 	})
 	if err != nil {
 		switch {
-		case errors.As(err, &dataConflictErrProblem):
+		case dataerr.IsRowConflict(err):
 			return problemID, serviceerr.NewDuplicateProblemError("problem with the same name in the same class", err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
@@ -113,10 +107,10 @@ func (service *problemService) UpdateProblemByProblemID(problemID int64, problem
 
 	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapServiceProblemToDataProblem(problem)); err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrProblem):
+		case dataerr.IsNotFound(err):
 			// Defensive mapping in case the row disappears between pre-check and update.
 			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
-		case errors.As(err, &dataConflictErrProblem):
+		case dataerr.IsRowConflict(err):
 			return serviceerr.NewDuplicateProblemError(
 				fmt.Sprintf("duplicate problem detected while updating problemID=%d (name=%q, classID=%d)", problemID, problem.Name, problem.ClassID),
 				err,
@@ -136,7 +130,7 @@ func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]se
 	emptySlice := []service_model.ProblemsByTopic{}
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrProblem):
+		case dataerr.IsNotFound(err):
 			return emptySlice, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return emptySlice, serviceerr.MakeGeneralError(err)

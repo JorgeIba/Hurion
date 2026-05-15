@@ -1,17 +1,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
-)
-
-var (
-	dataNotFoundErrSolution = &dataerr.NotFoundError{}
 )
 
 // SolutionService handles AC (accepted solution) operations
@@ -116,7 +111,7 @@ func (service *SolutionService) GetPendingConfirmationByMessageID(messageID stri
 
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrSolution):
+		case dataerr.IsNotFound(err):
 			return &service_model.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("", err)
 		default:
 			return &service_model.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
@@ -154,7 +149,7 @@ func (service *SolutionService) authorizeAC(principal service_model.Principal, p
 	// 1. Resolve Context
 	problem, err := service.Datastore.GetProblemByID(problemID)
 	if err != nil {
-		if errors.As(err, &dataNotFoundErrSolution) {
+		if dataerr.IsNotFound(err) {
 			return false, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
 		}
 		return false, serviceerr.MakeGeneralError(err)

@@ -1,17 +1,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
-)
-
-var (
-	dataNotFoundErrEnrollment = &dataerr.NotFoundError{}
 )
 
 // EnrollmentService handles user enrollment into classes
@@ -24,7 +19,7 @@ func (service *EnrollmentService) GetListOfUsersByClassCode(classCode string) ([
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrEnrollment):
+		case dataerr.IsNotFound(err):
 			return []service_model.User{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return []service_model.User{}, serviceerr.MakeGeneralError(err)
