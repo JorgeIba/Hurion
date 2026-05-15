@@ -9,11 +9,21 @@
 
 2. Edit the `.env` file and set the `DISCORD_BOT_TOKEN`.
 
-3. Configure your roles and classes in `config.yaml` (copy from `config.example.yaml` if available). Role IDs (`admin_role_id`, `mentor_role_id`) are now managed here instead of `.env`.
-
+3. Configure your roles and classes in `config.yaml`:
+   ```bash
+   cp config.example.yaml config.yaml
+   ```
+   Edit `config.yaml` to set your `admin_role_id`, `mentor_role_id`, and class definitions. Role IDs are now managed here instead of `.env`.
 
 When you're ready, start your application by running:
-`docker compose up --build`.
+```bash
+docker compose up --build -d
+```
+
+### Database Seeding (Docker)
+Because the `Dockerfile` is configured with the `--seed` flag by default (`CMD ["/huron-bot/run.sh", "--seed"]`), the database will automatically synchronize with your `config.yaml` every time the container boots up. 
+
+Since the seeder is idempotent, this is completely safe and ensures your Azure (or local Docker) deployments always have the latest classes and roles applied automatically before the bot connects to Discord.
 
 ### Data Persistence (Litestream)
 

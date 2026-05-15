@@ -33,4 +33,4 @@ COPY litestream.local.yml /etc/litestream.local.yml
 COPY scripts/run.sh /huron-bot/run.sh
 RUN chmod +x /huron-bot/run.sh
 
-CMD ["/huron-bot/run.sh"]
+CMD ["/huron-bot/run.sh", "--seed"]
