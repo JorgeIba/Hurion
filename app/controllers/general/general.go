@@ -72,7 +72,28 @@ func HandleGetListOfProblems(c *context.ContextMessage) {
 }
 
 func HandleGetScoreByClass(c *context.ContextMessage) {
-	classCode := c.Args[1]
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case serviceerr.IsServiceError(err):
+			var classCodeArg any
+			if len(c.Args) > 1 {
+				classCodeArg = c.Args[1]
+			}
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionScoreByClass, classCodeArg)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
+		return
+	}
+
+	classCode := class.ClassCode
 
 	title := fmt.Sprintf("Score of class `%s`", classCode)
 	score, err := c.Services.Score.GetScoreByClassCode(classCode)
@@ -125,7 +146,7 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 }
 
 func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
-	classCode, userParam := c.Args[1], c.Args[2]
+	userParam := c.Args[1]
 
 	userID, ok := controllers_common.ParseUserID(userParam)
 	if !ok {
@@ -135,21 +156,42 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 		return
 	}
 
+	class, err := controllers_common.ResolveClassContext(c, 2)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case serviceerr.IsServiceError(err):
+			var classCodeArg any
+			if len(c.Args) > 2 {
+				classCodeArg = c.Args[2]
+			}
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionScoreByUserAndClass, userParam, classCodeArg)),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
+		return
+	}
+
+	classCode := class.ClassCode
+	targetDisplayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
+
 	score, err := c.Services.Score.GetNeighborsScoreForUserID(userID, classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionScoreByUserAndClass, userParam, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionScoreByUserAndClass, targetDisplayName, classCode)),
 		)
 		return
 	}
 
 	// Resolve display names
 	controllers_common.ResolveScoreDisplayNames(c, c.ExecutorGuildID, &score)
-
-	// Resolve the target user's name for the title
-	targetDisplayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
 
 	// Format score as table
 	scoreTable := adapters.ScoreToTableScore(score)

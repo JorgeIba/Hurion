@@ -5,7 +5,9 @@ type Command int
 const (
 	Help Command = iota
 	List
+	Scores
 	Score
+	ScoreOf
 	AC
 	UndoAC
 	AddProblem
@@ -53,10 +55,25 @@ var Commands = map[Command]CommandData{
 	Score: {
 		Cmd:         "!score",
 		Name:        "score",
-		Usage:       "!score\n!score <class_code>\n!score <class_code> <@user>",
-		Description: "Show scores for all classes, a specific class, or a specific user in a class",
+		Usage:       "!score [class_code]",
+		Description: "Show scores for a specific class or infer class from the current channel",
 		UserRoles:   NewUserRoleSet(RoleAll),
-		ExtraInfo:   "You can use `!score` to see all scores, `!score class_code` to see scores for a class, or `!score class_code @user` to see a specific user's scores in a class.",
+		ExtraInfo:   "The optional `class_code` parameter should be one word (e.g., \"basicos_1\"). If omitted, the bot uses the current channel context.",
+	},
+	Scores: {
+		Cmd:         "!scores",
+		Name:        "scores",
+		Usage:       "!scores",
+		Description: "Show scores for all classes as image tables",
+		UserRoles:   NewUserRoleSet(RoleAll),
+	},
+	ScoreOf: {
+		Cmd:         "!score_of",
+		Name:        "score_of",
+		Usage:       "!score_of <@user> [class_code]",
+		Description: "Show a user's score in a class or infer class from the current channel",
+		UserRoles:   NewUserRoleSet(RoleAll),
+		ExtraInfo:   "Mention the user with @ or provide a raw Discord ID. If `class_code` is omitted, the bot uses the current channel context.",
 	},
 	AC: {
 		Cmd:         "!ac",

@@ -93,7 +93,7 @@ func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 		return nil, fmt.Errorf("not found")
 	}
 
-	ctx := env.NewContext("999", "Exec", "guild_1", []string{"!score_user", classCode, fmt.Sprintf("<@%s>", targetUserID)})
+	ctx := env.NewContext("999", "Exec", "guild_1", []string{"!score_of", fmt.Sprintf("<@%s>", targetUserID), classCode})
 
 	// 2. ACT
 	general.HandleGetScoreByUserAndClass(ctx)
@@ -160,7 +160,7 @@ func TestIntegration_General_GetScoreByUserAndClass_TopRanked(t *testing.T) {
 
 	targetUserID := "111"
 
-	ctx := env.NewContext("999", "Exec", "guild_1", []string{"!score_user", classCode, fmt.Sprintf("<@%s>", targetUserID)})
+	ctx := env.NewContext("999", "Exec", "guild_1", []string{"!score_of", fmt.Sprintf("<@%s>", targetUserID), classCode})
 
 	// 2. ACT
 	general.HandleGetScoreByUserAndClass(ctx)

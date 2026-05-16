@@ -16,7 +16,9 @@ type CommandRouter func(c *context.ContextMessage)
 var commandMap = map[string]CommandRouter{
 	Help.String():          routerHelp,
 	List.String():          routerList,
+	Scores.String():        routerScores,
 	Score.String():         routerScore,
+	ScoreOf.String():       routerScoreOf,
 	AC.String():            routerProposeAC,
 	UndoAC.String():        routerUndoAC,
 	AddProblem.String():    routerAddProblem,
@@ -58,12 +60,28 @@ func routerList(c *context.ContextMessage) {
 
 func routerScore(c *context.ContextMessage) {
 	switch len(c.Args) {
+	case 1, 2:
+		general.HandleGetScoreByClass(c)
+	default:
+		sendUsageError(c, Score.Name())
+	}
+}
+
+func routerScores(c *context.ContextMessage) {
+	switch len(c.Args) {
 	case 1:
 		general.HandleGetScoreAllClasses(c)
-	case 2:
-		general.HandleGetScoreByClass(c)
-	case 3:
+	default:
+		sendUsageError(c, Scores.Name())
+	}
+}
+
+func routerScoreOf(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 2, 3:
 		general.HandleGetScoreByUserAndClass(c)
+	default:
+		sendUsageError(c, ScoreOf.Name())
 	}
 }
 
