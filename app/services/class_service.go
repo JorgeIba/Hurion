@@ -1,18 +1,12 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
-)
-
-var (
-	dataNotFoundErrClass = &dataerr.NotFoundError{}
-	dataConflictErrClass = &dataerr.RowConflictError{}
 )
 
 type ClassService struct {
@@ -31,7 +25,7 @@ func (service *ClassService) CreateClass(classCode, className string) (int64, er
 
 	if err != nil {
 		switch {
-		case errors.As(err, &dataConflictErrClass):
+		case dataerr.IsRowConflict(err):
 			return 0, serviceerr.NewConflictError(fmt.Sprintf("class with code %s already exists", classCode), err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
@@ -46,7 +40,7 @@ func (service *ClassService) DeleteClassByClassCode(classCode string) error {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrClass):
+		case dataerr.IsNotFound(err):
 			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %s not found", classCode), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
@@ -74,7 +68,7 @@ func (service *ClassService) GetClassByClassCode(classCode string) (service_mode
 
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrClass):
+		case dataerr.IsNotFound(err):
 			return service_model.Class{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any class", classCode), err)
 		default:
 			return service_model.Class{}, serviceerr.MakeGeneralError(err)
@@ -90,7 +84,7 @@ func (service *ClassService) GetClassIDByClassCode(classCode string) (int64, err
 
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrClass):
+		case dataerr.IsNotFound(err):
 			return 0, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return 0, serviceerr.MakeGeneralError(err)
@@ -106,7 +100,7 @@ func (service *ClassService) GetClassByClassID(classID int64) (service_model.Cla
 
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrClass):
+		case dataerr.IsNotFound(err):
 			return service_model.Class{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classID %d doesn't match with any class", classID), err)
 		default:
 			return service_model.Class{}, serviceerr.MakeGeneralError(err)
@@ -122,7 +116,7 @@ func (service *ClassService) RegisterClassroom(classroom service_model.Classroom
 	// Check if class exists
 	if _, err := service.Datastore.GetClassByClassCode(classroom.ClassCode); err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrClass):
+		case dataerr.IsNotFound(err):
 			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %s not found", classroom.ClassCode), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
@@ -175,7 +169,7 @@ func (service *ClassService) AssignAccessRole(role service_model.ClassAccessRole
 	// Verify class exists
 	if _, err := service.Datastore.GetClassByClassCode(role.ClassCode); err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrClass):
+		case dataerr.IsNotFound(err):
 			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %s not found", role.ClassCode), err)
 		default:
 			return serviceerr.MakeGeneralError(err)
@@ -212,7 +206,7 @@ func (service *ClassService) GetClassCodeFromRoom(roomID string) (string, bool, 
 	classCode, err := service.Datastore.GetClassCodeByRoomID(roomID)
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrClass):
+		case dataerr.IsNotFound(err):
 			return "", false, nil
 		default:
 			return "", false, serviceerr.MakeGeneralError(err)

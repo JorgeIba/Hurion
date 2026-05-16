@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
@@ -9,10 +8,6 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
-)
-
-var (
-	dataNotFoundErrScore = &dataerr.NotFoundError{}
 )
 
 // ScoreService handles score calculation and ranking operations
@@ -27,7 +22,7 @@ func (service *ScoreService) GetRawScoreByClassCode(classCode string) (map[servi
 	emptyMap := map[service_model.User][]service_model.SolvedProblem{}
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrScore):
+		case dataerr.IsNotFound(err):
 			return emptyMap, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return emptyMap, serviceerr.MakeGeneralError(err)
@@ -159,7 +154,7 @@ func (service *ScoreService) GetClassExportData(classCode string) ([]service_mod
 	classData, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
-		case errors.As(err, &dataNotFoundErrScore):
+		case dataerr.IsNotFound(err):
 			return nil, nil, service_model.Score{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
 			return nil, nil, service_model.Score{}, serviceerr.MakeGeneralError(err)
