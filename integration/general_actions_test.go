@@ -39,6 +39,32 @@ func TestIntegration_General_GetScoreByClass(t *testing.T) {
 	assert.Equal(t, "table.png", lastMsg.Files[0].Name)
 }
 
+func TestIntegration_General_GetScoreByContextualClass(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	classID := env.SeedClass(t, classCode, "Basicos 2026")
+	env.SeedClassroom(t, "channel_1", classCode)
+	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+
+	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
+	env.SeedUser(t, student.UserID, student.DisplayName)
+	env.SeedAC(t, student.UserID, problemID)
+
+	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!score"})
+
+	general.HandleGetScoreByClass(ctx)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	lastMsg := sentMsgs[len(sentMsgs)-1]
+	assert.Equal(t, dispatcher.FileMessage, lastMsg.Type)
+	require.NotEmpty(t, lastMsg.Embeds)
+	assert.Contains(t, lastMsg.Embeds[0].Title, classCode)
+	assert.NotEmpty(t, lastMsg.Files)
+}
+
 func TestIntegration_General_GetScoreByUserAndClass(t *testing.T) {
 	t.Parallel()
 
@@ -171,6 +197,40 @@ func TestIntegration_General_GetScoreByUserAndClass_TopRanked(t *testing.T) {
 
 	assert.Len(t, score.UserScores, 3, "Top ranked user should have 0 neighbors above and 2 below")
 	assert.Equal(t, "111", score.UserScores[0].User.UserID, "Target should be at index 0")
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	lastMsg := sentMsgs[len(sentMsgs)-1]
+	assert.Equal(t, dispatcher.FileMessage, lastMsg.Type)
+	require.NotEmpty(t, lastMsg.Embeds)
+	assert.Contains(t, lastMsg.Embeds[0].Title, classCode)
+	assert.NotEmpty(t, lastMsg.Files)
+}
+
+func TestIntegration_General_GetScoreByUserAndContextualClass(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	classID := env.SeedClass(t, classCode, "Basicos 2026")
+	env.SeedClassroom(t, "channel_1", classCode)
+	p1 := env.SeedProblem(t, "P1", "url", classID, "Easy", "Arrays")
+
+	targetUserID := "111"
+	env.SeedUser(t, targetUserID, "User One")
+	env.SeedAC(t, targetUserID, p1)
+
+	ctx := env.NewContext("999", "Exec", "guild_1", []string{"!score_of", fmt.Sprintf("<@%s>", targetUserID)})
+
+	general.HandleGetScoreByUserAndClass(ctx)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	lastMsg := sentMsgs[len(sentMsgs)-1]
+	assert.Equal(t, dispatcher.FileMessage, lastMsg.Type)
+	require.NotEmpty(t, lastMsg.Embeds)
+	assert.Contains(t, lastMsg.Embeds[0].Title, classCode)
+	assert.NotEmpty(t, lastMsg.Files)
 }
 
 func TestIntegration_General_GetUsersInClass_DisplayNamePriority(t *testing.T) {

@@ -228,6 +228,7 @@ func TestHandleGetScoreByClass(t *testing.T) {
 	tests := []struct {
 		name       string
 		args       []string
+		noMessage  bool
 		setupMock  func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
@@ -246,6 +247,9 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
+				assert.Equal(t, "table.png", msg.Files[0].Name)
+				assert.NotEmpty(t, msg.Embeds)
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
 			},
 		},
 		{
@@ -264,6 +268,20 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
+				assert.Equal(t, "table.png", msg.Files[0].Name)
+				assert.NotEmpty(t, msg.Embeds)
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
+			},
+		},
+		{
+			name:      "contextual class missing message context",
+			args:      []string{"!score"},
+			noMessage: true,
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Something wrong with the controller")
 			},
 		},
 		{
@@ -299,7 +317,9 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				DiscordValidator: mockVal,
 				DiscordFetcher:   mockFetch,
 				ExecutorGuildID:  "guild_123",
-				Message:          &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+			}
+			if !tt.noMessage {
+				ctx.Message = &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}}
 			}
 			HandleGetScoreByClass(ctx)
 			if tt.assertFunc != nil {
@@ -315,6 +335,7 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 	tests := []struct {
 		name       string
 		args       []string
+		noMessage  bool
 		setupMock  func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
@@ -335,6 +356,7 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
 				assert.Contains(t, msg.Embeds[0].Title, "name_123")
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
 			},
 		},
 		{
@@ -354,6 +376,7 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
 				assert.Contains(t, msg.Embeds[0].Title, "name_123")
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
 			},
 		},
 		{
@@ -374,6 +397,7 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
 				assert.Contains(t, msg.Embeds[0].Title, "name_123")
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
 			},
 		},
 		{
@@ -389,6 +413,17 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "doesn't have any solved problems in class `basicos_1` yet")
+			},
+		},
+		{
+			name:      "contextual class missing message context",
+			args:      []string{"!score_of", "<@123>"},
+			noMessage: true,
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Something wrong with the controller")
 			},
 		},
 		{
@@ -425,7 +460,9 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				DiscordValidator: mockVal,
 				DiscordFetcher:   mockFetch,
 				ExecutorGuildID:  "guild_123",
-				Message:          &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+			}
+			if !tt.noMessage {
+				ctx.Message = &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}}
 			}
 			HandleGetScoreByUserAndClass(ctx)
 			if tt.assertFunc != nil {
