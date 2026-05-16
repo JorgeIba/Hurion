@@ -75,13 +75,15 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionScoreByClass: {
 		errorKindClassCodeNotFound: "Class code `%s` doesn't match with any class",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!score basicos_1`) or run this command inside a class channel.",
 		errorKindDefault:           "Unexpected error while getting class scores.",
 	},
 	ActionScoreByUserAndClass: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found",
 		errorKindUserNotFound:      "User `%[1]s` not found",
-		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`",
+		errorKindUserNotEnrolled:   "Bro, `%[1]s` doesn't have any solved problems in class `%[2]s` yet.",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!score_of @user basicos_1`) or run this command inside a class channel.",
 		errorKindDefault:           "User `%[1]s` has access to `%[2]s`? I didn't find any AC",
 	},
 	ActionGetUsersInClass: {

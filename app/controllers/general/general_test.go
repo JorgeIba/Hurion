@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
@@ -228,6 +229,7 @@ func TestHandleGetScoreByClass(t *testing.T) {
 	tests := []struct {
 		name       string
 		args       []string
+		noMessage  bool
 		setupMock  func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
@@ -246,6 +248,53 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				msg := awaitMessage(t, out)
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
+				assert.Equal(t, "table.png", msg.Files[0].Name)
+				assert.NotEmpty(t, msg.Embeds)
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
+			},
+		},
+		{
+			name: "successful get score by contextual class",
+			args: []string{"!score"},
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("basicos_1", nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
+				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
+					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
+				}, nil)
+				f.EXPECT().GetCachedMember(gomock.Any(), "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Nick: "name_123"}, nil).AnyTimes()
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Equal(t, dispatcher.FileMessage, msg.Type)
+				assert.NotEmpty(t, msg.Files)
+				assert.Equal(t, "table.png", msg.Files[0].Name)
+				assert.NotEmpty(t, msg.Embeds)
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
+			},
+		},
+		{
+			name:      "contextual class missing message context",
+			args:      []string{"!score"},
+			noMessage: true,
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Something wrong with the controller")
+			},
+		},
+		{
+			name: "contextual class linked to deleted class code",
+			args: []string{"!score"},
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("ghost_class", nil).AnyTimes()
+				m.EXPECT().GetClassByClassCode("ghost_class").Return(data.Class{}, dataerr.NewNotFoundError("", nil)).AnyTimes()
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Class code `ghost_class` doesn't match with any class")
 			},
 		},
 		{
@@ -281,7 +330,9 @@ func TestHandleGetScoreByClass(t *testing.T) {
 				DiscordValidator: mockVal,
 				DiscordFetcher:   mockFetch,
 				ExecutorGuildID:  "guild_123",
-				Message:          &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+			}
+			if !tt.noMessage {
+				ctx.Message = &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}}
 			}
 			HandleGetScoreByClass(ctx)
 			if tt.assertFunc != nil {
@@ -297,12 +348,13 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 	tests := []struct {
 		name       string
 		args       []string
+		noMessage  bool
 		setupMock  func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
 			name: "successful get user score (mention)",
-			args: []string{"!score", "basicos_1", "<@123>"},
+			args: []string{"!score_of", "<@123>", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
@@ -317,11 +369,12 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
 				assert.Contains(t, msg.Embeds[0].Title, "name_123")
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
 			},
 		},
 		{
 			name: "successful get user score (raw ID)",
-			args: []string{"!score", "basicos_1", "123"},
+			args: []string{"!score_of", "123", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
 				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
@@ -336,12 +389,73 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
 				assert.Contains(t, msg.Embeds[0].Title, "name_123")
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
+			},
+		},
+		{
+			name: "successful get user score by contextual class",
+			args: []string{"!score_of", "<@123>"},
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("basicos_1", nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
+				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{
+					{UserID: "123", DisplayName: "name_123"}: {{ProblemID: 1}},
+				}, nil)
+				f.EXPECT().GetCachedMember(gomock.Any(), "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Nick: "name_123"}, nil).AnyTimes()
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Equal(t, dispatcher.FileMessage, msg.Type)
+				assert.NotEmpty(t, msg.Files)
+				assert.NotEmpty(t, msg.Embeds)
+				assert.Contains(t, msg.Embeds[0].Title, "name_123")
+				assert.Contains(t, msg.Embeds[0].Title, "basicos_1")
+			},
+		},
+		{
+			name: "user has no solved problems in contextual class",
+			args: []string{"!score_of", "<@123>"},
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("basicos_1", nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+				m.EXPECT().GetProblemsByClass(int64(1)).Return([]data.Problem{{ID: 1, Name: "Two Sum"}}, nil)
+				m.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{}, nil)
+				f.EXPECT().GetCachedMember(gomock.Any(), "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Nick: "name_123"}, nil).AnyTimes()
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "doesn't have any solved problems in class `basicos_1` yet")
+			},
+		},
+		{
+			name:      "contextual class missing message context",
+			args:      []string{"!score_of", "<@123>"},
+			noMessage: true,
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Something wrong with the controller")
+			},
+		},
+		{
+			name: "contextual class linked to deleted class code",
+			args: []string{"!score_of", "<@123>"},
+			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("ghost_class", nil).AnyTimes()
+				m.EXPECT().GetClassByClassCode("ghost_class").Return(data.Class{}, dataerr.NewNotFoundError("", nil)).AnyTimes()
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Class code `ghost_class` not found")
 			},
 		},
 		{
 			name: "service error",
-			args: []string{"!score", "basicos_1", "<@123>"},
+			args: []string{"!score_of", "<@123>", "basicos_1"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				f.EXPECT().GetCachedMember(gomock.Any(), "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Nick: "name_123"}, nil).AnyTimes()
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -371,7 +485,9 @@ func TestHandleGetScoreByUserAndClass(t *testing.T) {
 				DiscordValidator: mockVal,
 				DiscordFetcher:   mockFetch,
 				ExecutorGuildID:  "guild_123",
-				Message:          &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+			}
+			if !tt.noMessage {
+				ctx.Message = &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}}
 			}
 			HandleGetScoreByUserAndClass(ctx)
 			if tt.assertFunc != nil {
@@ -704,6 +820,19 @@ func TestHandleGetClassRoles(t *testing.T) {
 				assert.Contains(t, msg.Content, "Roles linked to class `basicos`")
 			},
 		},
+		{
+			name:      "contextual class linked to deleted class code",
+			args:      []string{"!get_roles"},
+			channelID: "chan_123",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("ghost_class", nil).AnyTimes()
+				m.EXPECT().GetClassByClassCode("ghost_class").Return(data.Class{}, dataerr.NewNotFoundError("", nil)).AnyTimes()
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Class code `ghost_class` not found")
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -769,6 +898,19 @@ func TestHandleGetClassRooms(t *testing.T) {
 				msg := awaitMessage(t, out)
 				assert.Contains(t, msg.Content, "Rooms linked to class `basicos`")
 				assert.Contains(t, msg.Content, "chan_1")
+			},
+		},
+		{
+			name:      "contextual class linked to deleted class code",
+			args:      []string{"!get_channels"},
+			channelID: "chan_123",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("chan_123").Return("ghost_class", nil).AnyTimes()
+				m.EXPECT().GetClassByClassCode("ghost_class").Return(data.Class{}, dataerr.NewNotFoundError("", nil)).AnyTimes()
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "Class code `ghost_class` not found")
 			},
 		},
 	}

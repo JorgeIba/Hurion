@@ -42,6 +42,28 @@ func ResolveClassContext(c *context.ContextMessage, argIndex int) (service_model
 	return service_model.Class{}, serviceerr.NewNotFoundInfoError("could not identify the target class", nil)
 }
 
+// ResolveClassCodeArg returns the explicit class argument when present, or the
+// class code linked to the current room when the command is using channel
+// context. It is intended for error formatting paths that still need the class
+// identity even if class resolution failed.
+func ResolveClassCodeArg(c *context.ContextMessage, argIndex int) any {
+	if len(c.Args) > argIndex {
+		return c.Args[argIndex]
+	}
+
+	channelID := GetMessageChannelID(c)
+	if channelID == "" {
+		return nil
+	}
+
+	code, found, err := c.Services.Class.GetClassCodeFromRoom(channelID)
+	if err != nil || !found {
+		return nil
+	}
+
+	return code
+}
+
 // GetMemberSafe attempts to get a member from cache first, then falls back to live fetch.
 func GetMemberSafe(c *context.ContextMessage, userID string) (*service_model.Principal, error) {
 	if c.ExecutorGuildID == "" {
