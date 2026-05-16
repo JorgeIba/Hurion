@@ -24,12 +24,8 @@ func HandleGetListOfProblems(c *context.ContextMessage) {
 		switch {
 		case serviceerr.IsServiceError(err):
 			// It's a domain error, map it to a user-friendly message
-			var classCodeArg any
-			if len(c.Args) > 1 {
-				classCodeArg = c.Args[1]
-			}
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionListProblemsByClass, classCodeArg)),
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionListProblemsByClass, controllers_common.ResolveClassCodeArg(c, 1))),
 			)
 		default:
 			// controller error or unexpected error, send generic message
@@ -78,12 +74,8 @@ func HandleGetScoreByClass(c *context.ContextMessage) {
 
 		switch {
 		case serviceerr.IsServiceError(err):
-			var classCodeArg any
-			if len(c.Args) > 1 {
-				classCodeArg = c.Args[1]
-			}
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionScoreByClass, classCodeArg)),
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionScoreByClass, controllers_common.ResolveClassCodeArg(c, 1))),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -162,12 +154,8 @@ func HandleGetScoreByUserAndClass(c *context.ContextMessage) {
 
 		switch {
 		case serviceerr.IsServiceError(err):
-			var classCodeArg any
-			if len(c.Args) > 2 {
-				classCodeArg = c.Args[2]
-			}
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionScoreByUserAndClass, userParam, classCodeArg)),
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionScoreByUserAndClass, userParam, controllers_common.ResolveClassCodeArg(c, 2))),
 			)
 		default:
 			c.Dispatcher.Send(
@@ -473,12 +461,8 @@ func HandleGetClassRoles(c *context.ContextMessage) {
 		switch {
 		case serviceerr.IsServiceError(err):
 			// It's a domain error, map it to a user-friendly message
-			var classCodeArg any
-			if len(c.Args) > 1 {
-				classCodeArg = c.Args[1]
-			}
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionGetClassRoles, classCodeArg)),
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionGetClassRoles, controllers_common.ResolveClassCodeArg(c, 1))),
 			)
 		default:
 			// controller error or unexpected error, send generic message
@@ -524,12 +508,8 @@ func HandleGetClassRooms(c *context.ContextMessage) {
 		switch {
 		case serviceerr.IsServiceError(err):
 			// It's a domain error, map it to a user-friendly message
-			var classCodeArg any
-			if len(c.Args) > 1 {
-				classCodeArg = c.Args[1]
-			}
 			c.Dispatcher.Send(
-				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionGetClassRooms, classCodeArg)),
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionGetClassRooms, controllers_common.ResolveClassCodeArg(c, 1))),
 			)
 		default:
 			// controller error or unexpected error, send generic message

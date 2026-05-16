@@ -115,6 +115,91 @@ func TestResolveClassContext(t *testing.T) {
 	}
 }
 
+func TestResolveClassCodeArg(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		channelID  string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(t *testing.T, got any)
+	}{
+		{
+			name:      "returns explicit class argument",
+			args:      []string{"!score", "basicos_1"},
+			channelID: "room_1",
+			setupMock: func(m *mock_data.MockDataStore) {},
+			assertFunc: func(t *testing.T, got any) {
+				assert.Equal(t, "basicos_1", got)
+			},
+		},
+		{
+			name:      "returns room linked class code for contextual command",
+			args:      []string{"!score"},
+			channelID: "room_1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("room_1").Return("basicos_1", nil)
+			},
+			assertFunc: func(t *testing.T, got any) {
+				assert.Equal(t, "basicos_1", got)
+			},
+		},
+		{
+			name:      "returns nil without channel context",
+			args:      []string{"!score"},
+			channelID: "",
+			setupMock: func(m *mock_data.MockDataStore) {},
+			assertFunc: func(t *testing.T, got any) {
+				assert.Nil(t, got)
+			},
+		},
+		{
+			name:      "returns nil when room has no class mapping",
+			args:      []string{"!score"},
+			channelID: "room_1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("room_1").Return("", &dataerr.NotFoundError{})
+			},
+			assertFunc: func(t *testing.T, got any) {
+				assert.Nil(t, got)
+			},
+		},
+		{
+			name:      "returns nil when room lookup fails",
+			args:      []string{"!score"},
+			channelID: "room_1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetClassCodeByRoomID("room_1").Return("", fmt.Errorf("db error"))
+			},
+			assertFunc: func(t *testing.T, got any) {
+				assert.Nil(t, got)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tc.setupMock(mockStore)
+
+			ctx := &context.ContextMessage{
+				Args:     tc.args,
+				Services: services.NewServices(mockStore),
+				Message:  &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: tc.channelID}},
+			}
+
+			got := ResolveClassCodeArg(ctx, 1)
+			tc.assertFunc(t, got)
+		})
+	}
+}
+
 func TestRequireClassAccess(t *testing.T) {
 	t.Parallel()
 

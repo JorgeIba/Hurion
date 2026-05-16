@@ -91,6 +91,13 @@ func TestMapError(t *testing.T) {
 			want:   "Class code `basicos_404` not found",
 		},
 		{
+			name:   "missing context for score by class",
+			err:    serviceerr.NewNotFoundInfoError("", nil),
+			action: ActionScoreByClass,
+			args:   []any{nil},
+			want:   "I couldn't identify the class, bro. Try specifying the class code (e.g., `!score basicos_1`) or run this command inside a class channel.",
+		},
+		{
 			name:   "semantic user not active for score by user and class",
 			err:    serviceerr.NewUserNotEnrolledError("", nil),
 			action: ActionScoreByUserAndClass,
