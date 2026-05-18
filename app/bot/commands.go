@@ -24,6 +24,7 @@ const (
 	MyClasses
 	ClassesOf
 	Exterminate
+	ExterminateClass
 	Export
 )
 
@@ -135,10 +136,10 @@ var Commands = map[Command]CommandData{
 	ClearClass: {
 		Cmd:         "!clear_class",
 		Name:        "clear_class",
-		Usage:       "!clear_class <class_code>",
-		Description: "Remove all problems, scores, and participation data from a class",
+		Usage:       "!clear_class [class_code]",
+		Description: "Reset a class by removing problems, solved records, and score history while keeping the class, rooms, and roles",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
-		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\")",
+		ExtraInfo:   "The optional `class_code` parameter should be one word (e.g., \"basicos_1\"). If omitted, the bot uses the current channel context.",
 	},
 	CreateClass: {
 		Cmd:         "!create_class",
@@ -185,6 +186,14 @@ var Commands = map[Command]CommandData{
 		Description: "Remove user from all system data including solved problems and pending confirmations",
 		UserRoles:   NewUserRoleSet(RoleAdmin),
 		ExtraInfo:   "Mention the user with @ (e.g., \"@DaddyYorch\"). This action cannot be undone.",
+	},
+	ExterminateClass: {
+		Cmd:         "!exterminate_class",
+		Name:        "exterminate_class",
+		Usage:       "!exterminate_class <class_code>",
+		Description: "Permanently delete a class and all of its linked data and settings",
+		UserRoles:   NewUserRoleSet(RoleAdmin),
+		ExtraInfo:   "The `class_code` parameter should be one word (e.g., \"basicos_1\"). This action cannot be undone.",
 	},
 	Export: {
 		Cmd:         "!export",

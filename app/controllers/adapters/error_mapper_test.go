@@ -146,6 +146,20 @@ func TestMapError(t *testing.T) {
 			args:   []any{"123"},
 			want:   "Unexpected error while exterminating user.",
 		},
+		{
+			name:   "missing context for clear class",
+			err:    serviceerr.NewNotFoundInfoError("", nil),
+			action: ActionClearClass,
+			args:   []any{nil},
+			want:   "I couldn't identify the class, bro. Try specifying the class code (e.g., `!clear_class basicos_1`) or run this command inside a class channel.",
+		},
+		{
+			name:   "unexpected non service error uses exterminate class default",
+			err:    fmt.Errorf("plain error"),
+			action: ActionExterminateClass,
+			args:   []any{"basicos_1"},
+			want:   "Unexpected error while exterminating class.",
+		},
 	}
 
 	for _, tt := range tests {

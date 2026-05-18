@@ -35,7 +35,25 @@ func (service *ClassService) CreateClass(classCode, className string) (int64, er
 	return classID, nil
 }
 
-// DeleteClassByClassCode deletes a class by its class code
+// ClearClassContentsByClassCode deletes all problems and score-driving data from a class while preserving the class itself.
+func (service *ClassService) ClearClassContentsByClassCode(classCode string) error {
+	class, err := service.Datastore.GetClassByClassCode(classCode)
+	if err != nil {
+		switch {
+		case dataerr.IsNotFound(err):
+			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %s not found", classCode), err)
+		default:
+			return serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	if err = service.Datastore.ClearClassContents(class.ID); err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	return nil
+}
+
+// DeleteClassByClassCode deletes a class by its class code.
 func (service *ClassService) DeleteClassByClassCode(classCode string) error {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
@@ -47,7 +65,7 @@ func (service *ClassService) DeleteClassByClassCode(classCode string) error {
 		}
 	}
 
-	if err = service.Datastore.ClearClass(class.ID); err != nil {
+	if err = service.Datastore.DeleteClass(class.ID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
 	return nil

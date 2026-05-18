@@ -6,9 +6,11 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIntegration_ClearClass_Logic(t *testing.T) {
@@ -19,9 +21,14 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 	classCode := "basicos_1"
 	classID := env.SeedClass(t, classCode, "Basicos 2026")
 	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+	env.SeedClassroom(t, "channel_1", classCode)
+	env.SeedClassAccessRole(t, classCode, "role_1")
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.SeedUser(t, "student_1", "Student")
+	studentID := "student_1"
+	env.SeedUser(t, studentID, "Student")
+	env.SeedAC(t, studentID, problemID)
+	env.SeedPendingConfirmation(t, "pending_1", studentID, problemID)
 
 	// Stub Admin role
 	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
@@ -32,18 +39,110 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class", classCode})
 	ctx.Message.ID = "msg_original_123"
 
-	admin.HandleClearClass(ctx)
+	err := admin.HandleClearClass(ctx)
+	require.NoError(t, err)
 
-	// 3. ASSERT: Class and its problems must be gone
-	env.AssertClassNotExists(t, classCode)
+	// 3. ASSERT: Class remains, but its contents and score-driving data are gone
+	class, err := env.DB.GetClassByClassCode(classCode)
+	require.NoError(t, err)
+	assert.Equal(t, classCode, class.ClassCode)
 	env.AssertProblemNotExists(t, problemID)
+	env.AssertProblemNotSolved(t, studentID, problemID)
+
+	rooms, err := env.DB.GetClassroomsByClassCode(classCode)
+	require.NoError(t, err)
+	assert.Len(t, rooms, 1)
+
+	roles, err := env.DB.GetClassAccessRolesByClassCode(classCode)
+	require.NoError(t, err)
+	assert.Len(t, roles, 1)
+
+	_, _, err = env.DB.GetPendingConfirmation("pending_1")
+	var notFoundErr *dataerr.NotFoundError
+	require.ErrorAs(t, err, &notFoundErr)
 
 	sentMsgs := env.Dispatcher.GetSentMessages()
 	assert.NotEmpty(t, sentMsgs, "expected at least one sent message")
 	if len(sentMsgs) > 0 {
 		lastMsg := sentMsgs[len(sentMsgs)-1]
-		assert.Contains(t, lastMsg.Content, "has been removed successfully")
+		assert.Contains(t, lastMsg.Content, "has been cleared successfully")
 	}
+}
+
+func TestIntegration_ClearClass_ContextAware(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	classID := env.SeedClass(t, classCode, "Basicos 2026")
+	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+	env.SeedClassroom(t, "channel_1", classCode)
+
+	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
+	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+		return userID == adminUser.UserID, nil
+	}
+
+	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class"})
+
+	err := admin.HandleClearClass(ctx)
+	require.NoError(t, err)
+	env.AssertProblemNotExists(t, problemID)
+
+	class, err := env.DB.GetClassByClassCode(classCode)
+	require.NoError(t, err)
+	assert.Equal(t, classCode, class.ClassCode)
+}
+
+func TestIntegration_ClearClass_MissingContext(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
+	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+		return userID == adminUser.UserID, nil
+	}
+
+	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class"})
+
+	err := admin.HandleClearClass(ctx)
+	require.Error(t, err)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "couldn't identify the class")
+}
+
+func TestIntegration_ExterminateClass_Logic(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	classID := env.SeedClass(t, classCode, "Basicos 2026")
+	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
+	env.SeedClassroom(t, "channel_1", classCode)
+	env.SeedClassAccessRole(t, classCode, "role_1")
+
+	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
+	studentID := "student_1"
+	env.SeedUser(t, studentID, "Student")
+	env.SeedAC(t, studentID, problemID)
+
+	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+		return userID == adminUser.UserID, nil
+	}
+
+	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!exterminate_class", classCode})
+
+	err := admin.HandleExterminateClass(ctx)
+	require.NoError(t, err)
+
+	env.AssertClassNotExists(t, classCode)
+	env.AssertProblemNotExists(t, problemID)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "has been removed successfully")
 }
 
 func TestIntegration_ExterminateUser_Logic(t *testing.T) {
@@ -168,6 +267,13 @@ func TestIntegration_Admin_UnauthorizedAccess(t *testing.T) {
 				admin.HandleExterminate(c)
 			},
 			args: []string{"!exterminate", "<@123>"},
+		},
+		{
+			name: "ExterminateClass unauthorized",
+			handler: func(c *context.ContextMessage) {
+				admin.HandleExterminateClass(c)
+			},
+			args: []string{"!exterminate_class", "some_class"},
 		},
 		{
 			name: "ExportClass unauthorized",

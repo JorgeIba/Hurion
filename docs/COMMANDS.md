@@ -59,7 +59,8 @@ Available to users with the Admin Discord role.
 | `!create_class` | `!create_class <class_code> <ClassName>` | Create a new class. | No |
 | `!link_roles` | `!link_roles <class_code> <@role1> ...` | Link Discord roles to a class. | No |
 | `!link_rooms` | `!link_rooms <class_code> <#channel1> ...` | Link Discord channels as classrooms. | No |
-| `!clear_class` | `!clear_class <class_code>` | Wipe all class data (problems/scores). | Yes 👍/👎 |
+| `!clear_class` | `!clear_class [class_code]` | Reset class contents while keeping the class, linked rooms, and linked roles. | Yes 👍/👎 |
+| `!exterminate_class` | `!exterminate_class <class_code>` | Permanently delete a class and all its linked data/settings. | Yes 👍/👎 |
 | `!exterminate` | `!exterminate <@user>` | Permanently delete a user and all their data. | Yes 👍/👎 |
 | `!export` | `!export <class_code>` | Export class data to an Excel file. | No |
 

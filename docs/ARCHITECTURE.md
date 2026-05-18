@@ -156,7 +156,7 @@ The `topic` parameter accepts any single word, or `-` to skip.
 
 ## Confirmation Flow
 
-Dangerous commands (`!remove_problem`, `!clear_class`, `!exterminate`) trigger a **two-step confirmation flow**:
+Dangerous commands (`!remove_problem`, `!clear_class`, `!exterminate_class`, `!exterminate`) trigger a **two-step confirmation flow**:
 
 1. The bot sends an embedded warning message with 👍 and 👎 reactions.
 2. The original command author reacts:
