@@ -40,11 +40,11 @@ var confirmableCommands = map[string]ConfirmableCommand{
 	},
 	ClearClass.String(): {
 		WarningMessage: func(c *context.ContextMessage) string {
-			classCode := controllers_common.ResolveClassCodeArg(c, 1)
-			if classCode == nil {
+			classCode, ok := resolveClassCodeString(c, 1)
+			if !ok {
 				return "⚠️ **WARNING**: Invalid clear class command."
 			}
-			return fmt.Sprintf("⚠️ **WARNING**: This will RESET class `%v` by deleting all problems, solved records, pending confirmations, and score history.\n\nThe class, linked rooms, and linked roles will stay. Are you sure?", classCode)
+			return fmt.Sprintf("⚠️ **WARNING**: This will RESET class `%s` by deleting all problems, solved records, pending confirmations, and score history.\n\nThe class, linked rooms, and linked roles will stay. Are you sure?", classCode)
 		},
 		Handler: handleClearClassConfirmation,
 	},
@@ -91,6 +91,11 @@ func executeConfirmedCommand(originalContext *context.ContextMessage, confirmati
 	}
 }
 
+func resolveClassCodeString(c *context.ContextMessage, argIndex int) (string, bool) {
+	classCode, ok := controllers_common.ResolveClassCodeArg(c, argIndex).(string)
+	return classCode, ok && classCode != ""
+}
+
 func handleExterminateConfirmation(originalContext *context.ContextMessage, c *context.ContextMessage) {
 	if err := admin.HandleExterminate(originalContext); err != nil {
 		setMessageAsError(c)
@@ -103,8 +108,11 @@ func handleClearClassConfirmation(originalContext *context.ContextMessage, c *co
 	if err := admin.HandleClearClass(originalContext); err != nil {
 		setMessageAsError(c)
 	} else {
-		classCode := controllers_common.ResolveClassCodeArg(originalContext, 1)
-		setMessageAsExecuted(c, fmt.Sprintf("Class %v has been cleared", classCode))
+		classCode, ok := resolveClassCodeString(originalContext, 1)
+		if !ok {
+			classCode = "unknown"
+		}
+		setMessageAsExecuted(c, fmt.Sprintf("Class %s has been cleared", classCode))
 	}
 }
 

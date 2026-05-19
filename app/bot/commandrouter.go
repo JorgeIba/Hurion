@@ -5,6 +5,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
@@ -133,7 +134,20 @@ func routerRemoveProblem(c *context.ContextMessage) {
 
 func routerClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1, 2:
+	case 1:
+		if controllers_common.ResolveClassCodeArg(c, 1) == nil {
+			sendUsageError(c, ClearClass.Name())
+			return
+		}
+
+		// This command requires confirmation
+		// confirmationHandler.go will handle it
+		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
+			c.Message.ChannelID,
+			c.Message.ID,
+			GetConfirmationMessage(c, ClearClass.String()),
+		))
+	case 2:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
 		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(

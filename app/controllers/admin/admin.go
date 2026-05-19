@@ -54,7 +54,7 @@ func HandleClearClass(c *context.ContextMessage) error {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionClearClass, class.ClassCode)),
+			dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionClearClass, class.ClassCode)),
 		)
 
 		return fmt.Errorf("error clearing class %s: %w", class.ClassCode, err)
@@ -62,7 +62,7 @@ func HandleClearClass(c *context.ContextMessage) error {
 
 	logger.Log.Infof("Class %s has been cleared\n", class.ClassCode)
 	c.Dispatcher.Send(
-		dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("Class `%s` has been cleared successfully", class.ClassCode)),
+		dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), fmt.Sprintf("Class `%s` has been cleared successfully", class.ClassCode)),
 	)
 
 	return nil
