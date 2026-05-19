@@ -30,7 +30,8 @@ type UpdateDataStore interface {
 	RemoveProblemByID(problemID int64) (int64, error)
 	AddAC(userID string, problemID int64) error
 	RemoveAC(userID string, problemID int64) error
-	ClearClass(classID int64) error
+	ClearClassContents(classID int64) error
+	DeleteClass(classID int64) error
 	CreateClass(class Class) (int64, error)
 	AddPendingConfirmation(confirmation PendingConfirmation) error
 	RemovePendingConfirmation(messageID string) error

@@ -205,10 +205,19 @@ func (db *DB) GetAllSolvedProblemsByClass(classID int64) (map[User][]SolvedProbl
 	return solvedProblemsIDByUser, nil
 }
 
-func (db *DB) ClearClass(classID int64) error {
+func (db *DB) ClearClassContents(classID int64) error {
+	query := "DELETE FROM problems WHERE class_id = ?"
+	if _, err := db.conn.Exec(query, classID); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not clear class contents for %d", classID), err)
+	}
+
+	return nil
+}
+
+func (db *DB) DeleteClass(classID int64) error {
 	query := "DELETE FROM classes WHERE id = ?"
 	if _, err := db.conn.Exec(query, classID); err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not clear class %d", classID), err)
+		return dataerr.NewQueryError(fmt.Sprintf("could not delete class %d", classID), err)
 	}
 
 	return nil

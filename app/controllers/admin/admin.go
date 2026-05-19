@@ -9,6 +9,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/controllerserr"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
@@ -31,12 +32,63 @@ func HandleClearClass(c *context.ContextMessage) error {
 		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
 	}
 
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case serviceerr.IsServiceError(err):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionClearClass, controllers_common.ResolveClassCodeArg(c, 1))),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
+
+		return fmt.Errorf("error resolving class for clear_class: %w", err)
+	}
+
+	if err := c.Services.Class.ClearClassContentsByClassCode(class.ClassCode); err != nil {
+		logger.Log.Error(err)
+
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionClearClass, class.ClassCode)),
+		)
+
+		return fmt.Errorf("error clearing class %s: %w", class.ClassCode, err)
+	}
+
+	logger.Log.Infof("Class %s has been cleared\n", class.ClassCode)
+	c.Dispatcher.Send(
+		dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), fmt.Sprintf("Class `%s` has been cleared successfully", class.ClassCode)),
+	)
+
+	return nil
+}
+
+func HandleExterminateClass(c *context.ContextMessage) error {
+	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
+		logger.Log.Errorf("Error checking if author is admin: %v", err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
+		)
+		return err
+	} else if !isAdmin {
+		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
+		)
+		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
+	}
+
 	classCode := c.Args[1]
 	if err := c.Services.Class.DeleteClassByClassCode(classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionClearClass, classCode)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionExterminateClass, classCode)),
 		)
 
 		return fmt.Errorf("error deleting class %s: %w", classCode, err)

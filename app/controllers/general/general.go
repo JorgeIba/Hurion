@@ -220,9 +220,17 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 	class, err := controllers_common.ResolveClassContext(c, 1)
 	if err != nil {
 		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionGetUsersInClass, "")),
-		)
+
+		switch {
+		case serviceerr.IsServiceError(err):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionGetUsersInClass, controllers_common.ResolveClassCodeArg(c, 1))),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
 		return
 	}
 	classCode := class.ClassCode

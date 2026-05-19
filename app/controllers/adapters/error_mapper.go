@@ -22,6 +22,7 @@ const (
 	ActionGetClassesOfUser
 
 	ActionClearClass
+	ActionExterminateClass
 	ActionCreateClass
 	ActionExterminateUser
 	ActionExportClass
@@ -97,7 +98,12 @@ var templates = map[Action]map[ErrorKind]string{
 	},
 	ActionClearClass: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!clear_class basicos_1`) or run this command inside a class channel.",
 		errorKindDefault:           "Unexpected error while clearing class data.",
+	},
+	ActionExterminateClass: {
+		errorKindClassCodeNotFound: "Class code `%s` not found",
+		errorKindDefault:           "Unexpected error while exterminating class.",
 	},
 	ActionCreateClass: {
 		errorKindConflict: "Class code `%s` already exists",

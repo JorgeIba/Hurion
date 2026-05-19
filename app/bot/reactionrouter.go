@@ -6,6 +6,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/bwmarrin/discordgo"
@@ -84,14 +85,19 @@ func handleConfirmationYes(c *context.ContextMessage) {
 		ExecutorGuildID:        c.ExecutorGuildID,
 	}
 
-	executeConfirmedCommand(originalContext, args, c)
+	executeConfirmedCommand(originalContext, c)
 }
 
 func setMessageAsCancelled(c *context.ContextMessage) {
+	actor := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, c.Executor.UserID)
+	if actor == "" {
+		actor = "Unknown"
+	}
+
 	// Update embed as cancelled
 	cancelledEmbed := &discordgo.MessageEmbed{
 		Title:       "CANCELLED",
-		Description: "❌ Operation was cancelled by user.",
+		Description: fmt.Sprintf("❌ Operation was cancelled by user _%s_.", actor),
 		Color:       0xff0000, // Red
 	}
 	if err := c.DiscordMessageModifier.EditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, cancelledEmbed); err != nil {
@@ -108,10 +114,15 @@ func setMessageAsCancelled(c *context.ContextMessage) {
 }
 
 func setMessageAsExecuted(c *context.ContextMessage, message string) {
+	actor := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, c.Executor.UserID)
+	if actor == "" {
+		actor = "Unknown"
+	}
+
 	// Update embed as Executed
 	successEmbed := &discordgo.MessageEmbed{
 		Title:       "EXECUTED",
-		Description: fmt.Sprintf("✅ %s.", message),
+		Description: fmt.Sprintf("✅ %s. Confirmed by _%s_.", message, actor),
 		Color:       0x00ff00, // Green
 	}
 	if err := c.DiscordMessageModifier.EditEmbed(c.MessageReaction.ChannelID, c.MessageReaction.MessageID, successEmbed); err != nil {

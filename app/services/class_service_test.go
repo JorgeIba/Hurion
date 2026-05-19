@@ -82,7 +82,7 @@ func TestClassService_CreateClass(t *testing.T) {
 	}
 }
 
-func TestClassService_DeleteClassByClassCode(t *testing.T) {
+func TestClassService_ClearClassContentsByClassCode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -92,14 +92,14 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 		assertFunc func(*testing.T, error)
 	}{
 		{
-			name:      "success - class deleted",
+			name:      "success - class contents cleared",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("CS101").
 					Return(data.Class{ID: 1, ClassCode: "CS101"}, nil)
 				m.EXPECT().
-					ClearClass(int64(1)).
+					ClearClassContents(int64(1)).
 					Return(nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
@@ -133,14 +133,97 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 			},
 		},
 		{
-			name:      "internal error - ClearClass fails",
+			name:      "internal error - ClearClassContents fails",
 			classCode: "CS101",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().
 					GetClassByClassCode("CS101").
 					Return(data.Class{ID: 1, ClassCode: "CS101"}, nil)
 				m.EXPECT().
-					ClearClass(int64(1)).
+					ClearClassContents(int64(1)).
+					Return(errors.New("db error"))
+			},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+
+			svc := &ClassService{Datastore: mockStore}
+			err := svc.ClearClassContentsByClassCode(tt.classCode)
+			tt.assertFunc(t, err)
+		})
+	}
+}
+
+func TestClassService_DeleteClassByClassCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		classCode  string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, error)
+	}{
+		{
+			name:      "success - class deleted",
+			classCode: "CS101",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().
+					GetClassByClassCode("CS101").
+					Return(data.Class{ID: 1, ClassCode: "CS101"}, nil)
+				m.EXPECT().
+					DeleteClass(int64(1)).
+					Return(nil)
+			},
+			assertFunc: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name:      "not found - class doesn't exist",
+			classCode: "UNKNOWN",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().
+					GetClassByClassCode("UNKNOWN").
+					Return(data.Class{}, &dataerr.NotFoundError{})
+			},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, err)
+			},
+		},
+		{
+			name:      "internal error - GetClassByClassCode fails",
+			classCode: "CS101",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().
+					GetClassByClassCode("CS101").
+					Return(data.Class{}, errors.New("db error"))
+			},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			},
+		},
+		{
+			name:      "internal error - DeleteClass fails",
+			classCode: "CS101",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().
+					GetClassByClassCode("CS101").
+					Return(data.Class{ID: 1, ClassCode: "CS101"}, nil)
+				m.EXPECT().
+					DeleteClass(int64(1)).
 					Return(errors.New("db error"))
 			},
 			assertFunc: func(t *testing.T, err error) {

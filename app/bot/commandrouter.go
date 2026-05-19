@@ -5,6 +5,7 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
+	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
@@ -14,28 +15,29 @@ import (
 type CommandRouter func(c *context.ContextMessage)
 
 var commandMap = map[string]CommandRouter{
-	Help.String():          routerHelp,
-	List.String():          routerList,
-	Scores.String():        routerScores,
-	Score.String():         routerScore,
-	ScoreOf.String():       routerScoreOf,
-	AC.String():            routerProposeAC,
-	UndoAC.String():        routerUndoAC,
-	AddProblem.String():    routerAddProblem,
-	RemoveProblem.String(): routerRemoveProblem,
-	ClearClass.String():    routerClearClass,
-	CreateClass.String():   routerCreateClass,
-	LinkRoles.String():     routerLinkRoles,
-	LinkRooms.String():     routerLinkRooms,
-	GetRoles.String():      routerGetClassRoles,
-	GetChannels.String():   routerGetClassRooms,
-	Users.String():         routerGetUsersInClass,
-	Classes.String():       routerGetAllClasses,
-	UpdateProblem.String(): routerUpdateProblem,
-	MyClasses.String():     routerGetMyClasses,
-	ClassesOf.String():     routerGetClassesOfUser,
-	Exterminate.String():   routerExterminate,
-	Export.String():        routerExport,
+	Help.String():             routerHelp,
+	List.String():             routerList,
+	Scores.String():           routerScores,
+	Score.String():            routerScore,
+	ScoreOf.String():          routerScoreOf,
+	AC.String():               routerProposeAC,
+	UndoAC.String():           routerUndoAC,
+	AddProblem.String():       routerAddProblem,
+	RemoveProblem.String():    routerRemoveProblem,
+	ClearClass.String():       routerClearClass,
+	CreateClass.String():      routerCreateClass,
+	LinkRoles.String():        routerLinkRoles,
+	LinkRooms.String():        routerLinkRooms,
+	GetRoles.String():         routerGetClassRoles,
+	GetChannels.String():      routerGetClassRooms,
+	Users.String():            routerGetUsersInClass,
+	Classes.String():          routerGetAllClasses,
+	UpdateProblem.String():    routerUpdateProblem,
+	MyClasses.String():        routerGetMyClasses,
+	ClassesOf.String():        routerGetClassesOfUser,
+	Exterminate.String():      routerExterminate,
+	ExterminateClass.String(): routerExterminateClass,
+	Export.String():           routerExport,
 }
 
 func sendUsageError(c *context.ContextMessage, command string) {
@@ -132,6 +134,19 @@ func routerRemoveProblem(c *context.ContextMessage) {
 
 func routerClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
+	case 1:
+		if controllers_common.ResolveClassCodeArg(c, 1) == nil {
+			sendUsageError(c, ClearClass.Name())
+			return
+		}
+
+		// This command requires confirmation
+		// confirmationHandler.go will handle it
+		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
+			c.Message.ChannelID,
+			c.Message.ID,
+			GetConfirmationMessage(c, ClearClass.String()),
+		))
 	case 2:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
@@ -142,6 +157,19 @@ func routerClearClass(c *context.ContextMessage) {
 		))
 	default:
 		sendUsageError(c, ClearClass.Name())
+	}
+}
+
+func routerExterminateClass(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 2:
+		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
+			c.Message.ChannelID,
+			c.Message.ID,
+			GetConfirmationMessage(c, ExterminateClass.String()),
+		))
+	default:
+		sendUsageError(c, ExterminateClass.Name())
 	}
 }
 

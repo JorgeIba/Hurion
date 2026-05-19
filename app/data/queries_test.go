@@ -526,7 +526,86 @@ func TestGetAllSolvedProblemsByClass(t *testing.T) {
 	}
 }
 
-func TestClearClass(t *testing.T) {
+func TestClearClassContents(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classID    int64
+		assertFunc func(t *testing.T, db *DB, err error)
+	}{
+		{
+			name: "should wipe problems and cascaded score data while keeping class settings",
+			setup: func(t *testing.T, db *DB) {
+				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				err = db.AddClassroom(Classroom{RoomID: "ch-1", ClassCode: "c1"})
+				require.NoError(t, err)
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
+				require.NoError(t, err)
+				pID, err := db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: cID})
+				require.NoError(t, err)
+				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+				err = db.AddAC("u1", pID)
+				require.NoError(t, err)
+				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				require.NoError(t, err)
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM classes WHERE id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE class_id = 1").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM solved_problems").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM pending_confirmations").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM classrooms WHERE class_code = 'c1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, count)
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM class_access_roles WHERE class_code = 'c1'").Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 1, count)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classID: 1,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			err := db.ClearClassContents(tt.classID)
+			tt.assertFunc(t, db, err)
+		})
+	}
+}
+
+func TestDeleteClass(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -591,7 +670,7 @@ func TestClearClass(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			err := db.ClearClass(tt.classID)
+			err := db.DeleteClass(tt.classID)
 			tt.assertFunc(t, db, err)
 		})
 	}

@@ -111,18 +111,18 @@ func (mr *MockDataStoreMockRecorder) AddProblem(problem any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProblem", reflect.TypeOf((*MockDataStore)(nil).AddProblem), problem)
 }
 
-// ClearClass mocks base method.
-func (m *MockDataStore) ClearClass(classID int64) error {
+// ClearClassContents mocks base method.
+func (m *MockDataStore) ClearClassContents(classID int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClearClass", classID)
+	ret := m.ctrl.Call(m, "ClearClassContents", classID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ClearClass indicates an expected call of ClearClass.
-func (mr *MockDataStoreMockRecorder) ClearClass(classID any) *gomock.Call {
+// ClearClassContents indicates an expected call of ClearClassContents.
+func (mr *MockDataStoreMockRecorder) ClearClassContents(classID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearClass", reflect.TypeOf((*MockDataStore)(nil).ClearClass), classID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearClassContents", reflect.TypeOf((*MockDataStore)(nil).ClearClassContents), classID)
 }
 
 // CreateClass mocks base method.
@@ -138,6 +138,20 @@ func (m *MockDataStore) CreateClass(class data.Class) (int64, error) {
 func (mr *MockDataStoreMockRecorder) CreateClass(class any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClass", reflect.TypeOf((*MockDataStore)(nil).CreateClass), class)
+}
+
+// DeleteClass mocks base method.
+func (m *MockDataStore) DeleteClass(classID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteClass", classID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteClass indicates an expected call of DeleteClass.
+func (mr *MockDataStoreMockRecorder) DeleteClass(classID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClass", reflect.TypeOf((*MockDataStore)(nil).DeleteClass), classID)
 }
 
 // EnsureUser mocks base method.
