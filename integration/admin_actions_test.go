@@ -94,7 +94,7 @@ func TestIntegration_ClearClass_ContextAware(t *testing.T) {
 	assert.Equal(t, classCode, class.ClassCode)
 }
 
-func TestIntegration_ClearClass_ConfirmedExplicitTargetSurvivesRoomRelink(t *testing.T) {
+func TestIntegration_ClearClass_ExplicitTargetSurvivesRoomRelink(t *testing.T) {
 	t.Parallel()
 
 	env := setupIntegrationEnv(t)
@@ -111,7 +111,7 @@ func TestIntegration_ClearClass_ConfirmedExplicitTargetSurvivesRoomRelink(t *tes
 		return userID == adminUser.UserID, nil
 	}
 
-	// Confirmation creation captured class_a as an explicit argument; a later room relink must not change the target.
+	// Confirmation payload capture converts contextual clear_class into an explicit class argument.
 	env.SeedClassroom(t, "channel_1", classBCode)
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class", classACode})
 

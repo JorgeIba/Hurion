@@ -236,6 +236,82 @@ func TestConfirmationArgsFromMessage(t *testing.T) {
 	}
 }
 
+func TestVerifyIsConfirmationMessageAuthenticatesBotAuthor(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		botUserID  string
+		updateMsg  func(*discordgo.Message)
+		assertFunc func(t *testing.T, got bool)
+	}{
+		{
+			name:      "accepts confirmation authored by this bot",
+			botUserID: "bot_1",
+			updateMsg: func(msg *discordgo.Message) {
+			},
+			assertFunc: func(t *testing.T, got bool) {
+				assert.True(t, got)
+			},
+		},
+		{
+			name:      "rejects confirmation authored by another bot",
+			botUserID: "bot_1",
+			updateMsg: func(msg *discordgo.Message) {
+				msg.Author = &discordgo.User{ID: "bot_2", Bot: true}
+			},
+			assertFunc: func(t *testing.T, got bool) {
+				assert.False(t, got)
+			},
+		},
+		{
+			name:      "rejects webhook-authored confirmation",
+			botUserID: "bot_1",
+			updateMsg: func(msg *discordgo.Message) {
+				msg.WebhookID = "webhook_1"
+			},
+			assertFunc: func(t *testing.T, got bool) {
+				assert.False(t, got)
+			},
+		},
+		{
+			name:      "rejects when bot identity is unavailable",
+			botUserID: "",
+			updateMsg: func(msg *discordgo.Message) {
+			},
+			assertFunc: func(t *testing.T, got bool) {
+				assert.False(t, got)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
+			confirmationMsg, _ := confirmationMessagesForArgs([]string{"!clear_class", "class_a"})
+			tt.updateMsg(confirmationMsg)
+			mockFetcher.EXPECT().FetchMessage("channel_1", "confirmation_1").Return(confirmationMsg, nil)
+			ctx := &context.ContextMessage{
+				MessageReaction: &discordgo.MessageReactionAdd{MessageReaction: &discordgo.MessageReaction{
+					UserID:    "admin_1",
+					MessageID: "confirmation_1",
+					ChannelID: "channel_1",
+				}},
+				DiscordFetcher: mockFetcher,
+				BotUserID:      tt.botUserID,
+			}
+
+			got := verifyIsConfirmationMessage(ctx)
+
+			tt.assertFunc(t, got)
+		})
+	}
+}
+
 func TestConfirmationYesUsesCapturedArgsAfterRoomRelink(t *testing.T) {
 	t.Parallel()
 
@@ -382,6 +458,7 @@ func confirmationReactionContext(
 		Services:               services.NewServices(store),
 		Executor:               service_model.User{UserID: "admin_1", DisplayName: "Admin User"},
 		ExecutorGuildID:        "guild_1",
+		BotUserID:              "bot_1",
 	}
 }
 
@@ -407,6 +484,7 @@ func confirmationMessagesForArgs(args []string) (*discordgo.Message, *discordgo.
 
 func confirmationMessageWithFooter(footerText string) *discordgo.Message {
 	return &discordgo.Message{
+		Author: &discordgo.User{ID: "bot_1", Bot: true},
 		Embeds: []*discordgo.MessageEmbed{{
 			Title:  "CONFIRMATION",
 			Footer: footerForText(footerText),

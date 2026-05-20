@@ -25,4 +25,7 @@ type ContextMessage struct {
 
 	// ExecutorGuildID identifies where (which server) the command is executed.
 	ExecutorGuildID string
+
+	// BotUserID identifies this bot account for validating bot-authored Discord messages.
+	BotUserID string
 }

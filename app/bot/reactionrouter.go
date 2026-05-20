@@ -187,6 +187,10 @@ func verifyIsConfirmationMessage(c *context.ContextMessage) bool {
 		return false
 	}
 
+	if c.BotUserID == "" || confirmationMsg.Author == nil || confirmationMsg.Author.ID != c.BotUserID || confirmationMsg.WebhookID != "" {
+		return false
+	}
+
 	if confirmationMsg.ReferencedMessage == nil || confirmationMsg.ReferencedMessage.Author == nil {
 		return false
 	}
