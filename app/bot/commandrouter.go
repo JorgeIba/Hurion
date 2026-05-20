@@ -5,7 +5,6 @@ import (
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
-	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
@@ -45,6 +44,24 @@ func sendUsageError(c *context.ContextMessage, command string) {
 	c.Dispatcher.Send(
 		dispatcher.MakeSimpleMessage(c.Message.ChannelID, message),
 	)
+}
+
+func sendConfirmationMessage(c *context.ContextMessage, command Command) {
+	confirmationArgs, ok := GetConfirmationArgs(c, command.String())
+	if !ok {
+		sendUsageError(c, command.Name())
+		return
+	}
+
+	confirmationContext := *c
+	confirmationContext.Args = append([]string{}, confirmationArgs...)
+
+	c.Dispatcher.Send(dispatcher.MakeConfirmationMessageWithArgs(
+		c.Message.ChannelID,
+		c.Message.ID,
+		GetConfirmationMessage(&confirmationContext, command.String()),
+		confirmationArgs,
+	))
 }
 
 func routerHelp(c *context.ContextMessage) {
@@ -122,11 +139,7 @@ func routerRemoveProblem(c *context.ContextMessage) {
 	case 2:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
-		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
-			c.Message.ChannelID,
-			c.Message.ID,
-			GetConfirmationMessage(c, RemoveProblem.String()),
-		))
+		sendConfirmationMessage(c, RemoveProblem)
 	default:
 		sendUsageError(c, RemoveProblem.Name())
 	}
@@ -134,27 +147,10 @@ func routerRemoveProblem(c *context.ContextMessage) {
 
 func routerClearClass(c *context.ContextMessage) {
 	switch len(c.Args) {
-	case 1:
-		if controllers_common.ResolveClassCodeArg(c, 1) == nil {
-			sendUsageError(c, ClearClass.Name())
-			return
-		}
-
+	case 1, 2:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
-		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
-			c.Message.ChannelID,
-			c.Message.ID,
-			GetConfirmationMessage(c, ClearClass.String()),
-		))
-	case 2:
-		// This command requires confirmation
-		// confirmationHandler.go will handle it
-		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
-			c.Message.ChannelID,
-			c.Message.ID,
-			GetConfirmationMessage(c, ClearClass.String()),
-		))
+		sendConfirmationMessage(c, ClearClass)
 	default:
 		sendUsageError(c, ClearClass.Name())
 	}
@@ -163,11 +159,7 @@ func routerClearClass(c *context.ContextMessage) {
 func routerExterminateClass(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 2:
-		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
-			c.Message.ChannelID,
-			c.Message.ID,
-			GetConfirmationMessage(c, ExterminateClass.String()),
-		))
+		sendConfirmationMessage(c, ExterminateClass)
 	default:
 		sendUsageError(c, ExterminateClass.Name())
 	}
@@ -230,11 +222,7 @@ func routerExterminate(c *context.ContextMessage) {
 	case 2:
 		// This command requires confirmation
 		// confirmationHandler.go will handle it
-		c.Dispatcher.Send(dispatcher.MakeConfirmationMessage(
-			c.Message.ChannelID,
-			c.Message.ID,
-			GetConfirmationMessage(c, Exterminate.String()),
-		))
+		sendConfirmationMessage(c, Exterminate)
 	default:
 		sendUsageError(c, Exterminate.Name())
 	}

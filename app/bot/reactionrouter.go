@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
 	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/bwmarrin/discordgo"
 )
@@ -53,16 +54,16 @@ func handleConfirmationYes(c *context.ContextMessage) {
 		return
 	}
 
+	args := confirmationArgsFromMessage(confirmationMsg)
+	if len(args) == 0 {
+		setMessageAsError(c)
+		return
+	}
+
 	// Fetch the original message directly to get complete data
 	originalMsg, err := c.DiscordFetcher.FetchMessage(confirmationMsg.ReferencedMessage.ChannelID, confirmationMsg.ReferencedMessage.ID)
 	if err != nil {
 		logger.Log.Errorf("Failed to fetch original message: %v", err)
-		return
-	}
-
-	// Parse the original command
-	args := strings.Fields(originalMsg.Content)
-	if len(args) == 0 {
 		return
 	}
 
@@ -86,6 +87,24 @@ func handleConfirmationYes(c *context.ContextMessage) {
 	}
 
 	executeConfirmedCommand(originalContext, c)
+}
+
+func confirmationArgsFromMessage(msg *discordgo.Message) []string {
+	if msg == nil || len(msg.Embeds) == 0 || msg.Embeds[0].Footer == nil {
+		return nil
+	}
+
+	commandText, ok := strings.CutPrefix(msg.Embeds[0].Footer.Text, dispatcher.ConfirmationCommandFooterPrefix)
+	if !ok {
+		return nil
+	}
+
+	args := strings.Fields(commandText)
+	if len(args) == 0 {
+		return nil
+	}
+
+	return args
 }
 
 func setMessageAsCancelled(c *context.ContextMessage) {
@@ -165,6 +184,10 @@ func verifyIsConfirmationMessage(c *context.ContextMessage) bool {
 	}
 
 	if len(confirmationMsg.Embeds) == 0 || confirmationMsg.Embeds[0].Title != "CONFIRMATION" {
+		return false
+	}
+
+	if c.BotUserID == "" || confirmationMsg.Author == nil || confirmationMsg.Author.ID != c.BotUserID || confirmationMsg.WebhookID != "" {
 		return false
 	}
 

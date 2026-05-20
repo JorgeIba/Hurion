@@ -117,6 +117,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		Dispatcher:             bot.dispatcher,
 		Executor:               executor,  // Who is executing
 		ExecutorGuildID:        m.GuildID, // Where it's executed
+		BotUserID:              botUserIDFromSession(s),
 	}
 
 	cmd := args[0]
@@ -166,6 +167,7 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		Dispatcher:             bot.dispatcher,
 		Executor:               executor,  // Who is executing
 		ExecutorGuildID:        r.GuildID, // Where it's executed
+		BotUserID:              botUserIDFromSession(s),
 	}
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
@@ -174,4 +176,12 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 
 		router(context)
 	}
+}
+
+func botUserIDFromSession(s *discordgo.Session) string {
+	if s != nil && s.State != nil && s.State.User != nil {
+		return s.State.User.ID
+	}
+
+	return ""
 }

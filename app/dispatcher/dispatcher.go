@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+	"strings"
 	"time"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
@@ -10,7 +11,8 @@ import (
 )
 
 const (
-	TIME_ACTIVE_PROBLEMS_LIST = time.Minute * 2
+	TIME_ACTIVE_PROBLEMS_LIST       = time.Minute * 2
+	ConfirmationCommandFooterPrefix = "Command: "
 )
 
 //go:generate go tool mockgen -source=$GOFILE -destination=mock_dispatcher/mock_dispatcher.go -package=mock_dispatcher
@@ -126,6 +128,11 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 			Description: msg.Content,
 			Color:       0xff6b35, // Orange
 		}
+		if len(msg.ConfirmationArgs) > 0 {
+			embed.Footer = &discordgo.MessageEmbedFooter{
+				Text: ConfirmationCommandFooterPrefix + strings.Join(msg.ConfirmationArgs, " "),
+			}
+		}
 
 		sentMsg, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
 			Embed: embed,
@@ -190,11 +197,17 @@ func MakeSimpleMessage(channelID, message string) MessageResponse {
 }
 
 func MakeConfirmationMessage(channelID, replyToMessageID, warningMessage string) MessageResponse {
+	return MakeConfirmationMessageWithArgs(channelID, replyToMessageID, warningMessage, nil)
+}
+
+func MakeConfirmationMessageWithArgs(channelID, replyToMessageID, warningMessage string, confirmationArgs []string) MessageResponse {
+	args := append([]string{}, confirmationArgs...)
 	return MessageResponse{
-		Type:      ConfirmationMessage,
-		ChannelID: channelID,
-		ReplyTo:   replyToMessageID,
-		Content:   warningMessage,
+		Type:             ConfirmationMessage,
+		ChannelID:        channelID,
+		ReplyTo:          replyToMessageID,
+		Content:          warningMessage,
+		ConfirmationArgs: args,
 	}
 }
 

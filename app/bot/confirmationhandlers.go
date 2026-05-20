@@ -11,11 +11,13 @@ import (
 
 type ConfirmationHandler func(originalContext *context.ContextMessage, confirmationContext *context.ContextMessage)
 type WarningMessageGenerator func(c *context.ContextMessage) string
+type ConfirmationArgsResolver func(c *context.ContextMessage) ([]string, bool)
 
 // ConfirmableCommand defines a command that requires confirmation before execution
 type ConfirmableCommand struct {
 	WarningMessage WarningMessageGenerator // Function to generate the warning message with placeholders
 	Handler        ConfirmationHandler     // Handler function to execute when confirmed
+	ConfirmedArgs  ConfirmationArgsResolver
 }
 
 // confirmableCommands stores all commands that require confirmation
@@ -46,7 +48,8 @@ var confirmableCommands = map[string]ConfirmableCommand{
 			}
 			return fmt.Sprintf("⚠️ **WARNING**: This will RESET class `%s` by deleting all problems, solved records, pending confirmations, and score history.\n\nThe class, linked rooms, and linked roles will stay. Are you sure?", classCode)
 		},
-		Handler: handleClearClassConfirmation,
+		Handler:       handleClearClassConfirmation,
+		ConfirmedArgs: clearClassConfirmationArgs,
 	},
 	ExterminateClass.String(): {
 		WarningMessage: func(c *context.ContextMessage) string {
@@ -79,6 +82,21 @@ func GetConfirmationMessage(c *context.ContextMessage, command string) string {
 	return ""
 }
 
+// GetConfirmationArgs returns the canonical args that should be executed after
+// a confirmation is accepted.
+func GetConfirmationArgs(c *context.ContextMessage, command string) ([]string, bool) {
+	cmd, exists := confirmableCommands[command]
+	if !exists {
+		return nil, false
+	}
+
+	if cmd.ConfirmedArgs != nil {
+		return cmd.ConfirmedArgs(c)
+	}
+
+	return copyConfirmationArgs(c)
+}
+
 // executeConfirmedCommand routes the confirmed command to the appropriate handler
 func executeConfirmedCommand(originalContext *context.ContextMessage, confirmationContext *context.ContextMessage) {
 	command := originalContext.Args[0]
@@ -89,11 +107,6 @@ func executeConfirmedCommand(originalContext *context.ContextMessage, confirmati
 	} else {
 		setMessageAsError(confirmationContext)
 	}
-}
-
-func resolveClassCodeString(c *context.ContextMessage, argIndex int) (string, bool) {
-	classCode, ok := controllers_common.ResolveClassCodeArg(c, argIndex).(string)
-	return classCode, ok && classCode != ""
 }
 
 func handleExterminateConfirmation(originalContext *context.ContextMessage, c *context.ContextMessage) {
@@ -135,4 +148,34 @@ func handleRemoveProblemConfirmation(originalContext *context.ContextMessage, c 
 	default:
 		setMessageAsError(c)
 	}
+}
+
+func resolveClassCodeString(c *context.ContextMessage, argIndex int) (string, bool) {
+	classCode, ok := controllers_common.ResolveClassCodeArg(c, argIndex).(string)
+	return classCode, ok && classCode != ""
+}
+
+func copyConfirmationArgs(c *context.ContextMessage) ([]string, bool) {
+	if len(c.Args) == 0 {
+		return nil, false
+	}
+
+	return append([]string{}, c.Args...), true
+}
+
+func clearClassConfirmationArgs(c *context.ContextMessage) ([]string, bool) {
+	if len(c.Args) == 0 {
+		return nil, false
+	}
+
+	if len(c.Args) > 1 {
+		return copyConfirmationArgs(c)
+	}
+
+	classCode, ok := resolveClassCodeString(c, 1)
+	if !ok {
+		return nil, false
+	}
+
+	return []string{c.Args[0], classCode}, true
 }

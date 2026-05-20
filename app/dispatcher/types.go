@@ -37,6 +37,7 @@ type MessageResponse struct {
 	Reactions              []string                  // optional
 	ClearSpecificReactions []string                  // optional, specific emojis to clear before adding new ones
 	Files                  []*discordgo.File         // optional
+	ConfirmationArgs       []string                  // optional, canonical args for delayed confirmation execution
 
 	MentionPolicy   MentionPolicy
 	AllowedMentions *discordgo.MessageAllowedMentions // used when MentionPolicyCustom
