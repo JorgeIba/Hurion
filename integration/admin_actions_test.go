@@ -94,6 +94,43 @@ func TestIntegration_ClearClass_ContextAware(t *testing.T) {
 	assert.Equal(t, classCode, class.ClassCode)
 }
 
+func TestIntegration_ClearClass_ConfirmedExplicitTargetSurvivesRoomRelink(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	classACode := "class_a"
+	classBCode := "class_b"
+	classAID := env.SeedClass(t, classACode, "Class A")
+	classBID := env.SeedClass(t, classBCode, "Class B")
+	problemAID := env.SeedProblem(t, "Problem A", "url-a", classAID, "Easy", "Arrays")
+	problemBID := env.SeedProblem(t, "Problem B", "url-b", classBID, "Easy", "Arrays")
+	env.SeedClassroom(t, "channel_1", classACode)
+
+	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
+	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+		return userID == adminUser.UserID, nil
+	}
+
+	// Confirmation creation captured class_a as an explicit argument; a later room relink must not change the target.
+	env.SeedClassroom(t, "channel_1", classBCode)
+	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class", classACode})
+
+	err := admin.HandleClearClass(ctx)
+	require.NoError(t, err)
+
+	env.AssertProblemNotExists(t, problemAID)
+	_, err = env.DB.GetProblemByID(problemBID)
+	require.NoError(t, err)
+
+	classA, err := env.DB.GetClassByClassCode(classACode)
+	require.NoError(t, err)
+	assert.Equal(t, classACode, classA.ClassCode)
+
+	classB, err := env.DB.GetClassByClassCode(classBCode)
+	require.NoError(t, err)
+	assert.Equal(t, classBCode, classB.ClassCode)
+}
+
 func TestIntegration_ClearClass_MissingContext(t *testing.T) {
 	t.Parallel()
 
