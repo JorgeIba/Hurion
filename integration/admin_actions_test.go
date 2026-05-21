@@ -217,6 +217,62 @@ func TestIntegration_ExterminateUser_Logic(t *testing.T) {
 	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "completely removed from the system")
 }
 
+func TestIntegration_LinkRoles_AlreadyLinkedMessage(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	env.SeedClass(t, classCode, "Basicos 2026")
+	env.SeedClassAccessRole(t, classCode, "1111111111")
+
+	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
+	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+		return userID == adminUser.UserID, nil
+	}
+
+	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!link_roles", classCode, "1111111111", "2222222222"})
+
+	err := admin.HandleLinkRoles(ctx)
+	require.NoError(t, err)
+
+	roles, err := env.DB.GetClassAccessRolesByClassCode(classCode)
+	require.NoError(t, err)
+	assert.Len(t, roles, 2)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "Successfully linked 1 roles to class `basicos_1`")
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "1 already linked")
+}
+
+func TestIntegration_LinkRooms_AlreadyLinkedMessage(t *testing.T) {
+	t.Parallel()
+
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	env.SeedClass(t, classCode, "Basicos 2026")
+	env.SeedClassroom(t, "1111111111", classCode)
+
+	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
+	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
+		return userID == adminUser.UserID, nil
+	}
+
+	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!link_rooms", classCode, "1111111111", "2222222222"})
+
+	err := admin.HandleLinkRooms(ctx)
+	require.NoError(t, err)
+
+	rooms, err := env.DB.GetClassroomsByClassCode(classCode)
+	require.NoError(t, err)
+	assert.Len(t, rooms, 2)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "Successfully linked 1 rooms to class `basicos_1`")
+	assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "1 already linked")
+}
+
 func TestIntegration_CreateClass_AlreadyExists(t *testing.T) {
 	t.Parallel()
 

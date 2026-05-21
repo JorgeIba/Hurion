@@ -269,6 +269,7 @@ func HandleLinkRoles(c *context.ContextMessage) error {
 
 	classCode := c.Args[1]
 	rolesLinked := 0
+	rolesAlreadyLinked := 0
 	rolesFailed := 0
 	for i := 2; i < len(c.Args); i++ {
 		roleParam := c.Args[i]
@@ -279,7 +280,19 @@ func HandleLinkRoles(c *context.ContextMessage) error {
 			continue
 		}
 
-		err := c.Services.Class.AssignAccessRole(service_model.ClassAccessRole{ClassCode: classCode, RoleID: roleID})
+		exists, err := c.Services.Class.HasAccessRole(classCode, roleID)
+		if err != nil {
+			logger.Log.Errorf("Failed to check role %s for class %s: %v", roleID, classCode, err)
+			rolesFailed++
+			continue
+		}
+		if exists {
+			logger.Log.Infof("Role %q is already linked to class %q, skipping.", roleID, classCode)
+			rolesAlreadyLinked++
+			continue
+		}
+
+		err = c.Services.Class.AssignAccessRole(service_model.ClassAccessRole{ClassCode: classCode, RoleID: roleID})
 		if err != nil {
 			logger.Log.Errorf("Failed to link role %s to class %s: %v", roleID, classCode, err)
 			rolesFailed++
@@ -289,6 +302,9 @@ func HandleLinkRoles(c *context.ContextMessage) error {
 	}
 
 	msg := fmt.Sprintf("Successfully linked %d roles to class `%s`", rolesLinked, classCode)
+	if rolesAlreadyLinked > 0 {
+		msg += fmt.Sprintf(" (%d already linked)", rolesAlreadyLinked)
+	}
 	if rolesFailed > 0 {
 		msg += fmt.Sprintf(" (%d failed/skipped)", rolesFailed)
 	}
@@ -313,6 +329,7 @@ func HandleLinkRooms(c *context.ContextMessage) error {
 
 	classCode := c.Args[1]
 	roomsLinked := 0
+	roomsAlreadyLinked := 0
 	roomsFailed := 0
 	for i := 2; i < len(c.Args); i++ {
 		roomParam := c.Args[i]
@@ -323,7 +340,24 @@ func HandleLinkRooms(c *context.ContextMessage) error {
 			continue
 		}
 
-		err := c.Services.Class.RegisterClassroom(service_model.Classroom{RoomID: roomID, ClassCode: classCode})
+		ownerClass, exists, err := c.Services.Class.GetClassCodeFromRoom(roomID)
+		if err != nil {
+			logger.Log.Errorf("Failed to check room %s for class %s: %v", roomID, classCode, err)
+			roomsFailed++
+			continue
+		}
+		if exists {
+			if ownerClass == classCode {
+				logger.Log.Infof("Room %q is already linked to class %q, skipping.", roomID, classCode)
+				roomsAlreadyLinked++
+			} else {
+				logger.Log.Errorf("Failed to link room %s to class %s: room is already linked to class %s", roomID, classCode, ownerClass)
+				roomsFailed++
+			}
+			continue
+		}
+
+		err = c.Services.Class.RegisterClassroom(service_model.Classroom{RoomID: roomID, ClassCode: classCode})
 		if err != nil {
 			logger.Log.Errorf("Failed to link room %s to class %s: %v", roomID, classCode, err)
 			roomsFailed++
@@ -333,6 +367,9 @@ func HandleLinkRooms(c *context.ContextMessage) error {
 	}
 
 	msg := fmt.Sprintf("Successfully linked %d rooms to class `%s`", roomsLinked, classCode)
+	if roomsAlreadyLinked > 0 {
+		msg += fmt.Sprintf(" (%d already linked)", roomsAlreadyLinked)
+	}
 	if roomsFailed > 0 {
 		msg += fmt.Sprintf(" (%d failed/skipped)", roomsFailed)
 	}

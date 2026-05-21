@@ -46,7 +46,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 					RoomID:    "room1",
 				}).Return(nil)
 
-				m.EXPECT().GetAccessRoles("c1").Return([]service_model.ClassAccessRole{}, nil)
+				m.EXPECT().HasAccessRole("c1", "role1").Return(false, nil)
 				m.EXPECT().AssignAccessRole(service_model.ClassAccessRole{
 					ClassCode: "c1",
 					RoleID:    "role1",
@@ -73,9 +73,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 				m.EXPECT().GetClassCodeFromRoom("room1").Return("c1", true, nil)
 
-				m.EXPECT().GetAccessRoles("c1").Return([]service_model.ClassAccessRole{
-					{ClassCode: "c1", RoleID: "role1"},
-				}, nil)
+				m.EXPECT().HasAccessRole("c1", "role1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.NoError(t, err)
@@ -154,12 +152,32 @@ func TestReconciler_Reconcile(t *testing.T) {
 			},
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
 				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{ClassCode: "c1"}, nil)
-				m.EXPECT().GetAccessRoles("c1").Return([]service_model.ClassAccessRole{}, nil)
+				m.EXPECT().HasAccessRole("c1", "role1").Return(false, nil)
 				m.EXPECT().AssignAccessRole(gomock.Any()).Return(errors.New("db error"))
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), "failed to link role")
+			},
+		},
+		{
+			name: "error - check role fails",
+			cfg: Config{
+				Classes: []ClassConfig{
+					{
+						Code:    "c1",
+						Name:    "Class 1",
+						RoleIDs: []string{"role1"},
+					},
+				},
+			},
+			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
+				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{ClassCode: "c1"}, nil)
+				m.EXPECT().HasAccessRole("c1", "role1").Return(false, errors.New("db error"))
+			},
+			assertFunc: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "failed to check role")
 			},
 		},
 	}

@@ -8,6 +8,7 @@ type QueryDatastore interface {
 	GetClassByClassID(classID int64) (Class, error)
 	GetClassCodeByRoomID(roomID string) (string, error)
 	IsRoomRegistered(roomID string) (string, bool, error)
+	HasClassAccessRole(classCode, roleID string) (bool, error)
 	GetClassroomsByClassCode(classCode string) ([]Classroom, error)
 	GetClassAccessRolesByClassCode(classCode string) ([]ClassAccessRole, error)
 	GetPendingConfirmation(messageID string) (string, int64, error)

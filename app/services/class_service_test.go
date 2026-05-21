@@ -755,6 +755,59 @@ func TestClassService_GetAccessRoles(t *testing.T) {
 	}
 }
 
+func TestClassService_HasAccessRole(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		classCode  string
+		roleID     string
+		setupMock  func(*mock_data.MockDataStore)
+		assertFunc func(*testing.T, bool, error)
+	}{
+		{
+			name:      "success - role is linked",
+			classCode: "c1",
+			roleID:    "r1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().HasClassAccessRole("c1", "r1").Return(true, nil)
+			},
+			assertFunc: func(t *testing.T, exists bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, exists)
+			},
+		},
+		{
+			name:      "error - datastore fails",
+			classCode: "c1",
+			roleID:    "r1",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().HasClassAccessRole("c1", "r1").Return(false, errors.New("db fail"))
+			},
+			assertFunc: func(t *testing.T, exists bool, err error) {
+				assert.Error(t, err)
+				var internalErr *serviceerr.InternalError
+				assert.ErrorAs(t, err, &internalErr)
+				assert.False(t, exists)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockStore := mock_data.NewMockDataStore(ctrl)
+			tt.setupMock(mockStore)
+
+			svc := &ClassService{Datastore: mockStore}
+			exists, err := svc.HasAccessRole(tt.classCode, tt.roleID)
+			tt.assertFunc(t, exists, err)
+		})
+	}
+}
+
 func TestClassService_GetClassCodeFromRoom(t *testing.T) {
 	t.Parallel()
 
