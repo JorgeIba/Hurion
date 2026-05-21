@@ -218,6 +218,16 @@ func (service *ClassService) GetAccessRoles(classCode string) ([]service_model.C
 	return mapDataRolesToServiceRoles(roles), nil
 }
 
+// HasAccessRole reports whether the given role is already linked to the class.
+func (service *ClassService) HasAccessRole(classCode, roleID string) (bool, error) {
+	exists, err := service.Datastore.HasClassAccessRole(classCode, roleID)
+	if err != nil {
+		return false, serviceerr.MakeGeneralError(err)
+	}
+
+	return exists, nil
+}
+
 // GetClassCodeFromRoom resolves the class code linked to a room.
 // The found return value is false when room has no class mapping.
 func (service *ClassService) GetClassCodeFromRoom(roomID string) (string, bool, error) {

@@ -408,6 +408,21 @@ func (mr *MockDataStoreMockRecorder) GetUserByUserID(userID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByUserID", reflect.TypeOf((*MockDataStore)(nil).GetUserByUserID), userID)
 }
 
+// HasClassAccessRole mocks base method.
+func (m *MockDataStore) HasClassAccessRole(classCode, roleID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasClassAccessRole", classCode, roleID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasClassAccessRole indicates an expected call of HasClassAccessRole.
+func (mr *MockDataStoreMockRecorder) HasClassAccessRole(classCode, roleID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasClassAccessRole", reflect.TypeOf((*MockDataStore)(nil).HasClassAccessRole), classCode, roleID)
+}
+
 // HasUserSolvedProblem mocks base method.
 func (m *MockDataStore) HasUserSolvedProblem(userID string, problemID int64) (bool, error) {
 	m.ctrl.T.Helper()

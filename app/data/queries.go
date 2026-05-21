@@ -344,6 +344,28 @@ func (db *DB) IsRoomRegistered(roomID string) (string, bool, error) {
 	return classCode, true, nil
 }
 
+func (db *DB) HasClassAccessRole(classCode, roleID string) (bool, error) {
+	query := `
+		SELECT 1
+		FROM class_access_roles
+		WHERE class_code = ? AND role_id = ?;
+	`
+
+	var exists int
+	err := db.conn.QueryRow(query, classCode, roleID).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, dataerr.NewQueryError(
+			fmt.Sprintf("could not check if role %s is linked to class %s", roleID, classCode),
+			err,
+		)
+	}
+
+	return true, nil
+}
+
 func (db *DB) GetClassroomsByClassCode(classCode string) ([]Classroom, error) {
 	query := `
 		SELECT room_id, class_code

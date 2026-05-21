@@ -19,7 +19,7 @@ type ClassServiceInterface interface {
 	GetClassCodeFromRoom(roomID string) (string, bool, error)
 	RegisterClassroom(classroom service_model.Classroom) error
 
-	GetAccessRoles(classCode string) ([]service_model.ClassAccessRole, error)
+	HasAccessRole(classCode, roleID string) (bool, error)
 	AssignAccessRole(role service_model.ClassAccessRole) error
 }
 
@@ -86,18 +86,13 @@ func (r *Reconciler) Reconcile(cfg Config) error {
 		}
 
 		// 3. Check and Link Roles
-		existingRoles, err := r.classService.GetAccessRoles(classCfg.Code)
-		if err != nil {
-			return fmt.Errorf("failed to get access roles for class %q: %w", classCfg.Code, err)
-		}
-
-		roleMap := make(map[string]bool)
-		for _, r := range existingRoles {
-			roleMap[r.RoleID] = true
-		}
-
 		for _, roleID := range classCfg.RoleIDs {
-			if roleMap[roleID] {
+			exists, err := r.classService.HasAccessRole(classCfg.Code, roleID)
+			if err != nil {
+				return fmt.Errorf("failed to check role %q for class %q: %w", roleID, classCfg.Code, err)
+			}
+
+			if exists {
 				logger.Log.Infof("Role %q is already linked to class %q, skipping.", roleID, classCfg.Code)
 				continue
 			}

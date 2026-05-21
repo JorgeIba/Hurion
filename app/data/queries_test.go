@@ -1082,6 +1082,76 @@ func TestGetClassAccessRolesByClassCode(t *testing.T) {
 	}
 }
 
+func TestHasClassAccessRole(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, db *DB)
+		classCode  string
+		roleID     string
+		assertFunc func(t *testing.T, exists bool, err error)
+	}{
+		{
+			name: "should return true when role is linked to class",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
+				require.NoError(t, err)
+			},
+			classCode: "c1",
+			roleID:    "r1",
+			assertFunc: func(t *testing.T, exists bool, err error) {
+				assert.NoError(t, err)
+				assert.True(t, exists)
+			},
+		},
+		{
+			name: "should return false when role is not linked to class",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "Class 1"})
+				require.NoError(t, err)
+				err = db.AddClassAccessRole(ClassAccessRole{ClassCode: "c1", RoleID: "r1"})
+				require.NoError(t, err)
+			},
+			classCode: "c1",
+			roleID:    "missing",
+			assertFunc: func(t *testing.T, exists bool, err error) {
+				assert.NoError(t, err)
+				assert.False(t, exists)
+			},
+		},
+		{
+			name: "should return error if db closed",
+			setup: func(t *testing.T, db *DB) {
+				db.CloseDB()
+			},
+			classCode: "c1",
+			roleID:    "r1",
+			assertFunc: func(t *testing.T, exists bool, err error) {
+				assert.Error(t, err)
+				assert.False(t, exists)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			if tt.setup != nil {
+				tt.setup(t, db)
+			}
+
+			exists, err := db.HasClassAccessRole(tt.classCode, tt.roleID)
+			tt.assertFunc(t, exists, err)
+		})
+	}
+}
+
 func TestRemoveClassAccessRole(t *testing.T) {
 	t.Parallel()
 

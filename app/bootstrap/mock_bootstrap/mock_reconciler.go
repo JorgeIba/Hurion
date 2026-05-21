@@ -69,21 +69,6 @@ func (mr *MockClassServiceInterfaceMockRecorder) CreateClass(classCode, classNam
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClass", reflect.TypeOf((*MockClassServiceInterface)(nil).CreateClass), classCode, className)
 }
 
-// GetAccessRoles mocks base method.
-func (m *MockClassServiceInterface) GetAccessRoles(classCode string) ([]service_model.ClassAccessRole, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAccessRoles", classCode)
-	ret0, _ := ret[0].([]service_model.ClassAccessRole)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAccessRoles indicates an expected call of GetAccessRoles.
-func (mr *MockClassServiceInterfaceMockRecorder) GetAccessRoles(classCode any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessRoles", reflect.TypeOf((*MockClassServiceInterface)(nil).GetAccessRoles), classCode)
-}
-
 // GetClassByClassCode mocks base method.
 func (m *MockClassServiceInterface) GetClassByClassCode(classCode string) (service_model.Class, error) {
 	m.ctrl.T.Helper()
@@ -113,6 +98,21 @@ func (m *MockClassServiceInterface) GetClassCodeFromRoom(roomID string) (string,
 func (mr *MockClassServiceInterfaceMockRecorder) GetClassCodeFromRoom(roomID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassCodeFromRoom", reflect.TypeOf((*MockClassServiceInterface)(nil).GetClassCodeFromRoom), roomID)
+}
+
+// HasAccessRole mocks base method.
+func (m *MockClassServiceInterface) HasAccessRole(classCode, roleID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasAccessRole", classCode, roleID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasAccessRole indicates an expected call of HasAccessRole.
+func (mr *MockClassServiceInterfaceMockRecorder) HasAccessRole(classCode, roleID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasAccessRole", reflect.TypeOf((*MockClassServiceInterface)(nil).HasAccessRole), classCode, roleID)
 }
 
 // RegisterClassroom mocks base method.
