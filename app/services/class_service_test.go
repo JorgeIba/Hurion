@@ -786,6 +786,8 @@ func TestClassService_HasAccessRole(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, exists bool, err error) {
 				assert.Error(t, err)
+				var internalErr *serviceerr.InternalError
+				assert.ErrorAs(t, err, &internalErr)
 				assert.False(t, exists)
 			},
 		},
