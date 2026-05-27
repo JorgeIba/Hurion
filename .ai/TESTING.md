@@ -102,7 +102,7 @@ In this repo, that usually means checks across boundaries like:
 ---
 
 ## Part 3: Workflow Testing
-*Located in the root `workflow/` directory.*
+*Planned for a future root `workflow/` directory (to be introduced in follow-up PRs).*
 
 ### What workflow tests prove
 - A real user or business journey behaves correctly across multiple steps.
