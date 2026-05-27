@@ -60,27 +60,27 @@ The repo classifies tests by **confidence boundary**, not by setup mechanics.
 
 ## Planned PR sequence
 
-## PR 1: Philosophy and rollout docs
+### PR 1: Philosophy and rollout docs
 - Update `.ai/TESTING.md` to define unit, integration, and workflow tests by purpose.
 - Add this rollout document.
 - Make the stop-and-wait process explicit.
 
-## PR 2: Workflow harness foundation
+### PR 2: Workflow harness foundation
 - Create `workflow/`.
 - Add the shared harness for message-driven and reaction-driven tests.
 - Add one very small proof test that validates the harness shape.
 
-## PR 3: AC workflow coverage
+### PR 3: AC workflow coverage
 - Add enrolled user `!ac` proposal flow.
 - Add mentor approval flow.
 - Add mentor rejection flow.
 - Add unauthorized or unrelated reaction coverage.
 
-## PR 4: Dangerous command confirmation workflows
+### PR 4: Dangerous command confirmation workflows
 - Add `!clear_class` workflow coverage.
 - Assert confirmation emission, confirm path, cancel path, and non-author reaction ignore path.
 
-## PR 5: Broader workflow expansion
+### PR 5: Broader workflow expansion
 - Add the next highest-value scenarios that provide distinct confidence, likely from:
   - `!remove_problem` confirmation flow
   - contextual class resolution through channel mapping
