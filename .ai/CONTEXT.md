@@ -8,7 +8,8 @@ Refer to these documents for specific project knowledge:
 
 - **[Core Architecture](../docs/ARCHITECTURE.md)**: Layered structure, Mermaid diagrams, and Confirmation Flow logic.
 - **[Commands Reference](../docs/COMMANDS.md)**: Full list of Discord commands and their parameter constraints.
-- **[Testing Guidelines](./TESTING.md)**: Mandatory Table-Driven patterns, `assertFunc`, and parallelism.
+- **[Testing Guidelines](./TESTING.md)**: Test philosophy, suite boundaries, and mandatory testing patterns.
+- **[Testing Strategy Rollout](../docs/TESTING_STRATEGY_ROLLOUT.md)**: Workflow-suite rollout plan, PR sequence, and tracking reference.
 - **[Project README](../README.md)**: Setup, environment variables, and Docker instructions.
 
 ---
