@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"log"
 	"strings"
 
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
@@ -14,76 +13,30 @@ import (
 )
 
 type Bot struct {
-	botToken        string
-	adminRoleID     string
-	mentorRoleID    string
-	dispatcher      *dispatcher.Dispatcher
+	messageSender   dispatcher.MessageSender
 	discordProvider providers.DiscordProvider
 	services        *services.Services
-	session         *discordgo.Session
 }
 
-func CreateBot(botToken string, svcs *services.Services, adminRoleID string, mentorRoleID string) (*Bot, error) {
+func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender dispatcher.MessageSender) *Bot {
 	return &Bot{
-		botToken:        botToken,
-		adminRoleID:     adminRoleID,
-		mentorRoleID:    mentorRoleID,
-		dispatcher:      nil,
-		discordProvider: nil,
+		messageSender:   sender,
+		discordProvider: provider,
 		services:        svcs,
-	}, nil
+	}
 }
 
-func (bot *Bot) Run() error {
-	dg, err := discordgo.New("Bot " + bot.botToken)
-	if err != nil {
-		log.Fatalln("Error creating the session,", err)
-		return err
-	}
-
-	// Enable intents and state tracking
-	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions | discordgo.IntentsGuildMembers
-	dg.StateEnabled = true
-
-	const bufferSize = 5
-	bot.dispatcher = dispatcher.NewDispatcher(dg, bufferSize)
-	bot.dispatcher.Start()
-
-	// Initialize provider and services
-	bot.discordProvider = providers.NewProviderDiscord(
-		providers.NewDiscordGoSessionAdapter(dg),
-		bot.adminRoleID,
-		bot.mentorRoleID,
-	)
-
-	dg.AddHandler(bot.safeMessageHandler)
-	dg.AddHandler(bot.safeReactionHandler)
-
-	if err = dg.Open(); err != nil {
-		log.Fatalln("Error opening connection,", err)
-		return err
-	}
-
-	bot.session = dg
-	logger.Log.Info("Bot is running, CTRL+C to exit.")
-	return nil
+func (bot *Bot) ConfigureSession(s *discordgo.Session) {
+	s.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions | discordgo.IntentsGuildMembers
+	s.StateEnabled = true
 }
 
-func (bot *Bot) Stop() {
-	logger.Log.Info("Shutting down the bot...")
-
-	if bot.session != nil {
-		bot.session.Close()
-	}
-
-	if bot.dispatcher != nil {
-		bot.dispatcher.Stop()
-	}
-
-	logger.Log.Info("Bot shut down successfully.")
+func (bot *Bot) RegisterHandlers(s *discordgo.Session) {
+	s.AddHandler(bot.HandleMessageEvent)
+	s.AddHandler(bot.HandleReactionEvent)
 }
 
-func (bot *Bot) safeMessageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (bot *Bot) HandleMessageEvent(s *discordgo.Session, m *discordgo.MessageCreate) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Log.Errorf("Panic recovered in messageHandler: %v", r)
@@ -114,7 +67,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		DiscordMessageModifier: bot.discordProvider,
 		Args:                   args,
 		Services:               bot.services,
-		Dispatcher:             bot.dispatcher,
+		Dispatcher:             bot.messageSender,
 		Executor:               executor,  // Who is executing
 		ExecutorGuildID:        m.GuildID, // Where it's executed
 		BotUserID:              botUserIDFromSession(s),
@@ -132,7 +85,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 }
 
-func (bot *Bot) safeReactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+func (bot *Bot) HandleReactionEvent(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			logger.Log.Errorf("Panic recovered in reactionHandler: %v", rec)
@@ -164,7 +117,7 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		DiscordFetcher:         bot.discordProvider,
 		DiscordMessageModifier: bot.discordProvider,
 		Services:               bot.services,
-		Dispatcher:             bot.dispatcher,
+		Dispatcher:             bot.messageSender,
 		Executor:               executor,  // Who is executing
 		ExecutorGuildID:        r.GuildID, // Where it's executed
 		BotUserID:              botUserIDFromSession(s),
