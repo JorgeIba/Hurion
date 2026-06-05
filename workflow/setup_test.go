@@ -11,7 +11,9 @@ import (
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
 	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,6 +155,42 @@ func (env *workflowEnv) assertUserExists(t *testing.T, userID, expectedName stri
 	require.Equal(t, expectedName, user.DisplayName)
 }
 
+func (env *workflowEnv) assertPendingConfirmation(t *testing.T, messageID, expectedUserID string, expectedProblemID int64) {
+	t.Helper()
+
+	pending, err := env.Services.Solution.GetPendingConfirmationByMessageID(messageID)
+	require.NoError(t, err, "expected pending confirmation for message %q", messageID)
+	require.Equal(t, &service_model.PendingConfirmation{
+		MessageID: messageID,
+		UserID:    expectedUserID,
+		ProblemID: expectedProblemID,
+	}, pending)
+}
+
+func (env *workflowEnv) assertPendingConfirmationRemoved(t *testing.T, messageID string) {
+	t.Helper()
+
+	exists, err := env.Services.Solution.ExistsPendingConfirmation(messageID)
+	require.NoError(t, err, "failed checking pending confirmation %q", messageID)
+	assert.False(t, exists, "expected pending confirmation %q to be removed", messageID)
+}
+
+func (env *workflowEnv) assertProblemSolved(t *testing.T, userID string, problemID int64) {
+	t.Helper()
+
+	isSolved, err := env.DB.HasUserSolvedProblem(userID, problemID)
+	require.NoError(t, err, "failed to query solved state")
+	assert.True(t, isSolved, "expected problem %d to be solved by user %q", problemID, userID)
+}
+
+func (env *workflowEnv) assertProblemNotSolved(t *testing.T, userID string, problemID int64) {
+	t.Helper()
+
+	isSolved, err := env.DB.HasUserSolvedProblem(userID, problemID)
+	require.NoError(t, err, "failed to query solved state")
+	assert.False(t, isSolved, "expected problem %d to remain unsolved by user %q", problemID, userID)
+}
+
 func (env *workflowEnv) setRoles(userID string, roles []string) {
 	env.Discord.setRoles(userID, roles)
 }
@@ -204,8 +242,8 @@ func (s *stubDiscordProvider) GetCachedMember(guildID, userID string) (*discordg
 	}
 
 	return &discordgo.Member{
-		User: &discordgo.User{ID: userID, Username: displayName},
-		Nick: displayName,
+		User:  &discordgo.User{ID: userID, Username: displayName},
+		Nick:  displayName,
 		Roles: append([]string{}, s.userRoles[userID]...),
 	}, nil
 }
