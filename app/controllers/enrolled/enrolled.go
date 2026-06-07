@@ -19,7 +19,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` as a problem ID, bro.", problemIDs)),
 		)
 		return
 	}
@@ -29,7 +29,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 	if err != nil || member == nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro."),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro. Try again in a moment."),
 		)
 		return
 	}
@@ -67,7 +67,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error("Error parsing the ID", err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` to an integer wtf", problemIDs)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` as a problem ID, bro.", problemIDs)),
 		)
 		return
 	}

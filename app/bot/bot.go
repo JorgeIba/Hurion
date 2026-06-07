@@ -46,7 +46,7 @@ func (bot *Bot) HandleMessageEvent(s *discordgo.Session, m *discordgo.MessageCre
 }
 
 func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.Bot {
+	if m.Author.Bot || m.GuildID == "" {
 		return
 	}
 
@@ -95,7 +95,7 @@ func (bot *Bot) HandleReactionEvent(s *discordgo.Session, r *discordgo.MessageRe
 }
 
 func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
-	if r.UserID == s.State.User.ID {
+	if r.UserID == s.State.User.ID || r.GuildID == "" {
 		return
 	}
 

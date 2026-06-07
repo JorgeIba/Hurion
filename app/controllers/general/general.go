@@ -277,6 +277,13 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 		return
 	}
 
+	if len(scoresMap) == 0 {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "No class scores found yet."),
+		)
+		return
+	}
+
 	var embeds []*discordgo.MessageEmbed
 	var files []*discordgo.File
 	idx := 0
@@ -336,6 +343,13 @@ func HandleGetAllClasses(c *context.ContextMessage) {
 		return
 	}
 
+	if len(classes) == 0 {
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "No classes found yet."),
+		)
+		return
+	}
+
 	var stringBuilder strings.Builder
 	for _, class := range classes {
 		stringBuilder.WriteString(fmt.Sprintf("* `%s`: %s\n", class.ClassCode, class.Name))
@@ -362,7 +376,7 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro."),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify your roles with Discord, bro. Try again in a moment."),
 		)
 		return
 	}
@@ -419,7 +433,7 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify that user's roles with Discord, bro."),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "I couldn't verify that user's roles with Discord, bro. Try again in a moment."),
 		)
 		return
 	}
