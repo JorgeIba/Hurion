@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo_final_no_background.png" alt="Hurion Logo" width="200">
+  <img src="docs/logo_readme.png" alt="Hurion Logo" width="200">
 </p>
 
 <h1 align="center">Hurion</h1>

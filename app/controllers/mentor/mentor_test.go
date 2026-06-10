@@ -148,7 +148,7 @@ func TestHandleAddAC(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` to an integer")
+				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` as a problem ID")
 			},
 		},
 		{
@@ -275,7 +275,7 @@ func TestHandleUndoAC(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` to an integer")
+				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` as a problem ID")
 			},
 		},
 	}
@@ -453,7 +453,7 @@ func TestHandleRemoveProblem(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` to an integer")
+				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` as a problem ID")
 			},
 			wantErr: true,
 		},
@@ -795,7 +795,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` to an integer")
+				assert.Contains(t, msg.Content, "I couldn't parse `not_an_int` as a problem ID")
 			},
 		},
 		{
