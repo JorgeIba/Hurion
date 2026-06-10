@@ -5,7 +5,7 @@
 <h1 align="center">Hurion</h1>
 
 <p align="center">
-  <strong>The elite course orchestrator for algorithms clubs.</strong><br>
+  <strong>The course assistant for algorithms clubs.</strong><br>
   Manage classes, verify solutions, and track progress — all without leaving Discord.
 </p>
 
@@ -91,3 +91,5 @@ The name **Hurion** is the fusion of two identities:
 *   **Orion:** The legendary Greek hunter and celestial guide. Just as the constellation guides travelers, Hurion guides students through their journey in competitive programming.
 
 **Hurion** is the "Hunter of Solutions"—a centralized assistant designed to handle the heavy administrative lifting so mentors can focus on teaching and students can focus on coding.
+
+> **🎨 Note on the Logo:** The current logo was generated with the help of AI based on our club's original mascot. If you're a designer and would like to help us create a proper, handcrafted vector version, we would love your contribution!

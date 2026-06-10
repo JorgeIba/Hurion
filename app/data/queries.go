@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
+	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/mattn/go-sqlite3"
 )
 

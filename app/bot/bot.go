@@ -3,12 +3,12 @@ package bot
 import (
 	"strings"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Hurion/app/context"
+	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/providers"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
 

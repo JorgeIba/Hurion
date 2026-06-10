@@ -1,7 +1,7 @@
 package services
 
 import (
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
+	"github.com/JorgeIba/Hurion/app/data"
 )
 
 // Services aggregates all service layers

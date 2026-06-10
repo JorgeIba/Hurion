@@ -3,10 +3,10 @@ package services
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
+	"github.com/JorgeIba/Hurion/app/data"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
 type ClassService struct {

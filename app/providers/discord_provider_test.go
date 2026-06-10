@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers/mock_providers"
+	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Hurion/app/common"
+	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/Necroforger/dgwidgets"
 	"github.com/bwmarrin/discordgo"
 )

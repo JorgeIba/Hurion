@@ -3,12 +3,12 @@ package common
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/controllerserr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/common"
+	"github.com/JorgeIba/Hurion/app/context"
+	"github.com/JorgeIba/Hurion/app/customerr/controllerserr"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
+	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
 // ResolveClassContext determines the active class for a command.

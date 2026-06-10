@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/adapters"
-	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/discord"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/image"
+	"github.com/JorgeIba/Hurion/app/context"
+	"github.com/JorgeIba/Hurion/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/JorgeIba/Hurion/app/presentation/image"
 	"github.com/bwmarrin/discordgo"
 )
 

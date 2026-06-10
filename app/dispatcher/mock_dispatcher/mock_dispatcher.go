@@ -12,7 +12,7 @@ package mock_dispatcher
 import (
 	reflect "reflect"
 
-	dispatcher "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
+	dispatcher "github.com/JorgeIba/Hurion/app/dispatcher"
 	gomock "go.uber.org/mock/gomock"
 )
 

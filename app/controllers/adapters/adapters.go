@@ -3,9 +3,9 @@ package adapters
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation/excelizer"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/presentation"
+	"github.com/JorgeIba/Hurion/app/presentation/excelizer"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
 // ============================================================================

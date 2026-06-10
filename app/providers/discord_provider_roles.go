@@ -3,7 +3,7 @@ package providers
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/discorderr"
+	"github.com/JorgeIba/Hurion/app/customerr/discorderr"
 )
 
 func (provider *discordProvider) hasRole(args hasRoleArgs) (bool, error) {

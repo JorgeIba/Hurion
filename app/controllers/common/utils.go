@@ -1,8 +1,8 @@
 package common
 
 import (
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
+	"github.com/JorgeIba/Hurion/app/common"
+	"github.com/JorgeIba/Hurion/app/context"
 )
 
 // ParseUserID extracts a userID from a mention or verifies if the param is a raw numeric ID.

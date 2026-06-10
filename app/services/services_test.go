@@ -3,7 +3,7 @@ package services
 import (
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
+	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )

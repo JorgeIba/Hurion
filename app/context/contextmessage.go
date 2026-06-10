@@ -1,10 +1,10 @@
 package context
 
 import (
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/providers"
+	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 

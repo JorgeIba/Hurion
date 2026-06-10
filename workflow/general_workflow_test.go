@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

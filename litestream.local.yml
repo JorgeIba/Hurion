@@ -1,4 +1,4 @@
 dbs:
   - path: ${DB_PATH}
     replicas:
-      - url: file:///huron-bot/local-backups
+      - url: file:///hurion/local-backups

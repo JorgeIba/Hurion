@@ -3,7 +3,7 @@ package workflow
 import (
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
+	"github.com/JorgeIba/Hurion/app/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

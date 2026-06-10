@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bootstrap/mock_bootstrap"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/bootstrap/mock_bootstrap"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
+	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
