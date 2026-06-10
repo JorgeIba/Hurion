@@ -7,13 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bootstrap"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/bot"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/providers"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services"
+	"github.com/JorgeIba/Hurion/app/bootstrap"
+	"github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/data"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/providers"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
 

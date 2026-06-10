@@ -3,7 +3,7 @@ package helpers
 import (
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 )
 

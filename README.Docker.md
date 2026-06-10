@@ -21,7 +21,7 @@ docker compose up --build -d
 ```
 
 ### Database Seeding (Docker)
-Because the `Dockerfile` is configured with the `--seed` flag by default (`CMD ["/huron-bot/run.sh", "--seed"]`), the database will automatically synchronize with your `config.yaml` every time the container boots up. 
+Because the `Dockerfile` is configured with the `--seed` flag by default (`CMD ["/hurion/run.sh", "--seed"]`), the database will automatically synchronize with your `config.yaml` every time the container boots up. 
 
 Since the seeder is idempotent, this is completely safe and ensures your Azure (or local Docker) deployments always have the latest classes and roles applied automatically before the bot connects to Discord.
 
@@ -50,8 +50,8 @@ To deploy to Azure, you must provide the following environment variables:
 
 **1. Build and Push:**
 ```bash
-docker build -t <your-username>/huron-problem-checker-bot:latest .
-docker push <your-username>/huron-problem-checker-bot:latest
+docker build -t <your-username>/hurion:latest .
+docker push <your-username>/hurion:latest
 ```
 
 ### References

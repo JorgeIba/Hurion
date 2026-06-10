@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/data/mock_data"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/helpers"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
+	"github.com/JorgeIba/Hurion/app/data"
+	"github.com/JorgeIba/Hurion/app/data/mock_data"
+	"github.com/JorgeIba/Hurion/app/services/helpers"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )

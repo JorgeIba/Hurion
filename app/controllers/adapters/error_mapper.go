@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 )
 
 type Action int

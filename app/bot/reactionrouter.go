@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/logger"
+	"github.com/JorgeIba/Hurion/app/common"
+	"github.com/JorgeIba/Hurion/app/context"
+	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/controllers/mentor"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/bwmarrin/discordgo"
 )
 

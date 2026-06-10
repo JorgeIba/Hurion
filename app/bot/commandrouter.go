@@ -3,12 +3,12 @@ package bot
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/context"
+	"github.com/JorgeIba/Hurion/app/controllers/admin"
+	"github.com/JorgeIba/Hurion/app/controllers/enrolled"
+	"github.com/JorgeIba/Hurion/app/controllers/general"
+	"github.com/JorgeIba/Hurion/app/controllers/mentor"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
 )
 
 type CommandRouter func(c *context.ContextMessage)

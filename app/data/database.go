@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/dataerr"
+	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	_ "github.com/mattn/go-sqlite3"
 )
 

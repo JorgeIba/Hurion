@@ -4,10 +4,10 @@ services:
     env_file:
       - .env
     environment:
-      - DB_PATH=/huron-bot/data/db.sqlite
+      - DB_PATH=/hurion/data/db.sqlite
     volumes:
-      - ./local-backups:/huron-bot/local-backups
+      - ./local-backups:/hurion/local-backups
     restart: unless-stopped
-    image: huron-problem-checker-bot:local
+    image: hurion:local
     pull_policy: never
     stop_grace_period: 60s

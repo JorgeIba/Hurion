@@ -1,4 +1,4 @@
-module github.com/JorgeIba/Huron-Problem-Checker-Bot
+module github.com/JorgeIba/Hurion
 
 go 1.24.1
 

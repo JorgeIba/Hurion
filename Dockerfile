@@ -22,16 +22,16 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /huron-bot
+WORKDIR /hurion
 
 # Bot binary
-COPY --from=builder /build/bot /huron-bot/bin/huron-bot
+COPY --from=builder /build/bot /hurion/bin/hurion
 
 # Litestream Config & Startup Script
 COPY litestream.yml /etc/litestream.yml
 COPY litestream.local.yml /etc/litestream.local.yml
-COPY config.yaml /huron-bot/config.yaml
-COPY scripts/run.sh /huron-bot/run.sh
-RUN chmod +x /huron-bot/run.sh
+COPY config.yaml /hurion/config.yaml
+COPY scripts/run.sh /hurion/run.sh
+RUN chmod +x /hurion/run.sh
 
-CMD ["/huron-bot/run.sh", "--seed"]
+CMD ["/hurion/run.sh", "--seed"]

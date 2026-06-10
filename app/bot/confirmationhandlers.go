@@ -3,10 +3,10 @@ package bot
 import (
 	"fmt"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/context"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/admin"
-	controllers_common "github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/common"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/mentor"
+	"github.com/JorgeIba/Hurion/app/context"
+	"github.com/JorgeIba/Hurion/app/controllers/admin"
+	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 )
 
 type ConfirmationHandler func(originalContext *context.ContextMessage, confirmationContext *context.ContextMessage)

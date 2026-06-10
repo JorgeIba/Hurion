@@ -1,6 +1,6 @@
 # Commands Reference
 
-The Huron bot uses a **stateless, contextual engine**. Many commands will automatically infer the `class_code` based on the Discord channel where they are executed.
+Hurion uses a **stateless, contextual engine**. Many commands will automatically infer the `class_code` based on the Discord channel where they are executed.
 
 
 ---

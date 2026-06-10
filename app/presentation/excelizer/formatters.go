@@ -1,8 +1,8 @@
 package excelizer
 
 import (
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/presentationerr"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/presentation"
+	"github.com/JorgeIba/Hurion/app/customerr/presentationerr"
+	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/xuri/excelize/v2"
 )
 

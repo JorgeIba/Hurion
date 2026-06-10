@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/enrolled"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/controllers/general"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/controllers/enrolled"
+	"github.com/JorgeIba/Hurion/app/controllers/general"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 )
 

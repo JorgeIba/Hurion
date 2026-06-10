@@ -1,5 +1,5 @@
 # Variables
-BINARY_NAME=huron-bot
+BINARY_NAME=hurion
 BUILD_DIR=./bin
 
 # .PHONY tells make that these names are not files, but commands

@@ -38,7 +38,7 @@ func buildGeneralHelpMessage() *discordgo.MessageEmbed {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title:       "📚 Huron Problem Checker Bot - Available Commands",
+		Title:       "📚 Hurion - Available Commands",
 		Description: "Use `!help <command>` for detailed information about a specific command",
 		Color:       0x5865F2, // Discord Blurple
 		Fields:      []*discordgo.MessageEmbedField{},

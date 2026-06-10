@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/bwmarrin/discordgo"
 )
 

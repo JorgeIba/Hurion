@@ -2,11 +2,11 @@
 set -e
 
 # Use the environment variable or fall back to the default path
-export DB_PATH="${DB_PATH:-/huron-bot/data/db.sqlite}"
+export DB_PATH="${DB_PATH:-/hurion/data/db.sqlite}"
 
 # 1. Ensure the data directory exists before any Litestream or SQLite operations
 mkdir -p "$(dirname "$DB_PATH")"
-mkdir -p "/huron-bot/local-backups"
+mkdir -p "/hurion/local-backups"
 
 # 2. Pick the right Litestream configuration
 # We require all three Azure variables to use the production config.
@@ -30,4 +30,4 @@ sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;"
 
 # 5. Run Litestream to replicate changes and supervise the bot process.
 echo "[run.sh] Starting Litestream replication..."
-exec litestream replicate -config "$CONFIG" -exec "/huron-bot/bin/huron-bot $*"
+exec litestream replicate -config "$CONFIG" -exec "/hurion/bin/hurion $*"

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JorgeIba/Huron-Problem-Checker-Bot/app/customerr/serviceerr"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/stretchr/testify/assert"
 )
 
