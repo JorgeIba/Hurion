@@ -46,6 +46,11 @@ func TestLoadConfig(t *testing.T) {
 				assert.Equal(t, "Intermedios 2025", cfg.Classes[2].Name)
 				assert.Equal(t, []string{"chan-i-1"}, cfg.Classes[2].RoomIDs)
 				assert.Equal(t, []string{"role-i-1"}, cfg.Classes[2].RoleIDs)
+
+				// Check Test Mode & Whitelist
+				assert.True(t, cfg.TestMode)
+				assert.Equal(t, []string{"user-1", "user-2"}, cfg.WhitelistUserIDs)
+				assert.Equal(t, []string{"role-1", "role-2"}, cfg.WhitelistRoleIDs)
 			},
 		},
 		{
@@ -112,6 +117,30 @@ classes:
 			name:    "should error when explicitly provided file is missing",
 			useFile: "non_existent.yaml",
 			wantErr: true,
+		},
+		{
+			name: "should error if test_mode is enabled but whitelists are empty",
+			yamlConfig: `
+admin_role_id: "val"
+mentor_role_id: "val"
+test_mode: true
+whitelist_user_ids: []
+whitelist_role_ids: []
+`,
+			wantErr: true,
+		},
+		{
+			name: "should NOT error if test_mode is disabled and whitelists are empty",
+			yamlConfig: `
+admin_role_id: "val"
+mentor_role_id: "val"
+test_mode: false
+`,
+			assertFunc: func(t *testing.T, cfg Config) {
+				assert.False(t, cfg.TestMode)
+				assert.Empty(t, cfg.WhitelistUserIDs)
+				assert.Empty(t, cfg.WhitelistRoleIDs)
+			},
 		},
 	}
 

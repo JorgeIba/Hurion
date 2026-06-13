@@ -32,8 +32,13 @@ type workflowEnv struct {
 	Session    *discordgo.Session
 }
 
-func setupWorkflowEnv(t *testing.T) *workflowEnv {
+func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	t.Helper()
+
+	var cfg appbot.BotConfig
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
 
 	logger.Init()
 
@@ -56,7 +61,7 @@ func setupWorkflowEnv(t *testing.T) *workflowEnv {
 	}
 
 	return &workflowEnv{
-		Bot:        appbot.NewBot(svcs, discord, sender),
+		Bot:        appbot.NewBot(svcs, discord, sender, cfg),
 		DB:         db,
 		Services:   svcs,
 		Discord:    discord,
@@ -241,10 +246,12 @@ func (s *stubDiscordProvider) GetCachedMember(guildID, userID string) (*discordg
 		displayName = name
 	}
 
+	roles := append([]string{}, s.userRoles[userID]...)
+
 	return &discordgo.Member{
 		User:  &discordgo.User{ID: userID, Username: displayName},
 		Nick:  displayName,
-		Roles: append([]string{}, s.userRoles[userID]...),
+		Roles: roles,
 	}, nil
 }
 

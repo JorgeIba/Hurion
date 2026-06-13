@@ -1,5 +1,12 @@
 admin_role_id: "admin-role-123"
 mentor_role_id: "mentor-role-456"
+test_mode: true
+whitelist_user_ids:
+  - "user-1"
+  - "user-2"
+whitelist_role_ids:
+  - "role-1"
+  - "role-2"
 classes:
   - code: "basicos"
     name: "Basicos 2025"
