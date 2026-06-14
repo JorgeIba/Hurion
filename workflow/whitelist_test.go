@@ -66,6 +66,36 @@ func TestWorkflow_Whitelist_FiltersMessagesInTestMode(t *testing.T) {
 		msgs := env.Dispatcher.Messages()
 		assert.NotEmpty(t, msgs, "Expected response for user with whitelisted role")
 	})
+
+	t.Run("Blocked User with Whitelisted Role (Empty in Event, Present in Cache) - Allowed", func(t *testing.T) {
+		// Clear previous messages
+		env.Dispatcher.mu.Lock()
+		env.Dispatcher.messages = nil
+		env.Dispatcher.mu.Unlock()
+
+		// 1. Set roles in cache
+		env.setRoles(blockedUser, []string{whitelistedRole})
+
+		// 2. Trigger message with Member present but Roles empty
+		msg := &discordgo.MessageCreate{
+			Message: &discordgo.Message{
+				ID:        "msg_empty_roles",
+				Content:   "!help",
+				ChannelID: testChannelID,
+				GuildID:   testGuildID,
+				Author:    &discordgo.User{ID: blockedUser, Username: "Cached Role User"},
+				Member: &discordgo.Member{
+					User:  &discordgo.User{ID: blockedUser, Username: "Cached Role User"},
+					Nick:  "Cached Role User",
+					Roles: []string{}, // Empty!
+				},
+			},
+		}
+		env.Bot.HandleMessageEvent(env.Session, msg)
+
+		msgs := env.Dispatcher.Messages()
+		assert.NotEmpty(t, msgs, "Expected response for user with roles in cache despite empty roles in event")
+	})
 }
 
 func TestWorkflow_Whitelist_FiltersReactionsInTestMode(t *testing.T) {

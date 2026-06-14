@@ -65,13 +65,16 @@ func (bot *Bot) isWhitelisted(userID string, userRoles []string) bool {
 }
 
 func (bot *Bot) resolveUserRoles(m *discordgo.Member, guildID, userID string) []string {
-	if m != nil {
+	if m != nil && len(m.Roles) > 0 {
 		return m.Roles
 	}
 	if guildID != "" {
 		if mem, err := bot.discordProvider.GetCachedMember(guildID, userID); err == nil {
 			return mem.Roles
 		}
+	}
+	if m != nil {
+		return m.Roles
 	}
 	return []string{}
 }
