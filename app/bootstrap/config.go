@@ -31,9 +31,12 @@ func (c ClassConfig) Validate() error {
 
 // Config represents the global application configuration.
 type Config struct {
-	AdminRoleID  string        `mapstructure:"admin_role_id"`
-	MentorRoleID string        `mapstructure:"mentor_role_id"`
-	Classes      []ClassConfig `mapstructure:"classes"`
+	AdminRoleID      string        `mapstructure:"admin_role_id"`
+	MentorRoleID     string        `mapstructure:"mentor_role_id"`
+	Classes          []ClassConfig `mapstructure:"classes"`
+	TestMode         bool          `mapstructure:"test_mode"`
+	WhitelistUserIDs []string      `mapstructure:"whitelist_user_ids"`
+	WhitelistRoleIDs []string      `mapstructure:"whitelist_role_ids"`
 }
 
 // Validate ensures the entire configuration state is valid.
@@ -43,6 +46,10 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.MentorRoleID) == "" {
 		return errors.New("mentor_role_id is required")
+	}
+
+	if c.TestMode && len(c.WhitelistUserIDs) == 0 && len(c.WhitelistRoleIDs) == 0 {
+		return errors.New("test_mode is enabled but no whitelist_user_ids or whitelist_role_ids are provided")
 	}
 
 	for i, class := range c.Classes {

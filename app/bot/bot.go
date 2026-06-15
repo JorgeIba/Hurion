@@ -16,14 +16,67 @@ type Bot struct {
 	messageSender   dispatcher.MessageSender
 	discordProvider providers.DiscordProvider
 	services        *services.Services
+	testMode        bool
+	whitelistUsers  map[string]struct{}
+	whitelistRoles  map[string]struct{}
 }
 
-func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender dispatcher.MessageSender) *Bot {
+type BotConfig struct {
+	TestMode         bool
+	WhitelistUserIDs []string
+	WhitelistRoleIDs []string
+}
+
+func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender dispatcher.MessageSender, cfg BotConfig) *Bot {
+	userMap := make(map[string]struct{})
+	for _, id := range cfg.WhitelistUserIDs {
+		userMap[id] = struct{}{}
+	}
+
+	roleMap := make(map[string]struct{})
+	for _, id := range cfg.WhitelistRoleIDs {
+		roleMap[id] = struct{}{}
+	}
+
 	return &Bot{
 		messageSender:   sender,
 		discordProvider: provider,
 		services:        svcs,
+		testMode:        cfg.TestMode,
+		whitelistUsers:  userMap,
+		whitelistRoles:  roleMap,
 	}
+}
+
+func (bot *Bot) isWhitelisted(userID string, userRoles []string) bool {
+	if !bot.testMode {
+		return true
+	}
+	if _, ok := bot.whitelistUsers[userID]; ok {
+		return true
+	}
+	for _, roleID := range userRoles {
+		if _, ok := bot.whitelistRoles[roleID]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (bot *Bot) resolveUserRoles(m *discordgo.Member, guildID, userID string) []string {
+	if m != nil && len(m.Roles) > 0 {
+		return m.Roles
+	}
+	if guildID != "" {
+		if mem, err := bot.discordProvider.GetCachedMember(guildID, userID); err == nil {
+			return mem.Roles
+		}
+	}
+	if m != nil {
+		return m.Roles
+	}
+	return []string{}
 }
 
 func (bot *Bot) ConfigureSession(s *discordgo.Session) {
@@ -42,6 +95,14 @@ func (bot *Bot) HandleMessageEvent(s *discordgo.Session, m *discordgo.MessageCre
 			logger.Log.Errorf("Panic recovered in messageHandler: %v", r)
 		}
 	}()
+
+	if bot.testMode {
+		roles := bot.resolveUserRoles(m.Member, m.GuildID, m.Author.ID)
+		if !bot.isWhitelisted(m.Author.ID, roles) {
+			return
+		}
+	}
+
 	bot.messageHandler(s, m)
 }
 
@@ -91,6 +152,14 @@ func (bot *Bot) HandleReactionEvent(s *discordgo.Session, r *discordgo.MessageRe
 			logger.Log.Errorf("Panic recovered in reactionHandler: %v", rec)
 		}
 	}()
+
+	if bot.testMode {
+		roles := bot.resolveUserRoles(r.Member, r.GuildID, r.UserID)
+		if !bot.isWhitelisted(r.UserID, roles) {
+			return
+		}
+	}
+
 	bot.reactionHandler(s, r)
 }
 

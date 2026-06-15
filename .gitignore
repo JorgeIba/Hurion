@@ -29,4 +29,7 @@ local-backups/
 /coverage.out
 
 # Configuration files
-config.yaml
+/config.yaml
+
+# Logs
+*.log

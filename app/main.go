@@ -65,7 +65,7 @@ func main() {
 		}
 	}
 
-	stopBot, err := startBot(token, svcs, cfg.AdminRoleID, cfg.MentorRoleID)
+	stopBot, err := startBot(token, svcs, cfg)
 	if err != nil {
 		log.Fatalf("Error running the bot: %v", err)
 	}
@@ -86,7 +86,7 @@ func main() {
 	logger.Log.Info("Bot shut down successfully.")
 }
 
-func startBot(token string, svcs *services.Services, adminRoleID, mentorRoleID string) (func(), error) {
+func startBot(token string, svcs *services.Services, cfg bootstrap.Config) (func(), error) {
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
 		return nil, err
@@ -96,11 +96,16 @@ func startBot(token string, svcs *services.Services, adminRoleID, mentorRoleID s
 	msgDispatcher := dispatcher.NewDispatcher(dg, bufferSize)
 	discordProvider := providers.NewProviderDiscord(
 		providers.NewDiscordGoSessionAdapter(dg),
-		adminRoleID,
-		mentorRoleID,
+		cfg.AdminRoleID,
+		cfg.MentorRoleID,
 	)
 
-	appBot := bot.NewBot(svcs, discordProvider, msgDispatcher)
+	botCfg := bot.BotConfig{
+		TestMode:         cfg.TestMode,
+		WhitelistUserIDs: cfg.WhitelistUserIDs,
+		WhitelistRoleIDs: cfg.WhitelistRoleIDs,
+	}
+	appBot := bot.NewBot(svcs, discordProvider, msgDispatcher, botCfg)
 	appBot.ConfigureSession(dg)
 	appBot.RegisterHandlers(dg)
 
