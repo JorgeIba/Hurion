@@ -6,7 +6,7 @@ admin_role_id: "9999999990"
 mentor_role_id: "9999999991"
 
 # Test Mode (Optional)
-# If true, the bot will only respond to users in the whitelist.
+# If true, the bot will only respond to users or roles in the whitelist.
 test_mode: false
 whitelist_user_ids:
   - "1234567890" # Example user ID 1

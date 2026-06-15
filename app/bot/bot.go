@@ -96,10 +96,11 @@ func (bot *Bot) HandleMessageEvent(s *discordgo.Session, m *discordgo.MessageCre
 		}
 	}()
 
-	roles := bot.resolveUserRoles(m.Member, m.GuildID, m.Author.ID)
-
-	if !bot.isWhitelisted(m.Author.ID, roles) {
-		return
+	if bot.testMode {
+		roles := bot.resolveUserRoles(m.Member, m.GuildID, m.Author.ID)
+		if !bot.isWhitelisted(m.Author.ID, roles) {
+			return
+		}
 	}
 
 	bot.messageHandler(s, m)
@@ -152,10 +153,11 @@ func (bot *Bot) HandleReactionEvent(s *discordgo.Session, r *discordgo.MessageRe
 		}
 	}()
 
-	roles := bot.resolveUserRoles(r.Member, r.GuildID, r.UserID)
-
-	if !bot.isWhitelisted(r.UserID, roles) {
-		return
+	if bot.testMode {
+		roles := bot.resolveUserRoles(r.Member, r.GuildID, r.UserID)
+		if !bot.isWhitelisted(r.UserID, roles) {
+			return
+		}
 	}
 
 	bot.reactionHandler(s, r)

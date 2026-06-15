@@ -34,6 +34,7 @@ type workflowEnv struct {
 
 func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	t.Helper()
+	require.LessOrEqual(t, len(configs), 1, "setupWorkflowEnv accepts at most one BotConfig")
 
 	var cfg appbot.BotConfig
 	if len(configs) > 0 {
