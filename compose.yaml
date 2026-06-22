@@ -7,7 +7,9 @@ services:
       - DB_PATH=/hurion/data/db.sqlite
     volumes:
       - ./local-backups:/hurion/local-backups
+      - ./config.yaml:/hurion/config.yaml
     restart: unless-stopped
     image: hurion:local
     pull_policy: never
+    command: ["--seed"]
     stop_grace_period: 60s

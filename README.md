@@ -75,11 +75,18 @@ Detailed guides for every part of the system:
 3.  **Seed:** `make run-seed` to bootstrap the database.
 4.  **Launch:** `make run`.
 
+### Runtime Flags & Configuration Modes
+The bot's behavior is controlled by a combination of CLI flags and your `config.yaml` file:
+
+*   **Standard Mode (No flags):** The bot simply boots up and connects to Discord. It strictly uses whatever data is currently in the SQLite database.
+*   **Seed Mode (CLI Flag: `--seed`):** When passed at startup, the bot performs an **additive bootstrap** against the database before connecting to Discord. It safely creates any missing classes, rooms, or roles defined in your `config.yaml`. Because it is strictly additive, it will *not* delete or overwrite existing data in the database.
+*   **Test Mode (Config: `test_mode: true`):** Controlled via your `config.yaml`. When true, the bot bypasses strict Discord channel validations and only responds to users and roles explicitly listed in the config's whitelists. It also prefixes database interactions with `test_`, allowing safe local development without corrupting production data.
+
 ### Docker (Recommended)
 ```bash
 docker compose up --build -d
 ```
-For persistence and replication (Litestream) details, see **[README.Docker.md](README.Docker.md)**.
+For persistence, replication (Litestream), and Docker flag configuration details, see **[README.Docker.md](README.Docker.md)**.
 
 ---
 
