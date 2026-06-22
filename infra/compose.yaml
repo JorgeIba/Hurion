@@ -10,5 +10,7 @@ services:
       - GOMEMLIMIT=400MiB
     volumes:
       - /hurion/data:/hurion/data
+      - /hurion/app/config.yaml:/hurion/config.yaml
     restart: unless-stopped
+    command: ["--seed"]
     stop_grace_period: 60s

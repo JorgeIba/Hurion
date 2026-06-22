@@ -30,8 +30,7 @@ COPY --from=builder /build/bot /hurion/bin/hurion
 # Litestream Config & Startup Script
 COPY litestream.yml /etc/litestream.yml
 COPY litestream.local.yml /etc/litestream.local.yml
-COPY config.yaml /hurion/config.yaml
 COPY scripts/run.sh /hurion/run.sh
 RUN chmod +x /hurion/run.sh
 
-CMD ["/hurion/run.sh", "--seed"]
+ENTRYPOINT ["/hurion/run.sh"]

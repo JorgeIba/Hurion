@@ -20,10 +20,17 @@ When you're ready, start your application by running:
 docker compose up --build -d
 ```
 
-### Database Seeding (Docker)
-Because the `Dockerfile` is configured with the `--seed` flag by default (`CMD ["/hurion/run.sh", "--seed"]`), the database will automatically synchronize with your `config.yaml` every time the container boots up. 
+### Runtime Commands & Flags (Docker)
+The Docker image is built without any default arguments to keep it agnostic. You control the bot's behavior by passing flags directly in your `compose.yaml` under the `command` property:
 
-Since the seeder is idempotent, this is completely safe and ensures your deployments always have the latest classes and roles applied automatically before the bot connects to Discord.
+```yaml
+services:
+  service:
+    image: hurion:local
+    command: ["--seed"] # Optional
+```
+
+* **`--seed`**: Performs an **additive bootstrap** of the database using your `config.yaml` file every time the container boots up. It safely creates any missing classes, rooms, or roles defined in your config. Because it is strictly additive, it will *not* delete or overwrite existing data in the database.
 
 ### Data Persistence (Litestream)
 
