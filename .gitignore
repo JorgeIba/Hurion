@@ -33,3 +33,6 @@ local-backups/
 
 # Logs
 *.log
+
+# Infrastructure
+infra/*.json
