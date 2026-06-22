@@ -263,9 +263,14 @@ docker_login() {
         
         local user=$(grep -E "^DOCKER_USER=" /hurion/app/.docker.env | cut -d"=" -f2-)
         local pat=$(grep -E "^DOCKER_PAT=" /hurion/app/.docker.env | cut -d"=" -f2-)
+        local server=$(grep -E "^DOCKER_SERVER=" /hurion/app/.docker.env | cut -d"=" -f2-)
         
         if [ -n "$user" ] && [ -n "$pat" ]; then
-            echo "$pat" | docker login -u "$user" --password-stdin
+            if [ -n "$server" ]; then
+                echo "$pat" | docker login "$server" -u "$user" --password-stdin
+            else
+                echo "$pat" | docker login -u "$user" --password-stdin
+            fi
         fi
     fi
 }
