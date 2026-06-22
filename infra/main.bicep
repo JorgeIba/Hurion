@@ -248,10 +248,30 @@ EOF
 EOF
 }
 
+# Helper function to retry commands that might fail due to eventual consistency
+with_retry() {
+    local retries=12
+    local wait=10
+    for ((i=1; i<=retries; i++)); do
+        if "$@"; then
+            return 0
+        fi
+        echo "Command failed. Retrying in $wait seconds ($i/$retries)..."
+        sleep $wait
+    done
+    echo "Error: Command failed after $retries attempts: $*"
+    exit 1
+}
+
 # Step 3: Fetch app secrets and Docker Hub environment from Key Vault
 pull_secrets() {
     az login --identity
-    az keyvault secret show --vault-name {{keyVaultName}} --name "APP-ENV" --query "value" -o tsv > /hurion/app/.env
+    
+    # RBAC assignments can take several minutes to propagate. 
+    # We retry fetching the mandatory APP-ENV to ensure the VM has been granted access.
+    with_retry az keyvault secret show --vault-name {{keyVaultName}} --name "APP-ENV" --query "value" -o tsv > /hurion/app/.env 2>/dev/null
+
+    # Remove any trailing newlines/spaces if needed, then append the Docker Image
     echo "" >> /hurion/app/.env
     echo "IMAGE_NAME={{dockerImage}}" >> /hurion/app/.env
 }
