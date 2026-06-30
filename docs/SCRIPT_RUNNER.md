@@ -10,7 +10,7 @@ The script runner allows developers to execute a sequence of bot commands define
 
 | Mode | Flags | Network Layer | Message Output |
 |---|---|---|---|
-| **Mock Script** | `--mock-discord --script test.jsonl` | Fake Mock Providers | Printed to Console (`stdout`) |
+| **Mock Script** | `--mock-discord --script app/script/test.jsonl` | Fake Mock Providers | Printed to Console (`stdout`) |
 | **Online Script** | `--script commands.jsonl` | Real Discord Session | Printed to Console (`stdout`) |
 
 *Note: In both script modes, the bot will execute the instructions sequentially, print all dispatcher outputs to the console, and immediately exit once finished.*

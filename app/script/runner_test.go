@@ -1,17 +1,23 @@
-package bot
+package script
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	"github.com/JorgeIba/Hurion/app/providers"
+	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	logger.Init()
+	os.Exit(m.Run())
+}
 
 func TestRegistries(t *testing.T) {
 	t.Parallel()
@@ -106,14 +112,15 @@ func TestRunScript_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	fakeProvider := providers.NewFakeDiscordProvider("admin_role", "mentor_role")
+	fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
 	fakeSender := &mockMessageSender{}
 	svcs := services.NewServices(db)
 
-	bot := NewBot(svcs, fakeProvider, fakeSender, BotConfig{})
+	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
+	runner := NewRunner(appBot, fakeProvider)
 
 	// 3. Act - execute script
-	err = bot.RunScript(scriptPath)
+	err = runner.RunScript(scriptPath)
 	require.NoError(t, err)
 
 	// 4. Assert
@@ -140,13 +147,14 @@ func TestRunScript_ParseFailure(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	fakeProvider := providers.NewFakeDiscordProvider("admin_role", "mentor_role")
+	fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
 	fakeSender := &mockMessageSender{}
 	svcs := services.NewServices(db)
-	bot := NewBot(svcs, fakeProvider, fakeSender, BotConfig{})
+	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
+	runner := NewRunner(appBot, fakeProvider)
 
 	// 3. Act
-	err = bot.RunScript(scriptPath)
+	err = runner.RunScript(scriptPath)
 
 	// 4. Assert - should fail fast with a descriptive error because "missing_alias" has no registered alias and 'executor_name' is missing
 	assert.Error(t, err)

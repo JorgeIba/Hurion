@@ -13,6 +13,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/providers"
+	"github.com/JorgeIba/Hurion/app/script"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
@@ -69,7 +70,7 @@ func main() {
 	var provider providers.DiscordProvider
 
 	if runCfg.UsesMockProvider() {
-		provider = providers.NewFakeDiscordProvider(cfg.AdminRoleID, cfg.MentorRoleID)
+		provider = script.NewFakeDiscordProvider(cfg.AdminRoleID, cfg.MentorRoleID)
 	} else {
 		if token == "" {
 			log.Fatalf("DISCORD_BOT_TOKEN environment variable is required when not running offline")
@@ -103,7 +104,8 @@ func main() {
 	// 8. Execute Application Behavior
 	switch runCfg.Mode {
 	case bootstrap.ModeMockScript, bootstrap.ModeOnlineScript:
-		if err := appBot.RunScript(runCfg.ScriptPath); err != nil {
+		runner := script.NewRunner(appBot, provider)
+		if err := runner.RunScript(runCfg.ScriptPath); err != nil {
 			log.Fatalf("Script runner execution failed: %v", err)
 		}
 	case bootstrap.ModeOnlineDaemon:

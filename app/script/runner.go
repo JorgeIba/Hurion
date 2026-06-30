@@ -1,4 +1,4 @@
-package bot
+package script
 
 import (
 	"bufio"
@@ -7,7 +7,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -26,7 +28,7 @@ type ScriptInstruction struct {
 	ExecutorID   string   `json:"executor_id"`
 	ExecutorName string   `json:"executor_name"`
 	ChannelID    string   `json:"channel_id"`
-	Roles        []string `json:"roles"`
+	Roles        []string `json:"roles"` // Only used in setup_roles
 }
 
 type UserRegistry struct {
@@ -113,8 +115,20 @@ type MockRoleSetter interface {
 	SetUserRoles(userID string, roles []string)
 }
 
+type Runner struct {
+	bot      *bot.Bot
+	provider providers.DiscordProvider
+}
+
+func NewRunner(appBot *bot.Bot, provider providers.DiscordProvider) *Runner {
+	return &Runner{
+		bot:      appBot,
+		provider: provider,
+	}
+}
+
 // RunScript reads commands from a JSONL file and executes them sequentially.
-func (bot *Bot) RunScript(filepath string) error {
+func (r *Runner) RunScript(filepath string) error {
 	file, err := os.Open(filepath)
 	if err != nil {
 		return fmt.Errorf("failed to open script file %s: %w", filepath, err)
@@ -155,7 +169,7 @@ func (bot *Bot) RunScript(filepath string) error {
 			}
 
 			realUserID := userAliases.TranslateExecutor(inst.UserID)
-			if roleSetter, ok := bot.discordProvider.(MockRoleSetter); ok {
+			if roleSetter, ok := r.provider.(MockRoleSetter); ok {
 				roleSetter.SetUserRoles(realUserID, inst.Roles)
 				logger.Log.Infof("Registered mock roles for %s: %v", realUserID, inst.Roles)
 			}
@@ -186,7 +200,7 @@ func (bot *Bot) RunScript(filepath string) error {
 				inst.ExecutorName = name
 			}
 
-			bot.executeScriptCommand(inst, messageIDCounter)
+			r.executeScriptCommand(inst, messageIDCounter)
 			messageIDCounter++
 
 		default:
@@ -203,7 +217,7 @@ func (bot *Bot) RunScript(filepath string) error {
 }
 
 // executeScriptCommand builds a mocked context and routes the command.
-func (bot *Bot) executeScriptCommand(cmdData ScriptInstruction, msgID int) {
+func (r *Runner) executeScriptCommand(cmdData ScriptInstruction, msgID int) {
 	if cmdData.Command == "" {
 		return
 	}
@@ -229,5 +243,5 @@ func (bot *Bot) executeScriptCommand(cmdData ScriptInstruction, msgID int) {
 	}
 
 	// Route it directly through the primary bot pipeline (tests the real handlers)
-	bot.HandleMessageEvent(mockMessage)
+	r.bot.HandleMessageEvent(mockMessage)
 }
