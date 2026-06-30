@@ -10,6 +10,7 @@ Refer to these documents for specific project knowledge:
 - **[Commands Reference](../docs/COMMANDS.md)**: Full list of Discord commands and their parameter constraints.
 - **[Testing Guidelines](./TESTING.md)**: Test philosophy, suite boundaries, and mandatory testing patterns.
 - **[Testing Strategy Rollout](../docs/TESTING_STRATEGY_ROLLOUT.md)**: Workflow-suite rollout plan, PR sequence, and tracking reference.
+- **[Script Runner Guide](../docs/SCRIPT_RUNNER.md)**: Writing, running, and testing command scripts offline or online.
 - **[Project README](../README.md)**: Setup, environment variables, and Docker instructions.
 
 ---

@@ -19,3 +19,11 @@ func NewProviderDiscord(s DiscordGoSession, adminRoleID, mentorRoleID string) Di
 		mentorRoleID: mentorRoleID,
 	}
 }
+
+func (p *discordProvider) BotUserID() string {
+	state := p.session.State()
+	if state != nil && state.User != nil {
+		return state.User.ID
+	}
+	return ""
+}

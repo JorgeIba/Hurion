@@ -59,6 +59,7 @@ Detailed guides for every part of the system:
 - 📜 **[Commands Reference](docs/COMMANDS.md)** — Full list of commands by role.
 - 🤖 **[AI Hub](.ai/CONTEXT.md)** — Rules for AI-assisted contributions.
 - 🧪 **[Testing Guidelines](.ai/TESTING.md)** — Patterns for verified changes.
+- 🏃‍♂️ **[Script Runner Guide](docs/SCRIPT_RUNNER.md)** — Writing, running, and testing command scripts offline or online.
 
 ---
 
@@ -79,8 +80,10 @@ Detailed guides for every part of the system:
 The bot's behavior is controlled by a combination of CLI flags and your `config.yaml` file:
 
 *   **Standard Mode (No flags):** The bot simply boots up and connects to Discord. It strictly uses whatever data is currently in the SQLite database.
-*   **Seed Mode (CLI Flag: `--seed`):** When passed at startup, the bot performs an **additive bootstrap** against the database before connecting to Discord. It safely creates any missing classes, rooms, or roles defined in your `config.yaml`. Because it is strictly additive, it will *not* delete or overwrite existing data in the database.
-*   **Test Mode (Config: `test_mode: true`):** Controlled via your `config.yaml`. When true, the bot bypasses strict Discord channel validations and only responds to users and roles explicitly listed in the config's whitelists. It also prefixes database interactions with `test_`, allowing safe local development without corrupting production data.
+*   **Seed Mode (CLI Flag: `--seed`):** When passed at startup, the bot performs an **additive bootstrap** against the database before connecting to Discord. It safely creates any missing classes, rooms, or roles defined in your `config.yaml`.
+*   **Test Mode (Config: `test_mode: true`):** Controlled via your `config.yaml`. Bypasses strict Discord channel validations, only responds to whitelisted users/roles, and prefixes DB tables with `test_`.
+*   **Script Runner Mode (CLI Flag: `--script <path>`):** Executes bot commands sequentially from a JSONL file and exits immediately upon completion.
+*   **Mock Discord Mode (CLI Flag: `--mock-discord`):** Runs the bot completely offline without connecting to the Discord API. Redirects bot output/replies to standard console output (`stdout`). Must be run alongside `--script`.
 
 ### Docker (Recommended)
 ```bash

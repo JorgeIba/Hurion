@@ -41,4 +41,5 @@ type DiscordProvider interface {
 	DiscordValidator
 	DiscordFetcher
 	DiscordMessageModifier
+	BotUserID() string
 }

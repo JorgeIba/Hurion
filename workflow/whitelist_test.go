@@ -61,7 +61,7 @@ func TestWorkflow_Whitelist_FiltersMessagesInTestMode(t *testing.T) {
 				},
 			},
 		}
-		env.Bot.HandleMessageEvent(env.Session, msg)
+		env.Bot.HandleMessageEvent(msg)
 
 		msgs := env.Dispatcher.Messages()
 		assert.NotEmpty(t, msgs, "Expected response for user with whitelisted role")
@@ -91,7 +91,7 @@ func TestWorkflow_Whitelist_FiltersMessagesInTestMode(t *testing.T) {
 				},
 			},
 		}
-		env.Bot.HandleMessageEvent(env.Session, msg)
+		env.Bot.HandleMessageEvent(msg)
 
 		msgs := env.Dispatcher.Messages()
 		assert.NotEmpty(t, msgs, "Expected response for user with roles in cache despite empty roles in event")
@@ -130,12 +130,12 @@ func TestWorkflow_Whitelist_FiltersReactionsInTestMode(t *testing.T) {
 				Emoji:     discordgo.Emoji{Name: "👍"},
 			},
 			Member: &discordgo.Member{
-				User:  &discordgo.User{ID: whitelistedUser, Username: "Whitelisted User"},
-				Nick:  "Whitelisted User",
+				User: &discordgo.User{ID: whitelistedUser, Username: "Whitelisted User"},
+				Nick: "Whitelisted User",
 			},
 		}
-		
-		env.Bot.HandleReactionEvent(env.Session, reaction)
+
+		env.Bot.HandleReactionEvent(reaction)
 		// If processed, it would try to remove reactions. We verify it didn't return early.
 		// Since we didn't fully seed everything for !ac confirm, we at least check it attempted to call Discord
 		assert.NotEmpty(t, env.Discord.removedReactionEmojis(), "Expected reaction processing to reach Discord calls")
@@ -154,12 +154,12 @@ func TestWorkflow_Whitelist_FiltersReactionsInTestMode(t *testing.T) {
 				Emoji:     discordgo.Emoji{Name: "👍"},
 			},
 			Member: &discordgo.Member{
-				User:  &discordgo.User{ID: blockedUser, Username: "Blocked User"},
-				Nick:  "Blocked User",
+				User: &discordgo.User{ID: blockedUser, Username: "Blocked User"},
+				Nick: "Blocked User",
 			},
 		}
 
-		env.Bot.HandleReactionEvent(env.Session, reaction)
+		env.Bot.HandleReactionEvent(reaction)
 		assert.Empty(t, env.Discord.removedReactionEmojis(), "Expected reaction from blocked user to be ignored")
 	})
 }

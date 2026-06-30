@@ -85,11 +85,19 @@ func (bot *Bot) ConfigureSession(s *discordgo.Session) {
 }
 
 func (bot *Bot) RegisterHandlers(s *discordgo.Session) {
-	s.AddHandler(bot.HandleMessageEvent)
-	s.AddHandler(bot.HandleReactionEvent)
+	if s == nil {
+		return
+	}
+
+	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		bot.HandleMessageEvent(m)
+	})
+	s.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+		bot.HandleReactionEvent(r)
+	})
 }
 
-func (bot *Bot) HandleMessageEvent(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (bot *Bot) HandleMessageEvent(m *discordgo.MessageCreate) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Log.Errorf("Panic recovered in messageHandler: %v", r)
@@ -103,10 +111,10 @@ func (bot *Bot) HandleMessageEvent(s *discordgo.Session, m *discordgo.MessageCre
 		}
 	}
 
-	bot.messageHandler(s, m)
+	bot.messageHandler(m)
 }
 
-func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (bot *Bot) messageHandler(m *discordgo.MessageCreate) {
 	if m.Author.Bot || m.GuildID == "" {
 		return
 	}
@@ -131,7 +139,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 		Dispatcher:             bot.messageSender,
 		Executor:               executor,  // Who is executing
 		ExecutorGuildID:        m.GuildID, // Where it's executed
-		BotUserID:              botUserIDFromSession(s),
+		BotUserID:              bot.discordProvider.BotUserID(),
 	}
 
 	cmd := args[0]
@@ -146,7 +154,7 @@ func (bot *Bot) messageHandler(s *discordgo.Session, m *discordgo.MessageCreate)
 	}
 }
 
-func (bot *Bot) HandleReactionEvent(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+func (bot *Bot) HandleReactionEvent(r *discordgo.MessageReactionAdd) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			logger.Log.Errorf("Panic recovered in reactionHandler: %v", rec)
@@ -160,18 +168,18 @@ func (bot *Bot) HandleReactionEvent(s *discordgo.Session, r *discordgo.MessageRe
 		}
 	}
 
-	bot.reactionHandler(s, r)
+	bot.reactionHandler(r)
 }
 
-func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
-	if r.UserID == s.State.User.ID || r.GuildID == "" {
+func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
+	if r.UserID == bot.discordProvider.BotUserID() || r.GuildID == "" {
 		return
 	}
 
 	executor := controllers_common.MapMemberToUser(r.Member)
 	if executor.UserID == "" {
-		// Try to find the member in the bot's memory (state) to get the DisplayName
-		if m, err := s.State.Member(r.GuildID, r.UserID); err == nil {
+		// Try to find the member in the bot's memory (state) to get the DisplayName via provider
+		if m, err := bot.discordProvider.GetCachedMember(r.GuildID, r.UserID); err == nil {
 			executor = controllers_common.MapMemberToUser(m)
 		} else {
 			// Failsafe: if not in memory, at least keep the ID and set a fallback name
@@ -189,7 +197,7 @@ func (bot *Bot) reactionHandler(s *discordgo.Session, r *discordgo.MessageReacti
 		Dispatcher:             bot.messageSender,
 		Executor:               executor,  // Who is executing
 		ExecutorGuildID:        r.GuildID, // Where it's executed
-		BotUserID:              botUserIDFromSession(s),
+		BotUserID:              bot.discordProvider.BotUserID(),
 	}
 
 	if router, exists := reactionRouterMap[r.Emoji.Name]; exists {
