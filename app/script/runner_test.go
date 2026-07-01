@@ -117,7 +117,7 @@ func TestRunScript_HappyPath(t *testing.T) {
 	svcs := services.NewServices(db)
 
 	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
-	runner := NewRunner(appBot, fakeProvider)
+	runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 	// 3. Act - execute script
 	err = runner.RunScript(scriptPath)
@@ -131,7 +131,7 @@ func TestRunScript_HappyPath(t *testing.T) {
 func TestRunScript_ParseFailure(t *testing.T) {
 	t.Parallel()
 
-	// 1. Create a temporary script file with malformed JSON
+	// 1. Create a temporary script file with unregistered executor alias
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "invalid_script.jsonl")
 	scriptContent := `{"type": "command", "command": "!help", "executor_id": "missing_alias"}
@@ -151,7 +151,7 @@ func TestRunScript_ParseFailure(t *testing.T) {
 	fakeSender := &mockMessageSender{}
 	svcs := services.NewServices(db)
 	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
-	runner := NewRunner(appBot, fakeProvider)
+	runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 	// 3. Act
 	err = runner.RunScript(scriptPath)

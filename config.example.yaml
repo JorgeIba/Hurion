@@ -1,7 +1,8 @@
 # Hurion Configuration Example
 # Use this as a template for your config.yaml
 
-# Global Administrative Roles
+# Global Administrative Configuration
+guild_id: "123456789012345678" # Server ID
 admin_role_id: "9999999990"
 mentor_role_id: "9999999991"
 

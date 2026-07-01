@@ -52,11 +52,11 @@ Instructs the bot to execute a command as a specific executor.
 
 #### Fields:
 * `command` (string, required): The raw command to execute (e.g. `!ac`, `!score`).
-* `executor_id` (string, required): The Discord ID (or registered alias) of the user executing the command.
+* `executor_id` (string, required): The Discord ID (or registered alias) of the user executing the command. **Strict Alias Enforcement**: To ensure logs are readable and prevent typos, the `executor_id` must be registered via `setup_alias` (or have an explicit `executor_name` field in the command) or the script runner will reject the instruction.
 * `channel_id` (string, optional): The Discord Channel ID (supports `#channel_alias` prefix).
 * `roles` (array of strings, optional): In-line roles for the executor. (Note: Using `setup_roles` once at the top of the file is the recommended way to configure static roles instead of repeating this field).
 
-*Note: The bot's single-server architecture defaults the Guild ID to `"guild_1"` under the hood so you never have to specify it in your script files.*
+*Note: For **Online Script Mode**, the script runner reads your target Discord Server (Guild) ID from the `guild_id` parameter inside `config.yaml` to successfully resolve permissions and role memberships against the real Discord API. Under **Mock Script Mode**, if `guild_id` is empty, it automatically defaults to `"guild_1"`.*
 
 ---
 

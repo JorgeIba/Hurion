@@ -116,14 +116,16 @@ type MockRoleSetter interface {
 }
 
 type Runner struct {
-	bot      *bot.Bot
-	provider providers.DiscordProvider
+	bot            *bot.Bot
+	provider       providers.DiscordProvider
+	defaultGuildID string
 }
 
-func NewRunner(appBot *bot.Bot, provider providers.DiscordProvider) *Runner {
+func NewRunner(appBot *bot.Bot, provider providers.DiscordProvider, defaultGuildID string) *Runner {
 	return &Runner{
-		bot:      appBot,
-		provider: provider,
+		bot:            appBot,
+		provider:       provider,
+		defaultGuildID: defaultGuildID,
 	}
 }
 
@@ -222,7 +224,7 @@ func (r *Runner) executeScriptCommand(cmdData ScriptInstruction, msgID int) {
 		return
 	}
 
-	// Create a mock discordgo Message (always default GuildID to "guild_1")
+	// Create a mock discordgo Message (always default GuildID to r.defaultGuildID)
 	author := &discordgo.User{
 		ID:       cmdData.ExecutorID,
 		Username: cmdData.ExecutorName,
@@ -232,7 +234,7 @@ func (r *Runner) executeScriptCommand(cmdData ScriptInstruction, msgID int) {
 		Message: &discordgo.Message{
 			ID:        fmt.Sprintf("mock_msg_%d", msgID),
 			ChannelID: cmdData.ChannelID,
-			GuildID:   "guild_1",
+			GuildID:   r.defaultGuildID,
 			Content:   cmdData.Command,
 			Author:    author,
 			Member: &discordgo.Member{

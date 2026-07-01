@@ -104,7 +104,11 @@ func main() {
 	// 8. Execute Application Behavior
 	switch runCfg.Mode {
 	case bootstrap.ModeMockScript, bootstrap.ModeOnlineScript:
-		runner := script.NewRunner(appBot, provider)
+		guildID := cfg.GuildID
+		if runCfg.Mode == bootstrap.ModeMockScript && guildID == "" {
+			guildID = "guild_1"
+		}
+		runner := script.NewRunner(appBot, provider, guildID)
 		if err := runner.RunScript(runCfg.ScriptPath); err != nil {
 			log.Fatalf("Script runner execution failed: %v", err)
 		}
