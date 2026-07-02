@@ -1,0 +1,52 @@
+# 1. Setup Aliases & Mocks
+# The bot maps these friendly names to proper numeric Discord IDs internally.
+{"type": "setup_alias", "user_id": "1000", "alias": "admin_jorge"}
+{"type": "setup_alias", "user_id": "2000", "alias": "mentor_pedro"}
+{"type": "setup_alias", "user_id": "3000", "alias": "student_luis"}
+{"type": "setup_alias", "user_id": "4000", "alias": "student_maria"}
+
+# 2. Configure Mock Roles
+# (admin_role_id = "9999999990", mentor_role_id = "9999999991", linked_role_id = "1111111111")
+{"type": "setup_roles", "user_id": "admin_jorge", "roles": ["9999999990"]}
+{"type": "setup_roles", "user_id": "mentor_pedro", "roles": ["9999999991"]}
+{"type": "setup_roles", "user_id": "student_luis", "roles": ["1111111111"]}
+{"type": "setup_roles", "user_id": "student_maria", "roles": ["1111111111"]}
+
+# 3. Configure Channel Aliases
+{"type": "setup_channel", "alias": "basicos", "channel_id": "123456"}
+
+# 4. Admin Workflow: Create Class, Link Rooms, and Link Roles
+# (No need to repeat roles, channel_id, or guild_id anymore!)
+{"type": "command", "command": "!create_class advanced_go Advanced Go 2026", "executor_id": "admin_jorge", "channel_id": "#basicos"}
+{"type": "command", "command": "!link_rooms advanced_go 123456", "executor_id": "admin_jorge", "channel_id": "#basicos"}
+{"type": "command", "command": "!link_roles advanced_go 1111111111", "executor_id": "admin_jorge", "channel_id": "#basicos"}
+
+# 5. Mentor Workflow: Add Problems
+{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p1 Easy Go Basics", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p2 Medium Go Concurrency", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p3 Hard Go Generics", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+
+# 6. Student Workflow: Proposing ACs
+{"type": "command", "command": "!list", "executor_id": "student_luis", "channel_id": "#basicos"}
+{"type": "command", "command": "!ac 1", "executor_id": "student_luis", "channel_id": "#basicos"}
+
+# 7. Mentor Workflow: Direct ACs and Approvals
+# Since we can't test mentor reactions (👍) via script commands, the mentor directly assigns the ACs!
+{"type": "command", "command": "!ac @student_luis 1", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!ac @student_maria 1", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!ac @student_maria 2", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!ac @student_maria 3", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+
+# 8. Un-authorized Actions (Should Fail)
+# Student tries to give themselves an AC
+{"type": "command", "command": "!ac @student_luis 3", "executor_id": "student_luis", "channel_id": "#basicos"}
+# Student tries to use an admin command
+{"type": "command", "command": "!exterminate_class advanced_go", "executor_id": "student_maria", "channel_id": "#basicos"}
+
+# 9. Rendering Scores
+# Should show Maria with 3 ACs, Luis with 1 AC, and generate a nice image output [BOT FILE -> #123456]: 1 files attached
+{"type": "command", "command": "!score", "executor_id": "student_luis", "channel_id": "#basicos"}
+{"type": "command", "command": "!score_of @student_maria", "executor_id": "student_luis", "channel_id": "#basicos"}
+
+# 10. Scores overview for all classes
+{"type": "command", "command": "!scores", "executor_id": "admin_jorge", "channel_id": "#basicos"}

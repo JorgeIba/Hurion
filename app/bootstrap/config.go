@@ -31,6 +31,7 @@ func (c ClassConfig) Validate() error {
 
 // Config represents the global application configuration.
 type Config struct {
+	GuildID          string        `mapstructure:"guild_id"`
 	AdminRoleID      string        `mapstructure:"admin_role_id"`
 	MentorRoleID     string        `mapstructure:"mentor_role_id"`
 	Classes          []ClassConfig `mapstructure:"classes"`

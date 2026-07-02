@@ -89,7 +89,7 @@ func (env *workflowEnv) sendMessage(t *testing.T, userID, displayName, content s
 		},
 	}
 
-	env.Bot.HandleMessageEvent(env.Session, msg)
+	env.Bot.HandleMessageEvent(msg)
 }
 
 func (env *workflowEnv) sendReaction(t *testing.T, userID, displayName, messageID, emoji string) {
@@ -110,7 +110,7 @@ func (env *workflowEnv) sendReaction(t *testing.T, userID, displayName, messageI
 		},
 	}
 
-	env.Bot.HandleReactionEvent(env.Session, reaction)
+	env.Bot.HandleReactionEvent(reaction)
 }
 
 func (env *workflowEnv) seedClass(t *testing.T, classCode, name string) int64 {
@@ -298,6 +298,10 @@ func (s *stubDiscordProvider) setRoles(userID string, roles []string) {
 
 func (s *stubDiscordProvider) setDisplayName(userID, displayName string) {
 	s.displayNames[userID] = displayName
+}
+
+func (s *stubDiscordProvider) BotUserID() string {
+	return testBotUserID
 }
 
 func (s *stubDiscordProvider) storeMessage(msg *discordgo.Message) {

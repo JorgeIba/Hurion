@@ -133,3 +133,17 @@ In this repo, that usually means checks across boundaries like:
 - **Mock Generation**: If you modify an interface, run `make generate` before writing tests.
 - **CI Readiness**: Tests must be parallel-safe and should not depend on local environment variables or files (except for `schema.sql`).
 - **Workflow Additions**: Add new workflow coverage only when it provides confidence that existing unit and integration tests do not already provide.
+
+---
+
+## Part 5: Scripted Dry-Run Testing
+*For details, see [SCRIPT_RUNNER.md](/docs/SCRIPT_RUNNER.md).*
+
+### What scripted tests prove
+- Complex, multi-step workflows behave correctly end-to-end under real or mock environments.
+- Presentation layout and image generation works correctly on large mock datasets (scale/UI testing).
+- Sequential scripting scenarios execute against real or mock servers without causing validation/confirmation lockouts.
+
+### Scripted standards
+- **Use Mock Mode for QA/Scale Tests**: Run using `--mock-discord --script <file>.jsonl` to execute tests locally without spamming real Discord guilds.
+- **Fail Fast**: The script runner is designed to fail fast (`log.Fatalf`) on JSON unmarshal errors or unknown instructions to prevent execution corruption.
