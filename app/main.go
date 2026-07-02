@@ -108,6 +108,9 @@ func main() {
 		if runCfg.Mode == bootstrap.ModeMockScript && guildID == "" {
 			guildID = "guild_1"
 		}
+		if runCfg.Mode == bootstrap.ModeOnlineScript && guildID == "" {
+			log.Fatalf("Configuration error: 'guild_id' must be configured in config.yaml for Online Script Mode.")
+		}
 		runner := script.NewRunner(appBot, provider, guildID)
 		if err := runner.RunScript(runCfg.ScriptPath); err != nil {
 			log.Fatalf("Script runner execution failed: %v", err)
