@@ -1,9 +1,10 @@
 # Variables
 BINARY_NAME=hurion
 BUILD_DIR=./bin
+SCRIPT_PATH?=app/script/test.jsonl
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test test-unit test-integration test-workflow generate clean run-seed
+.PHONY: all build test test-unit test-integration test-workflow generate clean run-seed run-script-mock run-script-online
 
 # By default, running 'make' executes build
 all: build
@@ -58,6 +59,16 @@ run: build
 run-seed: build
 	@echo "==> Seeding database and starting bot..."
 	@$(BUILD_DIR)/$(BINARY_NAME) --seed
+
+## run-script-mock: Build and run the bot offline in Mock Script Mode (override with SCRIPT_PATH=...)
+run-script-mock: build
+	@echo "==> Running bot in offline Mock Script Mode..."
+	@$(BUILD_DIR)/$(BINARY_NAME) --mock-discord --script $(SCRIPT_PATH)
+
+## run-script-online: Build and run the bot in Online Script Mode (override with SCRIPT_PATH=...)
+run-script-online: build
+	@echo "==> Running bot in Online Script Mode..."
+	@$(BUILD_DIR)/$(BINARY_NAME) --script $(SCRIPT_PATH)
 
 ## clean: Remove binary and temporary files
 clean:

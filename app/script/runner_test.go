@@ -10,6 +10,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -159,4 +160,65 @@ func TestRunScript_ParseFailure(t *testing.T) {
 	// 4. Assert - should fail fast with a descriptive error because "missing_alias" has no registered alias and 'executor_name' is missing
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "executor ID 'missing_alias' is not registered as an alias and 'executor_name' is missing")
+}
+
+type dummyProvider struct{}
+
+func (d *dummyProvider) IsAdmin(guildID, userID string) (bool, error)                { return false, nil }
+func (d *dummyProvider) IsMentor(guildID, userID string) (bool, error)               { return false, nil }
+func (d *dummyProvider) FetchMessage(channelID, messageID string) (*discordgo.Message, error) { return nil, nil }
+func (d *dummyProvider) GetCachedMember(guildID, userID string) (*discordgo.Member, error) { return nil, nil }
+func (d *dummyProvider) FetchMember(guildID, userID string) (*discordgo.Member, error)   { return nil, nil }
+func (d *dummyProvider) EditEmbed(channelID, messageID string, embed *discordgo.MessageEmbed) error { return nil }
+func (d *dummyProvider) RemoveBotReaction(channelID, messageID, emojiID string) error { return nil }
+func (d *dummyProvider) BotUserID() string                                           { return "bot_1" }
+
+func TestRunScript_ValidationFailures(t *testing.T) {
+	t.Parallel()
+
+	db, err := data.NewDB(&data.DBConfig{
+		DBPath: ":memory:",
+		DBType: data.Test,
+	})
+	require.NoError(t, err)
+	defer db.CloseDB()
+
+	svcs := services.NewServices(db)
+	fakeSender := &mockMessageSender{}
+
+	t.Run("command without executor_id fails validation", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		scriptPath := filepath.Join(tmpDir, "invalid_cmd.jsonl")
+		scriptContent := `{"type": "command", "command": "!help"}
+`
+		err := os.WriteFile(scriptPath, []byte(scriptContent), 0644)
+		require.NoError(t, err)
+
+		fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
+		appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
+		runner := NewRunner(appBot, fakeProvider, "guild_1")
+
+		err = runner.RunScript(scriptPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validation failed: command instruction requires a non-empty 'executor_id'")
+	})
+
+	t.Run("setup_roles without mock role setter fails validation", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		scriptPath := filepath.Join(tmpDir, "invalid_roles.jsonl")
+		scriptContent := `{"type": "setup_roles", "user_id": "student_1", "roles": ["role_1"]}
+`
+		err := os.WriteFile(scriptPath, []byte(scriptContent), 0644)
+		require.NoError(t, err)
+
+		realProvider := &dummyProvider{}
+		appBot := bot.NewBot(svcs, realProvider, fakeSender, bot.BotConfig{})
+		runner := NewRunner(appBot, realProvider, "guild_1")
+
+		err = runner.RunScript(scriptPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validation failed: setup_roles is only supported in Mock Script Mode (provider does not support mock roles)")
+	})
 }

@@ -3,6 +3,7 @@ package script
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -156,31 +157,22 @@ func (r *Runner) RunScript(filepath string) error {
 			return fmt.Errorf("line %d: failed to parse JSON: %w. Line: %s", lineNumber, err, line)
 		}
 
+		if err := r.validateInstruction(inst); err != nil {
+			return fmt.Errorf("line %d: validation failed: %w", lineNumber, err)
+		}
+
 		switch inst.Type {
 		case InstructionTypeSetupAlias:
-			if inst.Alias == "" || inst.UserID == "" {
-				return fmt.Errorf("line %d: setup_alias requires non-empty alias and user_id", lineNumber)
-			}
-
 			userAliases.Register(inst.Alias, inst.UserID)
 			logger.Log.Infof("Registered script alias: %s -> ID %s", inst.Alias, inst.UserID)
 
 		case InstructionTypeSetupRoles:
-			if inst.UserID == "" {
-				return fmt.Errorf("line %d: setup_roles requires non-empty user_id", lineNumber)
-			}
-
 			realUserID := userAliases.TranslateExecutor(inst.UserID)
-			if roleSetter, ok := r.provider.(MockRoleSetter); ok {
-				roleSetter.SetUserRoles(realUserID, inst.Roles)
-				logger.Log.Infof("Registered mock roles for %s: %v", realUserID, inst.Roles)
-			}
+			roleSetter := r.provider.(MockRoleSetter) // Safe cast since validateInstruction verified it
+			roleSetter.SetUserRoles(realUserID, inst.Roles)
+			logger.Log.Infof("Registered mock roles for %s: %v", realUserID, inst.Roles)
 
 		case InstructionTypeSetupChannel:
-			if inst.Alias == "" || inst.ChannelID == "" {
-				return fmt.Errorf("line %d: setup_channel requires non-empty alias and channel_id", lineNumber)
-			}
-
 			channelRegistry.Register(inst.Alias, inst.ChannelID)
 			logger.Log.Infof("Registered script channel alias: #%s -> ID %s", inst.Alias, inst.ChannelID)
 
@@ -246,4 +238,33 @@ func (r *Runner) executeScriptCommand(cmdData ScriptInstruction, msgID int) {
 
 	// Route it directly through the primary bot pipeline (tests the real handlers)
 	r.bot.HandleMessageEvent(mockMessage)
+}
+
+// validateInstruction checks both structural completeness of the instruction
+// and compatibility with the current runner provider.
+func (r *Runner) validateInstruction(inst ScriptInstruction) error {
+	switch inst.Type {
+	case InstructionTypeSetupAlias:
+		if strings.TrimSpace(inst.Alias) == "" || strings.TrimSpace(inst.UserID) == "" {
+			return errors.New("setup_alias requires non-empty 'alias' and 'user_id'")
+		}
+	case InstructionTypeSetupRoles:
+		if strings.TrimSpace(inst.UserID) == "" {
+			return errors.New("setup_roles requires non-empty 'user_id'")
+		}
+		if _, ok := r.provider.(MockRoleSetter); !ok {
+			return errors.New("setup_roles is only supported in Mock Script Mode (provider does not support mock roles)")
+		}
+	case InstructionTypeSetupChannel:
+		if strings.TrimSpace(inst.Alias) == "" || strings.TrimSpace(inst.ChannelID) == "" {
+			return errors.New("setup_channel requires non-empty 'alias' and 'channel_id'")
+		}
+	case InstructionTypeCommand:
+		if strings.TrimSpace(inst.ExecutorID) == "" {
+			return errors.New("command instruction requires a non-empty 'executor_id'")
+		}
+	default:
+		return fmt.Errorf("unknown instruction type %q", inst.Type)
+	}
+	return nil
 }
