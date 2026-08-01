@@ -58,18 +58,22 @@ func (w *ScoreboardExporterWorker) Start() {
 				default:
 				}
 
-				ctx, cancel := context.WithTimeout(context.Background(), DefaultExportTimeout)
-				if err := w.ExportAll(ctx); err != nil {
-					if logger.Log != nil {
-						logger.Log.Errorf("error executing background scoreboard export: %v", err)
-					}
-				}
-				cancel()
+				w.runExportWithTimeout()
 			case <-w.shutdownSignal:
 				return
 			}
 		}
 	}()
+}
+
+func (w *ScoreboardExporterWorker) runExportWithTimeout() {
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultExportTimeout)
+	defer cancel()
+	if err := w.ExportAll(ctx); err != nil {
+		if logger.Log != nil {
+			logger.Log.Errorf("error executing background scoreboard export: %v", err)
+		}
+	}
 }
 
 func (w *ScoreboardExporterWorker) Trigger() {
@@ -89,6 +93,12 @@ func (w *ScoreboardExporterWorker) ExportAll(ctx context.Context) error {
 	if w.ClassService == nil || w.ClassService.Datastore == nil {
 		return fmt.Errorf("class service or datastore is uninitialized")
 	}
+	if w.ScoreService == nil {
+		return fmt.Errorf("score service is uninitialized")
+	}
+	if w.Storage == nil {
+		return fmt.Errorf("storage provider is uninitialized")
+	}
 
 	classes, err := w.ClassService.GetAllClasses()
 	if err != nil {
@@ -96,21 +106,31 @@ func (w *ScoreboardExporterWorker) ExportAll(ctx context.Context) error {
 	}
 
 	for _, c := range classes {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("export context canceled: %w", err)
+		}
+
 		score, err := w.ScoreService.GetScoreByClassCode(c.ClassCode)
 		if err != nil {
-			logger.Log.Errorf("failed to get score for class %s: %v", c.ClassCode, err)
+			if logger.Log != nil {
+				logger.Log.Errorf("failed to get score for class %s: %v", c.ClassCode, err)
+			}
 			continue
 		}
 
 		jsonBytes, err := jsonexport.FormatScoreboard(c.ClassCode, c.Name, score)
 		if err != nil {
-			logger.Log.Errorf("failed to format scoreboard JSON for class %s: %v", c.ClassCode, err)
+			if logger.Log != nil {
+				logger.Log.Errorf("failed to format scoreboard JSON for class %s: %v", c.ClassCode, err)
+			}
 			continue
 		}
 
 		filename := fmt.Sprintf("%s_score.json", c.ClassCode)
 		if err := w.Storage.Save(ctx, filename, jsonBytes); err != nil {
-			logger.Log.Errorf("failed to save scoreboard for class %s: %v", c.ClassCode, err)
+			if logger.Log != nil {
+				logger.Log.Errorf("failed to save scoreboard for class %s: %v", c.ClassCode, err)
+			}
 		}
 	}
 

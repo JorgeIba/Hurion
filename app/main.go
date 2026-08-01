@@ -58,10 +58,10 @@ func main() {
 	exporterWorker.Start()
 	defer exporterWorker.Stop()
 
+	// Compile initial scoreboards on startup
+	exporterWorker.Trigger()
 	data.RegisterUpdateHookCallback(func(op int, dbName string, tableName string, rowid int64) {
-		if tableName == "solved_problems" {
-			exporterWorker.Trigger()
-		}
+		exporterWorker.Trigger()
 	})
 
 	// 3. Hydrate the RunConfig

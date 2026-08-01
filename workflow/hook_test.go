@@ -22,6 +22,7 @@ func TestScoreboardExportOnDbHook(t *testing.T) {
 	// Instantiate DiskStorage and Worker with new layered architecture
 	diskStore := storage.NewDiskStorage(tempExportDir)
 	worker := workers.NewScoreboardExporterWorker(env.Services.Class, env.Services.Score, diskStore)
+	worker.DebounceDuration = 50 * time.Millisecond
 	worker.Start()
 	defer worker.Stop()
 

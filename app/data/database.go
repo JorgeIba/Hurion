@@ -32,7 +32,9 @@ func RegisterUpdateHookCallback(callback UpdateHookCallback) {
 func safeExecuteCallback(cb UpdateHookCallback, op int, dbName string, tableName string, rowid int64) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Log.Errorf("panic recovered in update hook callback: %v", r)
+			if logger.Log != nil {
+				logger.Log.Errorf("panic recovered in update hook callback: %v", r)
+			}
 		}
 	}()
 	cb(op, dbName, tableName, rowid)
