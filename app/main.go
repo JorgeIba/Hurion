@@ -11,10 +11,12 @@ import (
 	"github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/infrastructure/storage"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/script"
 	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/workers"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -49,6 +51,18 @@ func main() {
 
 	svcs := services.NewServices(db)
 	token := os.Getenv("DISCORD_BOT_TOKEN")
+
+	const defaultExportsDir = "./data/exports"
+	diskStore := storage.NewDiskStorage(defaultExportsDir)
+	exporterWorker := workers.NewScoreboardExporterWorker(svcs.Class, svcs.Score, diskStore)
+	exporterWorker.Start()
+	defer exporterWorker.Stop()
+
+	data.RegisterUpdateHookCallback(func(op int, dbName string, tableName string, rowid int64) {
+		if tableName == "solved_problems" {
+			exporterWorker.Trigger()
+		}
+	})
 
 	// 3. Hydrate the RunConfig
 	runCfg, err := bootstrap.NewRunConfig(*mockDiscordFlag, *scriptFlag)
