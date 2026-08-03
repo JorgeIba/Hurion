@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -189,17 +188,18 @@ func TestAzureBlobStorage_Save(t *testing.T) {
 }
 
 func TestNewAzureBlobStorageFromEnv_MissingAccountName_ReturnsError(t *testing.T) {
-	os.Unsetenv("AZURE_STORAGE_ACCOUNT")
-	os.Unsetenv("AZURE_STORAGE_KEY")
-	os.Unsetenv("AZURE_STORAGE_CONNECTION_STRING")
+	t.Setenv("AZURE_STORAGE_ACCOUNT", "")
+	t.Setenv("AZURE_STORAGE_KEY", "")
+	t.Setenv("AZURE_STORAGE_CONNECTION_STRING", "")
 
 	_, err := NewAzureBlobStorageFromEnv()
 	require.ErrorIs(t, err, ErrMissingAccountName)
 }
 
 func TestNewStorageFromEnv_FallbackToDiskStorage(t *testing.T) {
-	os.Unsetenv("AZURE_STORAGE_ACCOUNT")
-	os.Unsetenv("AZURE_STORAGE_KEY")
+	t.Setenv("AZURE_STORAGE_ACCOUNT", "")
+	t.Setenv("AZURE_STORAGE_KEY", "")
+	t.Setenv("AZURE_STORAGE_CONNECTION_STRING", "")
 
 	tempDir := t.TempDir()
 	store := NewStorageFromEnv(tempDir)

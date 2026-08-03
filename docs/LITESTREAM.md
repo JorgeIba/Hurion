@@ -51,7 +51,7 @@ Container startup is managed by `scripts/run.sh`:
 2. **Config Detection**: Detects if Azure credentials exist to pick `/etc/litestream.yml` or `/etc/litestream.local.yml`.
 3. **Database Restore**: Runs `litestream restore -if-db-not-exists -if-replica-exists` to download existing database backups.
 4. **Pragma Check**: Enforces `PRAGMA journal_mode=WAL;`.
-5. **Process Supervision**: Executes `litestream replicate` to supervise bot execution via `make -C /hurion run ARGS="$*"`.
+5. **Process Supervision**: Executes `litestream replicate` to supervise the compiled binary `/hurion/bin/hurion $*` directly.
 
 ---
 

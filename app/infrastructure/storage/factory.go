@@ -9,10 +9,10 @@ import (
 // NewStorageFromEnv returns AzureBlobStorage if Azure environment variables are set,
 // falling back to DiskStorage otherwise.
 func NewStorageFromEnv(defaultDiskDir string) BlobStorage {
-	accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
-	hasKey := os.Getenv("AZURE_STORAGE_KEY") != "" || os.Getenv("AZURE_STORAGE_CONNECTION_STRING") != ""
+	hasConnStr := os.Getenv("AZURE_STORAGE_CONNECTION_STRING") != ""
+	hasAccountAndKey := os.Getenv("AZURE_STORAGE_ACCOUNT") != "" && os.Getenv("AZURE_STORAGE_KEY") != ""
 
-	if accountName != "" && hasKey {
+	if hasConnStr || hasAccountAndKey {
 		azureStore, err := NewAzureBlobStorageFromEnv()
 		if err == nil {
 			if logger.Log != nil {

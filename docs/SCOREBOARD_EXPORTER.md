@@ -73,21 +73,23 @@ Exported files (`<class_code>_score.json`) follow this JSON schema:
 
 ```json
 {
-  "class_code": "basicos_1",
-  "class_name": "Algoritmos Básicos I",
+  "classCode": "basicos_1",
+  "className": "Algoritmos Básicos I",
   "problems": [
     {
       "id": 101,
-      "title": "Two Sum",
+      "name": "Two Sum",
+      "url": "https://leetcode.com/problems/two-sum",
+      "difficulty": "Easy",
       "topic": "Arrays"
     }
   ],
   "users": [
     {
-      "user_id": "123456789",
-      "display_name": "Alice",
-      "score": 1,
-      "solved_problem_ids": [101]
+      "userId": "123456789",
+      "displayName": "Alice",
+      "solvedCount": 1,
+      "solved": [101]
     }
   ]
 }
