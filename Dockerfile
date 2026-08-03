@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /hurion
 
-# Bot binary
+# Prebuilt Bot binary
 COPY --from=builder /build/bot /hurion/bin/hurion
 
 # Litestream Config & Startup Script

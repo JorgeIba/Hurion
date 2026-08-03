@@ -7,10 +7,10 @@ import (
 )
 
 type ScoreboardJSON struct {
-	ClassCode string           `json:"classCode"`
-	ClassName string           `json:"className"`
-	Problems  []JSONProblem    `json:"problems"`
-	Users     []JSONUserScore  `json:"users"`
+	ClassCode string          `json:"classCode"`
+	ClassName string          `json:"className"`
+	Problems  []JSONProblem   `json:"problems"`
+	Users     []JSONUserScore `json:"users"`
 }
 
 type JSONProblem struct {

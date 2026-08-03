@@ -1,33 +1,29 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-# Use the environment variable or fall back to the default path
-export DB_PATH="${DB_PATH:-/hurion/data/db.sqlite}"
-
-# 1. Ensure the data directory exists before any Litestream or SQLite operations
-mkdir -p "$(dirname "$DB_PATH")"
-mkdir -p "/hurion/local-backups"
-
-# 2. Pick the right Litestream configuration
-# We require all three Azure variables to use the production config.
-if [ -n "$AZURE_STORAGE_ACCOUNT" ] && [ -n "$AZURE_STORAGE_CONTAINER" ] && [ -n "$LITESTREAM_AZURE_ACCOUNT_KEY" ]; then
+# Configuration selection
+if [ -n "$AZURE_STORAGE_ACCOUNT" ] && [ -n "$AZURE_STORAGE_CONTAINER" ] && { [ -n "$LITESTREAM_AZURE_ACCOUNT_KEY" ] || [ -n "$AZURE_STORAGE_KEY" ]; }; then
+    echo "Using Azure Blob Storage configuration for Litestream..."
     CONFIG="/etc/litestream.yml"
-    echo "[run.sh] Azure credentials found. Using production config: $CONFIG"
 else
+    echo "Using local disk storage configuration for Litestream..."
     CONFIG="/etc/litestream.local.yml"
-    echo "[run.sh] Azure credentials missing or incomplete. Using local dev config: $CONFIG"
 fi
 
-# 3. Restore the database if it doesn't exist
-# -if-db-not-exists: prevents overwriting an existing local database.
-# -if-replica-exists: prevents errors if this is a brand new setup.
-echo "[run.sh] Checking for Litestream replicas..."
-litestream restore -if-db-not-exists -if-replica-exists -config "$CONFIG" "$DB_PATH"
+# Set default database path if not specified and export to environment
+export DB_PATH="${DB_PATH:-/hurion/data/db.sqlite}"
+mkdir -p "$(dirname "$DB_PATH")"
 
-# 4. Ensure WAL mode is enabled (required for Litestream)
-echo "[run.sh] Ensuring WAL mode..."
-sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;"
+# Attempt to restore database if it doesn't exist locally
+# Note: -if-replica-exists exits with status 0 if no replica exists.
+# We do not suppress errors with '|| true' so network/auth failures abort safely.
+echo "Checking for database restore..."
+litestream restore -config "$CONFIG" -if-db-not-exists -if-replica-exists "$DB_PATH"
 
-# 5. Run Litestream to replicate changes and supervise the bot process.
-echo "[run.sh] Starting Litestream replication..."
+# Enforce WAL mode once database exists or has been restored
+echo "Enforcing WAL journal mode on database..."
+sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;" || true
+
+echo "Starting Litestream replication and Hurion bot..."
+# Supervise compiled binary directly, forwarding container CMD flags ($*)
 exec litestream replicate -config "$CONFIG" -exec "/hurion/bin/hurion $*"

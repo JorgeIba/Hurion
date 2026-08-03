@@ -19,15 +19,16 @@ func init() {
 
 func TestScoreboardExporterWorker_ExportAll(t *testing.T) {
 	tempDir := t.TempDir()
-	store := storage.NewDiskStorage(tempDir)
+	store, err := storage.NewDiskStorage(tempDir)
+	require.NoError(t, err)
 
 	// Test worker instantiation
 	worker := NewScoreboardExporterWorker(&services.ClassService{}, &services.ScoreService{}, store)
 	assert.NotNil(t, worker)
 
 	// Verify ExportAll gracefully returns error when Datastore is not injected in services
-	err := worker.ExportAll(context.Background())
-	assert.Error(t, err)
+	exportErr := worker.ExportAll(context.Background())
+	assert.Error(t, exportErr)
 
 	// Verify no files written when service fails
 	files, err := os.ReadDir(tempDir)
@@ -39,7 +40,8 @@ func TestScoreboardExporterWorker_DebounceAndStop(t *testing.T) {
 	// WHY THIS TEST MATTERS: Verifies that rapid Trigger() calls do not block or panic,
 	// and that Stop() cleanly terminates the worker goroutine without deadlocking.
 	tempDir := t.TempDir()
-	store := storage.NewDiskStorage(tempDir)
+	store, err := storage.NewDiskStorage(tempDir)
+	require.NoError(t, err)
 
 	worker := NewScoreboardExporterWorker(&services.ClassService{}, &services.ScoreService{}, store)
 	worker.DebounceDuration = 10 * time.Millisecond // Fast debounce for testing
