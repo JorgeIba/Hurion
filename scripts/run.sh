@@ -10,13 +10,15 @@ else
     CONFIG="/etc/litestream.local.yml"
 fi
 
-# Set default database path if not specified
-DB_PATH="${DB_PATH:-/hurion/data/hurion.db}"
+# Set default database path if not specified and export to environment
+export DB_PATH="${DB_PATH:-/hurion/data/db.sqlite}"
 mkdir -p "$(dirname "$DB_PATH")"
 
 # Attempt to restore database if it doesn't exist locally
+# Note: -if-replica-exists exits with status 0 if no replica exists.
+# We do not suppress errors with '|| true' so network/auth failures abort safely.
 echo "Checking for database restore..."
-litestream restore -config "$CONFIG" -if-db-not-exists -if-replica-exists "$DB_PATH" || true
+litestream restore -config "$CONFIG" -if-db-not-exists -if-replica-exists "$DB_PATH"
 
 # Enforce WAL mode once database exists or has been restored
 echo "Enforcing WAL journal mode on database..."
