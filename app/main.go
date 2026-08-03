@@ -27,6 +27,7 @@ func main() {
 	seedFlag := flag.Bool("seed", false, "Bootstrap the database from config.yaml")
 	mockDiscordFlag := flag.Bool("mock-discord", false, "Use local mock providers instead of real Discord APIs")
 	scriptFlag := flag.String("script", "", "Path to JSONL script file to run")
+	exporterFlag := flag.Bool("exporter", false, "Enable automatic background scoreboard JSON exporting")
 	flag.Parse()
 
 	// 2. Shared Setup (Config, DB, Services)
@@ -52,17 +53,20 @@ func main() {
 	svcs := services.NewServices(db)
 	token := os.Getenv("DISCORD_BOT_TOKEN")
 
-	const defaultExportsDir = "./data/exports"
-	diskStore := storage.NewDiskStorage(defaultExportsDir)
-	exporterWorker := workers.NewScoreboardExporterWorker(svcs.Class, svcs.Score, diskStore)
-	exporterWorker.Start()
-	defer exporterWorker.Stop()
+	// Start background worker only if --exporter flag is set
+	if *exporterFlag {
+		const defaultExportsDir = "./data/exports"
+		storeProvider := storage.NewStorageFromEnv(defaultExportsDir)
+		exporterWorker := workers.NewScoreboardExporterWorker(svcs.Class, svcs.Score, storeProvider)
+		exporterWorker.Start()
+		defer exporterWorker.Stop()
 
-	// Compile initial scoreboards on startup
-	exporterWorker.Trigger()
-	data.RegisterUpdateHookCallback(func(op int, dbName string, tableName string, rowid int64) {
+		// Compile initial scoreboards on startup
 		exporterWorker.Trigger()
-	})
+		data.RegisterUpdateHookCallback(func(op int, dbName string, tableName string, rowid int64) {
+			exporterWorker.Trigger()
+		})
+	}
 
 	// 3. Hydrate the RunConfig
 	runCfg, err := bootstrap.NewRunConfig(*mockDiscordFlag, *scriptFlag)

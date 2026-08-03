@@ -20,7 +20,8 @@ func TestScoreboardExportOnDbHook(t *testing.T) {
 	tempExportDir := t.TempDir()
 
 	// Instantiate DiskStorage and Worker with new layered architecture
-	diskStore := storage.NewDiskStorage(tempExportDir)
+	diskStore, err := storage.NewDiskStorage(tempExportDir)
+	require.NoError(t, err)
 	worker := workers.NewScoreboardExporterWorker(env.Services.Class, env.Services.Score, diskStore)
 	worker.DebounceDuration = 50 * time.Millisecond
 	worker.Start()
@@ -50,8 +51,8 @@ func TestScoreboardExportOnDbHook(t *testing.T) {
 
 	// Verify no scoreboard JSON file exists yet
 	expectedFile := filepath.Join(tempExportDir, classCode+"_score.json")
-	_, err := os.Stat(expectedFile)
-	assert.True(t, os.IsNotExist(err), "Expected JSON file not to exist yet")
+	_, statErr := os.Stat(expectedFile)
+	assert.True(t, os.IsNotExist(statErr), "Expected JSON file not to exist yet")
 
 	// Trigger database write to solved_problems (which triggers the hook)
 	err = env.DB.AddAC(userID, probID)

@@ -30,4 +30,4 @@ sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;"
 
 # 5. Run Litestream to replicate changes and supervise the bot process.
 echo "[run.sh] Starting Litestream replication..."
-exec litestream replicate -config "$CONFIG" -exec "/hurion/bin/hurion $*"
+exec litestream replicate -config "$CONFIG" -exec "make -C /hurion run ARGS=\"$*\""

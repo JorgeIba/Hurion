@@ -164,14 +164,22 @@ func TestRunScript_ParseFailure(t *testing.T) {
 
 type dummyProvider struct{}
 
-func (d *dummyProvider) IsAdmin(guildID, userID string) (bool, error)                { return false, nil }
-func (d *dummyProvider) IsMentor(guildID, userID string) (bool, error)               { return false, nil }
-func (d *dummyProvider) FetchMessage(channelID, messageID string) (*discordgo.Message, error) { return nil, nil }
-func (d *dummyProvider) GetCachedMember(guildID, userID string) (*discordgo.Member, error) { return nil, nil }
-func (d *dummyProvider) FetchMember(guildID, userID string) (*discordgo.Member, error)   { return nil, nil }
-func (d *dummyProvider) EditEmbed(channelID, messageID string, embed *discordgo.MessageEmbed) error { return nil }
+func (d *dummyProvider) IsAdmin(guildID, userID string) (bool, error)  { return false, nil }
+func (d *dummyProvider) IsMentor(guildID, userID string) (bool, error) { return false, nil }
+func (d *dummyProvider) FetchMessage(channelID, messageID string) (*discordgo.Message, error) {
+	return nil, nil
+}
+func (d *dummyProvider) GetCachedMember(guildID, userID string) (*discordgo.Member, error) {
+	return nil, nil
+}
+func (d *dummyProvider) FetchMember(guildID, userID string) (*discordgo.Member, error) {
+	return nil, nil
+}
+func (d *dummyProvider) EditEmbed(channelID, messageID string, embed *discordgo.MessageEmbed) error {
+	return nil
+}
 func (d *dummyProvider) RemoveBotReaction(channelID, messageID, emojiID string) error { return nil }
-func (d *dummyProvider) BotUserID() string                                           { return "bot_1" }
+func (d *dummyProvider) BotUserID() string                                            { return "bot_1" }
 
 func TestRunScript_ValidationFailures(t *testing.T) {
 	t.Parallel()

@@ -20,12 +20,14 @@ COPY --from=litestream/litestream:0.3.13 /usr/local/bin/litestream /usr/local/bi
 RUN apt-get update && apt-get install -y \
     sqlite3 \
     ca-certificates \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /hurion
 
-# Bot binary
+# Bot binary & Makefile
 COPY --from=builder /build/bot /hurion/bin/hurion
+COPY Makefile /hurion/Makefile
 
 # Litestream Config & Startup Script
 COPY litestream.yml /etc/litestream.yml

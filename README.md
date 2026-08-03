@@ -73,23 +73,22 @@ Detailed guides for every part of the system:
 ### Local Setup
 1.  **Configure:** Create a `.env` with your `DISCORD_BOT_TOKEN`.
 2.  **Initialize:** Define classes in `config.yaml`.
-3.  **Seed:** `make run-seed` to bootstrap the database.
-4.  **Launch:** `make run`.
+3.  **Launch (Standard):** `make run`
+4.  **Launch (Full Dev Mode):** `make run-dev` (enables `--seed` and `--exporter`)
 
-### Runtime Flags & Configuration Modes
-The bot's behavior is controlled by a combination of CLI flags and your `config.yaml` file:
+### Runtime Flags & Makefile Composition
+The bot's behavior is controlled by CLI flags composed via `make run FLAGS="..."`:
 
-*   **Standard Mode (No flags):** The bot simply boots up and connects to Discord. It strictly uses whatever data is currently in the SQLite database.
-*   **Seed Mode (CLI Flag: `--seed`):** When passed at startup, the bot performs an **additive bootstrap** against the database before connecting to Discord. It safely creates any missing classes, rooms, or roles defined in your `config.yaml`.
-*   **Test Mode (Config: `test_mode: true`):** Controlled via your `config.yaml`. Bypasses strict Discord channel validations, only responds to whitelisted users/roles, and prefixes DB tables with `test_`.
-*   **Script Runner Mode (CLI Flag: `--script <path>`):** Executes bot commands sequentially from a JSONL file and exits immediately upon completion.
-*   **Mock Discord Mode (CLI Flag: `--mock-discord`):** Runs the bot completely offline without connecting to the Discord API. Redirects bot output/replies to standard console output (`stdout`). Must be run alongside `--script`.
+*   **Standard Mode (`make run`):** Boots up and connects to Discord using existing SQLite data.
+*   **Dev Mode (`make run-dev`):** Shortcut that passes `--seed --exporter`.
+*   **Seed Mode (`make run FLAGS="--seed"`):** Performs an **additive bootstrap** against the database before connecting to Discord.
+*   **Exporter Mode (`make run FLAGS="--exporter"`):** Enables automatic background export of `<class_code>_score.json` files to Azure Blob Storage or local disk for the Discord Activity web UI. See **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
+*   **Mock Discord Mode (`make run-mock`):** Runs the bot offline without connecting to Discord APIs (`--mock-discord --script <path>`).
 
-### Docker (Recommended)
-```bash
-docker compose up --build -d
-```
-For persistence, replication (Litestream), and Docker flag configuration details, see **[README.Docker.md](README.Docker.md)**.
+### 📚 Data Persistence & Replication
+*   **Database Disaster Recovery**: For Litestream WAL replication and restoration guides, see **[docs/LITESTREAM.md](docs/LITESTREAM.md)**.
+*   **Discord Activity JSON Exporter**: For background export architecture, opt-in `--exporter` flag, and schema details, see **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
+*   **Docker Setup**: For container configuration, see **[README.Docker.md](README.Docker.md)**.
 
 ---
 

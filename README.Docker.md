@@ -21,18 +21,21 @@ docker compose up --build -d
 ```
 
 ### Runtime Commands & Flags (Docker)
-The Docker image is built without any default arguments to keep it agnostic. You control the bot's behavior by passing flags directly in your `compose.yaml` under the `command` property:
+The Docker image runs via `make run FLAGS="..."`. You control the bot's behavior by passing flags directly in your `compose.yaml` under the `command` property:
 
 ```yaml
 services:
   service:
     image: hurion:local
-    command: ["--seed"] # Optional
+    command: ["--seed", "--exporter"] # Optional composable flags
 ```
 
-* **`--seed`**: Performs an **additive bootstrap** of the database using your `config.yaml` file every time the container boots up. It safely creates any missing classes, rooms, or roles defined in your config. Because it is strictly additive, it will *not* delete or overwrite existing data in the database.
+* **`--seed`**: Performs an **additive bootstrap** of the database using your `config.yaml` file every time the container boots up.
+* **`--exporter`**: Enables automatic background scoreboard JSON exports to Azure Blob Storage or local disk for the Discord Activity web UI. See **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
 
-### Data Persistence (Litestream)
+### Data Persistence & Replication
+* **Litestream Database Replication**: For disaster recovery configuration and restore steps, see **[docs/LITESTREAM.md](docs/LITESTREAM.md)**.
+* **Discord Activity JSON Exporter**: For background export architecture and schema details, see **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
 
 The bot uses **Litestream** for real-time replication to **Azure Blob Storage**.
 

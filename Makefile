@@ -2,9 +2,10 @@
 BINARY_NAME=hurion
 BUILD_DIR=./bin
 SCRIPT_PATH?=app/script/test.jsonl
+FLAGS?=
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test test-unit test-integration test-workflow generate clean run-seed run-script-mock run-script-online
+.PHONY: all build test test-unit test-integration test-workflow generate clean run run-dev run-mock
 
 # By default, running 'make' executes build
 all: build
@@ -50,25 +51,20 @@ build:
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) app/main.go
 	@echo "==> Done! Binary created at $(BUILD_DIR)/$(BINARY_NAME)"
 
-## run: Build and execute the bot
+## run: Build and execute the bot (compose flags via FLAGS="--seed --exporter")
 run: build
 	@echo "==> Starting bot..."
-	@$(BUILD_DIR)/$(BINARY_NAME)
+	@$(BUILD_DIR)/$(BINARY_NAME) $(FLAGS)
 
-## run-seed: Build and execute the bot with database seeding
-run-seed: build
-	@echo "==> Seeding database and starting bot..."
-	@$(BUILD_DIR)/$(BINARY_NAME) --seed
+## run-dev: Full local development mode (--seed --exporter)
+run-dev: build
+	@echo "==> Starting bot in Dev Mode (--seed --exporter)..."
+	@$(BUILD_DIR)/$(BINARY_NAME) --seed --exporter $(FLAGS)
 
-## run-script-mock: Build and run the bot offline in Mock Script Mode (override with SCRIPT_PATH=...)
-run-script-mock: build
-	@echo "==> Running bot in offline Mock Script Mode..."
-	@$(BUILD_DIR)/$(BINARY_NAME) --mock-discord --script $(SCRIPT_PATH)
-
-## run-script-online: Build and run the bot in Online Script Mode (override with SCRIPT_PATH=...)
-run-script-online: build
-	@echo "==> Running bot in Online Script Mode..."
-	@$(BUILD_DIR)/$(BINARY_NAME) --script $(SCRIPT_PATH)
+## run-mock: Offline script testing mode (override with SCRIPT_PATH=...)
+run-mock: build
+	@echo "==> Running bot in Mock Script Mode..."
+	@$(BUILD_DIR)/$(BINARY_NAME) --mock-discord --script $(SCRIPT_PATH) $(FLAGS)
 
 ## clean: Remove binary and temporary files
 clean:
