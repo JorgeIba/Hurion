@@ -16,6 +16,13 @@ import (
 const pidFilePath = "web/.server.pid"
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	defaultPort := 8080
 	if envPort := os.Getenv("PORT"); envPort != "" {
 		if p, err := strconv.Atoi(envPort); err == nil {
@@ -52,7 +59,8 @@ func main() {
 	defer cancel()
 
 	if err := srv.Start(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("server startup failed: %w", err)
 	}
+
+	return nil
 }

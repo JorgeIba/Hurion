@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const classCode = params.get('class') || 'basicos_1';
 
-    fetch(`/exports/${classCode}_score.json`)
+    fetch(`/exports/${encodeURIComponent(classCode)}_score.json`)
         .then(res => res.json())
         .then(data => renderScoreboard(data))
         .catch(err => {
