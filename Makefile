@@ -2,10 +2,11 @@
 BINARY_NAME=hurion
 BUILD_DIR=./bin
 SCRIPT_PATH?=app/script/test.jsonl
+PORT?=8080
 FLAGS?=
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test test-unit test-integration test-workflow generate clean run run-dev run-mock
+.PHONY: all build test test-unit test-integration test-workflow generate clean run run-dev run-mock run-server stop-server
 
 # By default, running 'make' executes build
 all: build
@@ -65,6 +66,27 @@ run-dev: build
 run-mock: build
 	@echo "==> Running bot in Mock Script Mode..."
 	@$(BUILD_DIR)/$(BINARY_NAME) --mock-discord --script $(SCRIPT_PATH) $(FLAGS)
+
+## run-server: Launch local Web UI dev server (customizable via PORT=9090 or FLAGS="-port 9090")
+run-server:
+	@echo "==> Starting local Web UI dev server on port $(PORT)..."
+	@PORT=$(PORT) go run web/cmd/main.go $(FLAGS)
+
+## stop-server: Stop any running Web UI server using PID tracking with kill -0 validation
+stop-server:
+	@echo "==> Stopping Web UI server..."
+	@if [ -f web/.server.pid ]; then \
+		PID=$$(cat web/.server.pid); \
+		if kill -0 $$PID 2>/dev/null; then \
+			echo "==> Gracefully terminating Web UI server (PID $$PID)..."; \
+			kill -15 $$PID 2>/dev/null || true; \
+		else \
+			echo "==> Stale PID file found ($$PID). Process is no longer running."; \
+		fi; \
+		rm -f web/.server.pid; \
+	else \
+		fuser -k $(PORT)/tcp 2>/dev/null || echo "No server running on port $(PORT)."; \
+	fi
 
 ## clean: Remove binary and temporary files
 clean:
