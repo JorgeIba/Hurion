@@ -52,6 +52,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Start(ctx); err != nil {
-		fmt.Printf("Server stopped: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
+		os.Exit(1)
 	}
 }

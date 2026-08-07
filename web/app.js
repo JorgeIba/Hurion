@@ -6,26 +6,55 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => renderScoreboard(data))
         .catch(err => {
-            document.getElementById('leaderboard').innerHTML = `<tr><td colspan="4">Error loading scoreboard: ${err.message}</td></tr>`;
+            const tbody = document.getElementById('leaderboard');
+            tbody.replaceChildren();
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            // Using textContent treats inputs strictly as plain text, preventing XSS attacks
+            td.textContent = `Error loading scoreboard: ${err.message}`;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
         });
 
     function renderScoreboard(data) {
         document.getElementById('title').textContent = `Scoreboard: ${data.className || data.classCode}`;
         const users = (data.users || []).sort((a, b) => b.solvedCount - a.solvedCount);
         const tbody = document.getElementById('leaderboard');
+        tbody.replaceChildren();
 
         if (users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4">No students found</td></tr>';
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            td.textContent = 'No students found';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
             return;
         }
 
-        tbody.innerHTML = users.map((u, i) => `
-            <tr>
-                <td>${i + 1}</td>
-                <td>${u.displayName} (${u.userId})</td>
-                <td>${u.solvedCount}</td>
-                <td>${(u.solved || []).join(', ') || 'None'}</td>
-            </tr>
-        `).join('');
+        const fragment = document.createDocumentFragment();
+        users.forEach((u, i) => {
+            const tr = document.createElement('tr');
+
+            const tdRank = document.createElement('td');
+            tdRank.textContent = i + 1;
+
+            // OWASP XSS Prevention: Building DOM nodes and assigning textContent directly prevents
+            // XSS vulnerabilities when displaying untrusted user inputs (such as Discord nicknames).
+            const tdName = document.createElement('td');
+            tdName.textContent = `${u.displayName} (${u.userId})`;
+
+            const tdCount = document.createElement('td');
+            tdCount.textContent = u.solvedCount;
+
+            const tdSolved = document.createElement('td');
+            tdSolved.textContent = (u.solved || []).join(', ') || 'None';
+
+            tr.append(tdRank, tdName, tdCount, tdSolved);
+            fragment.appendChild(tr);
+        });
+
+        tbody.appendChild(fragment);
     }
 });
