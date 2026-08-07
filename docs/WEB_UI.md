@@ -47,16 +47,16 @@ To launch and test the Web UI locally on your machine:
 | :--- | :--- | :--- |
 | `PORT` | Listening TCP port for the local Web UI dev server | `8080` |
 | `EXPORTS_DIR` | Path to directory containing exported JSON score files | `./data/exports` |
-| `WEB_UI_BASE_URL` | Base URL used by Discord embeds to link to the Web UI | `http://localhost:8080` |
+| `WEB_UI_BASE_URL` | Base URL used by Discord embeds to link to the Web UI (to be integrated later) | `http://localhost:8080` |
 
 ---
 
 ## 4. Discord Activity & Embed Integration (Optional)
 
-While the Web UI is standalone, it can be launched from Discord in two ways:
+While the Web UI is standalone, it can be launched from Discord in two ways (to be integrated later):
 
 1. **Discord Embed Link**:
-   Setting `WEB_UI_BASE_URL` formats `!score` responses with a launcher link directing users to the hosted Web UI URL.
+   Setting `WEB_UI_BASE_URL` will format `!score` responses with a launcher link directing users to the hosted Web UI URL.
 
 2. **Discord Activity (Embedded App)**:
    To run the Web UI inside a native Discord Activity window, configure the hosted Web UI URL under **Activities** $\rightarrow$ **URL Mappings** in the [Discord Developer Portal](https://discord.com/developers/applications).

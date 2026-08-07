@@ -28,7 +28,10 @@ func main() {
 
 	port := *portFlag
 	webDir := "./web"
-	exportsDir := "./data/exports"
+	exportsDir := os.Getenv("EXPORTS_DIR")
+	if exportsDir == "" {
+		exportsDir = "./data/exports"
+	}
 
 	// Ensure local directories exist for disk-backed dev server
 	_ = os.MkdirAll(filepath.Clean(webDir), 0o755)
