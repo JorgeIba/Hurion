@@ -26,6 +26,7 @@ const (
 	Exterminate
 	ExterminateClass
 	Export
+	ScoreImage
 )
 
 type CommandData struct {
@@ -57,9 +58,17 @@ var Commands = map[Command]CommandData{
 		Cmd:         "!score",
 		Name:        "score",
 		Usage:       "!score [class_code]",
-		Description: "Show scores for a specific class or infer class from the current channel",
+		Description: "Get link to real-time interactive scoreboard Web UI for a class",
 		UserRoles:   NewUserRoleSet(RoleAll),
 		ExtraInfo:   "The optional `class_code` parameter should be one word (e.g., \"basicos_1\"). If omitted, the bot uses the current channel context.",
+	},
+	ScoreImage: {
+		Cmd:         "!score_image",
+		Name:        "score_image",
+		Usage:       "!score_image [class_code]",
+		Description: "Generate and attach static PNG image table of scores for a class",
+		UserRoles:   NewUserRoleSet(RoleAll),
+		ExtraInfo:   "Renders a static PNG table of class scores. Note: For large classes, use `!score` to view the interactive Web UI.",
 	},
 	Scores: {
 		Cmd:         "!scores",

@@ -223,6 +223,65 @@ func TestHandleGetListOfProblems(t *testing.T) {
 	}
 }
 
+func TestHandleGetScoreLink(t *testing.T) {
+	t.Setenv("WEB_UI_BASE_URL", "https://scoreboard.huron.test")
+
+	ctrl := gomock.NewController(t)
+	m := mock_data.NewMockDataStore(ctrl)
+
+	m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+
+	svc := services.NewServices(m)
+	out := make(chan dispatcher.MessageResponse, 1)
+	disp := &dispatcher.Dispatcher{Output: out}
+
+	ctx := &context.ContextMessage{
+		Args:            []string{"!score", "basicos_1"},
+		Services:        svc,
+		Dispatcher:      disp,
+		ExecutorGuildID: "guild_123",
+		Executor:        service_model.User{UserID: "u1"},
+		Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+	}
+
+	HandleGetScoreLink(ctx)
+
+	msg := awaitMessage(t, out)
+	assert.Equal(t, dispatcher.EmbedMessage, msg.Type)
+	assert.NotNil(t, msg.Embed)
+	assert.Contains(t, msg.Embed.Title, "basicos_1")
+	assert.Contains(t, msg.Embed.Description, "https://scoreboard.huron.test?class=basicos_1")
+	assert.NotEmpty(t, msg.Components)
+}
+
+func TestHandleGetScoreLink_UnconfiguredBaseURL(t *testing.T) {
+	t.Setenv("WEB_UI_BASE_URL", "")
+
+	ctrl := gomock.NewController(t)
+	m := mock_data.NewMockDataStore(ctrl)
+
+	m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1", Name: "Basics 1"}, nil).AnyTimes()
+
+	svc := services.NewServices(m)
+	out := make(chan dispatcher.MessageResponse, 1)
+	disp := &dispatcher.Dispatcher{Output: out}
+
+	ctx := &context.ContextMessage{
+		Args:            []string{"!score", "basicos_1"},
+		Services:        svc,
+		Dispatcher:      disp,
+		ExecutorGuildID: "guild_123",
+		Executor:        service_model.User{UserID: "u1"},
+		Message:         &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: "chan_123"}},
+	}
+
+	HandleGetScoreLink(ctx)
+
+	msg := awaitMessage(t, out)
+	assert.Equal(t, dispatcher.SimpleMessage, msg.Type)
+	assert.Contains(t, msg.Content, "not configured yet")
+}
+
 func TestHandleGetScoreByClass(t *testing.T) {
 	t.Parallel()
 

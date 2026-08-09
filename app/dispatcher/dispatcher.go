@@ -60,6 +60,7 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 	case SimpleMessage:
 		if _, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
 			Content:         msg.Content,
+			Components:      msg.Components,
 			AllowedMentions: allowedMentions,
 		}); err != nil {
 			logger.Log.Errorf("Error sending simple message to channel %s: %v\n", msg.ChannelID, err)
@@ -72,6 +73,7 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 				MessageID: msg.ReplyTo,
 				ChannelID: msg.ChannelID,
 			},
+			Components:      msg.Components,
 			AllowedMentions: allowedMentions,
 		}); err != nil {
 			logger.Log.Errorf("Error sending reply to channel %s: %v\n", msg.ChannelID, err)
@@ -80,6 +82,7 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 	case EmbedMessage:
 		if _, err := d.Session.ChannelMessageSendComplex(msg.ChannelID, &discordgo.MessageSend{
 			Embed:           msg.Embed,
+			Components:      msg.Components,
 			AllowedMentions: allowedMentions,
 		}); err != nil {
 			logger.Log.Errorf("Error sending embed to channel %s: %v\n", msg.ChannelID, err)
@@ -108,6 +111,7 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 				Content:         msg.Content,
 				Embeds:          msg.Embeds,
 				Files:           msg.Files,
+				Components:      msg.Components,
 				AllowedMentions: allowedMentions,
 			}); err != nil {
 				logger.Log.Errorf("Error sending file message to channel %s: %v\n", msg.ChannelID, err)
@@ -140,6 +144,7 @@ func (d *Dispatcher) dispatch(msg MessageResponse) {
 				MessageID: msg.ReplyTo,
 				ChannelID: msg.ChannelID,
 			},
+			Components:      msg.Components,
 			AllowedMentions: allowedMentions,
 		})
 
