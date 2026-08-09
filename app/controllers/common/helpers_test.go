@@ -416,3 +416,17 @@ func TestSyncParticipants(t *testing.T) {
 		})
 	}
 }
+
+func TestIsValidClassCode(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, IsValidClassCode("basicos_1"))
+	assert.True(t, IsValidClassCode("power-class"))
+	assert.True(t, IsValidClassCode("Class123"))
+
+	assert.False(t, IsValidClassCode("basic/1"))
+	assert.False(t, IsValidClassCode("basic\\1"))
+	assert.False(t, IsValidClassCode("basic 1"))
+	assert.False(t, IsValidClassCode("basic@1"))
+	assert.False(t, IsValidClassCode(""))
+}

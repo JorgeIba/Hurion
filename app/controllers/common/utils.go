@@ -81,3 +81,16 @@ func GetMessageChannelID(c *context.ContextMessage) string {
 
 	return ""
 }
+
+// IsValidClassCode checks if a class_code contains only alphanumeric characters, underscores, or hyphens.
+func IsValidClassCode(code string) bool {
+	if len(code) == 0 {
+		return false
+	}
+	for _, c := range code {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			return false
+		}
+	}
+	return true
+}
