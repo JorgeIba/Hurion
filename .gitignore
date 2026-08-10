@@ -36,3 +36,11 @@ local-backups/
 
 # Infrastructure
 infra/*.json
+
+# Impeccable design artifacts
+PRODUCT.md
+DESIGN.md
+.impeccable/
+.impeccable*
+web/PRODUCT.md
+web/DESIGN.md
