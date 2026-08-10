@@ -3,11 +3,14 @@ package general
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+	"os"
 	"strings"
 
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/customerr/controllerserr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
@@ -15,6 +18,78 @@ import (
 	"github.com/JorgeIba/Hurion/app/presentation/image"
 	"github.com/bwmarrin/discordgo"
 )
+
+func HandleGetScoreLink(c *context.ContextMessage) {
+	class, err := controllers_common.ResolveClassContext(c, 1)
+	if err != nil {
+		logger.Log.Error(err)
+
+		switch {
+		case serviceerr.IsServiceError(err):
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), adapters.MapError(err, adapters.ActionScoreByClass, controllers_common.ResolveClassCodeArg(c, 1))),
+			)
+		default:
+			c.Dispatcher.Send(
+				dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "Something wrong with the controller, bro. Contact the admin."),
+			)
+		}
+		return
+	}
+
+	classCode := class.ClassCode
+	webUIBaseURL := os.Getenv("WEB_UI_BASE_URL")
+	channelID := controllers_common.GetMessageChannelID(c)
+	if webUIBaseURL == "" {
+		err := controllerserr.NewInternalError("WEB_UI_BASE_URL environment variable is missing", nil)
+		logger.Log.Error(err)
+
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(channelID, "⚠️ Scoreboard Web UI URL is not configured yet, bro. Please contact an administrator or use `!score_image`."),
+		)
+		return
+	}
+
+	// Parse base URL and safely encode the class query parameter
+	parsedURL, err := url.Parse(webUIBaseURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		parseErr := controllerserr.NewParsingError(fmt.Sprintf("invalid WEB_UI_BASE_URL '%s'", webUIBaseURL), err)
+		logger.Log.Error(parseErr)
+
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(channelID, "⚠️ Scoreboard Web UI URL is misconfigured. Please contact an administrator or use `!score_image`."),
+		)
+		return
+	}
+
+	q := parsedURL.Query()
+	q.Set("class", classCode)
+	parsedURL.RawQuery = q.Encode()
+	targetURL := parsedURL.String()
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("Scoreboard for class `%s`", classCode),
+		Description: fmt.Sprintf("View real-time interactive scores online: [Open Web UI](%s)", targetURL),
+		Color:       0x00bfff,
+	}
+
+	button := discordgo.Button{
+		Label: "📊 Open Interactive Scoreboard",
+		Style: discordgo.LinkButton,
+		URL:   targetURL,
+	}
+
+	c.Dispatcher.Send(dispatcher.MessageResponse{
+		Type:       dispatcher.EmbedMessage,
+		ChannelID:  channelID,
+		Embed:      embed,
+		Components: []discordgo.MessageComponent{discordgo.ActionsRow{Components: []discordgo.MessageComponent{button}}},
+	})
+}
+
+func HandleGetScoreImage(c *context.ContextMessage) {
+	HandleGetScoreByClass(c)
+}
 
 func HandleGetListOfProblems(c *context.ContextMessage) {
 	class, err := controllers_common.ResolveClassContext(c, 1)

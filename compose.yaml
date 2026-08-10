@@ -11,5 +11,5 @@ services:
     restart: unless-stopped
     image: hurion:local
     pull_policy: never
-    command: ["--seed"]
+    command: ["--seed", "--exporter"]
     stop_grace_period: 60s

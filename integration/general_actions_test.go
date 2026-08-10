@@ -28,7 +28,7 @@ func TestIntegration_General_GetScoreByClass(t *testing.T) {
 	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!score", classCode})
 
 	// 2. ACT
-	general.HandleGetScoreByClass(ctx)
+	general.HandleGetScoreImage(ctx)
 
 	// 3. ASSERT
 	sentMsgs := env.Dispatcher.GetSentMessages()
@@ -37,6 +37,29 @@ func TestIntegration_General_GetScoreByClass(t *testing.T) {
 	assert.Equal(t, dispatcher.FileMessage, lastMsg.Type)
 	assert.NotEmpty(t, lastMsg.Files)
 	assert.Equal(t, "table.png", lastMsg.Files[0].Name)
+}
+
+func TestIntegration_General_GetScoreLink(t *testing.T) {
+	t.Setenv("WEB_UI_BASE_URL", "https://scoreboard.huron.test")
+
+	env := setupIntegrationEnv(t)
+	classCode := "basicos_1"
+	env.SeedClass(t, classCode, "Basicos 2026")
+
+	student := service_model.User{UserID: "111222333", DisplayName: "Student One"}
+	env.SeedUser(t, student.UserID, student.DisplayName)
+
+	ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", []string{"!score", classCode})
+
+	general.HandleGetScoreLink(ctx)
+
+	sentMsgs := env.Dispatcher.GetSentMessages()
+	require.NotEmpty(t, sentMsgs)
+	lastMsg := sentMsgs[len(sentMsgs)-1]
+	assert.Equal(t, dispatcher.EmbedMessage, lastMsg.Type)
+	require.NotNil(t, lastMsg.Embed)
+	assert.Contains(t, lastMsg.Embed.Title, classCode)
+	assert.NotEmpty(t, lastMsg.Components)
 }
 
 func TestIntegration_General_GetScoreByContextualClass(t *testing.T) {

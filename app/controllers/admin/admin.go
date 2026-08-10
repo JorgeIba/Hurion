@@ -118,6 +118,15 @@ func HandleCreateClass(c *context.ContextMessage) {
 	}
 
 	classCode, className := c.Args[1], strings.Join(c.Args[2:], " ")
+	if !controllers_common.IsValidClassCode(classCode) {
+		err := controllerserr.NewValidationError("class_code can only contain letters, numbers, underscores, and hyphens", nil)
+		logger.Log.Error(err)
+		c.Dispatcher.Send(
+			dispatcher.MakeSimpleMessage(controllers_common.GetMessageChannelID(c), "⚠️ Invalid class code! `class_code` can only contain letters, numbers, underscores, and hyphens (no slashes or special characters)."),
+		)
+		return
+	}
+
 	if _, err := c.Services.Class.CreateClass(classCode, className); err != nil {
 		logger.Log.Error(err)
 

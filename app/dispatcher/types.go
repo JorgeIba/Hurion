@@ -31,13 +31,14 @@ type MessageResponse struct {
 	Type                   MessageType
 	ChannelID              string
 	Content                string
-	ReplyTo                string                    // optional
-	Embed                  *discordgo.MessageEmbed   // optional
-	Embeds                 []*discordgo.MessageEmbed // optional
-	Reactions              []string                  // optional
-	ClearSpecificReactions []string                  // optional, specific emojis to clear before adding new ones
-	Files                  []*discordgo.File         // optional
-	ConfirmationArgs       []string                  // optional, canonical args for delayed confirmation execution
+	ReplyTo                string                       // optional
+	Embed                  *discordgo.MessageEmbed      // optional
+	Embeds                 []*discordgo.MessageEmbed    // optional
+	Reactions              []string                     // optional
+	ClearSpecificReactions []string                     // optional, specific emojis to clear before adding new ones
+	Files                  []*discordgo.File            // optional
+	Components             []discordgo.MessageComponent // optional
+	ConfirmationArgs       []string                     // optional, canonical args for delayed confirmation execution
 
 	MentionPolicy   MentionPolicy
 	AllowedMentions *discordgo.MessageAllowedMentions // used when MentionPolicyCustom

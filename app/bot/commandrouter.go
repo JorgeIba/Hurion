@@ -18,6 +18,7 @@ var commandMap = map[string]CommandRouter{
 	List.String():             routerList,
 	Scores.String():           routerScores,
 	Score.String():            routerScore,
+	ScoreImage.String():       routerScoreImage,
 	ScoreOf.String():          routerScoreOf,
 	AC.String():               routerProposeAC,
 	UndoAC.String():           routerUndoAC,
@@ -80,9 +81,18 @@ func routerList(c *context.ContextMessage) {
 func routerScore(c *context.ContextMessage) {
 	switch len(c.Args) {
 	case 1, 2:
-		general.HandleGetScoreByClass(c)
+		general.HandleGetScoreLink(c)
 	default:
 		sendUsageError(c, Score.Name())
+	}
+}
+
+func routerScoreImage(c *context.ContextMessage) {
+	switch len(c.Args) {
+	case 1, 2:
+		general.HandleGetScoreImage(c)
+	default:
+		sendUsageError(c, ScoreImage.Name())
 	}
 }
 
