@@ -177,6 +177,14 @@ body {
 }
 
 /* --- Header Row (Students in Columns) (/bolder + /typeset) --- */
+/* --- Table Header (Sticky as a Unit to Prevent Sub-Header Overlap) --- */
+.scoreboard-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #131b2e;
+}
+
 .scoreboard-table th {
     background: #131b2e;
     color: var(--text-secondary);
@@ -187,9 +195,6 @@ body {
     letter-spacing: 0.05em; /* /typeset: Monospace tracking for column headers */
     padding: 0.85rem 1rem;
     border-bottom: var(--border-hairline);
-    position: sticky;
-    top: 0;
-    z-index: 10;
 }
 
 .col-problem-header {
@@ -346,6 +351,11 @@ body {
     color: #fca5a5;
 }
 
+.badge-unspecified {
+    border-color: rgba(100, 116, 139, 0.3);
+    color: #94a3b8;
+}
+
 /* --- Difficulty Dot Indicator (Sticky Freeze Column 2) --- */
 .diff-cell {
     text-align: center;
@@ -380,6 +390,30 @@ body {
 .diff-hard {
     background-color: var(--diff-hard);
     box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.diff-unspecified {
+    background-color: var(--text-muted);
+    box-shadow: 0 0 6px rgba(100, 116, 139, 0.4);
+}
+
+/* --- Responsive Freeze Columns for Mobile Viewports --- */
+@media (max-width: 640px) {
+    .col-problem-header,
+    .problem-title-cell {
+        width: 170px !important;
+        min-width: 170px !important;
+        max-width: 170px !important;
+    }
+
+    .col-diff-header,
+    .diff-cell,
+    .total-ac-icon-cell {
+        left: 170px !important;
+        width: 55px !important;
+        min-width: 55px !important;
+        max-width: 55px !important;
+    }
 }
 
 /* --- Cell Status & 3D Glass Pill (/delight) --- */
@@ -442,15 +476,11 @@ body {
     font-weight: 700;
     font-size: 0.85rem;
     color: var(--text-primary);
-    position: sticky;
-    top: 48px;
-    z-index: 10;
 }
 
 .total-ac-label-cell {
     position: sticky;
     left: 0;
-    top: 48px;
     z-index: 20 !important;
     background: #101728 !important;
     text-transform: uppercase;
@@ -462,7 +492,6 @@ body {
 .total-ac-icon-cell {
     position: sticky;
     left: 280px;
-    top: 48px;
     z-index: 20 !important;
     background: #101728 !important;
     border-right: var(--border-hairline);

@@ -167,20 +167,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.className = 'problem-row';
 
                 const diffLower = (p.difficulty || '').toLowerCase();
-                if (diffLower.includes('easy')) tr.classList.add('problem-row-easy');
-                else if (diffLower.includes('hard')) tr.classList.add('problem-row-hard');
-                else tr.classList.add('problem-row-medium');
+                let diffClass = 'problem-row-medium';
+                let badgeClass = 'badge-medium';
+                let diffDotClass = 'diff-medium';
+                let diffLabel = 'Medium';
+
+                if (diffLower.includes('easy')) {
+                    diffClass = 'problem-row-easy';
+                    badgeClass = 'badge-easy';
+                    diffDotClass = 'diff-easy';
+                    diffLabel = 'Easy';
+                } else if (diffLower.includes('hard')) {
+                    diffClass = 'problem-row-hard';
+                    badgeClass = 'badge-hard';
+                    diffDotClass = 'diff-hard';
+                    diffLabel = 'Hard';
+                } else if (diffLower.includes('not specified') || diffLower === '-' || !diffLower) {
+                    diffClass = 'problem-row-unspecified';
+                    badgeClass = 'badge-unspecified';
+                    diffDotClass = 'diff-unspecified';
+                    diffLabel = 'Not specified';
+                }
+
+                tr.classList.add(diffClass);
 
                 // Col 1: Colorized Monospace Code Badge + Problem Name (/colorize + /bolder)
                 const tdProblem = document.createElement('td');
                 tdProblem.className = 'problem-title-cell';
 
                 const codeBadge = document.createElement('span');
-                codeBadge.className = 'problem-code-badge';
-                if (diffLower.includes('easy')) codeBadge.classList.add('badge-easy');
-                else if (diffLower.includes('hard')) codeBadge.classList.add('badge-hard');
-                else codeBadge.classList.add('badge-medium');
-
+                codeBadge.className = 'problem-code-badge ' + badgeClass;
                 codeBadge.textContent = `[${String(p.id).padStart(2, '0')}]`;
 
                 const nameText = document.createTextNode(p.name || 'Problem');
@@ -190,21 +206,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tdDiff = document.createElement('td');
                 tdDiff.className = 'diff-cell';
                 const diffDot = document.createElement('span');
-                diffDot.className = 'diff-dot';
+                diffDot.className = 'diff-dot ' + diffDotClass;
+                diffDot.title = diffLabel;
+                diffDot.setAttribute('aria-label', 'Difficulty: ' + diffLabel);
 
-                if (diffLower.includes('easy')) {
-                    diffDot.classList.add('diff-easy');
-                    diffDot.title = 'Easy';
-                    diffDot.setAttribute('aria-label', 'Difficulty: Easy');
-                } else if (diffLower.includes('hard')) {
-                    diffDot.classList.add('diff-hard');
-                    diffDot.title = 'Hard';
-                    diffDot.setAttribute('aria-label', 'Difficulty: Hard');
-                } else {
-                    diffDot.classList.add('diff-medium');
-                    diffDot.title = 'Medium';
-                    diffDot.setAttribute('aria-label', 'Difficulty: Medium');
-                }
                 tdDiff.appendChild(diffDot);
 
                 tr.append(tdProblem, tdDiff);
