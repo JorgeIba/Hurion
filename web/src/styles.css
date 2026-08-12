@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@600;700&display=swap');
-
 :root {
     --bg-base: #070b14;
     --bg-surface: #0f172a;
@@ -41,7 +39,7 @@
     padding: 0;
     scrollbar-width: thin;
     scrollbar-color: #334155 #070b14;
-    font-feature-settings: "tnum" 1, "zero" 1; /* /typeset: Tabular numeric alignment */
+    font-feature-settings: "tnum" 1, "zero" 1; /* Tabular numeric alignment */
 }
 
 /* --- Custom Dark Scrollbars (WCAG 1.4.11 Compliant Contrast) --- */
@@ -77,7 +75,7 @@ body {
     padding: 1rem;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
-    letter-spacing: 0.01em; /* /typeset: Optical compensation for dark surfaces */
+    letter-spacing: 0.01em; /* Optical compensation for dark surfaces */
 }
 
 .app-container {
@@ -90,7 +88,7 @@ body {
     gap: 1rem;
 }
 
-/* --- Header Bar & Class Health Stats Bar (/layout + /typeset) --- */
+/* --- Header Bar & Class Health Stats Bar --- */
 .header-bar {
     background: var(--bg-surface);
     border: var(--border-hairline);
@@ -119,10 +117,10 @@ body {
     font-size: 1.35rem;
     font-weight: 700;
     color: var(--text-primary);
-    letter-spacing: -0.025em; /* /typeset: Tight display heading tracking */
+    letter-spacing: -0.025em; /* Tight display heading tracking */
 }
 
-/* Class Health Summary Bar (/layout + /typeset) */
+/* Class Health Summary Bar */
 .class-stats-pill {
     display: flex;
     align-items: center;
@@ -176,7 +174,7 @@ body {
     text-align: left;
 }
 
-/* --- Header Row (Students in Columns) (/bolder + /typeset) --- */
+/* --- Header Row (Students in Columns) --- */
 /* --- Table Header (Sticky as a Unit to Prevent Sub-Header Overlap) --- */
 .scoreboard-table thead {
     position: sticky;
@@ -192,7 +190,7 @@ body {
     font-size: 0.8rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em; /* /typeset: Monospace tracking for column headers */
+    letter-spacing: 0.05em; /* Monospace tracking for column headers */
     padding: 0.85rem 1rem;
     border-bottom: var(--border-hairline);
 }
@@ -238,7 +236,7 @@ body {
     margin-bottom: -0.1rem;
 }
 
-/* /bolder: Top 3 Solvers Header Accents */
+/* Top 3 Solvers Header Accents */
 .rank-1-header {
     color: var(--accent-gold) !important;
     text-shadow: 0 0 10px var(--accent-gold-glow);
@@ -252,14 +250,14 @@ body {
     color: var(--accent-bronze) !important;
 }
 
-/* --- Topic Section Row (/bolder + /typeset) --- */
+/* --- Topic Section Row --- */
 .topic-header-row td {
     background: var(--bg-topic-banner);
     color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.08em; /* /typeset: Code banner tracking */
+    letter-spacing: 0.08em; /* Code banner tracking */
     text-transform: uppercase;
     padding: 0.6rem 1rem;
     border-top: var(--border-hairline);
@@ -277,7 +275,7 @@ body {
     vertical-align: middle;
 }
 
-/* Ambient Difficulty Row Background Tints (/colorize) */
+/* Ambient Difficulty Row Background Tints */
 .problem-row-easy {
     background-color: var(--diff-easy-bg);
 }
@@ -335,7 +333,7 @@ body {
     letter-spacing: 0.02em;
 }
 
-/* Colorized Problem Code Badges (/colorize + /bolder) */
+/* Colorized Problem Code Badges */
 .badge-easy {
     border-color: rgba(16, 185, 129, 0.3);
     color: #34d399;
@@ -416,7 +414,7 @@ body {
     }
 }
 
-/* --- Cell Status & 3D Glass Pill (/delight) --- */
+/* --- Cell Status & 3D Glass Pill --- */
 .status-cell {
     text-align: center;
 }
@@ -445,7 +443,7 @@ body {
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.45);
 }
 
-/* Mastered Badge (/delight) */
+/* Mastered Badge */
 .mastered-badge {
     font-size: 0.68rem;
     font-family: var(--font-mono);

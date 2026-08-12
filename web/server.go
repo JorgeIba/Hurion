@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -56,7 +57,16 @@ func NewServer(webDir, exportsDir string, opts ...Option) *Server {
 	}
 
 	if webDir != "" {
-		s.webFS = os.DirFS(webDir)
+		// Auto-detect Vite production build output directory ("web/dist").
+		// Browsers require compiled JS/CSS bundles emitted by Vite ('pnpm build').
+		// If 'dist/' exists, serve compiled React production assets; otherwise,
+		// safely fall back to 'webDir' for unit tests and local development setups.
+		distDir := filepath.Join(webDir, "dist")
+		if info, err := os.Stat(distDir); err == nil && info.IsDir() {
+			s.webFS = os.DirFS(distDir)
+		} else {
+			s.webFS = os.DirFS(webDir)
+		}
 	}
 	if exportsDir != "" {
 		s.exportsFS = os.DirFS(exportsDir)
@@ -78,13 +88,13 @@ func (s *Server) Handler() http.Handler {
 	// (e.g. "/exports/basicos_1_score.json" -> "basicos_1_score.json") and then delegates the modified request
 	// to http.FileServer, which matches whatever filename remains against the files inside s.exportsFS.
 	if s.exportsFS != nil {
-		exportsHandler := http.StripPrefix("/exports/", http.FileServer(http.FS(s.exportsFS)))
+		exportsHandler := http.StripPrefix("/exports/", http.FileServerFS(s.exportsFS))
 		mux.Handle("GET /exports/", exportsHandler)
 	}
 
 	// 2. Route for Web UI Frontend static assets (index.html, app.js, styles.css)
 	if s.webFS != nil {
-		mux.Handle("GET /", http.FileServer(http.FS(s.webFS)))
+		mux.Handle("GET /", http.FileServerFS(s.webFS))
 	}
 
 	return mux
@@ -98,6 +108,7 @@ func (s *Server) Start(ctx context.Context) error {
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	errChan := make(chan error, 1)

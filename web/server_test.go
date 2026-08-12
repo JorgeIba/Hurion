@@ -64,6 +64,29 @@ func TestServer_Handler(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
+	t.Run("auto-detects web dist directory when present", func(t *testing.T) {
+		t.Parallel()
+		distWebDir := t.TempDir()
+		distSubDir := filepath.Join(distWebDir, "dist")
+		err := os.MkdirAll(distSubDir, 0o755)
+		require.NoError(t, err)
+
+		distIndexContent := []byte("<html><body>Hurion React Dist Bundle</body></html>")
+		err = os.WriteFile(filepath.Join(distSubDir, "index.html"), distIndexContent, 0o644)
+		require.NoError(t, err)
+
+		distSrv := NewServer(distWebDir, tempExportsDir)
+		distHandler := distSrv.Handler()
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+
+		distHandler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Hurion React Dist Bundle")
+	})
+
 	t.Run("configures custom options and in-memory filesystem", func(t *testing.T) {
 		t.Parallel()
 
@@ -75,7 +98,7 @@ func TestServer_Handler(t *testing.T) {
 		assert.Equal(t, 9090, optSrv.port)
 
 		optHandler := optSrv.Handler()
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		rec := httptest.NewRecorder()
 
 		optHandler.ServeHTTP(rec, req)
