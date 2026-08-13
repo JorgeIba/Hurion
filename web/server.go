@@ -24,10 +24,12 @@ func WithPort(port int) Option {
 }
 
 // WithWebFS configures a custom web filesystem for UI assets (e.g. embed.FS or fstest.MapFS).
+// Explicitly providing a webFS overrides default build-notice fallback heuristics.
 func WithWebFS(webFS fs.FS) Option {
 	return func(s *Server) {
 		if webFS != nil {
 			s.webFS = webFS
+			s.fallbackHandler = nil
 		}
 	}
 }
@@ -45,6 +47,7 @@ func WithExportsFS(exportsFS fs.FS) Option {
 type Server struct {
 	port            int
 	webFS           fs.FS
+	fallbackHandler http.Handler
 	exportsFS       fs.FS
 	shutdownTimeout time.Duration
 }
@@ -58,16 +61,19 @@ func NewServer(webDir, exportsDir string, opts ...Option) *Server {
 
 	if webDir != "" {
 		// Auto-detect Vite production build output directory ("web/dist").
-		// Browsers require compiled JS/CSS bundles emitted by Vite ('pnpm build').
 		// If 'dist/' exists, serve compiled React production assets; otherwise,
-		// safely fall back to 'webDir' for unit tests and local development setups.
+		// set fallbackHandler to instruct developers to build frontend assets first.
 		distDir := filepath.Join(webDir, "dist")
 		if info, err := os.Stat(distDir); err == nil && info.IsDir() {
 			s.webFS = os.DirFS(distDir)
 		} else {
 			s.webFS = os.DirFS(webDir)
+			s.fallbackHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				writeHTMLResponse(w, http.StatusServiceUnavailable, unbuiltNoticeHTML)
+			})
 		}
 	}
+
 	if exportsDir != "" {
 		s.exportsFS = os.DirFS(exportsDir)
 	}
@@ -84,17 +90,16 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
 	// 1. Route for Scoreboard JSON exports (/exports/<classCode>_score.json)
-	// http.StripPrefix returns a wrapper handler that cuts off "/exports/" from incoming request URLs
-	// (e.g. "/exports/basicos_1_score.json" -> "basicos_1_score.json") and then delegates the modified request
-	// to http.FileServer, which matches whatever filename remains against the files inside s.exportsFS.
 	if s.exportsFS != nil {
 		exportsHandler := http.StripPrefix("/exports/", http.FileServerFS(s.exportsFS))
 		mux.Handle("GET /exports/", exportsHandler)
 	}
 
-	// 2. Route for Web UI Frontend static assets (index.html, app.js, styles.css)
-	if s.webFS != nil {
-		mux.Handle("GET /", http.FileServerFS(s.webFS))
+	// 2. Route for Web UI Frontend static assets or build notice fallback
+	if s.fallbackHandler != nil {
+		mux.Handle("/", s.fallbackHandler)
+	} else if s.webFS != nil {
+		mux.Handle("/", http.FileServerFS(s.webFS))
 	}
 
 	return mux

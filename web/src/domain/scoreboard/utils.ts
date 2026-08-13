@@ -2,12 +2,12 @@ import { Problem, UserScore } from './types';
 
 /**
  * Sanitizes a raw class code string.
- * Permits only lowercase letters, numbers, dashes, and underscores (e.g. "basicos" or "basicos_1").
+ * Permits letters, numbers, dashes, and underscores (e.g. "basicos" or "Class123").
  * Strips invalid characters to prevent file path injection issues.
  */
 export function sanitizeClassCode(rawCode: string | null | undefined): string {
-  if (!rawCode) return '';
-  return rawCode.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  if (!rawCode || typeof rawCode !== 'string') return '';
+  return rawCode.trim().replace(/[^a-zA-Z0-9_-]/g, '');
 }
 
 /**
@@ -15,7 +15,7 @@ export function sanitizeClassCode(rawCode: string | null | undefined): string {
  * Prefers `u.solvedCount` if present, falling back to `u.solved.length`.
  */
 export function getSolvedCount(u: UserScore): number {
-  return u.solvedCount ?? (u.solved ? u.solved.length : 0);
+  return u.solvedCount ?? u.solved?.length ?? 0;
 }
 
 /**

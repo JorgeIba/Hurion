@@ -19,9 +19,13 @@ func TestServer_Handler(t *testing.T) {
 	tempWebDir := t.TempDir()
 	tempExportsDir := t.TempDir()
 
-	// Write mock index.html
+	// Write mock compiled index.html in dist/
+	distDir := filepath.Join(tempWebDir, "dist")
+	err := os.MkdirAll(distDir, 0o755)
+	require.NoError(t, err)
+
 	indexContent := []byte("<html><body>Hurion Web UI</body></html>")
-	err := os.WriteFile(filepath.Join(tempWebDir, "index.html"), indexContent, 0o644)
+	err = os.WriteFile(filepath.Join(distDir, "index.html"), indexContent, 0o644)
 	require.NoError(t, err)
 
 	// Write mock JSON export
@@ -32,7 +36,7 @@ func TestServer_Handler(t *testing.T) {
 	srv := NewServer(tempWebDir, tempExportsDir, WithPort(8080))
 	handler := srv.Handler()
 
-	t.Run("serves root index.html", func(t *testing.T) {
+	t.Run("serves root index.html from dist", func(t *testing.T) {
 		t.Parallel()
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		rec := httptest.NewRecorder()
@@ -64,29 +68,6 @@ func TestServer_Handler(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
-	t.Run("auto-detects web dist directory when present", func(t *testing.T) {
-		t.Parallel()
-		distWebDir := t.TempDir()
-		distSubDir := filepath.Join(distWebDir, "dist")
-		err := os.MkdirAll(distSubDir, 0o755)
-		require.NoError(t, err)
-
-		distIndexContent := []byte("<html><body>Hurion React Dist Bundle</body></html>")
-		err = os.WriteFile(filepath.Join(distSubDir, "index.html"), distIndexContent, 0o644)
-		require.NoError(t, err)
-
-		distSrv := NewServer(distWebDir, tempExportsDir)
-		distHandler := distSrv.Handler()
-
-		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-		rec := httptest.NewRecorder()
-
-		distHandler.ServeHTTP(rec, req)
-
-		assert.Equal(t, http.StatusOK, rec.Code)
-		assert.Contains(t, rec.Body.String(), "Hurion React Dist Bundle")
-	})
-
 	t.Run("configures custom options and in-memory filesystem", func(t *testing.T) {
 		t.Parallel()
 
@@ -104,5 +85,39 @@ func TestServer_Handler(t *testing.T) {
 		optHandler.ServeHTTP(rec, req)
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Body.String(), "In-Memory Web UI")
+	})
+
+	t.Run("returns HTTP 503 build notice when dist directory is missing", func(t *testing.T) {
+		t.Parallel()
+		uncompiledWebDir := t.TempDir()
+
+		uncompiledSrv := NewServer(uncompiledWebDir, tempExportsDir)
+		uncompiledHandler := uncompiledSrv.Handler()
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+
+		uncompiledHandler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Scoreboard Frontend Not Built")
+	})
+
+	t.Run("WithWebFS option overrides fallbackHandler when dist directory is missing", func(t *testing.T) {
+		t.Parallel()
+		uncompiledWebDir := t.TempDir()
+
+		customFS := fstest.MapFS{
+			"index.html": &fstest.MapFile{Data: []byte("Custom Embedded UI")},
+		}
+
+		srv := NewServer(uncompiledWebDir, tempExportsDir, WithWebFS(customFS))
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+
+		srv.Handler().ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Custom Embedded UI")
 	})
 }
