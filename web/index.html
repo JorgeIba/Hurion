@@ -5,52 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Hurion Interactive Scoreboard - Real-time competitive programming standings and problem matrices.">
     <title>Hurion Scoreboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <!-- Preconnect & Google Fonts for Zero-Latency Render -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header Bar & Class Health Summary Bar (/layout) -->
-        <header class="header-bar">
-            <div class="brand-section">
-                <span class="brand-logo">📊</span>
-                <h1 class="header-title" id="title">Scoreboard</h1>
-            </div>
-            <!-- Dynamic Class Health Stats Bar -->
-            <div class="class-stats-pill" id="class-stats">
-                <span class="stat-item" id="stat-students">👥 0 Students</span>
-                <span class="stat-divider">•</span>
-                <span class="stat-item" id="stat-problems">🧩 0 Problems</span>
-                <span class="stat-divider">•</span>
-                <span class="stat-item" id="stat-leader">🥇 Leader: --</span>
-            </div>
-        </header>
-
-        <!-- Transposed Standings Table -->
-        <main class="card-container">
-            <div class="table-wrapper">
-                <table class="scoreboard-table">
-                    <thead>
-                        <tr id="table-header-row">
-                            <th class="col-problem-header">(ID) Problem</th>
-                            <th class="col-diff-header">Diff</th>
-                            <!-- Student column headers generated dynamically in app.js -->
-                        </tr>
-                        <tr id="table-sub-header-row" class="total-ac-row">
-                            <th class="col-problem-header total-ac-label-cell">Total Solved (ACs)</th>
-                            <th class="col-diff-header total-ac-icon-cell"></th>
-                            <!-- Total AC count cells generated dynamically in app.js -->
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard">
-                        <tr>
-                            <td colspan="2" class="state-row">Loading scoreboard data...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </main>
-    </div>
-
-    <script src="app.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

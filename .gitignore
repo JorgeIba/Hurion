@@ -44,3 +44,12 @@ DESIGN.md
 .impeccable*
 web/PRODUCT.md
 web/DESIGN.md
+
+# Temporary process IDs
+*.pid
+web/*.pid
+
+# Web Node modules and Vite build output
+web/node_modules/
+web/dist/
+*.tsbuildinfo
