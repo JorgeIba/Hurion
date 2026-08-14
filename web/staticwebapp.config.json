@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/exports/*"]
+  },
+  "routes": [
+    {
+      "route": "/exports/*",
+      "rewrite": "https://huronproblemcheckerjorge.blob.core.windows.net/exports/*"
+    }
+  ],
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/index.html",
+      "statusCode": 200
+    }
+  }
+}
