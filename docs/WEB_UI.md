@@ -71,6 +71,9 @@ Azure Static Web Apps uses `web/public/staticwebapp.config.json` (which Vite cop
 }
 ```
 
+> [!NOTE]
+> When fetching directly from Azure Blob Storage in production (`VITE_EXPORTS_BASE_URL`), ensure the `exports` container has public anonymous blob read access and CORS enabled (`GET, HEAD, OPTIONS`) for the Static Web App domain.
+
 ---
 
 ## 4. Environment Variables

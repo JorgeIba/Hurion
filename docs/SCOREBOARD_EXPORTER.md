@@ -69,6 +69,9 @@ The following 5 environment variables are configured on the Azure VM where the H
 | `AZURE_STORAGE_CONTAINER` | Azure Blob Container for exports | `exports` |
 | `WEB_UI_BASE_URL` | Base URL of hosted Azure Static Web App | `https://<your-app-name>.azurestaticapps.net` |
 
+> [!NOTE]
+> For the hosted Web UI to read exported scoreboards directly, the Azure Blob Storage container must have public anonymous read access and CORS enabled (`GET, HEAD, OPTIONS`) for the Static Web App domain.
+
 ---
 
 ## 5. Scoreboard JSON Schema
