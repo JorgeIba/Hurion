@@ -52,22 +52,16 @@ To build and test the Web UI locally on your machine:
 
 In production, the frontend is deployed to **Azure Static Web Apps (SWA)** via GitHub Actions (`.github/workflows/azure-static-web-apps-*.yml`).
 
-### Reverse Proxy Configuration (`staticwebapp.config.json`)
-Azure Static Web Apps uses `web/staticwebapp.config.json` as an edge reverse proxy to forward client-side `/exports/*` requests directly to Azure Blob Storage without triggering browser CORS restrictions:
+### Single Page Application (SPA) Routing (`web/public/staticwebapp.config.json`)
+Azure Static Web Apps uses `web/public/staticwebapp.config.json` (which Vite copies to `web/dist/`) to handle client-side HTML5 history navigation and prevent 404 errors on deep linking:
 
 ```json
 {
   "$schema": "https://json.schemastore.org/staticwebapp.config.json",
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/exports/*"]
+    "exclude": ["/assets/*"]
   },
-  "routes": [
-    {
-      "route": "/exports/*",
-      "rewrite": "https://<your-storage-account>.blob.core.windows.net/exports/*"
-    }
-  ],
   "responseOverrides": {
     "404": {
       "rewrite": "/index.html",
@@ -81,8 +75,9 @@ Azure Static Web Apps uses `web/staticwebapp.config.json` as an edge reverse pro
 
 ## 4. Environment Variables
 
-| Variable | Description | Example / Default |
-| :--- | :--- | :--- |
-| `PORT` | Listening TCP port for the local Go Web UI server | `8080` |
-| `EXPORTS_DIR` | Path to local directory containing exported JSON score files | `./data/exports` |
-| `WEB_UI_BASE_URL` | Base URL used by Discord embeds to link to the Web UI (`!score`) | `https://<your-app-name>.azurestaticapps.net` |
+| Variable | Scope | Description | Example / Default |
+| :--- | :--- | :--- | :--- |
+| `PORT` | Local Dev (Go) | Listening TCP port for the local Go Web UI server | `8080` |
+| `EXPORTS_DIR` | Local Dev (Go) | Path to local directory containing exported JSON score files | `./data/exports` |
+| `VITE_EXPORTS_BASE_URL` | Frontend (Vite) | Base URL for fetching scoreboards (uses `/exports` if unset) | `https://<your-storage-account>.blob.core.windows.net/exports` |
+| `WEB_UI_BASE_URL` | Discord Bot (VM) | Base URL used by Discord embeds to link to the Web UI (`!score`) | `https://<your-app-name>.azurestaticapps.net` |
