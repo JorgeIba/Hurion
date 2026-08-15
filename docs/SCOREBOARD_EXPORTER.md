@@ -1,6 +1,6 @@
 # 📊 Scoreboard Exporter & Discord Activity Pipeline
 
-This document details the **Scoreboard Exporter** pipeline, its architectural motivation, opt-in feature flag configuration, and storage provider implementations.
+This document details the **Scoreboard Exporter** pipeline, its architectural motivation, opt-in feature flag configuration, storage provider implementations, and cloud production deployment.
 
 ---
 
@@ -9,13 +9,13 @@ This document details the **Scoreboard Exporter** pipeline, its architectural mo
 ### A. The Discord Image Legibility Issue
 For algorithms club classes with 30+ students and 50+ problems, generating a single PNG table image (`!score`) resulted in massive images that Discord automatically downscaled to a 500px preview width in the chat UI. All text became completely unreadable unless users manually downloaded the file.
 
-### B. The Discord Activity Solution
-To solve legibility, Hurion embeds an interactive web application (HTML/CSS/JS) as a **Discord Activity** iframe right inside Discord. The web frontend requires student score data to render responsive tables, topic filtering, and sorting.
+### B. The Interactive Web Scoreboard Solution
+To solve legibility, Hurion provides an interactive React 19 web application hosted on Azure Static Web Apps and accessible directly via Discord embeds (`!score`) or as an embedded Discord Activity. The web frontend requires student score data to render responsive tables, topic filtering, and sorting.
 
 ### C. Data Push (Static JSON) vs Data Pull (Live API Queries)
 We explicitly avoided building a live `GET /api/score` web server reading SQLite on demand for three key architectural reasons:
 1. **SQLite Concurrency (`SQLITE_BUSY`)**: Avoids multi-process file locking conflicts when a web server reads SQLite while Litestream and the bot write to it.
-2. **Zero Database Load on Web Views**: 100 users opening the Discord Activity fetch static JSON files from Azure Blob Storage / CDN without executing a single query on the SQLite database.
+2. **Zero Database Load on Web Views**: 100 users opening the scoreboard fetch static JSON files from Azure Blob Storage / CDN without executing a single query on the SQLite database.
 3. **Zero Bot Command Latency**: An in-process SQLite driver update hook catches writes asynchronously, and a background worker debounces writes over 800ms to compile JSON files in the background without delaying bot commands.
 
 ---
@@ -57,13 +57,20 @@ The exporter uses the `storage.BlobStorage` interface (`Save(ctx context.Context
 
 ---
 
-## 4. Environment Variables
+## 4. Production Environment Variables (Azure VM)
+
+The following 5 environment variables are configured on the Azure VM where the Hurion Bot executes:
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
+| `DISCORD_BOT_TOKEN` | Discord Bot Authentication Token | `MTA...` |
 | `AZURE_STORAGE_ACCOUNT` | Azure Storage Account Name | `hurionstorage` |
-| `AZURE_STORAGE_KEY` *(or `LITESTREAM_AZURE_ACCOUNT_KEY`)* | Azure Shared Access Key | `w8x...==` |
-| `AZURE_STORAGE_CONTAINER` | Azure Container Name | `exports` |
+| `AZURE_STORAGE_KEY` *(or `LITESTREAM_AZURE_ACCOUNT_KEY`)* | Azure Storage Shared Access Key | `w8x...==` |
+| `AZURE_STORAGE_CONTAINER` | Azure Blob Container for exports | `exports` |
+| `WEB_UI_BASE_URL` | Base URL of hosted Azure Static Web App | `https://<your-app-name>.azurestaticapps.net` |
+
+> [!NOTE]
+> For the hosted Web UI to read exported scoreboards directly, the Azure Blob Storage container must have public anonymous read access and CORS enabled (`GET, HEAD, OPTIONS`) for the Static Web App domain.
 
 ---
 
@@ -100,4 +107,5 @@ Exported files (`<class_code>_score.json`) follow this JSON schema:
 ## 6. Architecture References
 
 * [ADR 0001: Discord Activity Scoreboard Architecture](adr/0001-discord-activity-scoreboard.md)
+* [Scoreboard Web UI Guide](WEB_UI.md)
 * [Litestream Backup Documentation](LITESTREAM.md)

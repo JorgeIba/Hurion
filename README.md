@@ -85,9 +85,10 @@ The bot's behavior is controlled by CLI flags composed via `make run FLAGS="..."
 *   **Exporter Mode (`make run FLAGS="--exporter"`):** Enables automatic background export of `<class_code>_score.json` files to Azure Blob Storage or local disk for the Discord Activity web UI. See **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
 *   **Mock Discord Mode (`make run-mock`):** Runs the bot offline without connecting to Discord APIs (`--mock-discord --script <path>`).
 
-### 📚 Data Persistence & Replication
+### 📚 Data Persistence, Web UI & Replication
 *   **Database Disaster Recovery**: For Litestream WAL replication and restoration guides, see **[docs/LITESTREAM.md](docs/LITESTREAM.md)**.
 *   **Discord Activity JSON Exporter**: For background export architecture, opt-in `--exporter` flag, and schema details, see **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
+*   **Scoreboard Web UI**: For React 19 frontend setup, local dev server, and Azure Static Web Apps deployment, see **[docs/WEB_UI.md](docs/WEB_UI.md)**.
 *   **Docker Setup**: For container configuration, see **[README.Docker.md](README.Docker.md)**.
 
 ---
