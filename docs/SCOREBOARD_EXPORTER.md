@@ -63,7 +63,7 @@ The following 5 environment variables are configured on the Azure VM where the H
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
-| `DISCORD_TOKEN` | Discord Bot Authentication Token | `MTA...` |
+| `DISCORD_BOT_TOKEN` | Discord Bot Authentication Token | `MTA...` |
 | `AZURE_STORAGE_ACCOUNT` | Azure Storage Account Name | `hurionstorage` |
 | `AZURE_STORAGE_KEY` *(or `LITESTREAM_AZURE_ACCOUNT_KEY`)* | Azure Storage Shared Access Key | `w8x...==` |
 | `AZURE_STORAGE_CONTAINER` | Azure Blob Container for exports | `exports` |
