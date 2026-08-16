@@ -205,6 +205,8 @@ EOF
         cat <<'EOF' > /hurion/app/.docker.env
 {{dockerEnvContent}}
 EOF
+    else
+        rm -f /hurion/app/.docker.env
     fi
 }
 
