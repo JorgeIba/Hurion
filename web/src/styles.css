@@ -505,8 +505,14 @@ body {
 
 /* --- Responsive Freeze Columns for Mobile Viewports --- */
 @media (max-width: 640px) {
+    :root,
+    .card-container {
+        --col-problem-width: 170px !important;
+    }
+
     .col-problem-header,
-    .problem-title-cell {
+    .problem-title-cell,
+    .col-problem-track {
         width: 170px !important;
         min-width: 170px !important;
         max-width: 170px !important;

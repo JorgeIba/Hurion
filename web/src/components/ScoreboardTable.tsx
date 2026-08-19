@@ -63,7 +63,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
       <div className="table-wrapper">
         <table className="scoreboard-table">
           <colgroup>
-            <col style={{ width: `${problemWidth}px` }} />
+            <col className="col-problem-track" style={{ width: 'var(--col-problem-width)' }} />
             {users.map((u, i) => (
               <col
                 key={`col-student-${u.userId || i}`}

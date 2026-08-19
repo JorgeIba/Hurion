@@ -66,15 +66,31 @@ export function sortTopicGroupsByStudent(
     };
   });
 
-  // 2. Sort topic sections by student's solve count
+  // 2. Sort topic sections
   entries.sort((a, b) => {
-    if (a.solvedCount !== b.solvedCount) {
-      return isDesc ? b.solvedCount - a.solvedCount : a.solvedCount - b.solvedCount;
+    if (isDesc) {
+      // Top ACs: most solved problems first
+      if (a.solvedCount !== b.solvedCount) {
+        return b.solvedCount - a.solvedCount;
+      }
+      const aRatio = a.totalCount > 0 ? a.solvedCount / a.totalCount : 0;
+      const bRatio = b.totalCount > 0 ? b.solvedCount / b.totalCount : 0;
+      if (bRatio !== aRatio) {
+        return bRatio - aRatio;
+      }
+      return a.originalIndex - b.originalIndex;
+    }
+
+    // Echale Ganas (Backlog First): most pending problems first
+    const aPending = a.totalCount - a.solvedCount;
+    const bPending = b.totalCount - b.solvedCount;
+    if (bPending !== aPending) {
+      return bPending - aPending;
     }
     const aRatio = a.totalCount > 0 ? a.solvedCount / a.totalCount : 0;
     const bRatio = b.totalCount > 0 ? b.solvedCount / b.totalCount : 0;
-    if (bRatio !== aRatio) {
-      return isDesc ? bRatio - aRatio : aRatio - bRatio;
+    if (aRatio !== bRatio) {
+      return aRatio - bRatio; // Lowest completion ratio first
     }
     return a.originalIndex - b.originalIndex;
   });
