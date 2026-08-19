@@ -16,6 +16,8 @@
     --accent-silver: #cbd5e1;
     --accent-bronze: #d97706;
     --accent-emerald: #10b981;
+    --accent-cyan: #38bdf8;
+    --accent-cyan-glow: rgba(56, 189, 248, 0.25);
 
     --diff-easy: #10b981;
     --diff-easy-bg: rgba(16, 185, 129, 0.04);
@@ -78,10 +80,19 @@ body {
     letter-spacing: 0.01em; /* Optical compensation for dark surfaces */
 }
 
+#root {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 .app-container {
     width: 100%;
     max-width: 100%;
     height: 100%;
+    min-height: 0;
     margin: 0;
     display: flex;
     flex-direction: column;
@@ -158,6 +169,7 @@ body {
     border-radius: 10px;
     overflow: hidden;
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
@@ -169,17 +181,18 @@ body {
 }
 
 .scoreboard-table {
-    width: 100%;
-    border-collapse: collapse;
+    width: max-content;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
     text-align: left;
 }
 
 /* --- Header Row (Students in Columns) --- */
-/* --- Table Header (Sticky as a Unit to Prevent Sub-Header Overlap) --- */
 .scoreboard-table thead {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20;
     background: #131b2e;
 }
 
@@ -193,35 +206,92 @@ body {
     letter-spacing: 0.05em; /* Monospace tracking for column headers */
     padding: 0.85rem 1rem;
     border-bottom: var(--border-hairline);
+    position: relative;
 }
 
-.col-problem-header {
-    width: 280px;
-    min-width: 280px;
-    max-width: 280px;
+#table-header-row th.col-problem-header {
+    width: var(--col-problem-width, 280px);
+    min-width: var(--col-problem-width, 280px);
+    max-width: var(--col-problem-width, 280px);
+    box-sizing: border-box;
     font-family: var(--font-heading) !important;
     letter-spacing: -0.01em !important;
     position: sticky;
     left: 0;
-    z-index: 20 !important;
+    z-index: 25 !important;
     background: #131b2e;
+    user-select: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.col-diff-header {
-    width: 80px;
-    min-width: 80px;
-    max-width: 80px;
-    text-align: center;
-    position: sticky;
-    left: 280px;
-    z-index: 20 !important;
-    background: #131b2e;
-    border-right: var(--border-hairline);
+/* Interactive Column Resizer Handle */
+.column-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 7px;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 25;
+    transition: background-color 0.15s ease;
+}
+
+.column-resizer:hover,
+.column-resizer.is-resizing {
+    background: var(--accent-gold);
+    opacity: 0.8;
 }
 
 .col-student-header {
     text-align: center;
     min-width: 140px;
+    border-right: 1px solid rgba(255, 255, 255, 0.028);
+    cursor: pointer;
+    user-select: none;
+    text-transform: none !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.col-student-header:hover {
+    background-color: #1a243d !important;
+}
+
+.sorted-active-desc {
+    background-color: #172847 !important;
+    box-shadow: inset 0 -2px 0 var(--accent-cyan);
+}
+
+.sorted-active-asc {
+    background-color: #262238 !important;
+    box-shadow: inset 0 -2px 0 var(--accent-gold);
+}
+
+.student-name-text {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.88rem;
+    letter-spacing: -0.01em;
+}
+
+.sort-indicator-badge {
+    font-size: 0.62rem;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.08rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    margin-top: 0.15rem;
+}
+
+.sort-indicator-badge.sort-asc {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fde047;
+    border-color: rgba(245, 158, 11, 0.45);
 }
 
 .student-header-inner {
@@ -262,8 +332,13 @@ body {
     padding: 0.6rem 1rem;
     border-top: var(--border-hairline);
     border-bottom: var(--border-hairline);
+}
+
+.topic-header-sticky {
     position: sticky;
-    left: 0;
+    left: 1rem;
+    display: inline-block;
+    white-space: nowrap;
     z-index: 8;
 }
 
@@ -300,12 +375,52 @@ body {
     position: sticky;
     left: 0;
     z-index: 5;
-    white-space: nowrap;
+    width: var(--col-problem-width, 280px);
+    min-width: var(--col-problem-width, 280px);
+    max-width: var(--col-problem-width, 280px);
+    box-sizing: border-box;
+    border-right: var(--border-hairline);
+}
+
+.problem-title-inner,
+.problem-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    overflow: hidden;
+    color: var(--text-primary);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.problem-link:hover .problem-name-text {
+    color: var(--accent-gold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.external-link-icon {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    opacity: 0;
+    margin-left: 0.15rem;
+    flex-shrink: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.problem-row:hover .external-link-icon,
+.problem-link:hover .external-link-icon {
+    opacity: 0.85;
+    color: var(--accent-gold);
+    transform: translate(1px, -1px);
+}
+
+.problem-name-text {
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 280px;
-    min-width: 280px;
-    max-width: 280px;
+    white-space: nowrap;
+    flex: 1;
 }
 
 .scoreboard-table tbody tr.problem-row:nth-child(even) td.problem-title-cell {
@@ -329,8 +444,8 @@ body {
     border: var(--border-hairline);
     padding: 0.15rem 0.45rem;
     border-radius: 4px;
-    margin-right: 0.5rem;
     letter-spacing: 0.02em;
+    flex-shrink: 0;
 }
 
 /* Colorized Problem Code Badges */
@@ -354,20 +469,13 @@ body {
     color: #94a3b8;
 }
 
-/* --- Difficulty Dot Indicator (Sticky Freeze Column 2) --- */
-.diff-cell {
-    text-align: center;
-    position: sticky;
-    left: 280px;
-    z-index: 5;
-    border-right: var(--border-hairline);
-}
-
+/* --- Difficulty Dot Indicator --- */
 .diff-dot {
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
+    flex-shrink: 0;
     transition: transform 0.15s ease;
 }
 
@@ -403,20 +511,12 @@ body {
         min-width: 170px !important;
         max-width: 170px !important;
     }
-
-    .col-diff-header,
-    .diff-cell,
-    .total-ac-icon-cell {
-        left: 170px !important;
-        width: 55px !important;
-        min-width: 55px !important;
-        max-width: 55px !important;
-    }
 }
 
 /* --- Cell Status & 3D Glass Pill --- */
 .status-cell {
     text-align: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.028);
 }
 
 .status-ac-pill {
@@ -465,10 +565,10 @@ body {
 }
 
 /* --- Total ACs Sub-Header Row (Directly Below Student Headers) --- */
-.total-ac-row th {
+#table-sub-header-row th {
     background: #101728;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
     padding: 0.65rem 1rem;
     font-family: var(--font-mono);
     font-weight: 700;
@@ -476,29 +576,27 @@ body {
     color: var(--text-primary);
 }
 
-.total-ac-label-cell {
+#table-sub-header-row th.total-ac-label-cell {
+    width: var(--col-problem-width, 280px);
+    min-width: var(--col-problem-width, 280px);
+    max-width: var(--col-problem-width, 280px);
+    box-sizing: border-box;
     position: sticky;
     left: 0;
-    z-index: 20 !important;
+    z-index: 25 !important;
     background: #101728 !important;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-secondary) !important;
     font-family: var(--font-heading) !important;
-}
-
-.total-ac-icon-cell {
-    position: sticky;
-    left: 280px;
-    z-index: 20 !important;
-    background: #101728 !important;
-    border-right: var(--border-hairline);
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .total-ac-count-cell {
     text-align: center;
     color: var(--text-primary);
     font-size: 0.95rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.028);
 }
 
 .total-ac-count-cell.rank-1-ac {

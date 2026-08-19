@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { ScoreboardData } from './types';
+import { SCOREBOARD_CONFIG } from './constants';
 
 /**
  * Resolves the appropriate Base URL for fetching scoreboard data based on the runtime environment:
@@ -9,17 +10,18 @@ import { ScoreboardData } from './types';
  */
 function getBaseUrl(): string {
   if (typeof window === 'undefined') {
-    return '/exports';
+    return SCOREBOARD_CONFIG.API.LOCAL_EXPORTS_PATH;
   }
 
   const isDiscord = new URLSearchParams(window.location.search).has('frame_id');
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   if (isDiscord || isLocal) {
-    return '/exports';
+    return SCOREBOARD_CONFIG.API.LOCAL_EXPORTS_PATH;
   }
 
-  const configuredUrl = import.meta.env.VITE_EXPORTS_BASE_URL || 'https://huronproblemcheckerjorge.blob.core.windows.net/exports';
+  const configuredUrl =
+    import.meta.env.VITE_EXPORTS_BASE_URL || SCOREBOARD_CONFIG.API.DEFAULT_AZURE_STORAGE_URL;
   return configuredUrl.replace(/\/+$/, '');
 }
 
@@ -28,7 +30,7 @@ function getBaseUrl(): string {
  */
 export const apiClient = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 10000,
+  timeout: SCOREBOARD_CONFIG.API.TIMEOUT_MS,
   headers: {
     Accept: 'application/json',
   },

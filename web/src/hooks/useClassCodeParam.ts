@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { sanitizeClassCode } from '@/domain/scoreboard/utils';
+import { SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
 
 /**
  * Custom React Hook: useClassCodeParam
@@ -7,10 +8,12 @@ import { sanitizeClassCode } from '@/domain/scoreboard/utils';
  * Manages the active class code for the scoreboard (e.g. "basicos" or "avanzados").
  * Reads `?class=...` from the browser URL on initial load and provides state to switch classes.
  * 
- * @param defaultCode Fallback class identifier if missing from URL (defaults to "basicos")
+ * @param defaultCode Fallback class identifier if missing from URL
  * @returns Tuple containing `[classCode, setClassCode]`
  */
-export function useClassCodeParam(defaultCode = 'basicos'): [string, (newCode: string) => void] {
+export function useClassCodeParam(
+  defaultCode = SCOREBOARD_CONFIG.DEFAULT_CLASS_CODE
+): [string, (newCode: string) => void] {
   // Read initial class code from URL query parameter on load
   const params = new URLSearchParams(window.location.search);
   const rawCode = params.get('class');
