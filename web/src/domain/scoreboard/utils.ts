@@ -1,4 +1,5 @@
-import { Problem, UserScore } from './types';
+import { Problem, UserScore, ProblemDifficulty } from './types';
+import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from './constants';
 
 /**
  * Sanitizes a raw class code string.
@@ -28,12 +29,12 @@ export function sortUsersBySolved(users: UserScore[]): UserScore[] {
 
 /**
  * Groups problems into a Map keyed by topic section name (e.g. "// TOPIC: ARRAYS & HASHING").
- * Defaults unassigned topics to 'General' while maintaining problem list sequence.
+ * Defaults unassigned topics to DEFAULT_TOPIC_NAME while maintaining problem list sequence.
  */
 export function groupProblemsByTopic(problems: Problem[]): Map<string, Problem[]> {
   const groups = new Map<string, Problem[]>();
   problems.forEach((p) => {
-    const topicName = p.topic || 'General';
+    const topicName = p.topic || SCOREBOARD_CONFIG.DEFAULT_TOPIC_NAME;
     if (!groups.has(topicName)) {
       groups.set(topicName, []);
     }
@@ -41,3 +42,60 @@ export function groupProblemsByTopic(problems: Problem[]): Map<string, Problem[]
   });
   return groups;
 }
+
+export interface ProblemDifficultyMetadata {
+  rowClass: string;
+  badgeClass: string;
+  dotClass: string;
+  label: string;
+}
+
+/**
+ * Declarative lookup table mapping normalized difficulty tiers to presentation metadata.
+ */
+const DIFFICULTY_METADATA_MAP: Record<ProblemDifficulty, ProblemDifficultyMetadata> = {
+  easy: {
+    rowClass: 'problem-row-easy',
+    badgeClass: 'badge-easy',
+    dotClass: 'diff-easy',
+    label: SCOREBOARD_LABELS.DIFFICULTY.EASY,
+  },
+  medium: {
+    rowClass: 'problem-row-medium',
+    badgeClass: 'badge-medium',
+    dotClass: 'diff-medium',
+    label: SCOREBOARD_LABELS.DIFFICULTY.MEDIUM,
+  },
+  hard: {
+    rowClass: 'problem-row-hard',
+    badgeClass: 'badge-hard',
+    dotClass: 'diff-hard',
+    label: SCOREBOARD_LABELS.DIFFICULTY.HARD,
+  },
+  unspecified: {
+    rowClass: 'problem-row-unspecified',
+    badgeClass: 'badge-unspecified',
+    dotClass: 'diff-unspecified',
+    label: SCOREBOARD_LABELS.DIFFICULTY.UNSPECIFIED,
+  },
+};
+
+/**
+ * Normalizes an arbitrary raw difficulty string into a typed ProblemDifficulty tier.
+ */
+export function parseDifficulty(raw?: string): ProblemDifficulty {
+  const normalized = (raw || '').trim().toLowerCase();
+  if (normalized === 'easy') return 'easy';
+  if (normalized === 'medium') return 'medium';
+  if (normalized === 'hard') return 'hard';
+  return 'unspecified';
+}
+
+/**
+ * Resolves structured styling and label metadata for a problem difficulty level via O(1) lookup.
+ */
+export function getProblemDifficultyMetadata(difficulty?: string): ProblemDifficultyMetadata {
+  const tier = parseDifficulty(difficulty);
+  return DIFFICULTY_METADATA_MAP[tier];
+}
+

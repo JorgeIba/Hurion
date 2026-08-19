@@ -5,6 +5,7 @@ import { HeaderBar } from '@/components/HeaderBar';
 import { ScoreboardTable } from '@/components/ScoreboardTable';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { sortUsersBySolved } from '@/domain/scoreboard/utils';
+import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
 
 /**
  * ScoreboardContent Component
@@ -16,7 +17,7 @@ import { sortUsersBySolved } from '@/domain/scoreboard/utils';
  * 4. Renders HeaderBar and ScoreboardTable components.
  */
 function ScoreboardContent() {
-  const [classCode] = useClassCodeParam('basicos');
+  const [classCode] = useClassCodeParam(SCOREBOARD_CONFIG.DEFAULT_CLASS_CODE);
   const { data, loading, error } = useScoreboardData(classCode);
 
   // Sort students descending by total solved AC count
@@ -31,12 +32,12 @@ function ScoreboardContent() {
       <div className="app-container">
         <header className="header-bar">
           <div className="brand-section">
-            <span className="brand-logo">📊</span>
-            <h1 className="header-title">Scoreboard</h1>
+            <span className="brand-logo">{SCOREBOARD_LABELS.BRAND_LOGO}</span>
+            <h1 className="header-title">{SCOREBOARD_CONFIG.DEFAULT_PAGE_TITLE}</h1>
           </div>
         </header>
         <main className="card-container">
-          <div className="state-row">Loading scoreboard data...</div>
+          <div className="state-row">{SCOREBOARD_LABELS.LOADING}</div>
         </main>
       </div>
     );
@@ -48,12 +49,12 @@ function ScoreboardContent() {
       <div className="app-container">
         <header className="header-bar">
           <div className="brand-section">
-            <span className="brand-logo">📊</span>
-            <h1 className="header-title">Scoreboard</h1>
+            <span className="brand-logo">{SCOREBOARD_LABELS.BRAND_LOGO}</span>
+            <h1 className="header-title">{SCOREBOARD_CONFIG.DEFAULT_PAGE_TITLE}</h1>
           </div>
         </header>
         <main className="card-container">
-          <div className="state-row">{error || 'Failed to load scoreboard'}</div>
+          <div className="state-row">{error || SCOREBOARD_LABELS.ERROR_FALLBACK}</div>
         </main>
       </div>
     );

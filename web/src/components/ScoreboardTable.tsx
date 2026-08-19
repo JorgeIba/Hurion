@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
-import { Problem, UserScore } from '@/domain/scoreboard/types';
-import { getSolvedCount, groupProblemsByTopic } from '@/domain/scoreboard/utils';
-import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
+import React, { useMemo, useState, useCallback, startTransition } from 'react';
+import { Problem, UserScore, SortState } from '@/domain/scoreboard/types';
+import { getSolvedCount, getProblemDifficultyMetadata } from '@/domain/scoreboard/utils';
+import { getNextSortState, sortTopicGroupsByStudent } from '@/domain/scoreboard/sorting';
+import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import { useColumnResize } from '@/hooks/useColumnResize';
 
 interface ScoreboardTableProps {
   problems: Problem[];
@@ -13,31 +15,82 @@ interface ScoreboardTableProps {
  * 
  * Renders the transposed matrix standings table:
  * - Columns: Student handles (Header Row 1) + Total AC summary counts (Header Row 2).
- * - Rows: Problem definitions grouped by section topics (e.g. "// TOPIC: ARRAYS & HASHING").
- * - Sticky Freeze: Columns 1 & 2 (Problem Name + Diff) and the double-row `thead` lock during scrolling.
+ * - Rows: Problem definitions grouped by section topics (e.g. "// TOPIC: MAX_FLOW_MIN_COST").
+ * - Sticky Freeze: 2D header locking and Column 1 frozen on horizontal scroll.
+ * - Interactive Column Resizing: Via `useColumnResize` Pointer Events hook with drag handle.
+ * - Tri-State Adaptive Sorting: Via React 19 `startTransition` non-blocking re-ordering.
  */
 export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
-  // 1. Topic Grouping: Preserves problem order while grouping by section topic banners.
-  const topicGroups = useMemo(() => {
-    return groupProblemsByTopic(problems);
-  }, [problems]);
+  // 1. Column Resizing State (Pointer Events API)
+  const {
+    width: problemWidth,
+    isResizing,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handleDoubleClick,
+  } = useColumnResize();
 
-  // 2. Fast Status Lookup Optimization: Pre-computes Set<problemId> per student for O(1) cell checks.
+  // 2. Tri-State Student-Targeted Topic Sorting
+  const [sortState, setSortState] = useState<SortState>({ userId: null, direction: null });
+
+  const handleStudentClick = useCallback((userId: string) => {
+    // React 19 Non-blocking transition keeps interaction responsive while re-ordering 200+ rows
+    startTransition(() => {
+      setSortState((prev) => getNextSortState(prev, userId));
+    });
+  }, []);
+
+  // 3. Topic Grouping & Adaptive Sorting (Pure Domain Layer)
+  const topicGroups = useMemo(() => {
+    return sortTopicGroupsByStudent(problems, users, sortState);
+  }, [problems, users, sortState]);
+
+  // 4. Fast Status Lookup Optimization: Pre-computes Set<problemId> per student for O(1) cell checks.
   const userSolvedSets = useMemo(() => {
     return users.map((u) => new Set(u.solved || []));
   }, [users]);
 
-  const totalCols = 2 + users.length;
+  const totalCols = 1 + users.length;
 
   return (
-    <main className="card-container">
+    <main
+      className="card-container"
+      style={{
+        ['--col-problem-width' as string]: `${problemWidth}px`,
+      }}
+    >
       <div className="table-wrapper">
         <table className="scoreboard-table">
+          <colgroup>
+            <col className="col-problem-track" style={{ width: 'var(--col-problem-width)' }} />
+            {users.map((u, i) => (
+              <col
+                key={`col-student-${u.userId || i}`}
+                style={{ width: `${SCOREBOARD_CONFIG.DIMENSIONS.STUDENT_COL_WIDTH_PX}px` }}
+              />
+            ))}
+          </colgroup>
           <thead>
             {/* --- Header Row 1: Student Names, Rank Medals (👑, 🥈, 🥉), and Mastery Badges --- */}
             <tr id="table-header-row">
-              <th className="col-problem-header" scope="col">{SCOREBOARD_LABELS.PROBLEM_HEADER}</th>
-              <th className="col-diff-header" scope="col">{SCOREBOARD_LABELS.DIFF_HEADER}</th>
+              <th className="col-problem-header" scope="col">
+                <span>{SCOREBOARD_LABELS.PROBLEM_HEADER}</span>
+                <div
+                  className={`column-resizer ${isResizing ? 'is-resizing' : ''}`}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-valuenow={problemWidth}
+                  aria-valuemin={SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH}
+                  aria-valuemax={SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onDoubleClick={handleDoubleClick}
+                  title={SCOREBOARD_LABELS.RESIZER.TOOLTIP}
+                  aria-label={SCOREBOARD_LABELS.RESIZER.ARIA_LABEL}
+                />
+              </th>
               {users.map((u, index) => {
                 let rankClass = '';
                 let crownEmoji = '';
@@ -55,17 +108,52 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                 const isMastered =
                   problems.length > 0 && getSolvedCount(u) >= problems.length;
 
+                const isSelected = sortState.userId === u.userId;
+                const sortDir = isSelected ? sortState.direction : null;
+                const sortClass = isSelected
+                  ? sortDir === 'desc'
+                    ? 'sorted-active-desc'
+                    : 'sorted-active-asc'
+                  : '';
+
+                const ariaSortValue = isSelected
+                  ? sortDir === 'desc'
+                    ? 'descending'
+                    : 'ascending'
+                  : 'none';
+
                 return (
                   <th
                     key={u.userId || index}
-                    className={`col-student-header ${rankClass}`}
+                    className={`col-student-header ${rankClass} ${sortClass}`}
                     scope="col"
-                    title={u.userId ? `@${u.userId} (${getSolvedCount(u)} / ${problems.length} solved)` : ''}
+                    aria-sort={ariaSortValue}
+                    tabIndex={0}
+                    onClick={() => handleStudentClick(u.userId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleStudentClick(u.userId);
+                      }
+                    }}
+                    title={
+                      isSelected
+                        ? sortDir === 'desc'
+                          ? `Sorted by ${u.displayName || u.userId}'s Top Topics (Click for ${SCOREBOARD_LABELS.SORT_LABELS.ECHALE_GANAS})`
+                          : `Sorted by ${u.displayName || u.userId}'s ${SCOREBOARD_LABELS.SORT_LABELS.ECHALE_GANAS} (Click to Reset)`
+                        : `Click to sort scoreboard by ${u.displayName || u.userId}'s solves`
+                    }
                   >
                     <div className="student-header-inner">
                       {crownEmoji && <span className="student-crown">{crownEmoji}</span>}
-                      <span>{u.displayName || u.userId}</span>
+                      <span className="student-name-text">{u.displayName || u.userId}</span>
                       {isMastered && <span className="mastered-badge">{SCOREBOARD_LABELS.MASTERY_BADGE}</span>}
+                      {sortDir === 'desc' && (
+                        <span className="sort-indicator-badge">{SCOREBOARD_LABELS.SORT_LABELS.TOP_ACS}</span>
+                      )}
+                      {sortDir === 'asc' && (
+                        <span className="sort-indicator-badge sort-asc">{SCOREBOARD_LABELS.SORT_LABELS.ECHALE_GANAS}</span>
+                      )}
                     </div>
                   </th>
                 );
@@ -77,7 +165,6 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
               <th className="col-problem-header total-ac-label-cell" scope="col">
                 {SCOREBOARD_LABELS.TOTAL_SOLVED}
               </th>
-              <th className="col-diff-header total-ac-icon-cell" scope="col"></th>
               {users.map((u, index) => (
                 <th
                   key={`ac-${u.userId || index}`}
@@ -92,67 +179,75 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
 
           <tbody id="leaderboard">
             {problems.length === 0 ? (
-              <tr>
-                <td colSpan={totalCols} className="state-row">
-                  {SCOREBOARD_LABELS.NO_PROBLEMS}
-                </td>
+              <tr className="state-row">
+                <td colSpan={totalCols}>{SCOREBOARD_LABELS.NO_PROBLEMS}</td>
               </tr>
             ) : (
-              Array.from(topicGroups.entries()).map(([topicName, probList]) => (
-                <React.Fragment key={topicName}>
-                  {/* --- Full-Width Topic Section Header Banner --- */}
+              Array.from(topicGroups.entries()).map(([topicName, topicProblems]) => (
+                <React.Fragment key={`topic-${topicName}`}>
+                  {/* Topic Section Header Banner */}
                   <tr className="topic-header-row">
                     <td colSpan={totalCols}>
-                      {`${SCOREBOARD_LABELS.TOPIC_PREFIX} ${topicName.toUpperCase()}`}
+                      <div className="topic-header-sticky">
+                        {SCOREBOARD_LABELS.TOPIC_PREFIX} {topicName.toUpperCase()}
+                      </div>
                     </td>
                   </tr>
 
-                  {/* --- Problem Matrix Rows --- */}
-                  {probList.map((p) => {
-                    // Normalize problem difficulty to assign color tint, dot, and ARIA label
-                    const diffLower = (p.difficulty || '').toLowerCase();
-                    let diffClass = 'problem-row-medium';
-                    let badgeClass = 'badge-medium';
-                    let diffDotClass = 'diff-medium';
-                    let diffLabel: string = SCOREBOARD_LABELS.DIFFICULTY.MEDIUM;
+                  {/* Problem Rows inside this Topic */}
+                  {topicProblems.map((p) => {
+                    const {
+                      rowClass,
+                      badgeClass,
+                      dotClass,
+                      label: diffLabel,
+                    } = getProblemDifficultyMetadata(p.difficulty);
 
-                    if (diffLower.includes('easy')) {
-                      diffClass = 'problem-row-easy';
-                      badgeClass = 'badge-easy';
-                      diffDotClass = 'diff-easy';
-                      diffLabel = SCOREBOARD_LABELS.DIFFICULTY.EASY;
-                    } else if (diffLower.includes('hard')) {
-                      diffClass = 'problem-row-hard';
-                      badgeClass = 'badge-hard';
-                      diffDotClass = 'diff-hard';
-                      diffLabel = SCOREBOARD_LABELS.DIFFICULTY.HARD;
-                    } else if (diffLower.includes('not specified') || diffLower === '-' || !diffLower) {
-                      diffClass = 'problem-row-unspecified';
-                      badgeClass = 'badge-unspecified';
-                      diffDotClass = 'diff-unspecified';
-                      diffLabel = SCOREBOARD_LABELS.DIFFICULTY.UNSPECIFIED;
-                    }
+                    const problemTitle = p.name || SCOREBOARD_CONFIG.DEFAULT_PROBLEM_NAME;
 
                     return (
-                      <tr key={p.id} className={`problem-row ${diffClass}`}>
-                        {/* Col 1: Problem Code Badge ([01], [02]) + Name */}
+                      <tr key={`prob-${p.id}`} className={`problem-row ${rowClass}`}>
+                        {/* Col 1: Problem Title, Numerical ID, and Unified Difficulty Dot */}
                         <td className="problem-title-cell">
-                          <span className={`problem-code-badge ${badgeClass}`}>
-                            {`[${String(p.id).padStart(2, '0')}]`}
-                          </span>
-                          {p.name || 'Problem'}
+                          {p.url ? (
+                            <a
+                              href={p.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="problem-link"
+                              title={`Open ${problemTitle} in new tab`}
+                            >
+                              <span className={`problem-code-badge ${badgeClass}`}>
+                                {`[${String(p.id).padStart(2, '0')}]`}
+                              </span>
+                              <span
+                                className={`diff-dot ${dotClass}`}
+                                title={`Difficulty: ${diffLabel}`}
+                                aria-label={`Difficulty: ${diffLabel}`}
+                              />
+                              <span className="problem-name-text">
+                                {problemTitle}
+                              </span>
+                              <span className="external-link-icon" aria-hidden="true">↗</span>
+                            </a>
+                          ) : (
+                            <div className="problem-title-inner">
+                              <span className={`problem-code-badge ${badgeClass}`}>
+                                {`[${String(p.id).padStart(2, '0')}]`}
+                              </span>
+                              <span
+                                className={`diff-dot ${dotClass}`}
+                                title={`Difficulty: ${diffLabel}`}
+                                aria-label={`Difficulty: ${diffLabel}`}
+                              />
+                              <span className="problem-name-text" title={problemTitle}>
+                                {problemTitle}
+                              </span>
+                            </div>
+                          )}
                         </td>
 
-                        {/* Col 2: Difficulty Pure Color Dot Indicator */}
-                        <td className="diff-cell">
-                          <span
-                            className={`diff-dot ${diffDotClass}`}
-                            title={diffLabel}
-                            aria-label={`Difficulty: ${diffLabel}`}
-                          />
-                        </td>
-
-                        {/* Cols 3..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}
+                        {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}
                         {userSolvedSets.map((solvedSet, uIndex) => {
                           const isSolved = solvedSet.has(p.id);
                           return (
