@@ -503,22 +503,6 @@ body {
     box-shadow: 0 0 6px rgba(100, 116, 139, 0.4);
 }
 
-/* --- Responsive Freeze Columns for Mobile Viewports --- */
-@media (max-width: 640px) {
-    :root,
-    .card-container {
-        --col-problem-width: 170px !important;
-    }
-
-    .col-problem-header,
-    .problem-title-cell,
-    .col-problem-track {
-        width: 170px !important;
-        min-width: 170px !important;
-        max-width: 170px !important;
-    }
-}
-
 /* --- Cell Status & 3D Glass Pill --- */
 .status-cell {
     text-align: center;

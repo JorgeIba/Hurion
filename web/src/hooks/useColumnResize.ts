@@ -8,6 +8,24 @@ interface ColumnResizeOptions {
 }
 
 /**
+ * Resolves default and minimum column widths based on current viewport size.
+ * Allows mobile screens (<= 640px) to start with a compact layout while
+ * preserving user drag interactivity.
+ */
+function getResponsiveDefaults(): { defaultWidth: number; minWidth: number } {
+  if (typeof window !== 'undefined' && window.innerWidth <= 640) {
+    return {
+      defaultWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_DEFAULT_WIDTH,
+      minWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_MIN_WIDTH,
+    };
+  }
+  return {
+    defaultWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_DEFAULT_WIDTH,
+    minWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH,
+  };
+}
+
+/**
  * Custom React Hook: useColumnResize
  * 
  * Encapsulates pointer-based drag resizing using the standard W3C Pointer Events API.
@@ -15,11 +33,15 @@ interface ColumnResizeOptions {
  * without needing global `window` event listeners or risking memory leaks.
  */
 export function useColumnResize({
-  defaultWidth = SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_DEFAULT_WIDTH,
-  minWidth = SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH,
+  defaultWidth,
+  minWidth,
   maxWidth = SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH,
 }: ColumnResizeOptions = {}) {
-  const [width, setWidth] = useState<number>(defaultWidth);
+  const responsiveDefaults = getResponsiveDefaults();
+  const resolvedDefaultWidth = defaultWidth ?? responsiveDefaults.defaultWidth;
+  const resolvedMinWidth = minWidth ?? responsiveDefaults.minWidth;
+
+  const [width, setWidth] = useState<number>(resolvedDefaultWidth);
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const resizeStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
@@ -42,12 +64,12 @@ export function useColumnResize({
 
       const delta = e.clientX - resizeStartRef.current.startX;
       const newWidth = Math.max(
-        minWidth,
+        resolvedMinWidth,
         Math.min(maxWidth, resizeStartRef.current.startWidth + delta)
       );
       setWidth(newWidth);
     },
-    [isResizing, minWidth, maxWidth]
+    [isResizing, resolvedMinWidth, maxWidth]
   );
 
   const handlePointerUp = useCallback(
@@ -64,8 +86,8 @@ export function useColumnResize({
   );
 
   const handleDoubleClick = useCallback(() => {
-    setWidth(defaultWidth);
-  }, [defaultWidth]);
+    setWidth(resolvedDefaultWidth);
+  }, [resolvedDefaultWidth]);
 
   return {
     width,
