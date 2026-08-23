@@ -11,8 +11,8 @@ param adminPasswordOrKey string
 @description('The size of the VM')
 param vmSize string = 'Standard_B1s'
 
-@description('The Docker Image to run (e.g., jorge/hurion-bot:latest)')
-param dockerImage string = 'jorge/hurion-bot:latest'
+@description('The container image reference to deploy (e.g., ghcr.io/<owner>/<repo>:latest)')
+param dockerImage string
 
 @description('The content of the .env file')
 @secure()

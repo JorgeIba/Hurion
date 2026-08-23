@@ -62,10 +62,10 @@ If you wish to manually compile and push an image to GitHub Container Registry f
 gh auth token | docker login ghcr.io -u <YOUR_GITHUB_USERNAME> --password-stdin
 
 # Build and tag image:
-docker build -t ghcr.io/jorgeiba/hurion-bot:latest .
+docker build -t ghcr.io/<YOUR_GITHUB_USERNAME>/hurion-bot:latest .
 
 # Push image to GitHub Packages:
-docker push ghcr.io/jorgeiba/hurion-bot:latest
+docker push ghcr.io/<YOUR_GITHUB_USERNAME>/hurion-bot:latest
 ```
 
 Hosting and provisioning on Azure VM are managed via Bicep and GitHub Actions CD. See **[infra/README.md](infra/README.md)** and **[docs/adr/0002-container-delivery-and-cicd-pipeline.md](docs/adr/0002-container-delivery-and-cicd-pipeline.md)** for architecture details.
