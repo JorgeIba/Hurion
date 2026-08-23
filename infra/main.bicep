@@ -32,6 +32,9 @@ param deployTimestamp int = dateTimeToEpoch(utcNow())
 @description('Location for all resources')
 param location string = resourceGroup().location
 
+@description('Whether to create and attach a Public IP address (defaults to false)')
+param enablePublicIP bool = false
+
 var publicIPAddressName = '${vmName}PublicIP'
 var networkInterfaceName = '${vmName}NetInt'
 var osDiskType = 'Standard_LRS'
@@ -40,7 +43,7 @@ var subnetName = 'Subnet'
 var networkSecurityGroupName = '${vmName}NSG'
 
 // 1. Networking
-resource publicIP 'Microsoft.Network/publicIPAddresses@2024-03-01' = {
+resource publicIP 'Microsoft.Network/publicIPAddresses@2024-03-01' = if (enablePublicIP) {
   name: publicIPAddressName
   location: location
   sku: {
@@ -108,9 +111,9 @@ resource nic 'Microsoft.Network/networkInterfaces@2024-03-01' = {
             id: vnet.properties.subnets[0].id
           }
           privateIPAllocationMethod: 'Dynamic'
-          publicIPAddress: {
+          publicIPAddress: enablePublicIP ? {
             id: publicIP.id
-          }
+          } : null
         }
       }
     ]
@@ -270,4 +273,4 @@ resource updateScript 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' 
   }
 }
 
-output publicIP string = publicIP.properties.ipAddress
+output publicIP string = enablePublicIP ? publicIP!.properties.ipAddress : 'none'
