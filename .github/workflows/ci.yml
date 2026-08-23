@@ -32,12 +32,15 @@ jobs:
   frontend-check:
     name: Web Frontend Build & Type Check
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
@@ -49,13 +52,13 @@ jobs:
           cache-dependency-path: 'web/pnpm-lock.yaml'
 
       - name: Install Frontend Dependencies
-        run: pnpm --dir web install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck & Build Web UI
-        run: pnpm --dir web check
+        run: pnpm check
 
       - name: Run Frontend Tests (if configured)
-        run: pnpm --dir web run --if-present test
+        run: pnpm run --if-present test
 
   dockerfile-check:
     name: Dockerfile Dry-Run Build
