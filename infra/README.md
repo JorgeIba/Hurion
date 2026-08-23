@@ -20,6 +20,11 @@ Because the Hurion Bot architecture only relies on outbound connections, we can 
 2. **Encrypted Provisioning (`protectedSettings`):** Secrets (`.env`) and configuration files (`config.yaml`) are passed through ARM's encrypted `protectedSettings` channel directly into the VM guest agent.
 3. **Application Layer (Docker Compose):** The bot and Litestream execute as supervised containers orchestrated by Docker Compose.
 
+### 3. Outbound Internet Connectivity (Egress)
+Virtual machines deployed in standard Azure Virtual Networks utilize Azure's default outbound routing (Default SNAT) to reach internet endpoints (Discord Gateway, Azure Storage, Docker Hub) over HTTPS without requiring a dedicated public IP address or an expensive Azure NAT Gateway (~$32.40 USD/month).
+
+If your environment or cloud policy requires an explicit outbound IP address, deploy the template with `--parameters enablePublicIP=true`.
+
 ---
 
 ## Setup & Deployment
@@ -43,6 +48,14 @@ az deployment group create \
 ```
 
 *(Optional: Pass `enablePublicIP=true` if you explicitly require a public IPv4 address for direct SSH)*.
+
+### 3. Updating Existing Deployments (Removing Orphaned Public IPs)
+In Azure Resource Manager (ARM), default deployments run in `Incremental` mode. If you previously deployed the infrastructure with a Public IP and re-deploy with `enablePublicIP=false`, ARM will detach the public IP from the VM network interface, but the orphaned public IP resource will remain in your resource group.
+
+To permanently delete the unassociated public IP and avoid idle IPv4 charges, run:
+```bash
+az network public-ip delete --resource-group Hurion-RG-MX --name hurion-botPublicIP
+```
 
 ---
 
