@@ -6,7 +6,7 @@ PORT?=8080
 FLAGS?=
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test test-unit test-integration test-workflow generate clean run run-dev run-mock run-server stop-server
+.PHONY: all build test test-unit test-integration test-workflow test-web generate clean run run-dev run-mock run-server stop-server
 
 # By default, running 'make' executes build
 all: build
@@ -32,8 +32,13 @@ test-workflow: generate
 	@echo "==> Running workflow tests..."
 	@go test -v ./workflow/...
 
-## test: Generate mocks and run unit, integration, and workflow test suites
-test: test-unit test-integration test-workflow
+## test-web: Run web server tests (depends on generate)
+test-web: generate
+	@echo "==> Running web server tests..."
+	@go test -v ./web/...
+
+## test: Generate mocks and run unit, integration, workflow, and web test suites
+test: test-unit test-integration test-workflow test-web
 	@echo "==> All tests completed successfully."
 
 ## coverage: Run tests with coverage and generate HTML report
