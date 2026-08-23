@@ -4,9 +4,10 @@ BUILD_DIR=./bin
 SCRIPT_PATH?=app/script/test.jsonl
 PORT?=8080
 FLAGS?=
+TEST_FLAGS?=-race
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test test-unit test-integration test-workflow generate clean run run-dev run-mock run-server stop-server
+.PHONY: all build test test-unit test-integration test-workflow test-web generate clean run run-dev run-mock run-server stop-server
 
 # By default, running 'make' executes build
 all: build
@@ -20,20 +21,25 @@ generate:
 ## test-unit: Run application/unit tests (depends on generate)
 test-unit: generate
 	@echo "==> Running unit tests (app)..."
-	@go test -v ./app/...
+	@go test -v $(TEST_FLAGS) ./app/...
 
 ## test-integration: Run integration tests (depends on generate)
 test-integration: generate
 	@echo "==> Running integration tests..."
-	@go test -v ./integration/...
+	@go test -v $(TEST_FLAGS) ./integration/...
 
 ## test-workflow: Run workflow tests (depends on generate)
 test-workflow: generate
 	@echo "==> Running workflow tests..."
-	@go test -v ./workflow/...
+	@go test -v $(TEST_FLAGS) ./workflow/...
 
-## test: Generate mocks and run unit, integration, and workflow test suites
-test: test-unit test-integration test-workflow
+## test-web: Run web server tests (depends on generate)
+test-web: generate
+	@echo "==> Running web server tests..."
+	@go test -v $(TEST_FLAGS) ./web/...
+
+## test: Generate mocks and run unit, integration, workflow, and web test suites
+test: test-unit test-integration test-workflow test-web
 	@echo "==> All tests completed successfully."
 
 ## coverage: Run tests with coverage and generate HTML report

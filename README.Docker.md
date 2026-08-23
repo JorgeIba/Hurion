@@ -44,10 +44,33 @@ The bot uses **Litestream** for real-time replication to **Azure Blob Storage**.
 - Once running, every database change is continuously streamed to Azure.
 - On a VM, Litestream communicates directly with the Azure Blob API over the network; no external file shares need to be mounted.
 
-### Deployment (Infrastructure as Code)
+### Deployment & Container Registry (`ghcr.io`)
 
-Hosting and provisioning are managed via Bicep and Cloud-Init. See the **[infra/README.md](infra/README.md)** for instructions on how to provision the Azure VM and deploy the application.
+Production container images are published to **GitHub Container Registry (`ghcr.io`)**.
+
+#### 1. Local Testing
+To build and run the container locally without pushing to any remote registry:
+```bash
+docker compose up --build -d
+```
+
+#### 2. Manual Build & Push to `ghcr.io`
+If you wish to manually compile and push an image to GitHub Container Registry from your terminal:
+
+```bash
+# Authenticate using the GitHub CLI (zero password prompts):
+gh auth token | docker login ghcr.io -u <YOUR_GITHUB_USERNAME> --password-stdin
+
+# Build and tag image:
+docker build -t ghcr.io/jorgeiba/hurion-bot:latest .
+
+# Push image to GitHub Packages:
+docker push ghcr.io/jorgeiba/hurion-bot:latest
+```
+
+Hosting and provisioning on Azure VM are managed via Bicep and GitHub Actions CD. See **[infra/README.md](infra/README.md)** and **[docs/adr/0002-container-delivery-and-cicd-pipeline.md](docs/adr/0002-container-delivery-and-cicd-pipeline.md)** for architecture details.
 
 ### References
 * [Litestream Documentation](https://litestream.io/)
 * [Docker's Go guide](https://docs.docker.com/language/golang/)
+* [GitHub Packages Docker Guide](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
