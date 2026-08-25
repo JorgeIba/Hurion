@@ -82,16 +82,22 @@ jobs:
             RESOURCE_GROUP="${{ vars.AZURE_RESOURCE_GROUP || 'Hurion-RG-MX' }}"
             VM_NAME="${{ vars.AZURE_VM_NAME || 'hurion-bot' }}"
             DEPLOY_TAG="${{ inputs.image_tag || 'latest' }}"
-            IMAGE_URI="${{ env.REGISTRY }}/${{ github.repository }}:$DEPLOY_TAG"
+            RAW_IMAGE_URI="${{ env.REGISTRY }}/${{ github.repository }}:$DEPLOY_TAG"
+            IMAGE_URI=$(echo "$RAW_IMAGE_URI" | tr '[:upper:]' '[:lower:]')
 
             echo "==> Preparing deployment for image: $IMAGE_URI"
 
             VM_SCRIPT=$(cat <<EOF
+            set -euo pipefail
+            cleanup() {
+              sudo docker logout ghcr.io || true
+            }
+            trap cleanup EXIT
+
             cd /hurion/app
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             sudo IMAGE_NAME="$IMAGE_URI" docker compose pull
             sudo IMAGE_NAME="$IMAGE_URI" docker compose up -d
-            sudo docker logout ghcr.io
             EOF
             )
 
