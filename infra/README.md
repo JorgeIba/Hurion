@@ -42,15 +42,22 @@ Run the following command from the repository root to deploy or update the VM wi
 RESOURCE_GROUP="Hurion-RG-MX"
 DOCKER_IMAGE="ghcr.io/jorgeiba/hurion-bot:latest" # or ghcr.io/<YOUR_GITHUB_USER_OR_ORG>/hurion-bot:latest
 
+# For private GHCR packages, create a local .docker.env with read:packages credentials:
+#   DOCKER_SERVER=ghcr.io
+#   DOCKER_USER=JorgeIba
+#   DOCKER_PAT=ghp_xxxxxxxxxxxxxxxxxxxx
+
 az deployment group create \
   --resource-group "$RESOURCE_GROUP" \
   --template-file infra/main.bicep \
   --parameters \
     adminPasswordOrKey=@~/.ssh/id_ed25519.pub \
     appEnvContent=@.env \
+    dockerEnvContent=@.docker.env \
     dockerImage="$DOCKER_IMAGE"
 ```
 
+*(Note: If your GHCR container package is configured as Public, `dockerEnvContent` can be omitted)*.
 *(Optional: Pass `enablePublicIP=true` if you explicitly require a public IPv4 address for direct SSH)*.
 
 ### 3. Updating Existing Deployments (Removing Orphaned Public IPs)
