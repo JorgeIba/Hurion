@@ -25,6 +25,7 @@ jobs:
   build-and-push:
     name: Build & Publish Container (GHCR)
     runs-on: ubuntu-latest
+    if: ${{ inputs.image_tag == 'latest' || inputs.image_tag == '' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -61,14 +62,17 @@ jobs:
   deploy-vm:
     name: Deploy to Azure VM
     needs: build-and-push
+    if: ${{ always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
     runs-on: ubuntu-latest
+    env:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_VM_DEPLOY_CREDENTIALS || secrets.AZURE_CREDENTIALS }}
     steps:
       - name: Azure Login
         id: azure_login
         uses: azure/login@v2
-        if: ${{ secrets.AZURE_CREDENTIALS != '' }}
+        if: env.AZURE_CREDENTIALS != ''
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Invoke Remote Update on Azure VM
         if: ${{ steps.azure_login.outcome == 'success' }}
@@ -84,7 +88,9 @@ jobs:
 
             VM_SCRIPT=$(cat <<EOF
             cd /hurion/app
+            echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             sudo IMAGE_NAME="$IMAGE_URI" docker compose pull
+            sudo docker logout ghcr.io
             sudo IMAGE_NAME="$IMAGE_URI" docker compose up -d
             EOF
             )

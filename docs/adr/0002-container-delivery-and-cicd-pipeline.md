@@ -71,17 +71,22 @@ Images are compiled in GitHub Actions on high-spec runners (16 GB RAM) and publi
 * `ghcr.io/jorgeiba/hurion-bot:sha-<commit>`
 
 ### 3. Continuous Deployment (`.github/workflows/deploy.yml`)
-When code is merged to `main`:
-1. GitHub Actions authenticates to Azure via federated OpenID Connect (OIDC) or service credentials.
-2. Invokes remote execution on the VM via Azure Control Plane:
+Triggered manually on demand via `workflow_dispatch` with maintainer access:
+1. Accepts an optional `image_tag` parameter (default: `latest`, or `sha-<commit>` for instant rollbacks).
+2. For new releases (`latest`), builds and publishes multi-tag container images to `ghcr.io`. For rollback tags (`sha-*`), skips rebuilding and deploys the existing image directly.
+3. Authenticates to Azure via `azure/login` using service principal credentials (`AZURE_VM_DEPLOY_CREDENTIALS` / `AZURE_CREDENTIALS`) or federated OIDC.
+4. Invokes remote update on the VM via Azure Control Plane, injecting the ephemeral `GITHUB_TOKEN` in flight for zero-disk-credential security:
    ```bash
-   az vm run-command invoke \
-     --resource-group Hurion-RG-MX \
-     --name hurion-bot \
-     --command-id RunShellScript \
-     --scripts "cd /hurion/app && sudo docker compose pull && sudo docker compose up -d"
+   VM_SCRIPT=$(cat <<EOF
+   cd /hurion/app
+   echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+   sudo IMAGE_NAME="$IMAGE_URI" docker compose pull
+   sudo docker logout ghcr.io
+   sudo IMAGE_NAME="$IMAGE_URI" docker compose up -d
+   EOF
+   )
    ```
-3. Docker on the VM downloads only the changed layer from `ghcr.io` in ~1.5 seconds and recreates the container without data loss.
+5. Docker on the VM downloads only the changed layer from `ghcr.io` in ~1.5 seconds, immediately purges registry credentials from memory with `docker logout`, and recreates the container without data loss.
 
 ---
 
