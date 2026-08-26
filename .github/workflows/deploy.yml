@@ -13,11 +13,6 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
-permissions:
-  contents: read
-  packages: write
-  id-token: write
-
 env:
   REGISTRY: ghcr.io
 
@@ -26,6 +21,9 @@ jobs:
     name: Build & Publish Container (GHCR)
     runs-on: ubuntu-latest
     if: ${{ inputs.image_tag == 'latest' || inputs.image_tag == '' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -64,6 +62,10 @@ jobs:
     needs: build-and-push
     if: ${{ always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
     env:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
