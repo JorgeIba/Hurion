@@ -98,8 +98,8 @@ jobs:
               exit 1
             fi
 
-            RAW_IMAGE_URI="${{ env.REGISTRY }}/${GH_REPO}:${INPUT_TAG}"
-            IMAGE_URI=$(echo "$RAW_IMAGE_URI" | tr '[:upper:]' '[:lower:]')
+            REPO_LOWER=$(echo "$GH_REPO" | tr '[:upper:]' '[:lower:]')
+            IMAGE_URI="${{ env.REGISTRY }}/${REPO_LOWER}:${INPUT_TAG}"
 
             echo "==> Preparing deployment for image: $IMAGE_URI"
 
