@@ -9,6 +9,7 @@ import (
 // used for the offline and script runner modes. It bypasses real Discord API calls.
 type FakeDiscordProvider struct {
 	UserRoles    map[string][]string
+	Usernames    map[string]string
 	AdminRoleID  string
 	MentorRoleID string
 }
@@ -16,6 +17,7 @@ type FakeDiscordProvider struct {
 func NewFakeDiscordProvider(adminRoleID, mentorRoleID string) *FakeDiscordProvider {
 	return &FakeDiscordProvider{
 		UserRoles:    make(map[string][]string),
+		Usernames:    make(map[string]string),
 		AdminRoleID:  adminRoleID,
 		MentorRoleID: mentorRoleID,
 	}
@@ -26,6 +28,13 @@ func (f *FakeDiscordProvider) SetUserRoles(userID string, roles []string) {
 		f.UserRoles = make(map[string][]string)
 	}
 	f.UserRoles[userID] = roles
+}
+
+func (f *FakeDiscordProvider) SetUsername(userID, username string) {
+	if f.Usernames == nil {
+		f.Usernames = make(map[string]string)
+	}
+	f.Usernames[userID] = username
 }
 
 // -- DiscordValidator --
@@ -76,11 +85,17 @@ func (f *FakeDiscordProvider) FetchMember(guildID, userID string) (*discordgo.Me
 		roles = []string{}
 	}
 
+	username, ok := f.Usernames[userID]
+	if !ok || username == "" {
+		username = "User_" + userID
+	}
+
 	return &discordgo.Member{
 		User: &discordgo.User{
 			ID:       userID,
-			Username: "User_" + userID,
+			Username: username,
 		},
+		Nick:  username,
 		Roles: roles,
 	}, nil
 }

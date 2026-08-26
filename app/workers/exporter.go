@@ -48,6 +48,8 @@ func (w *ScoreboardExporterWorker) Start() {
 				// Debounce rapid consecutive database update notifications
 				select {
 				case <-w.shutdownSignal:
+					// Run final export before shutdown so pending updates are flushed
+					w.runExportWithTimeout()
 					return
 				case <-time.After(w.DebounceDuration):
 				}

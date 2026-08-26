@@ -116,6 +116,10 @@ type MockRoleSetter interface {
 	SetUserRoles(userID string, roles []string)
 }
 
+type MockUserSetter interface {
+	SetUsername(userID, username string)
+}
+
 type Runner struct {
 	bot            *bot.Bot
 	provider       providers.DiscordProvider
@@ -164,6 +168,9 @@ func (r *Runner) RunScript(filepath string) error {
 		switch inst.Type {
 		case InstructionTypeSetupAlias:
 			userAliases.Register(inst.Alias, inst.UserID)
+			if userSetter, ok := r.provider.(MockUserSetter); ok {
+				userSetter.SetUsername(inst.UserID, inst.Alias)
+			}
 			logger.Log.Infof("Registered script alias: %s -> ID %s", inst.Alias, inst.UserID)
 
 		case InstructionTypeSetupRoles:
