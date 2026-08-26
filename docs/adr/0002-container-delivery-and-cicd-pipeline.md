@@ -79,19 +79,21 @@ Triggered manually on demand via `workflow_dispatch` with maintainer access:
    ```bash
    VM_SCRIPT=$(cat <<EOF
    set -euo pipefail
+
+   TEMP_DOCKER_CONFIG=\$(mktemp -d)
    cleanup() {
-     sudo docker logout ghcr.io || true
+     rm -rf "\$TEMP_DOCKER_CONFIG" || true
    }
    trap cleanup EXIT
 
    cd /hurion/app
-   echo "$GH_TOKEN" | sudo docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-   sudo IMAGE_NAME="$IMAGE_URI" docker compose pull
-   sudo IMAGE_NAME="$IMAGE_URI" docker compose up -d
+   echo "$GH_TOKEN" | sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+   sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose pull
+   sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose up -d
    EOF
    )
    ```
-5. Docker on the VM downloads only the changed layer from `ghcr.io` in ~1.5 seconds, immediately purges registry credentials from memory with `docker logout`, and recreates the container without data loss.
+5. Docker on the VM downloads only the changed layer from `ghcr.io` in ~1.5 seconds, immediately purges registry credentials from memory by removing the temporary directory on script exit, and recreates the container without data loss.
 
 ---
 

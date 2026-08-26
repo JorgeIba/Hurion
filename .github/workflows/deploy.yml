@@ -107,15 +107,17 @@ jobs:
 
             VM_SCRIPT=$(cat <<EOF
             set -euo pipefail
+
+            TEMP_DOCKER_CONFIG=\$(mktemp -d)
             cleanup() {
-              sudo docker logout ghcr.io || true
+              rm -rf "\$TEMP_DOCKER_CONFIG" || true
             }
             trap cleanup EXIT
 
             cd /hurion/app
-            echo "$GH_TOKEN" | sudo docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-            sudo IMAGE_NAME="$IMAGE_URI" docker compose pull
-            sudo IMAGE_NAME="$IMAGE_URI" docker compose up -d
+            echo "$GH_TOKEN" | sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+            sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose pull
+            sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose up -d
             EOF
             )
 
