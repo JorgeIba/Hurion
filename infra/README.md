@@ -38,13 +38,37 @@ If your environment or cloud policy requires an explicit outbound IP address, de
 Run the following command from the repository root to deploy or update the VM without a Public IP:
 
 ```bash
+# Deployment configuration
+RESOURCE_GROUP="Hurion-RG-MX"
+DOCKER_IMAGE="ghcr.io/jorgeiba/hurion:latest" # or ghcr.io/<YOUR_GITHUB_USER_OR_ORG>/hurion:latest
+
+# Standard Deployment (Public Package / Default):
 az deployment group create \
-  --resource-group Hurion-RG-MX \
+  --resource-group "$RESOURCE_GROUP" \
   --template-file infra/main.bicep \
   --parameters \
     adminPasswordOrKey=@~/.ssh/id_ed25519.pub \
     appEnvContent=@.env \
-    dockerImage="jorgeibanez/hurion-bot:latest"
+    dockerImage="$DOCKER_IMAGE"
+```
+
+#### Private Package Deployment (Optional):
+For private GHCR packages, create a local `.docker.env` containing `read:packages` token credentials:
+```bash
+DOCKER_SERVER=ghcr.io
+DOCKER_USER=JorgeIba
+DOCKER_PAT=ghp_xxxxxxxxxxxxxxxxxxxx
+```
+And include `dockerEnvContent=@.docker.env` in the deployment parameters:
+```bash
+az deployment group create \
+  --resource-group "$RESOURCE_GROUP" \
+  --template-file infra/main.bicep \
+  --parameters \
+    adminPasswordOrKey=@~/.ssh/id_ed25519.pub \
+    appEnvContent=@.env \
+    dockerEnvContent=@.docker.env \
+    dockerImage="$DOCKER_IMAGE"
 ```
 
 *(Optional: Pass `enablePublicIP=true` if you explicitly require a public IPv4 address for direct SSH)*.

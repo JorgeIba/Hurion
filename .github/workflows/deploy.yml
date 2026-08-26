@@ -1,0 +1,138 @@
+name: CD - Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy (e.g., latest or sha-xxxxxxx for rollback)'
+        required: true
+        default: 'latest'
+        type: string
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    name: Build & Publish Container (GHCR)
+    runs-on: ubuntu-latest
+    if: ${{ inputs.image_tag == 'latest' || inputs.image_tag == '' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata (Tags & Labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-vm:
+    name: Deploy to Azure VM
+    needs: build-and-push
+    if: ${{ always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_VM_DEPLOY_CREDENTIALS || secrets.AZURE_CREDENTIALS }}
+    steps:
+      - name: Azure Login
+        id: azure_login
+        uses: azure/login@v2
+        if: ${{ env.AZURE_CLIENT_ID != '' || env.AZURE_CREDENTIALS != '' }}
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      - name: Invoke Remote Update on Azure VM
+        if: ${{ steps.azure_login.outcome == 'success' }}
+        uses: azure/cli@v2
+        env:
+          INPUT_TAG: ${{ inputs.image_tag || 'latest' }}
+          AZURE_RG: ${{ vars.AZURE_RESOURCE_GROUP || 'Hurion-RG-MX' }}
+          AZURE_VM: ${{ vars.AZURE_VM_NAME || 'hurion-bot' }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          inlineScript: |
+            # Validate Docker image tag format to prevent command injection
+            if [[ ! "$INPUT_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+              echo "Error: Invalid Docker image tag '$INPUT_TAG'"
+              exit 1
+            fi
+
+            REPO_LOWER=$(echo "$GH_REPO" | tr '[:upper:]' '[:lower:]')
+            IMAGE_URI="${{ env.REGISTRY }}/${REPO_LOWER}:${INPUT_TAG}"
+
+            echo "==> Preparing deployment for image: $IMAGE_URI"
+
+            VM_SCRIPT=$(cat <<EOF
+            set -euo pipefail
+
+            TEMP_DOCKER_CONFIG=\$(mktemp -d)
+            cleanup() {
+              rm -rf "\$TEMP_DOCKER_CONFIG" || true
+            }
+            trap cleanup EXIT
+
+            cd /hurion/app
+            echo "$GH_TOKEN" | sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+            sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose pull
+            sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose up -d
+            EOF
+            )
+
+            echo "==> Invoking remote update on VM '$AZURE_VM' in '$AZURE_RG'..."
+            az vm run-command invoke \
+              --resource-group "$AZURE_RG" \
+              --name "$AZURE_VM" \
+              --command-id RunShellScript \
+              --scripts "$VM_SCRIPT"
+
+            echo "==> Production container updated to '$IMAGE_URI' successfully!"
+
+      - name: Deployment Notice (Manual / Pre-Secret Setup)
+        if: ${{ steps.azure_login.outcome != 'success' }}
+        run: |
+          echo "Notice: Azure credentials (AZURE_VM_DEPLOY_CREDENTIALS / OIDC) are not configured in GitHub Secrets."
+          echo "The Docker image was successfully built and published to GHCR:"
+          echo "  ${{ env.REGISTRY }}/${{ github.repository }}:${{ inputs.image_tag || 'latest' }}"
