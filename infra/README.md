@@ -40,7 +40,7 @@ Run the following command from the repository root to deploy or update the VM wi
 ```bash
 # Deployment configuration
 RESOURCE_GROUP="Hurion-RG-MX"
-DOCKER_IMAGE="ghcr.io/jorgeiba/hurion-bot:latest" # or ghcr.io/<YOUR_GITHUB_USER_OR_ORG>/hurion-bot:latest
+DOCKER_IMAGE="ghcr.io/jorgeiba/hurion:latest" # or ghcr.io/<YOUR_GITHUB_USER_OR_ORG>/hurion:latest
 
 # Standard Deployment (Public Package / Default):
 az deployment group create \

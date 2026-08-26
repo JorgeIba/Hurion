@@ -67,21 +67,26 @@ Runs on every Pull Request and branch push to `main` with zero credentials:
 
 ### 2. Immutable Container Delivery (`ghcr.io`)
 Images are compiled in GitHub Actions on high-spec runners (16 GB RAM) and published to GitHub Container Registry:
-* `ghcr.io/jorgeiba/hurion-bot:latest`
-* `ghcr.io/jorgeiba/hurion-bot:sha-<commit>`
+* `ghcr.io/jorgeiba/hurion:latest`
+* `ghcr.io/jorgeiba/hurion:sha-<commit>`
 
 ### 3. Continuous Deployment (`.github/workflows/deploy.yml`)
 Triggered manually on demand via `workflow_dispatch` with maintainer access:
 1. Accepts an optional `image_tag` parameter (default: `latest`, or `sha-<commit>` for instant rollbacks).
 2. For new releases (`latest`), builds and publishes multi-tag container images to `ghcr.io`. For rollback tags (`sha-*`), skips rebuilding and deploys the existing image directly.
-3. Authenticates to Azure via `azure/login` using service principal credentials (`AZURE_VM_DEPLOY_CREDENTIALS` / `AZURE_CREDENTIALS`) or federated OIDC.
+3. Authenticates to Azure via `azure/login` using service principal credentials (`AZURE_VM_DEPLOY_CREDENTIALS` / `AZURE_CREDENTIALS`) or federated OIDC (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`).
 4. Invokes remote update on the VM via Azure Control Plane, injecting the ephemeral `GITHUB_TOKEN` in flight for zero-disk-credential security:
    ```bash
    VM_SCRIPT=$(cat <<EOF
+   set -euo pipefail
+   cleanup() {
+     sudo docker logout ghcr.io || true
+   }
+   trap cleanup EXIT
+
    cd /hurion/app
-   echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+   echo "$GH_TOKEN" | sudo docker login ghcr.io -u "$GH_ACTOR" --password-stdin
    sudo IMAGE_NAME="$IMAGE_URI" docker compose pull
-   sudo docker logout ghcr.io
    sudo IMAGE_NAME="$IMAGE_URI" docker compose up -d
    EOF
    )

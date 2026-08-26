@@ -65,24 +65,40 @@ jobs:
     if: ${{ always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
     runs-on: ubuntu-latest
     env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       AZURE_CREDENTIALS: ${{ secrets.AZURE_VM_DEPLOY_CREDENTIALS || secrets.AZURE_CREDENTIALS }}
     steps:
       - name: Azure Login
         id: azure_login
         uses: azure/login@v2
-        if: env.AZURE_CREDENTIALS != ''
+        if: ${{ env.AZURE_CLIENT_ID != '' || env.AZURE_CREDENTIALS != '' }}
         with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
           creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Invoke Remote Update on Azure VM
         if: ${{ steps.azure_login.outcome == 'success' }}
         uses: azure/cli@v2
+        env:
+          INPUT_TAG: ${{ inputs.image_tag || 'latest' }}
+          AZURE_RG: ${{ vars.AZURE_RESOURCE_GROUP || 'Hurion-RG-MX' }}
+          AZURE_VM: ${{ vars.AZURE_VM_NAME || 'hurion-bot' }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           inlineScript: |
-            RESOURCE_GROUP="${{ vars.AZURE_RESOURCE_GROUP || 'Hurion-RG-MX' }}"
-            VM_NAME="${{ vars.AZURE_VM_NAME || 'hurion-bot' }}"
-            DEPLOY_TAG="${{ inputs.image_tag || 'latest' }}"
-            RAW_IMAGE_URI="${{ env.REGISTRY }}/${{ github.repository }}:$DEPLOY_TAG"
+            # Validate Docker image tag format to prevent command injection
+            if [[ ! "$INPUT_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+              echo "Error: Invalid Docker image tag '$INPUT_TAG'"
+              exit 1
+            fi
+
+            RAW_IMAGE_URI="${{ env.REGISTRY }}/${GH_REPO}:${INPUT_TAG}"
             IMAGE_URI=$(echo "$RAW_IMAGE_URI" | tr '[:upper:]' '[:lower:]')
 
             echo "==> Preparing deployment for image: $IMAGE_URI"
@@ -95,16 +111,16 @@ jobs:
             trap cleanup EXIT
 
             cd /hurion/app
-            echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            echo "$GH_TOKEN" | sudo docker login ghcr.io -u "$GH_ACTOR" --password-stdin
             sudo IMAGE_NAME="$IMAGE_URI" docker compose pull
             sudo IMAGE_NAME="$IMAGE_URI" docker compose up -d
             EOF
             )
 
-            echo "==> Invoking remote update on VM '$VM_NAME' in '$RESOURCE_GROUP'..."
+            echo "==> Invoking remote update on VM '$AZURE_VM' in '$AZURE_RG'..."
             az vm run-command invoke \
-              --resource-group "$RESOURCE_GROUP" \
-              --name "$VM_NAME" \
+              --resource-group "$AZURE_RG" \
+              --name "$AZURE_VM" \
               --command-id RunShellScript \
               --scripts "$VM_SCRIPT"
 
@@ -113,6 +129,6 @@ jobs:
       - name: Deployment Notice (Manual / Pre-Secret Setup)
         if: ${{ steps.azure_login.outcome != 'success' }}
         run: |
-          echo "Notice: AZURE_CREDENTIALS secret is not configured in GitHub Secrets."
+          echo "Notice: Azure credentials (AZURE_VM_DEPLOY_CREDENTIALS / OIDC) are not configured in GitHub Secrets."
           echo "The Docker image was successfully built and published to GHCR:"
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}:${{ inputs.image_tag || 'latest' }}"
