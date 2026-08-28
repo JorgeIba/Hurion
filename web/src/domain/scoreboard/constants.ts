@@ -6,6 +6,7 @@
 
 export const SCOREBOARD_CONFIG = {
   DEFAULT_CLASS_CODE: 'basicos',
+  DEFAULT_TAB: 'standings',
   DEFAULT_TOPIC_NAME: 'General',
   DEFAULT_PROBLEM_NAME: 'Problem',
   DEFAULT_LEADER_NAME: '--',
@@ -35,10 +36,27 @@ export const SCOREBOARD_LABELS = {
   LOADING: 'Loading scoreboard data...',
   ERROR_FALLBACK: 'Failed to load scoreboard',
   MASTERY_BADGE: '✨ 100%',
+  TABS: {
+    STANDINGS: 'Standings',
+    PROBLEMS: 'Problems',
+  },
   STATS: {
     STUDENTS_SUFFIX: 'Students',
     PROBLEMS_SUFFIX: 'Problems',
     LEADER_PREFIX: 'Leader:',
+  },
+  PROBLEMS_VIEW: {
+    SEARCH_PLACEHOLDER: 'Search problems by name, ID, or topic...',
+    FILTER_ALL: 'All Difficulties',
+    EMPTY_SEARCH: 'No problems match your current search or filter.',
+    CLEAR_SEARCH: 'Clear filters',
+    OPEN_PROBLEM: 'Solve',
+    CLASS_SOLVED_LABEL: 'solved',
+    NO_URL: 'No link',
+    TOPIC_COUNT_SUFFIX: 'problems',
+    STATS_SHOWING: 'Showing',
+    STATS_OF: 'of',
+    STATS_PROBLEMS: 'problems',
   },
   RESIZER: {
     TOOLTIP: 'Drag to resize column (double-click to reset)',

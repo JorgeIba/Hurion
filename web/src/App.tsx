@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
-import { useClassCodeParam } from '@/hooks/useClassCodeParam';
+import { useClassCodeParam, useTabParam } from '@/hooks/useQueryParam';
 import { HeaderBar } from '@/components/HeaderBar';
 import { ScoreboardTable } from '@/components/ScoreboardTable';
+import { ProblemsView } from '@/components/ProblemsView';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { sortUsersBySolved } from '@/domain/scoreboard/utils';
 import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
@@ -10,14 +11,16 @@ import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/consta
 /**
  * ScoreboardContent Component
  * 
- * Fetches and renders class standings for the active class code:
+ * Fetches and renders class standings or problem catalog for the active class code:
  * 1. Reads `classCode` from URL search parameters via `useClassCodeParam`.
- * 2. Fetches class scoreboard JSON payload via `useScoreboardData`.
- * 3. Sorts students descending by total solved AC count using `sortUsersBySolved`.
- * 4. Renders HeaderBar and ScoreboardTable components.
+ * 2. Reads `activeTab` from URL search parameters via `useTabParam` ('standings' | 'problems').
+ * 3. Fetches class scoreboard JSON payload via `useScoreboardData`.
+ * 4. Sorts students descending by total solved AC count using `sortUsersBySolved`.
+ * 5. Renders HeaderBar (with Tab Navigation) and either ScoreboardTable or ProblemsView.
  */
 function ScoreboardContent() {
   const [classCode] = useClassCodeParam(SCOREBOARD_CONFIG.DEFAULT_CLASS_CODE);
+  const [activeTab, setActiveTab] = useTabParam(SCOREBOARD_CONFIG.DEFAULT_TAB);
   const { data, loading, error } = useScoreboardData(classCode);
 
   // Sort students descending by total solved AC count
@@ -66,11 +69,23 @@ function ScoreboardContent() {
         title={data.className || data.classCode}
         users={sortedUsers}
         problems={data.problems || []}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       />
-      <ScoreboardTable
-        problems={data.problems || []}
-        users={sortedUsers}
-      />
+      <main className="tabpanels-main-container">
+        <div className="tabpanel-wrapper" hidden={activeTab !== 'standings'}>
+          <ScoreboardTable
+            problems={data.problems || []}
+            users={sortedUsers}
+          />
+        </div>
+        <div className="tabpanel-wrapper" hidden={activeTab !== 'problems'}>
+          <ProblemsView
+            problems={data.problems || []}
+            users={sortedUsers}
+          />
+        </div>
+      </main>
     </div>
   );
 }
@@ -88,3 +103,4 @@ export function App() {
 }
 
 export default App;
+
