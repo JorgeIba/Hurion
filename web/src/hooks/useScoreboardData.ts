@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ScoreboardData } from '@/domain/scoreboard/types';
 import { scoreboardApi } from '@/domain/scoreboard/api';
+import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
 
 /**
  * Custom React Hook: useScoreboardData
@@ -33,7 +34,22 @@ export function useScoreboardData(classCode: string) {
       .catch((err: unknown) => {
         // Ignore deliberate abort signals triggered during unmount/class change
         if (!axios.isCancel(err) && !(err instanceof Error && err.name === 'AbortError')) {
-          const message = err instanceof Error ? err.message : 'Error loading scoreboard';
+          let message: string = SCOREBOARD_LABELS.ERRORS.FALLBACK;
+
+          if (axios.isAxiosError(err)) {
+            if (err.response?.status === 404) {
+              message = `${SCOREBOARD_LABELS.ERRORS.NOT_FOUND} "${classCode}"`;
+            } else if (!err.response) {
+              message = SCOREBOARD_LABELS.ERRORS.NETWORK_ERROR;
+            } else if (err.response.status >= 500) {
+              message = SCOREBOARD_LABELS.ERRORS.SERVER_ERROR;
+            } else if (err.message) {
+              message = err.message;
+            }
+          } else if (err instanceof Error) {
+            message = err.message;
+          }
+
           setError(message);
           setData(null);
           setLoading(false);

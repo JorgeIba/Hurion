@@ -35,6 +35,12 @@ export const SCOREBOARD_LABELS = {
   NO_PROBLEMS: 'No problems recorded for this class',
   LOADING: 'Loading scoreboard data...',
   ERROR_FALLBACK: 'Failed to load scoreboard',
+  ERRORS: {
+    NOT_FOUND: 'Scoreboard not found for class:',
+    NETWORK_ERROR: 'Unable to connect to server. Please check your connection.',
+    SERVER_ERROR: 'Server error while loading scoreboard. Please try again later.',
+    FALLBACK: 'Failed to load scoreboard data',
+  },
   MASTERY_BADGE: '✨ 100%',
   TABS: {
     STANDINGS: 'Standings',
