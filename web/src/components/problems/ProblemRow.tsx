@@ -57,7 +57,6 @@ export const ProblemRow = memo(function ProblemRow({
         >
           <span className="problem-list-title-text">{problemTitle}</span>
           <span className="external-link-icon" aria-hidden="true">↗</span>
-          <span className="sr-only"> (opens in new tab)</span>
         </a>
       ) : (
         <div className="problem-list-title-plain">
