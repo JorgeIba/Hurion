@@ -43,8 +43,8 @@ export function useScoreboardData(classCode: string) {
               message = SCOREBOARD_LABELS.ERRORS.NETWORK_ERROR;
             } else if (err.response.status >= 500) {
               message = SCOREBOARD_LABELS.ERRORS.SERVER_ERROR;
-            } else if (err.message) {
-              message = err.message;
+            } else {
+              message = SCOREBOARD_LABELS.ERRORS.FALLBACK;
             }
           } else if (err instanceof Error) {
             message = err.message;
