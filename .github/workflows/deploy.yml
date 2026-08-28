@@ -84,7 +84,6 @@ jobs:
 
       - name: Invoke Remote Update on Azure VM
         if: ${{ steps.azure_login.outcome == 'success' }}
-        uses: azure/cli@v2
         env:
           INPUT_TAG: ${{ inputs.image_tag || 'latest' }}
           AZURE_RG: ${{ vars.AZURE_RESOURCE_GROUP || 'Hurion-RG-MX' }}
@@ -92,43 +91,42 @@ jobs:
           GH_ACTOR: ${{ github.actor }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          inlineScript: |
-            # Validate Docker image tag format to prevent command injection
-            if [[ ! "$INPUT_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
-              echo "Error: Invalid Docker image tag '$INPUT_TAG'"
-              exit 1
-            fi
+        run: |
+          # Validate Docker image tag format to prevent command injection
+          if [[ ! "$INPUT_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo "Error: Invalid Docker image tag '$INPUT_TAG'"
+            exit 1
+          fi
 
-            REPO_LOWER=$(echo "$GH_REPO" | tr '[:upper:]' '[:lower:]')
-            IMAGE_URI="${{ env.REGISTRY }}/${REPO_LOWER}:${INPUT_TAG}"
+          REPO_LOWER=$(echo "$GH_REPO" | tr '[:upper:]' '[:lower:]')
+          IMAGE_URI="${{ env.REGISTRY }}/${REPO_LOWER}:${INPUT_TAG}"
 
-            echo "==> Preparing deployment for image: $IMAGE_URI"
+          echo "==> Preparing deployment for image: $IMAGE_URI"
 
-            VM_SCRIPT=$(cat <<EOF
-            set -euo pipefail
+          VM_SCRIPT=$(cat <<EOF
+          set -euo pipefail
 
-            TEMP_DOCKER_CONFIG=\$(mktemp -d)
-            cleanup() {
-              rm -rf "\$TEMP_DOCKER_CONFIG" || true
-            }
-            trap cleanup EXIT
+          TEMP_DOCKER_CONFIG=\$(mktemp -d)
+          cleanup() {
+            rm -rf "\$TEMP_DOCKER_CONFIG" || true
+          }
+          trap cleanup EXIT
 
-            cd /hurion/app
-            echo "$GH_TOKEN" | sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-            sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose pull
-            sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose up -d
-            EOF
-            )
+          cd /hurion/app
+          echo "$GH_TOKEN" | sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+          sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose pull
+          sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose up -d
+          EOF
+          )
 
-            echo "==> Invoking remote update on VM '$AZURE_VM' in '$AZURE_RG'..."
-            az vm run-command invoke \
-              --resource-group "$AZURE_RG" \
-              --name "$AZURE_VM" \
-              --command-id RunShellScript \
-              --scripts "$VM_SCRIPT"
+          echo "==> Invoking remote update on VM '$AZURE_VM' in '$AZURE_RG'..."
+          az vm run-command invoke \
+            --resource-group "$AZURE_RG" \
+            --name "$AZURE_VM" \
+            --command-id RunShellScript \
+            --scripts "$VM_SCRIPT"
 
-            echo "==> Production container updated to '$IMAGE_URI' successfully!"
+          echo "==> Production container updated to '$IMAGE_URI' successfully!"
 
       - name: Deployment Notice (Manual / Pre-Secret Setup)
         if: ${{ steps.azure_login.outcome != 'success' }}

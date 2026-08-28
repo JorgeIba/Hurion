@@ -42,24 +42,38 @@ func (w *ScoreboardExporterWorker) Start() {
 	w.workerWaitGroup.Add(1)
 	go func() {
 		defer w.workerWaitGroup.Done()
+
+		var (
+			timer   *time.Timer
+			timerCh <-chan time.Time
+			pending bool
+		)
+
 		for {
 			select {
 			case <-w.updateEventChannel:
-				// Debounce rapid consecutive database update notifications
-				select {
-				case <-w.shutdownSignal:
-					return
-				case <-time.After(w.DebounceDuration):
+				pending = true
+				if timer == nil {
+					timer = time.NewTimer(w.DebounceDuration)
+					timerCh = timer.C
+				} else {
+					// In Go 1.23+, timer.Reset directly drains and resets without requiring explicit channel drain boilerplate
+					timer.Reset(w.DebounceDuration)
 				}
 
-				// Drain any extra event triggers accumulated during debounce delay
-				select {
-				case <-w.updateEventChannel:
-				default:
-				}
-
+			case <-timerCh:
+				timer = nil
+				timerCh = nil
+				pending = false
 				w.runExportWithTimeout()
+
 			case <-w.shutdownSignal:
+				if timer != nil {
+					timer.Stop()
+				}
+				if pending {
+					w.runExportWithTimeout()
+				}
 				return
 			}
 		}
