@@ -21,10 +21,11 @@ export function sanitizeTab(rawTab: string | null | undefined): ActiveTab {
 
 /**
  * Calculates the total number of solved AC problems for a given user.
- * Prefers `u.solvedCount` if present, falling back to `u.solved.length`.
+ * Prefers `u.solvedCount` if present, falling back to unique length of `u.solved`.
  */
-export function getSolvedCount(u: UserScore): number {
-  return u.solvedCount ?? (u.solved ? new Set(u.solved).size : 0);
+export function getSolvedCount(u?: UserScore): number {
+  if (!u) return 0;
+  return u.solvedCount ?? (Array.isArray(u.solved) ? new Set(u.solved).size : 0);
 }
 
 /**
@@ -41,7 +42,7 @@ export function sortUsersBySolved(users: UserScore[] = []): UserScore[] {
  * "greedy" -> "Greedy"
  */
 export function formatTopicTitle(rawTopic?: string): string {
-  const trimmed = (rawTopic || '').trim();
+  const trimmed = (typeof rawTopic === 'string' ? rawTopic : '').trim();
   if (!trimmed) return SCOREBOARD_CONFIG.DEFAULT_TOPIC_NAME;
 
   return trimmed
@@ -60,6 +61,7 @@ export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Prob
   const canonicalNameMap = new Map<string, string>(); // lowerKey -> Canonical Title
 
   (problems || []).forEach((p) => {
+    if (!p) return;
     const rawTopic = (p.topic || '').trim() || SCOREBOARD_CONFIG.DEFAULT_TOPIC_NAME;
     const canonical = formatTopicTitle(rawTopic);
     const lowerKey = canonical.toLowerCase();
@@ -119,7 +121,7 @@ const DIFFICULTY_METADATA_MAP: Record<ProblemDifficulty, ProblemDifficultyMetada
  * Normalizes an arbitrary raw difficulty string into a typed ProblemDifficulty tier.
  */
 export function parseDifficulty(raw?: string): ProblemDifficulty {
-  const normalized = (raw || '').trim().toLowerCase();
+  const normalized = (typeof raw === 'string' ? raw : '').trim().toLowerCase();
   if (normalized === 'easy') return 'easy';
   if (normalized === 'medium') return 'medium';
   if (normalized === 'hard') return 'hard';
@@ -148,7 +150,7 @@ export function computeAllProblemSolveStats(
   const solveCountMap = new Map<number, number>();
 
   for (const user of safeUsers) {
-    if (user.solved && Array.isArray(user.solved)) {
+    if (user && user.solved && Array.isArray(user.solved)) {
       const uniqueSolved = new Set(user.solved);
       for (const pid of uniqueSolved) {
         solveCountMap.set(pid, (solveCountMap.get(pid) || 0) + 1);
@@ -158,6 +160,7 @@ export function computeAllProblemSolveStats(
 
   const result = new Map<number, ProblemSolveStats>();
   for (const p of safeProblems) {
+    if (!p) continue;
     const solvedCount = solveCountMap.get(p.id) || 0;
     result.set(p.id, {
       problemId: p.id,
@@ -174,13 +177,15 @@ export function computeAllProblemSolveStats(
  */
 export function filterProblems(
   problems: Problem[] = [],
-  query: string,
-  difficultyFilter: DifficultyFilter
+  query: string = '',
+  difficultyFilter: DifficultyFilter = 'all'
 ): Problem[] {
   const safeProblems = problems || [];
-  const cleanQuery = query.trim().toLowerCase();
+  const cleanQuery = (typeof query === 'string' ? query : '').trim().toLowerCase();
 
   return safeProblems.filter((p) => {
+    if (!p) return false;
+
     // 1. Difficulty filter match
     if (difficultyFilter !== 'all') {
       const pDiff = parseDifficulty(p.difficulty);
