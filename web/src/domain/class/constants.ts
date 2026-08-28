@@ -1,10 +1,10 @@
 /**
- * Single Source of Truth for Scoreboard Configuration & UI Constants.
+ * Single Source of Truth for Class Configuration & UI Constants.
  * Centralizes UI string constants, dimensions, API fallbacks, and labels
  * to eliminate scattered hardcoded values and prepare for internationalization (i18n).
  */
 
-export const SCOREBOARD_CONFIG = {
+export const CLASS_CONFIG = {
   DEFAULT_CLASS_CODE: 'basicos',
   DEFAULT_TAB: 'standings',
   DEFAULT_TOPIC_NAME: 'General',
@@ -26,7 +26,7 @@ export const SCOREBOARD_CONFIG = {
   },
 } as const;
 
-export const SCOREBOARD_LABELS = {
+export const CLASS_LABELS = {
   BRAND_LOGO: '📊',
   PROBLEM_HEADER: '(ID) Problem',
   DIFF_HEADER: 'Diff',

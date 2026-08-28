@@ -1,6 +1,4 @@
-import { DifficultyFilter } from '@/domain/scoreboard/types';
-import { getProblemDifficultyMetadata } from '@/domain/scoreboard/utils';
-import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
+import { DifficultyFilter, getProblemDifficultyMetadata, CLASS_LABELS } from '@/domain/class';
 
 export interface ProblemsFilterToolbarProps {
   difficultyFilter: DifficultyFilter;
@@ -13,10 +11,10 @@ export interface ProblemsFilterToolbarProps {
 }
 
 const DIFFICULTY_BUTTONS: { id: DifficultyFilter; label: string; dotClassName?: string }[] = [
-  { id: 'all', label: SCOREBOARD_LABELS.PROBLEMS_VIEW.FILTER_ALL },
-  { id: 'easy', label: SCOREBOARD_LABELS.DIFFICULTY.EASY, dotClassName: getProblemDifficultyMetadata('easy').dotClassName },
-  { id: 'medium', label: SCOREBOARD_LABELS.DIFFICULTY.MEDIUM, dotClassName: getProblemDifficultyMetadata('medium').dotClassName },
-  { id: 'hard', label: SCOREBOARD_LABELS.DIFFICULTY.HARD, dotClassName: getProblemDifficultyMetadata('hard').dotClassName },
+  { id: 'all', label: CLASS_LABELS.PROBLEMS_VIEW.FILTER_ALL },
+  { id: 'easy', label: CLASS_LABELS.DIFFICULTY.EASY, dotClassName: getProblemDifficultyMetadata('easy').dotClassName },
+  { id: 'medium', label: CLASS_LABELS.DIFFICULTY.MEDIUM, dotClassName: getProblemDifficultyMetadata('medium').dotClassName },
+  { id: 'hard', label: CLASS_LABELS.DIFFICULTY.HARD, dotClassName: getProblemDifficultyMetadata('hard').dotClassName },
 ];
 
 /**
@@ -71,10 +69,10 @@ export function ProblemsFilterToolbar({
         )}
 
         <div className="problems-count-badge">
-          {SCOREBOARD_LABELS.PROBLEMS_VIEW.STATS_SHOWING}{' '}
+          {CLASS_LABELS.PROBLEMS_VIEW.STATS_SHOWING}{' '}
           <span className="count-highlight">{showingCount}</span>{' '}
-          {SCOREBOARD_LABELS.PROBLEMS_VIEW.STATS_OF} {totalCount}{' '}
-          {SCOREBOARD_LABELS.PROBLEMS_VIEW.STATS_PROBLEMS}
+          {CLASS_LABELS.PROBLEMS_VIEW.STATS_OF} {totalCount}{' '}
+          {CLASS_LABELS.PROBLEMS_VIEW.STATS_PROBLEMS}
         </div>
       </div>
     </div>

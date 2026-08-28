@@ -1,7 +1,5 @@
 import { memo } from 'react';
-import { Problem, ProblemSolveStats } from '@/domain/scoreboard/types';
-import { getProblemDifficultyMetadata } from '@/domain/scoreboard/utils';
-import { SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import { Problem, ProblemSolveStats, getProblemDifficultyMetadata, CLASS_CONFIG } from '@/domain/class';
 
 export interface ProblemRowProps {
   problem: Problem;
@@ -29,7 +27,7 @@ export const ProblemRow = memo(function ProblemRow({
   const solveRate = effectiveTotalStudents > 0 ? solvedCount / effectiveTotalStudents : 0;
   const solvePercent = Math.round(solveRate * 100);
 
-  const problemTitle = problem.name || SCOREBOARD_CONFIG.DEFAULT_PROBLEM_NAME;
+  const problemTitle = problem.name || CLASS_CONFIG.DEFAULT_PROBLEM_NAME;
   const cleanUrl = problem.url?.trim();
   const formattedId = `[#${String(problem.id).padStart(2, '0')}]`;
 

@@ -1,5 +1,77 @@
-import { Problem, UserScore, SortState } from './types';
-import { groupProblemsByTopic } from './utils';
+import { Problem, UserScore, ActiveTab, ProblemSolveStats, SortState } from './types';
+import { CLASS_CONFIG } from './constants';
+import { groupProblemsByTopic } from './problems';
+
+/**
+ * Sanitizes a raw class code string.
+ * Permits letters, numbers, dashes, and underscores (e.g. "basicos" or "Class123").
+ * Strips invalid characters to prevent file path injection issues.
+ */
+export function sanitizeClassCode(rawCode: string | null | undefined): string {
+  if (!rawCode || typeof rawCode !== 'string') return '';
+  return rawCode.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+/**
+ * Sanitizes a raw tab query parameter string against canonical ActiveTab identifiers.
+ */
+export function sanitizeTab(rawTab: string | null | undefined): ActiveTab {
+  if (!rawTab || typeof rawTab !== 'string') return CLASS_CONFIG.DEFAULT_TAB;
+  return rawTab.trim().toLowerCase() === 'problems' ? 'problems' : CLASS_CONFIG.DEFAULT_TAB;
+}
+
+/**
+ * Calculates the total number of solved AC problems for a given user.
+ * Prefers `u.solvedCount` if present, falling back to unique length of `u.solved`.
+ */
+export function getSolvedCount(u?: UserScore): number {
+  if (!u) return 0;
+  return u.solvedCount ?? (Array.isArray(u.solved) ? new Set(u.solved).size : 0);
+}
+
+/**
+ * Sorts students descending by total solved AC count.
+ * Returns a new array without mutating the original user array.
+ */
+export function sortUsersBySolved(users: UserScore[] = []): UserScore[] {
+  return [...(users || [])].sort((a, b) => getSolvedCount(b) - getSolvedCount(a));
+}
+
+/**
+ * Computes aggregate class solve statistics for all problems in a single O(U * S + P) pass.
+ * Uses a per-user Set to guarantee idempotency and prevent overcounting duplicate solve IDs.
+ */
+export function computeAllProblemSolveStats(
+  problems: Problem[] = [],
+  users: UserScore[] = []
+): Map<number, ProblemSolveStats> {
+  const safeUsers = users || [];
+  const safeProblems = problems || [];
+  const totalStudents = safeUsers.length;
+  const solveCountMap = new Map<number, number>();
+
+  for (const user of safeUsers) {
+    if (user && user.solved && Array.isArray(user.solved)) {
+      const uniqueSolved = new Set(user.solved);
+      for (const pid of uniqueSolved) {
+        solveCountMap.set(pid, (solveCountMap.get(pid) || 0) + 1);
+      }
+    }
+  }
+
+  const result = new Map<number, ProblemSolveStats>();
+  for (const p of safeProblems) {
+    if (!p) continue;
+    const solvedCount = solveCountMap.get(p.id) || 0;
+    result.set(p.id, {
+      problemId: p.id,
+      solvedCount,
+      totalStudents,
+    });
+  }
+
+  return result;
+}
 
 /**
  * Computes the next tri-state sort cycle when a student column header is clicked:
@@ -19,15 +91,10 @@ export function getNextSortState(currentState: SortState, clickedUserId: string)
 
 /**
  * Pure domain sorting engine that structures topic sections and problems relative to a student's performance.
- * 
+ *
  * - 'desc': Topics with highest solved count first. Within each topic, solved problems first.
  * - 'asc' (Échale Ganas): Topics with lowest solved count / highest pending first. Within each topic, unsolved problems first.
  * - null: Default curriculum topic grouping and problem ID sequence.
- * 
- * Deterministic tie-breakers:
- * 1. Topic completion percentage ratio (solved / total)
- * 2. Original topic chronological position
- * 3. Original problem numerical ID
  */
 export function sortTopicGroupsByStudent(
   problems: Problem[],

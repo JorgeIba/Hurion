@@ -1,5 +1,4 @@
-import { Problem, ProblemSolveStats } from '@/domain/scoreboard/types';
-import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
+import { Problem, ProblemSolveStats, CLASS_LABELS } from '@/domain/class';
 import { ProblemRow } from '@/components/problems/ProblemRow';
 
 export interface ProblemTopicSectionProps {
@@ -51,7 +50,7 @@ export function ProblemTopicSection({
 
           <div className="topic-header-meta">
             <span className="topic-prob-count">
-              {problems.length} {SCOREBOARD_LABELS.PROBLEMS_VIEW.TOPIC_COUNT_SUFFIX}
+              {problems.length} {CLASS_LABELS.PROBLEMS_VIEW.TOPIC_COUNT_SUFFIX}
             </span>
           </div>
         </button>

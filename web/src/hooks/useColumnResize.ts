@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import { CLASS_CONFIG } from '@/domain/class';
 
 interface ColumnResizeOptions {
   defaultWidth?: number;
@@ -15,13 +15,13 @@ interface ColumnResizeOptions {
 function getResponsiveDefaults(): { defaultWidth: number; minWidth: number } {
   if (typeof window !== 'undefined' && window.innerWidth <= 640) {
     return {
-      defaultWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_DEFAULT_WIDTH,
-      minWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_MIN_WIDTH,
+      defaultWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_DEFAULT_WIDTH,
+      minWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_MIN_WIDTH,
     };
   }
   return {
-    defaultWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_DEFAULT_WIDTH,
-    minWidth: SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH,
+    defaultWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_DEFAULT_WIDTH,
+    minWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH,
   };
 }
 
@@ -34,7 +34,7 @@ function getResponsiveDefaults(): { defaultWidth: number; minWidth: number } {
 export function useColumnResize({
   defaultWidth,
   minWidth,
-  maxWidth = SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH,
+  maxWidth = CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH,
 }: ColumnResizeOptions = {}) {
   const responsiveDefaults = getResponsiveDefaults();
   const resolvedDefaultWidth = defaultWidth ?? responsiveDefaults.defaultWidth;

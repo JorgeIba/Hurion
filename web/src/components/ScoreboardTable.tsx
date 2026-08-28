@@ -1,8 +1,15 @@
 import React, { useMemo, useState, useCallback, startTransition } from 'react';
-import { Problem, UserScore, SortState } from '@/domain/scoreboard/types';
-import { getSolvedCount, getProblemDifficultyMetadata } from '@/domain/scoreboard/utils';
-import { getNextSortState, sortTopicGroupsByStudent } from '@/domain/scoreboard/sorting';
-import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import {
+  Problem,
+  UserScore,
+  SortState,
+  getSolvedCount,
+  getProblemDifficultyMetadata,
+  getNextSortState,
+  sortTopicGroupsByStudent,
+  CLASS_LABELS,
+  CLASS_CONFIG,
+} from '@/domain/class';
 import { useColumnResize } from '@/hooks/useColumnResize';
 
 interface ScoreboardTableProps {
@@ -62,7 +69,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
         aria-labelledby="tab-standings"
       >
         <div className="state-row">
-          <p>{SCOREBOARD_LABELS.NO_PROBLEMS}</p>
+          <p>{CLASS_LABELS.NO_PROBLEMS}</p>
         </div>
       </section>
     );
@@ -87,7 +94,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
             {users.map((u, i) => (
               <col
                 key={`col-student-${u.userId || i}`}
-                style={{ width: `${SCOREBOARD_CONFIG.DIMENSIONS.STUDENT_COL_WIDTH_PX}px` }}
+                style={{ width: `${CLASS_CONFIG.DIMENSIONS.STUDENT_COL_WIDTH_PX}px` }}
               />
             ))}
           </colgroup>
@@ -95,15 +102,15 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
             {/* --- Header Row 1: Student Names, Rank Medals (👑, 🥈, 🥉), and Mastery Badges --- */}
             <tr id="table-header-row">
               <th className="col-problem-header" scope="col">
-                <span>{SCOREBOARD_LABELS.PROBLEM_HEADER}</span>
+                <span>{CLASS_LABELS.PROBLEM_HEADER}</span>
                 <div
                   className={`column-resizer ${isResizing ? 'is-resizing' : ''}`}
                   role="separator"
                   tabIndex={0}
                   aria-orientation="vertical"
                   aria-valuenow={problemWidth}
-                  aria-valuemin={SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH}
-                  aria-valuemax={SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH}
+                  aria-valuemin={CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH}
+                  aria-valuemax={CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH}
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
@@ -111,8 +118,8 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                   onLostPointerCapture={handlePointerUp}
                   onDoubleClick={handleDoubleClick}
                   onKeyDown={handleKeyDown}
-                  title={SCOREBOARD_LABELS.RESIZER.TOOLTIP}
-                  aria-label={SCOREBOARD_LABELS.RESIZER.ARIA_LABEL}
+                  title={CLASS_LABELS.RESIZER.TOOLTIP}
+                  aria-label={CLASS_LABELS.RESIZER.ARIA_LABEL}
                 />
               </th>
               {users.map((u, index) => {
@@ -120,13 +127,13 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                 let crownEmoji = '';
                 if (index === 0) {
                   rankClass = 'rank-1-header';
-                  crownEmoji = SCOREBOARD_LABELS.MEDALS.GOLD;
+                  crownEmoji = CLASS_LABELS.MEDALS.GOLD;
                 } else if (index === 1) {
                   rankClass = 'rank-2-header';
-                  crownEmoji = SCOREBOARD_LABELS.MEDALS.SILVER;
+                  crownEmoji = CLASS_LABELS.MEDALS.SILVER;
                 } else if (index === 2) {
                   rankClass = 'rank-3-header';
-                  crownEmoji = SCOREBOARD_LABELS.MEDALS.BRONZE;
+                  crownEmoji = CLASS_LABELS.MEDALS.BRONZE;
                 }
 
                 const isMastered =
@@ -163,20 +170,20 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                     title={
                       isSelected
                         ? sortDir === 'desc'
-                          ? `Sorted by ${u.displayName || u.userId}'s Top Topics (Click for ${SCOREBOARD_LABELS.SORT_LABELS.ECHALE_GANAS})`
-                          : `Sorted by ${u.displayName || u.userId}'s ${SCOREBOARD_LABELS.SORT_LABELS.ECHALE_GANAS} (Click to Reset)`
+                          ? `Sorted by ${u.displayName || u.userId}'s Top Topics (Click for ${CLASS_LABELS.SORT_LABELS.ECHALE_GANAS})`
+                          : `Sorted by ${u.displayName || u.userId}'s ${CLASS_LABELS.SORT_LABELS.ECHALE_GANAS} (Click to Reset)`
                         : `Click to sort scoreboard by ${u.displayName || u.userId}'s solves`
                     }
                   >
                     <div className="student-header-inner">
                       {crownEmoji && <span className="student-crown">{crownEmoji}</span>}
                       <span className="student-name-text">{u.displayName || u.userId}</span>
-                      {isMastered && <span className="mastered-badge">{SCOREBOARD_LABELS.MASTERY_BADGE}</span>}
+                      {isMastered && <span className="mastered-badge">{CLASS_LABELS.MASTERY_BADGE}</span>}
                       {sortDir === 'desc' && (
-                        <span className="sort-indicator-badge">{SCOREBOARD_LABELS.SORT_LABELS.TOP_ACS}</span>
+                        <span className="sort-indicator-badge">{CLASS_LABELS.SORT_LABELS.TOP_ACS}</span>
                       )}
                       {sortDir === 'asc' && (
-                        <span className="sort-indicator-badge sort-asc">{SCOREBOARD_LABELS.SORT_LABELS.ECHALE_GANAS}</span>
+                        <span className="sort-indicator-badge sort-asc">{CLASS_LABELS.SORT_LABELS.ECHALE_GANAS}</span>
                       )}
                     </div>
                   </th>
@@ -187,7 +194,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
             {/* --- Header Row 2: Total Solved (ACs) Sub-Header Row --- */}
             <tr id="table-sub-header-row" className="total-ac-row">
               <th className="col-problem-header total-ac-label-cell" scope="col">
-                {SCOREBOARD_LABELS.TOTAL_SOLVED}
+                {CLASS_LABELS.TOTAL_SOLVED}
               </th>
               {users.map((u, index) => (
                 <th
@@ -222,7 +229,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                       label: diffLabel,
                     } = getProblemDifficultyMetadata(p.difficulty);
 
-                    const problemTitle = p.name || SCOREBOARD_CONFIG.DEFAULT_PROBLEM_NAME;
+                    const problemTitle = p.name || CLASS_CONFIG.DEFAULT_PROBLEM_NAME;
                     const cleanUrl = p.url?.trim();
 
                     return (

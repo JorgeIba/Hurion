@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
-import { ActiveTab } from '@/domain/scoreboard/types';
-import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
+import { ActiveTab, CLASS_LABELS } from '@/domain/class';
 
 interface NavigationTabsProps {
   activeTab: ActiveTab;
@@ -14,12 +13,12 @@ export function NavigationTabs({
   const tabs: { id: ActiveTab; label: string; icon: string }[] = [
     {
       id: 'standings',
-      label: SCOREBOARD_LABELS.TABS.STANDINGS,
+      label: CLASS_LABELS.TABS.STANDINGS,
       icon: '🏆',
     },
     {
       id: 'problems',
-      label: SCOREBOARD_LABELS.TABS.PROBLEMS,
+      label: CLASS_LABELS.TABS.PROBLEMS,
       icon: '🧩',
     },
   ];

@@ -1,49 +1,15 @@
-import { Problem, UserScore, ProblemDifficulty, ActiveTab, DifficultyFilter, ProblemSolveStats } from './types';
-import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from './constants';
-
-/**
- * Sanitizes a raw class code string.
- * Permits letters, numbers, dashes, and underscores (e.g. "basicos" or "Class123").
- * Strips invalid characters to prevent file path injection issues.
- */
-export function sanitizeClassCode(rawCode: string | null | undefined): string {
-  if (!rawCode || typeof rawCode !== 'string') return '';
-  return rawCode.trim().replace(/[^a-zA-Z0-9_-]/g, '');
-}
-
-/**
- * Sanitizes a raw tab query parameter string against canonical ActiveTab identifiers.
- */
-export function sanitizeTab(rawTab: string | null | undefined): ActiveTab {
-  if (!rawTab || typeof rawTab !== 'string') return SCOREBOARD_CONFIG.DEFAULT_TAB;
-  return rawTab.trim().toLowerCase() === 'problems' ? 'problems' : SCOREBOARD_CONFIG.DEFAULT_TAB;
-}
-
-/**
- * Calculates the total number of solved AC problems for a given user.
- * Prefers `u.solvedCount` if present, falling back to unique length of `u.solved`.
- */
-export function getSolvedCount(u?: UserScore): number {
-  if (!u) return 0;
-  return u.solvedCount ?? (Array.isArray(u.solved) ? new Set(u.solved).size : 0);
-}
-
-/**
- * Sorts students descending by total solved AC count.
- * Returns a new array without mutating the original user array.
- */
-export function sortUsersBySolved(users: UserScore[] = []): UserScore[] {
-  return [...(users || [])].sort((a, b) => getSolvedCount(b) - getSolvedCount(a));
-}
+import { Problem, ProblemDifficulty, DifficultyFilter, ProblemDifficultyMetadata } from './types';
+import { CLASS_CONFIG, CLASS_LABELS } from './constants';
 
 /**
  * Formats a raw topic string into canonical Title Case:
  * "dynamic programming" -> "Dynamic Programming"
  * "greedy" -> "Greedy"
+ * "two-pointers" -> "Two Pointers"
  */
 export function formatTopicTitle(rawTopic?: string): string {
   const trimmed = (typeof rawTopic === 'string' ? rawTopic : '').trim();
-  if (!trimmed) return SCOREBOARD_CONFIG.DEFAULT_TOPIC_NAME;
+  if (!trimmed) return CLASS_CONFIG.DEFAULT_TOPIC_NAME;
 
   return trimmed
     .split(/[\s_-]+/)
@@ -62,7 +28,7 @@ export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Prob
 
   (problems || []).forEach((p) => {
     if (!p) return;
-    const rawTopic = (p.topic || '').trim() || SCOREBOARD_CONFIG.DEFAULT_TOPIC_NAME;
+    const rawTopic = (p.topic || '').trim() || CLASS_CONFIG.DEFAULT_TOPIC_NAME;
     const canonical = formatTopicTitle(rawTopic);
     const lowerKey = canonical.toLowerCase();
 
@@ -80,13 +46,6 @@ export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Prob
   return groups;
 }
 
-export interface ProblemDifficultyMetadata {
-  rowClassName: string;
-  badgeClassName: string;
-  dotClassName: string;
-  label: string;
-}
-
 /**
  * Declarative lookup table mapping normalized difficulty tiers to presentation metadata.
  */
@@ -95,25 +54,25 @@ const DIFFICULTY_METADATA_MAP: Record<ProblemDifficulty, ProblemDifficultyMetada
     rowClassName: 'problem-row-easy',
     badgeClassName: 'badge-easy',
     dotClassName: 'diff-easy',
-    label: SCOREBOARD_LABELS.DIFFICULTY.EASY,
+    label: CLASS_LABELS.DIFFICULTY.EASY,
   },
   medium: {
     rowClassName: 'problem-row-medium',
     badgeClassName: 'badge-medium',
     dotClassName: 'diff-medium',
-    label: SCOREBOARD_LABELS.DIFFICULTY.MEDIUM,
+    label: CLASS_LABELS.DIFFICULTY.MEDIUM,
   },
   hard: {
     rowClassName: 'problem-row-hard',
     badgeClassName: 'badge-hard',
     dotClassName: 'diff-hard',
-    label: SCOREBOARD_LABELS.DIFFICULTY.HARD,
+    label: CLASS_LABELS.DIFFICULTY.HARD,
   },
   unspecified: {
     rowClassName: 'problem-row-unspecified',
     badgeClassName: 'badge-unspecified',
     dotClassName: 'diff-unspecified',
-    label: SCOREBOARD_LABELS.DIFFICULTY.UNSPECIFIED,
+    label: CLASS_LABELS.DIFFICULTY.UNSPECIFIED,
   },
 };
 
@@ -134,42 +93,6 @@ export function parseDifficulty(raw?: string): ProblemDifficulty {
 export function getProblemDifficultyMetadata(difficulty?: string): ProblemDifficultyMetadata {
   const tier = parseDifficulty(difficulty);
   return DIFFICULTY_METADATA_MAP[tier];
-}
-
-/**
- * Computes aggregate class solve statistics for all problems in a single O(U * S + P) pass.
- * Uses a per-user Set to guarantee idempotency and prevent overcounting duplicate solve IDs.
- */
-export function computeAllProblemSolveStats(
-  problems: Problem[] = [],
-  users: UserScore[] = []
-): Map<number, ProblemSolveStats> {
-  const safeUsers = users || [];
-  const safeProblems = problems || [];
-  const totalStudents = safeUsers.length;
-  const solveCountMap = new Map<number, number>();
-
-  for (const user of safeUsers) {
-    if (user && user.solved && Array.isArray(user.solved)) {
-      const uniqueSolved = new Set(user.solved);
-      for (const pid of uniqueSolved) {
-        solveCountMap.set(pid, (solveCountMap.get(pid) || 0) + 1);
-      }
-    }
-  }
-
-  const result = new Map<number, ProblemSolveStats>();
-  for (const p of safeProblems) {
-    if (!p) continue;
-    const solvedCount = solveCountMap.get(p.id) || 0;
-    result.set(p.id, {
-      problemId: p.id,
-      solvedCount,
-      totalStudents,
-    });
-  }
-
-  return result;
 }
 
 /**
