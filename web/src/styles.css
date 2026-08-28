@@ -371,6 +371,7 @@ body {
 .problem-title-cell {
     font-family: var(--font-body);
     font-weight: 600;
+    text-align: left;
     color: var(--text-primary);
     position: sticky;
     left: 0;
@@ -593,3 +594,524 @@ body {
     color: var(--accent-gold);
     text-shadow: 0 0 8px var(--accent-gold-glow);
 }
+
+/* --- Navigation Tabs (Segmented Control in Header) --- */
+.nav-tabs-container {
+    display: inline-flex;
+    align-items: center;
+    background: #0b1120;
+    border: var(--border-hairline);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+}
+
+.nav-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease-in-out;
+    outline: none;
+    user-select: none;
+}
+
+.nav-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tab-btn:focus-visible {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 2px var(--accent-cyan-glow);
+}
+
+.nav-tab-btn.nav-tab-active {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.35);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.nav-tab-icon {
+    font-size: 0.95rem;
+}
+
+/* --- Tabpanel Wrapper for State Preservation & ARIA --- */
+.tabpanels-main-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.tabpanel-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.tabpanel-wrapper[hidden] {
+    display: none !important;
+}
+
+/* --- Problems View Container --- */
+.problems-view-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Toolbar (Filters + Stats) */
+.problems-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    padding: 0.85rem 1.25rem;
+    background: #0d1527;
+    border-bottom: var(--border-hairline);
+    flex-shrink: 0;
+}
+
+/* Difficulty Filters */
+.difficulty-filter-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.diff-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #070b14;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.diff-filter-pill:hover {
+    background: #151f33;
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.diff-filter-pill.is-selected {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+.problems-count-badge {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.count-highlight {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.toolbar-right-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.btn-toggle-all-topics {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    padding: 0.28rem 0.6rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.btn-toggle-all-topics:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Problems Scroll Area */
+.problems-scroll-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.empty-search-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.btn-reset-filters {
+    padding: 0.45rem 1rem;
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 6px;
+    color: #38bdf8;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.btn-reset-filters:hover {
+    background: rgba(56, 189, 248, 0.25);
+}
+
+/* Topic Section & Collapsible Header */
+.problem-topic-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.problem-topic-header-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.45rem 0.85rem;
+    background: #0d1527;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+}
+
+.problem-topic-header-btn:hover {
+    background: #131f38;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.topic-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.topic-chevron {
+    font-size: 0.8rem;
+    color: var(--accent-cyan);
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.topic-chevron.is-collapsed {
+    transform: rotate(-90deg);
+}
+
+.topic-title-code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-primary);
+}
+
+.topic-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.topic-prob-count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+}
+
+.problem-topic-header-heading {
+    margin: 0;
+    padding: 0;
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+/* --- Option A: High-Density Problem List --- */
+.problem-list {
+    display: flex;
+    flex-direction: column;
+    background: #090e1a;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.problem-list[hidden] {
+    display: none !important;
+}
+
+.problem-list-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.12s ease;
+    min-height: 42px;
+}
+
+.problem-list-row:last-child {
+    border-bottom: none;
+}
+
+.problem-list-row:hover {
+    background: #111a2e;
+}
+
+.problem-list-id {
+    display: inline-flex;
+    align-items: center;
+    min-width: 3.2rem;
+    flex-shrink: 0;
+}
+
+.problem-list-title-link,
+.problem-list-title-plain {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.90rem;
+    font-weight: 500;
+}
+
+.problem-list-title-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.problem-list-title-link:hover .problem-list-title-text {
+    color: var(--accent-cyan);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.problem-list-title-link .external-link-icon {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    opacity: 0.4;
+    transition: all 0.15s ease;
+}
+
+.problem-list-row:hover .external-link-icon {
+    opacity: 0.9;
+    color: var(--accent-cyan);
+    transform: translate(1px, -1px);
+}
+
+/* Micro-Progress Solve Badge (GPU Composite Accelerated via scaleX) */
+.problem-list-solves-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    height: 24px;
+    padding: 0 0.5rem;
+    background: #0b1220;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.solves-progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    background: rgba(16, 185, 129, 0.20);
+    border-radius: 3px;
+    pointer-events: none;
+    transform-origin: left;
+    transition: transform 0.25s ease;
+}
+
+.solves-badge-text {
+    position: relative;
+    z-index: 2;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.solves-badge-text strong {
+    color: var(--text-primary);
+}
+
+.solves-badge-percent {
+    color: var(--accent-emerald);
+    font-weight: 600;
+}
+
+
+
+
+/* --- Mobile Responsive Adjustments --- */
+@media (max-width: 768px) {
+    body {
+        padding: 0.5rem;
+    }
+
+    .header-bar {
+        padding: 0.75rem 0.9rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .brand-section {
+        justify-content: center;
+    }
+
+    .nav-tabs-container {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .nav-tab-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .class-stats-pill {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .problems-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.75rem;
+        gap: 0.65rem;
+    }
+
+    .difficulty-filter-group {
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .diff-filter-pill {
+        flex-shrink: 0;
+        min-height: 36px;
+        padding: 0.4rem 0.75rem;
+    }
+
+    .toolbar-right-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .class-stats-pill .stat-divider {
+        display: none;
+    }
+
+    .problems-scroll-area {
+        padding: 0.75rem;
+    }
+
+    .problem-list-row {
+        gap: 0.5rem;
+        padding: 0.5rem 0.65rem;
+    }
+
+    .problem-list-id {
+        width: 2.4rem;
+        font-size: 0.72rem;
+    }
+
+    .problem-list-title-text {
+        font-size: 0.85rem;
+    }
+
+    .problem-list-solves-badge {
+        min-width: 75px;
+        height: 22px;
+        padding: 0 0.35rem;
+    }
+
+    .solves-badge-percent {
+        display: none; /* Hide percentage text on small mobile screens to keep row compact */
+    }
+}
+
+/* --- Keyboard Accessibility: Focus Visible Rings --- */
+.col-student-header:focus-visible,
+.diff-filter-pill:focus-visible,
+.btn-toggle-all-topics:focus-visible,
+.btn-reset-filters:focus-visible,
+.problem-topic-header-btn:focus-visible,
+.problem-link:focus-visible,
+.problem-list-title-link:focus-visible,
+.column-resizer:focus-visible {
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 2px;
+}
+
+/* --- Motion Accessibility: Reduced Motion Override --- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+
+

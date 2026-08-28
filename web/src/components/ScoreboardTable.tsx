@@ -21,7 +21,7 @@ interface ScoreboardTableProps {
  * - Tri-State Adaptive Sorting: Via React 19 `startTransition` non-blocking re-ordering.
  */
 export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
-  // 1. Column Resizing State (Pointer Events API)
+  // 1. Column Resizing State (Pointer Events & Keyboard A11y)
   const {
     width: problemWidth,
     isResizing,
@@ -29,6 +29,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
     handlePointerMove,
     handlePointerUp,
     handleDoubleClick,
+    handleKeyDown,
   } = useColumnResize();
 
   // 2. Tri-State Student-Targeted Topic Sorting
@@ -46,7 +47,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
     return sortTopicGroupsByStudent(problems, users, sortState);
   }, [problems, users, sortState]);
 
-  // 4. Fast Status Lookup Optimization: Pre-computes Set<problemId> per student for O(1) cell checks.
+  // 4. Pre-computed Set lookups for O(1) status cell rendering
   const userSolvedSets = useMemo(() => {
     return users.map((u) => new Set(u.solved || []));
   }, [users]);
@@ -54,8 +55,11 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
   const totalCols = 1 + users.length;
 
   return (
-    <main
+    <section
       className="card-container"
+      role="tabpanel"
+      id="tabpanel-standings"
+      aria-labelledby="tab-standings"
       style={{
         ['--col-problem-width' as string]: `${problemWidth}px`,
       }}
@@ -79,6 +83,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                 <div
                   className={`column-resizer ${isResizing ? 'is-resizing' : ''}`}
                   role="separator"
+                  tabIndex={0}
                   aria-orientation="vertical"
                   aria-valuenow={problemWidth}
                   aria-valuemin={SCOREBOARD_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH}
@@ -86,7 +91,10 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                   onPointerDown={handlePointerDown}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                  onLostPointerCapture={handlePointerUp}
                   onDoubleClick={handleDoubleClick}
+                  onKeyDown={handleKeyDown}
                   title={SCOREBOARD_LABELS.RESIZER.TOOLTIP}
                   aria-label={SCOREBOARD_LABELS.RESIZER.ARIA_LABEL}
                 />
@@ -189,7 +197,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                   <tr className="topic-header-row">
                     <td colSpan={totalCols}>
                       <div className="topic-header-sticky">
-                        {SCOREBOARD_LABELS.TOPIC_PREFIX} {topicName.toUpperCase()}
+                        {topicName.toUpperCase()}
                       </div>
                     </td>
                   </tr>
@@ -197,31 +205,32 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                   {/* Problem Rows inside this Topic */}
                   {topicProblems.map((p) => {
                     const {
-                      rowClass,
-                      badgeClass,
-                      dotClass,
+                      rowClassName,
+                      badgeClassName,
+                      dotClassName,
                       label: diffLabel,
                     } = getProblemDifficultyMetadata(p.difficulty);
 
                     const problemTitle = p.name || SCOREBOARD_CONFIG.DEFAULT_PROBLEM_NAME;
+                    const cleanUrl = p.url?.trim();
 
                     return (
-                      <tr key={`prob-${p.id}`} className={`problem-row ${rowClass}`}>
+                      <tr key={`prob-${p.id}`} className={`problem-row ${rowClassName}`}>
                         {/* Col 1: Problem Title, Numerical ID, and Unified Difficulty Dot */}
-                        <td className="problem-title-cell">
-                          {p.url ? (
+                        <th scope="row" className="problem-title-cell">
+                          {cleanUrl ? (
                             <a
-                              href={p.url}
+                              href={cleanUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="problem-link"
                               title={`Open ${problemTitle} in new tab`}
                             >
-                              <span className={`problem-code-badge ${badgeClass}`}>
+                              <span className={`problem-code-badge ${badgeClassName}`}>
                                 {`[${String(p.id).padStart(2, '0')}]`}
                               </span>
                               <span
-                                className={`diff-dot ${dotClass}`}
+                                className={`diff-dot ${dotClassName}`}
                                 title={`Difficulty: ${diffLabel}`}
                                 aria-label={`Difficulty: ${diffLabel}`}
                               />
@@ -232,11 +241,11 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                             </a>
                           ) : (
                             <div className="problem-title-inner">
-                              <span className={`problem-code-badge ${badgeClass}`}>
+                              <span className={`problem-code-badge ${badgeClassName}`}>
                                 {`[${String(p.id).padStart(2, '0')}]`}
                               </span>
                               <span
-                                className={`diff-dot ${dotClass}`}
+                                className={`diff-dot ${dotClassName}`}
                                 title={`Difficulty: ${diffLabel}`}
                                 aria-label={`Difficulty: ${diffLabel}`}
                               />
@@ -245,7 +254,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                               </span>
                             </div>
                           )}
-                        </td>
+                        </th>
 
                         {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}
                         {userSolvedSets.map((solvedSet, uIndex) => {
@@ -255,7 +264,11 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                               key={`status-${p.id}-${users[uIndex]?.userId || uIndex}`}
                               className="status-cell"
                             >
-                              {isSolved && <span className="status-ac-pill">✓</span>}
+                              {isSolved && (
+                                <span className="status-ac-pill" aria-label="Solved" title="Solved">
+                                  ✓
+                                </span>
+                              )}
                             </td>
                           );
                         })}
@@ -268,6 +281,6 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
           </tbody>
         </table>
       </div>
-    </main>
+    </section>
   );
 }

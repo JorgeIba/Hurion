@@ -1,22 +1,26 @@
-import React from 'react';
-import { UserScore, Problem } from '@/domain/scoreboard/types';
+import { UserScore, Problem, ActiveTab } from '@/domain/scoreboard/types';
 import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import { NavigationTabs } from '@/components/NavigationTabs';
 
 interface HeaderBarProps {
   title?: string;
   users: UserScore[];
   problems: Problem[];
-  searchQuery?: string;
-  onSearchChange?: (query: string) => void;
+  activeTab: ActiveTab;
+  onTabChange: (tab: ActiveTab) => void;
 }
 
-export const HeaderBar: React.FC<HeaderBarProps> = ({
+export function HeaderBar({
   title,
   users,
   problems,
-}) => {
+  activeTab,
+  onTabChange,
+}: HeaderBarProps) {
+  const topUser = users.length > 0 ? users[0] : null;
   const leaderName =
-    users.length > 0 ? users[0].displayName || users[0].userId : SCOREBOARD_CONFIG.DEFAULT_LEADER_NAME;
+    (topUser ? topUser.displayName || topUser.userId : null) ||
+    SCOREBOARD_CONFIG.DEFAULT_LEADER_NAME;
 
   return (
     <header className="header-bar">
@@ -26,6 +30,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {title || SCOREBOARD_CONFIG.DEFAULT_PAGE_TITLE}
         </h1>
       </div>
+
+      {/* Center Segmented View Switcher */}
+      <NavigationTabs
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+      />
 
       {/* Dynamic Class Health Stats Bar */}
       <div className="class-stats-pill" id="class-stats">
@@ -44,4 +54,4 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       </div>
     </header>
   );
-};
+}

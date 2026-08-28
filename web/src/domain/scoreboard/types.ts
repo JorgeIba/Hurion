@@ -1,4 +1,6 @@
 export type ProblemDifficulty = 'easy' | 'medium' | 'hard' | 'unspecified';
+export type DifficultyFilter = 'all' | ProblemDifficulty;
+export type ActiveTab = 'standings' | 'problems';
 
 export interface Problem {
   id: number;
@@ -13,6 +15,12 @@ export interface UserScore {
   displayName?: string;
   solvedCount?: number;
   solved?: number[];
+}
+
+export interface ProblemSolveStats {
+  problemId: number;
+  solvedCount: number;
+  totalStudents: number;
 }
 
 export type SortDirection = 'desc' | 'asc' | null;

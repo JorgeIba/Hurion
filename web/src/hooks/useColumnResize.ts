@@ -28,9 +28,8 @@ function getResponsiveDefaults(): { defaultWidth: number; minWidth: number } {
 /**
  * Custom React Hook: useColumnResize
  * 
- * Encapsulates pointer-based drag resizing using the standard W3C Pointer Events API.
- * Uses `setPointerCapture` to seamlessly track mouse, touch (mobile/iPad), and stylus inputs
- * without needing global `window` event listeners or risking memory leaks.
+ * Encapsulates pointer-based drag resizing using W3C Pointer Events API
+ * and full keyboard accessibility support (WAI-ARIA Separator pattern).
  */
 export function useColumnResize({
   defaultWidth,
@@ -44,10 +43,10 @@ export function useColumnResize({
   const [width, setWidth] = useState<number>(resolvedDefaultWidth);
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const resizeStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const rafIdRef = useRef<number | null>(null);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      // Respond to primary pointer click/touch contact
       if (e.button !== 0 && e.pointerType === 'mouse') return;
 
       e.preventDefault();
@@ -67,7 +66,14 @@ export function useColumnResize({
         resolvedMinWidth,
         Math.min(maxWidth, resizeStartRef.current.startWidth + delta)
       );
-      setWidth(newWidth);
+
+      // Throttle state update with requestAnimationFrame for smooth 60fps
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+      rafIdRef.current = requestAnimationFrame(() => {
+        setWidth(newWidth);
+      });
     },
     [isResizing, resolvedMinWidth, maxWidth]
   );
@@ -79,6 +85,10 @@ export function useColumnResize({
       if (e.currentTarget.hasPointerCapture(e.pointerId)) {
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       setIsResizing(false);
       resizeStartRef.current = null;
     },
@@ -89,6 +99,29 @@ export function useColumnResize({
     setWidth(resolvedDefaultWidth);
   }, [resolvedDefaultWidth]);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const STEP = 15;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setWidth((w) => Math.max(resolvedMinWidth, w - STEP));
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setWidth((w) => Math.min(maxWidth, w + STEP));
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setWidth(resolvedMinWidth);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setWidth(maxWidth);
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setWidth(resolvedDefaultWidth);
+      }
+    },
+    [resolvedMinWidth, maxWidth, resolvedDefaultWidth]
+  );
+
   return {
     width,
     isResizing,
@@ -96,5 +129,6 @@ export function useColumnResize({
     handlePointerMove,
     handlePointerUp,
     handleDoubleClick,
+    handleKeyDown,
   };
 }
