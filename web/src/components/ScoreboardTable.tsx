@@ -52,6 +52,22 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
     return users.map((u) => new Set(u.solved || []));
   }, [users]);
 
+  // 5. Empty State Guard (Matches ProblemsView presentation)
+  if (problems.length === 0) {
+    return (
+      <section
+        className="card-container"
+        role="tabpanel"
+        id="tabpanel-standings"
+        aria-labelledby="tab-standings"
+      >
+        <div className="state-row">
+          <p>{SCOREBOARD_LABELS.NO_PROBLEMS}</p>
+        </div>
+      </section>
+    );
+  }
+
   const totalCols = 1 + users.length;
 
   return (
@@ -186,12 +202,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
           </thead>
 
           <tbody id="leaderboard">
-            {problems.length === 0 ? (
-              <tr className="state-row">
-                <td colSpan={totalCols}>{SCOREBOARD_LABELS.NO_PROBLEMS}</td>
-              </tr>
-            ) : (
-              Array.from(topicGroups.entries()).map(([topicName, topicProblems]) => (
+            {Array.from(topicGroups.entries()).map(([topicName, topicProblems]) => (
                 <React.Fragment key={`topic-${topicName}`}>
                   {/* Topic Section Header Banner */}
                   <tr className="topic-header-row">
@@ -276,8 +287,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                     );
                   })}
                 </React.Fragment>
-              ))
-            )}
+              ))}
           </tbody>
         </table>
       </div>
