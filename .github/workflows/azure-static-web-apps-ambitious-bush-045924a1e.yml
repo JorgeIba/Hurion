@@ -60,9 +60,7 @@ jobs:
       AZURE_CREDENTIALS: ${{ secrets.AZURE_VM_DEPLOY_CREDENTIALS || secrets.AZURE_CREDENTIALS }}
     steps:
       - name: Azure Login
-        id: azure_login
         uses: azure/login@v2
-        if: ${{ env.AZURE_CLIENT_ID != '' || env.AZURE_CREDENTIALS != '' }}
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
           tenant-id: ${{ env.AZURE_TENANT_ID }}
@@ -70,7 +68,6 @@ jobs:
           creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Delete Staging Environment
-        if: ${{ steps.azure_login.outcome == 'success' }}
         run: |
           az staticwebapp environment delete \
             --name hurion-scoreboard \
