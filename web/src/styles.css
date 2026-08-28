@@ -370,7 +370,8 @@ body {
 /* --- Problem Name Cell (Sticky Freeze Column 1) --- */
 .problem-title-cell {
     font-family: var(--font-body);
-    font-weight: 600;
+    font-weight: 500;
+    text-transform: none;
     text-align: left;
     color: var(--text-primary);
     position: sticky;
@@ -424,15 +425,15 @@ body {
     flex: 1;
 }
 
-.scoreboard-table tbody tr.problem-row:nth-child(even) td.problem-title-cell {
+.scoreboard-table tbody tr.problem-row:nth-child(even) .problem-title-cell {
     background-color: #0e1526;
 }
 
-.scoreboard-table tbody tr.problem-row:nth-child(odd) td.problem-title-cell {
+.scoreboard-table tbody tr.problem-row:nth-child(odd) .problem-title-cell {
     background-color: var(--bg-surface);
 }
 
-.scoreboard-table tbody tr.problem-row:hover td.problem-title-cell {
+.scoreboard-table tbody tr.problem-row:hover .problem-title-cell {
     background-color: var(--bg-row-hover) !important;
 }
 
@@ -1070,6 +1071,7 @@ body {
 
     .problem-list-id {
         width: 2.4rem;
+        min-width: 2.4rem;
         font-size: 0.72rem;
     }
 

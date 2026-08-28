@@ -45,7 +45,7 @@ export function useQueryParam<T>(
       if (typeof window === 'undefined') return;
 
       const url = new URL(window.location.href);
-      if (newValue === defaultValue || !newValue) {
+      if (newValue === defaultValue) {
         url.searchParams.delete(key);
       } else {
         url.searchParams.set(key, String(newValue));

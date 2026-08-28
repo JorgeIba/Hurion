@@ -89,10 +89,19 @@ export function useColumnResize({
         cancelAnimationFrame(rafIdRef.current);
         rafIdRef.current = null;
       }
+      // Flush final width from e.clientX so fast drag releases are never dropped
+      if (resizeStartRef.current) {
+        const delta = e.clientX - resizeStartRef.current.startX;
+        const finalWidth = Math.max(
+          resolvedMinWidth,
+          Math.min(maxWidth, resizeStartRef.current.startWidth + delta)
+        );
+        setWidth(finalWidth);
+      }
       setIsResizing(false);
       resizeStartRef.current = null;
     },
-    [isResizing]
+    [isResizing, resolvedMinWidth, maxWidth]
   );
 
   const handleDoubleClick = useCallback(() => {

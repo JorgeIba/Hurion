@@ -61,12 +61,14 @@ export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Prob
 
   (problems || []).forEach((p) => {
     const rawTopic = (p.topic || '').trim() || SCOREBOARD_CONFIG.DEFAULT_TOPIC_NAME;
-    const lowerKey = rawTopic.toLowerCase();
+    const canonical = formatTopicTitle(rawTopic);
+    const lowerKey = canonical.toLowerCase();
 
     if (!canonicalNameMap.has(lowerKey)) {
-      const canonical = formatTopicTitle(rawTopic);
       canonicalNameMap.set(lowerKey, canonical);
-      groups.set(canonical, []);
+      if (!groups.has(canonical)) {
+        groups.set(canonical, []);
+      }
     }
 
     const canonicalTitle = canonicalNameMap.get(lowerKey)!;
