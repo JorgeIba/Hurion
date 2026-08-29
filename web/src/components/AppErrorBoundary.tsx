@@ -11,7 +11,7 @@ interface State {
 
 /**
  * AppErrorBoundary Component
- * 
+ *
  * Class-based Error Boundary that catches uncaught rendering exceptions
  * in any child component, preventing full JS white-screen crashes and
  * displaying a graceful Minimal Dark fallback UI with a manual reload option.
@@ -49,7 +49,8 @@ export class AppErrorBoundary extends Component<Props, State> {
             <div className="state-row" style={{ color: '#ef4444' }}>
               <h2>⚠️ Something went wrong</h2>
               <p style={{ marginTop: '0.5rem', opacity: 0.8 }}>
-                {this.state.error?.message || 'An unexpected error occurred while rendering the scoreboard.'}
+                {this.state.error?.message ||
+                  'An unexpected error occurred while rendering the scoreboard.'}
               </p>
               <button
                 onClick={() => window.location.reload()}

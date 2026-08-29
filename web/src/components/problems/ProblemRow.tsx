@@ -1,7 +1,10 @@
 import { memo } from 'react';
-import { Problem, ProblemSolveStats } from '@/domain/scoreboard/types';
-import { getProblemDifficultyMetadata } from '@/domain/scoreboard/utils';
-import { SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import {
+  Problem,
+  ProblemSolveStats,
+  getProblemDifficultyMetadata,
+  CLASS_CONFIG,
+} from '@/domain/class';
 
 export interface ProblemRowProps {
   problem: Problem;
@@ -11,7 +14,7 @@ export interface ProblemRowProps {
 
 /**
  * ProblemRow Component
- * 
+ *
  * Renders a single high-density problem row:
  * - Col 1: Monospace problem ID badge with difficulty color theme ([#01] / [#128])
  * - Col 2: Problem title with external link icon
@@ -22,14 +25,16 @@ export const ProblemRow = memo(function ProblemRow({
   stats,
   totalStudents,
 }: ProblemRowProps) {
-  const { badgeClassName, label: diffLabel } = getProblemDifficultyMetadata(problem.difficulty);
+  const { badgeClassName, label: diffLabel } = getProblemDifficultyMetadata(
+    problem.difficulty
+  );
 
   const solvedCount = stats?.solvedCount ?? 0;
   const effectiveTotalStudents = stats?.totalStudents ?? totalStudents;
   const solveRate = effectiveTotalStudents > 0 ? solvedCount / effectiveTotalStudents : 0;
   const solvePercent = Math.round(solveRate * 100);
 
-  const problemTitle = problem.name || SCOREBOARD_CONFIG.DEFAULT_PROBLEM_NAME;
+  const problemTitle = problem.name || CLASS_CONFIG.DEFAULT_PROBLEM_NAME;
   const cleanUrl = problem.url?.trim();
   const formattedId = `[#${String(problem.id).padStart(2, '0')}]`;
 
@@ -56,7 +61,9 @@ export const ProblemRow = memo(function ProblemRow({
           title={`Open ${problemTitle} in new tab`}
         >
           <span className="problem-list-title-text">{problemTitle}</span>
-          <span className="external-link-icon" aria-hidden="true">↗</span>
+          <span className="external-link-icon" aria-hidden="true">
+            ↗
+          </span>
         </a>
       ) : (
         <div className="problem-list-title-plain">

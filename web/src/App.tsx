@@ -5,12 +5,11 @@ import { HeaderBar } from '@/components/HeaderBar';
 import { ScoreboardTable } from '@/components/ScoreboardTable';
 import { ProblemsView } from '@/components/ProblemsView';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
-import { sortUsersBySolved } from '@/domain/scoreboard/utils';
-import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import { sortUsersBySolved, CLASS_LABELS, CLASS_CONFIG } from '@/domain/class';
 
 /**
  * ScoreboardContent Component
- * 
+ *
  * Fetches and renders class standings or problem catalog for the active class code:
  * 1. Reads `classCode` from URL search parameters via `useClassCodeParam`.
  * 2. Reads `activeTab` from URL search parameters via `useTabParam` ('standings' | 'problems').
@@ -19,8 +18,8 @@ import { SCOREBOARD_LABELS, SCOREBOARD_CONFIG } from '@/domain/scoreboard/consta
  * 5. Renders HeaderBar (with Tab Navigation) and either ScoreboardTable or ProblemsView.
  */
 function ScoreboardContent() {
-  const [classCode] = useClassCodeParam(SCOREBOARD_CONFIG.DEFAULT_CLASS_CODE);
-  const [activeTab, setActiveTab] = useTabParam(SCOREBOARD_CONFIG.DEFAULT_TAB);
+  const [classCode] = useClassCodeParam(CLASS_CONFIG.DEFAULT_CLASS_CODE);
+  const [activeTab, setActiveTab] = useTabParam(CLASS_CONFIG.DEFAULT_TAB);
   const { data, loading, error } = useScoreboardData(classCode);
 
   // Sort students descending by total solved AC count
@@ -35,12 +34,12 @@ function ScoreboardContent() {
       <div className="app-container">
         <header className="header-bar">
           <div className="brand-section">
-            <span className="brand-logo">{SCOREBOARD_LABELS.BRAND_LOGO}</span>
-            <h1 className="header-title">{SCOREBOARD_CONFIG.DEFAULT_PAGE_TITLE}</h1>
+            <span className="brand-logo">{CLASS_LABELS.BRAND_LOGO}</span>
+            <h1 className="header-title">{CLASS_CONFIG.DEFAULT_PAGE_TITLE}</h1>
           </div>
         </header>
         <main className="card-container">
-          <div className="state-row">{SCOREBOARD_LABELS.LOADING}</div>
+          <div className="state-row">{CLASS_LABELS.LOADING}</div>
         </main>
       </div>
     );
@@ -52,12 +51,12 @@ function ScoreboardContent() {
       <div className="app-container">
         <header className="header-bar">
           <div className="brand-section">
-            <span className="brand-logo">{SCOREBOARD_LABELS.BRAND_LOGO}</span>
-            <h1 className="header-title">{SCOREBOARD_CONFIG.DEFAULT_PAGE_TITLE}</h1>
+            <span className="brand-logo">{CLASS_LABELS.BRAND_LOGO}</span>
+            <h1 className="header-title">{CLASS_CONFIG.DEFAULT_PAGE_TITLE}</h1>
           </div>
         </header>
         <main className="card-container">
-          <div className="state-row">{error || SCOREBOARD_LABELS.ERROR_FALLBACK}</div>
+          <div className="state-row">{error || CLASS_LABELS.ERROR_FALLBACK}</div>
         </main>
       </div>
     );
@@ -74,16 +73,10 @@ function ScoreboardContent() {
       />
       <main className="tabpanels-main-container">
         <div className="tabpanel-wrapper" hidden={activeTab !== 'standings'}>
-          <ScoreboardTable
-            problems={data.problems || []}
-            users={sortedUsers}
-          />
+          <ScoreboardTable problems={data.problems || []} users={sortedUsers} />
         </div>
         <div className="tabpanel-wrapper" hidden={activeTab !== 'problems'}>
-          <ProblemsView
-            problems={data.problems || []}
-            users={sortedUsers}
-          />
+          <ProblemsView problems={data.problems || []} users={sortedUsers} />
         </div>
       </main>
     </div>
@@ -103,4 +96,3 @@ export function App() {
 }
 
 export default App;
-

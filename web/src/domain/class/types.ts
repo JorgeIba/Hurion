@@ -30,9 +30,16 @@ export interface SortState {
   direction: SortDirection;
 }
 
-export interface ScoreboardData {
+export interface ClassData {
   classCode: string;
   className?: string;
   problems?: Problem[];
   users?: UserScore[];
+}
+
+export interface ProblemDifficultyMetadata {
+  rowClassName: string;
+  badgeClassName: string;
+  dotClassName: string;
+  label: string;
 }

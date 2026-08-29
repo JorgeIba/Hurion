@@ -1,5 +1,4 @@
-import { Problem, ProblemSolveStats } from '@/domain/scoreboard/types';
-import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
+import { Problem, ProblemSolveStats, CLASS_LABELS } from '@/domain/class';
 import { ProblemRow } from '@/components/problems/ProblemRow';
 
 export interface ProblemTopicSectionProps {
@@ -13,7 +12,7 @@ export interface ProblemTopicSectionProps {
 
 /**
  * ProblemTopicSection Component
- * 
+ *
  * Renders an accessible, collapsible section for problems sharing a topic:
  * - Semantic <h3> wrapper with WAI-ARIA 1.2 accordion header button
  * - Animated chevron toggle indicator
@@ -41,17 +40,18 @@ export function ProblemTopicSection({
           aria-controls={topicDomId}
         >
           <div className="topic-header-left">
-            <span className={`topic-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true">
+            <span
+              className={`topic-chevron ${isCollapsed ? 'is-collapsed' : ''}`}
+              aria-hidden="true"
+            >
               ▾
             </span>
-            <span className="topic-title-code">
-              {topicName.toUpperCase()}
-            </span>
+            <span className="topic-title-code">{topicName.toUpperCase()}</span>
           </div>
 
           <div className="topic-header-meta">
             <span className="topic-prob-count">
-              {problems.length} {SCOREBOARD_LABELS.PROBLEMS_VIEW.TOPIC_COUNT_SUFFIX}
+              {problems.length} {CLASS_LABELS.PROBLEMS_VIEW.TOPIC_COUNT_SUFFIX}
             </span>
           </div>
         </button>

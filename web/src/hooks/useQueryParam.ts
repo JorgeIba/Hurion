@@ -1,17 +1,15 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ActiveTab } from '@/domain/scoreboard/types';
-import { sanitizeTab, sanitizeClassCode } from '@/domain/scoreboard/utils';
-import { SCOREBOARD_CONFIG } from '@/domain/scoreboard/constants';
+import { ActiveTab, sanitizeTab, sanitizeClassCode, CLASS_CONFIG } from '@/domain/class';
 
 /**
  * Generic React Hook: useQueryParam
- * 
+ *
  * Synchronizes any typed parameter with the browser URL query string:
  * - Reads lazily from `window.location.search` on mount.
  * - Handles browser Back / Forward navigation via `popstate` event.
  * - Non-destructively updates the URL via `window.history.replaceState`.
  * - Automatically deletes the query parameter if reset to its default value.
- * 
+ *
  * @param key The URL query parameter key (e.g. 'class', 'tab')
  * @param parse Pure domain parser / sanitizer to validate raw string input
  * @param defaultValue Fallback value if parameter is missing or invalid
@@ -63,7 +61,7 @@ export function useQueryParam<T>(
  * Synchronizes the active scoreboard tab ('standings' | 'problems') with the `?tab=` URL parameter.
  */
 export function useTabParam(
-  defaultTab: ActiveTab = SCOREBOARD_CONFIG.DEFAULT_TAB
+  defaultTab: ActiveTab = CLASS_CONFIG.DEFAULT_TAB
 ): [ActiveTab, (newTab: ActiveTab) => void] {
   return useQueryParam<ActiveTab>('tab', sanitizeTab, defaultTab);
 }
@@ -73,7 +71,7 @@ export function useTabParam(
  * Synchronizes the active class code (e.g. "basicos", "avanzados") with the `?class=` URL parameter.
  */
 export function useClassCodeParam(
-  defaultCode: string = SCOREBOARD_CONFIG.DEFAULT_CLASS_CODE
+  defaultCode: string = CLASS_CONFIG.DEFAULT_CLASS_CODE
 ): [string, (newCode: string) => void] {
   return useQueryParam<string>(
     'class',

@@ -1,6 +1,8 @@
-import { DifficultyFilter } from '@/domain/scoreboard/types';
-import { getProblemDifficultyMetadata } from '@/domain/scoreboard/utils';
-import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
+import {
+  DifficultyFilter,
+  getProblemDifficultyMetadata,
+  CLASS_LABELS,
+} from '@/domain/class';
 
 export interface ProblemsFilterToolbarProps {
   difficultyFilter: DifficultyFilter;
@@ -12,16 +14,32 @@ export interface ProblemsFilterToolbarProps {
   totalCount: number;
 }
 
-const DIFFICULTY_BUTTONS: { id: DifficultyFilter; label: string; dotClassName?: string }[] = [
-  { id: 'all', label: SCOREBOARD_LABELS.PROBLEMS_VIEW.FILTER_ALL },
-  { id: 'easy', label: SCOREBOARD_LABELS.DIFFICULTY.EASY, dotClassName: getProblemDifficultyMetadata('easy').dotClassName },
-  { id: 'medium', label: SCOREBOARD_LABELS.DIFFICULTY.MEDIUM, dotClassName: getProblemDifficultyMetadata('medium').dotClassName },
-  { id: 'hard', label: SCOREBOARD_LABELS.DIFFICULTY.HARD, dotClassName: getProblemDifficultyMetadata('hard').dotClassName },
+const DIFFICULTY_BUTTONS: {
+  id: DifficultyFilter;
+  label: string;
+  dotClassName?: string;
+}[] = [
+  { id: 'all', label: CLASS_LABELS.PROBLEMS_VIEW.FILTER_ALL },
+  {
+    id: 'easy',
+    label: CLASS_LABELS.DIFFICULTY.EASY,
+    dotClassName: getProblemDifficultyMetadata('easy').dotClassName,
+  },
+  {
+    id: 'medium',
+    label: CLASS_LABELS.DIFFICULTY.MEDIUM,
+    dotClassName: getProblemDifficultyMetadata('medium').dotClassName,
+  },
+  {
+    id: 'hard',
+    label: CLASS_LABELS.DIFFICULTY.HARD,
+    dotClassName: getProblemDifficultyMetadata('hard').dotClassName,
+  },
 ];
 
 /**
  * ProblemsFilterToolbar Component
- * 
+ *
  * Renders the top filter and action toolbar for the Problems Catalog:
  * - Difficulty filter pill group (All, Easy, Medium, Hard)
  * - Global Expand All / Collapse All topics toggle
@@ -39,7 +57,11 @@ export function ProblemsFilterToolbar({
   return (
     <div className="problems-toolbar">
       {/* Difficulty Filter Pills */}
-      <div className="difficulty-filter-group" role="group" aria-label="Filter by difficulty">
+      <div
+        className="difficulty-filter-group"
+        role="group"
+        aria-label="Filter by difficulty"
+      >
         {DIFFICULTY_BUTTONS.map((btn) => {
           const isSelected = difficultyFilter === btn.id;
           return (
@@ -50,7 +72,9 @@ export function ProblemsFilterToolbar({
               onClick={() => onSelectDifficulty(btn.id)}
               aria-pressed={isSelected}
             >
-              {btn.dotClassName && <span className={`diff-dot ${btn.dotClassName}`} aria-hidden="true" />}
+              {btn.dotClassName && (
+                <span className={`diff-dot ${btn.dotClassName}`} aria-hidden="true" />
+              )}
               <span>{btn.label}</span>
             </button>
           );
@@ -71,10 +95,10 @@ export function ProblemsFilterToolbar({
         )}
 
         <div className="problems-count-badge">
-          {SCOREBOARD_LABELS.PROBLEMS_VIEW.STATS_SHOWING}{' '}
+          {CLASS_LABELS.PROBLEMS_VIEW.STATS_SHOWING}{' '}
           <span className="count-highlight">{showingCount}</span>{' '}
-          {SCOREBOARD_LABELS.PROBLEMS_VIEW.STATS_OF} {totalCount}{' '}
-          {SCOREBOARD_LABELS.PROBLEMS_VIEW.STATS_PROBLEMS}
+          {CLASS_LABELS.PROBLEMS_VIEW.STATS_OF} {totalCount}{' '}
+          {CLASS_LABELS.PROBLEMS_VIEW.STATS_PROBLEMS}
         </div>
       </div>
     </div>

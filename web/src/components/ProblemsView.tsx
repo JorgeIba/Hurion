@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
-import { Problem, UserScore, DifficultyFilter, ProblemSolveStats } from '@/domain/scoreboard/types';
 import {
+  Problem,
+  UserScore,
+  DifficultyFilter,
+  ProblemSolveStats,
   computeAllProblemSolveStats,
   filterProblems,
   groupProblemsByTopic,
-} from '@/domain/scoreboard/utils';
-import { SCOREBOARD_LABELS } from '@/domain/scoreboard/constants';
+  CLASS_LABELS,
+} from '@/domain/class';
 import { ProblemsFilterToolbar } from '@/components/problems/ProblemsFilterToolbar';
 import { ProblemTopicSection } from '@/components/problems/ProblemTopicSection';
 
@@ -16,7 +19,7 @@ export interface ProblemsViewProps {
 
 /**
  * ProblemsView Component (Orchestrator)
- * 
+ *
  * Manages the state, filtering, and layout orchestration for the Problems Tab.
  */
 export function ProblemsView({ problems, users }: ProblemsViewProps) {
@@ -39,7 +42,8 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
   }, [problems, users]);
 
   const allTopics = Array.from(topicGroups.keys());
-  const isAllCollapsed = allTopics.length > 0 && allTopics.every((t) => collapsedTopics.has(t));
+  const isAllCollapsed =
+    allTopics.length > 0 && allTopics.every((t) => collapsedTopics.has(t));
 
   const toggleTopicCollapse = (topicName: string) => {
     setCollapsedTopics((prev) => {
@@ -86,17 +90,17 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
       <div className="problems-scroll-area">
         {problems.length === 0 ? (
           <div className="state-row">
-            <p>{SCOREBOARD_LABELS.NO_PROBLEMS}</p>
+            <p>{CLASS_LABELS.NO_PROBLEMS}</p>
           </div>
         ) : filteredProblems.length === 0 ? (
           <div className="state-row empty-search-state">
-            <p>{SCOREBOARD_LABELS.PROBLEMS_VIEW.EMPTY_SEARCH}</p>
+            <p>{CLASS_LABELS.PROBLEMS_VIEW.EMPTY_SEARCH}</p>
             <button
               type="button"
               className="btn-reset-filters"
               onClick={() => setDifficultyFilter('all')}
             >
-              {SCOREBOARD_LABELS.PROBLEMS_VIEW.CLEAR_SEARCH}
+              {CLASS_LABELS.PROBLEMS_VIEW.CLEAR_SEARCH}
             </button>
           </div>
         ) : (
