@@ -32,7 +32,7 @@ export const CLASS_LABELS = {
   PROBLEM_HEADER: '(ID) Problem',
   DIFF_HEADER: 'Diff',
   TOTAL_SOLVED: 'Total Solved (ACs)',
-  TOPIC_PREFIX: '// TOPIC:',
+  TOPIC_PREFIX: '//',
   NO_PROBLEMS: 'No problems recorded for this class',
   LOADING: 'Loading scoreboard data...',
   ERROR_FALLBACK: 'Failed to load scoreboard',

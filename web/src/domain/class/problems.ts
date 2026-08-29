@@ -7,45 +7,28 @@ import {
 import { CLASS_CONFIG, CLASS_LABELS } from './constants';
 
 /**
- * Formats a raw topic string into canonical Title Case:
- * "dynamic programming" -> "Dynamic Programming"
- * "greedy" -> "Greedy"
- * "two-pointers" -> "Two Pointers"
+ * Preserves the exact topic identifier string (e.g. "Algoritmo_de_Eppstein").
  */
 export function formatTopicTitle(rawTopic?: string): string {
   const trimmed = (typeof rawTopic === 'string' ? rawTopic : '').trim();
   if (!trimmed) return CLASS_CONFIG.DEFAULT_TOPIC_NAME;
-
-  return trimmed
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+  return trimmed;
 }
 
 /**
  * Groups problems into a Map keyed by topic section name.
- * Normalizes topic names case-insensitively while preserving canonical Title Case display names.
+ * Preserves the exact topic identifier string and sequence.
  */
 export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Problem[]> {
   const groups = new Map<string, Problem[]>();
-  const canonicalNameMap = new Map<string, string>(); // lowerKey -> Canonical Title
 
   (problems || []).forEach((p) => {
     if (!p) return;
     const rawTopic = (p.topic || '').trim() || CLASS_CONFIG.DEFAULT_TOPIC_NAME;
-    const canonical = formatTopicTitle(rawTopic);
-    const lowerKey = canonical.toLowerCase();
-
-    if (!canonicalNameMap.has(lowerKey)) {
-      canonicalNameMap.set(lowerKey, canonical);
-      if (!groups.has(canonical)) {
-        groups.set(canonical, []);
-      }
+    if (!groups.has(rawTopic)) {
+      groups.set(rawTopic, []);
     }
-
-    const canonicalTitle = canonicalNameMap.get(lowerKey)!;
-    groups.get(canonicalTitle)!.push(p);
+    groups.get(rawTopic)!.push(p);
   });
 
   return groups;

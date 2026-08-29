@@ -11,6 +11,7 @@ import {
   CLASS_CONFIG,
 } from '@/domain/class';
 import { useColumnResize } from '@/hooks/useColumnResize';
+import { useTopicCollapse } from '@/hooks/useTopicCollapse';
 
 interface ScoreboardTableProps {
   problems: Problem[];
@@ -26,6 +27,7 @@ interface ScoreboardTableProps {
  * - Sticky Freeze: 2D header locking and Column 1 frozen on horizontal scroll.
  * - Interactive Column Resizing: Via `useColumnResize` Pointer Events hook with drag handle.
  * - Tri-State Adaptive Sorting: Via React 19 `startTransition` non-blocking re-ordering.
+ * - Collapsible Topics: Via `useTopicCollapse` hook and `ScoreboardTopicRow` component.
  */
 export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
   // 1. Column Resizing State (Pointer Events & Keyboard A11y)
@@ -51,6 +53,9 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
       setSortState((prev) => getNextSortState(prev, userId));
     });
   }, []);
+
+  // 3. Collapsible Topics State (Accordions in Standings table)
+  const { isCollapsed, toggleTopic } = useTopicCollapse();
 
   // 3. Topic Grouping & Adaptive Sorting (Pure Domain Layer)
   const topicGroups = useMemo(() => {
@@ -227,97 +232,155 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
           </thead>
 
           <tbody id="leaderboard">
-            {Array.from(topicGroups.entries()).map(([topicName, topicProblems]) => (
-              <React.Fragment key={`topic-${topicName}`}>
-                {/* Topic Section Header Banner */}
-                <tr className="topic-header-row">
-                  <td colSpan={totalCols}>
-                    <div className="topic-header-sticky">{topicName.toUpperCase()}</div>
-                  </td>
-                </tr>
+            {Array.from(topicGroups.entries()).map(([topicName, topicProblems]) => {
+              const collapsed = isCollapsed(topicName);
 
-                {/* Problem Rows inside this Topic */}
-                {topicProblems.map((p) => {
-                  const {
-                    rowClassName,
-                    badgeClassName,
-                    dotClassName,
-                    label: diffLabel,
-                  } = getProblemDifficultyMetadata(p.difficulty);
+              return (
+                <React.Fragment key={`topic-${topicName}`}>
+                  <ScoreboardTopicRow
+                    topicName={topicName}
+                    problemCount={topicProblems.length}
+                    colSpan={totalCols}
+                    isCollapsed={collapsed}
+                    onToggle={() => toggleTopic(topicName)}
+                  />
 
-                  const problemTitle = p.name || CLASS_CONFIG.DEFAULT_PROBLEM_NAME;
-                  const cleanUrl = p.url?.trim();
+                  {/* Problem Rows inside this Topic */}
+                  {!collapsed &&
+                    topicProblems.map((p) => {
+                      const {
+                        rowClassName,
+                        badgeClassName,
+                        dotClassName,
+                        label: diffLabel,
+                      } = getProblemDifficultyMetadata(p.difficulty);
 
-                  return (
-                    <tr key={`prob-${p.id}`} className={`problem-row ${rowClassName}`}>
-                      {/* Col 1: Problem Title, Numerical ID, and Unified Difficulty Dot */}
-                      <th scope="row" className="problem-title-cell">
-                        {cleanUrl ? (
-                          <a
-                            href={cleanUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="problem-link"
-                            title={`Open ${problemTitle} in new tab`}
-                          >
-                            <span className={`problem-code-badge ${badgeClassName}`}>
-                              {`[${String(p.id).padStart(2, '0')}]`}
-                            </span>
-                            <span
-                              className={`diff-dot ${dotClassName}`}
-                              title={`Difficulty: ${diffLabel}`}
-                              aria-label={`Difficulty: ${diffLabel}`}
-                            />
-                            <span className="problem-name-text">{problemTitle}</span>
-                            <span className="external-link-icon" aria-hidden="true">
-                              ↗
-                            </span>
-                          </a>
-                        ) : (
-                          <div className="problem-title-inner">
-                            <span className={`problem-code-badge ${badgeClassName}`}>
-                              {`[${String(p.id).padStart(2, '0')}]`}
-                            </span>
-                            <span
-                              className={`diff-dot ${dotClassName}`}
-                              title={`Difficulty: ${diffLabel}`}
-                              aria-label={`Difficulty: ${diffLabel}`}
-                            />
-                            <span className="problem-name-text" title={problemTitle}>
-                              {problemTitle}
-                            </span>
-                          </div>
-                        )}
-                      </th>
+                      const problemTitle = p.name || CLASS_CONFIG.DEFAULT_PROBLEM_NAME;
+                      const cleanUrl = p.url?.trim();
 
-                      {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}
-                      {userSolvedSets.map((solvedSet, uIndex) => {
-                        const isSolved = solvedSet.has(p.id);
-                        return (
-                          <td
-                            key={`status-${p.id}-${users[uIndex]?.userId || uIndex}`}
-                            className="status-cell"
-                          >
-                            {isSolved && (
-                              <span
-                                className="status-ac-pill"
-                                aria-label="Solved"
-                                title="Solved"
+                      return (
+                        <tr
+                          key={`prob-${p.id}`}
+                          className={`problem-row ${rowClassName}`}
+                        >
+                          {/* Col 1: Problem Title, Numerical ID, and Unified Difficulty Dot */}
+                          <th scope="row" className="problem-title-cell">
+                            {cleanUrl ? (
+                              <a
+                                href={cleanUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="problem-link"
+                                title={`Open ${problemTitle} in new tab`}
                               >
-                                ✓
-                              </span>
+                                <span className={`problem-code-badge ${badgeClassName}`}>
+                                  {`[${String(p.id).padStart(2, '0')}]`}
+                                </span>
+                                <span
+                                  className={`diff-dot ${dotClassName}`}
+                                  title={`Difficulty: ${diffLabel}`}
+                                  aria-label={`Difficulty: ${diffLabel}`}
+                                />
+                                <span className="problem-name-text">{problemTitle}</span>
+                                <span className="external-link-icon" aria-hidden="true">
+                                  ↗
+                                </span>
+                              </a>
+                            ) : (
+                              <div className="problem-title-inner">
+                                <span className={`problem-code-badge ${badgeClassName}`}>
+                                  {`[${String(p.id).padStart(2, '0')}]`}
+                                </span>
+                                <span
+                                  className={`diff-dot ${dotClassName}`}
+                                  title={`Difficulty: ${diffLabel}`}
+                                  aria-label={`Difficulty: ${diffLabel}`}
+                                />
+                                <span className="problem-name-text" title={problemTitle}>
+                                  {problemTitle}
+                                </span>
+                              </div>
                             )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+                          </th>
+
+                          {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}
+                          {userSolvedSets.map((solvedSet, uIndex) => {
+                            const isSolved = solvedSet.has(p.id);
+                            return (
+                              <td
+                                key={`status-${p.id}-${users[uIndex]?.userId || uIndex}`}
+                                className="status-cell"
+                              >
+                                {isSolved && (
+                                  <span
+                                    className="status-ac-pill"
+                                    aria-label="Solved"
+                                    title="Solved"
+                                  >
+                                    ✓
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
     </section>
   );
 }
+
+interface ScoreboardTopicRowProps {
+  topicName: string;
+  problemCount: number;
+  colSpan: number;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+/**
+ * ScoreboardTopicRow Sub-Component
+ *
+ * Renders the collapsible topic section banner inside the Scoreboard standings table.
+ */
+const ScoreboardTopicRow: React.FC<ScoreboardTopicRowProps> = React.memo(
+  ({ topicName, problemCount, colSpan, isCollapsed, onToggle }) => {
+    return (
+      <tr
+        className="topic-header-row"
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-expanded={!isCollapsed}
+        title={isCollapsed ? `Expand // ${topicName}` : `Collapse // ${topicName}`}
+      >
+        <td colSpan={colSpan}>
+          <div className="topic-header-sticky">
+            <span
+              className={`topic-chevron ${isCollapsed ? 'is-collapsed' : ''}`}
+              aria-hidden="true"
+            >
+              ▾
+            </span>
+            <span className="topic-code-comment">{`// ${topicName}`}</span>
+            <span className="topic-count-pill">{problemCount}</span>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+);
+
+ScoreboardTopicRow.displayName = 'ScoreboardTopicRow';

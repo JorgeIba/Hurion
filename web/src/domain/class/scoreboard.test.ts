@@ -206,15 +206,15 @@ describe('domain/class/scoreboard', () => {
     it('returns default topic order when sortState is null or inactive', () => {
       const nullState: SortState = { userId: null, direction: null };
       const groups = sortTopicGroupsByStudent(problems, users, nullState);
-      expect(Array.from(groups.keys())).toEqual(['Dp', 'Greedy', 'Math']);
-      expect(groups.get('Dp')?.map((p) => p.id)).toEqual([1, 2]);
+      expect(Array.from(groups.keys())).toEqual(['DP', 'Greedy', 'Math']);
+      expect(groups.get('DP')?.map((p) => p.id)).toEqual([1, 2]);
     });
 
     it('sorts topics and problems in desc mode (top solved first)', () => {
       const descState: SortState = { userId: 'student1', direction: 'desc' };
       const groups = sortTopicGroupsByStudent(problems, users, descState);
 
-      expect(Array.from(groups.keys())).toEqual(['Dp', 'Greedy', 'Math']);
+      expect(Array.from(groups.keys())).toEqual(['DP', 'Greedy', 'Math']);
       expect(groups.get('Greedy')?.map((p) => p.id)).toEqual([3, 4]);
     });
 
@@ -222,7 +222,7 @@ describe('domain/class/scoreboard', () => {
       const ascState: SortState = { userId: 'student1', direction: 'asc' };
       const groups = sortTopicGroupsByStudent(problems, users, ascState);
 
-      expect(Array.from(groups.keys())).toEqual(['Math', 'Greedy', 'Dp']);
+      expect(Array.from(groups.keys())).toEqual(['Math', 'Greedy', 'DP']);
       expect(groups.get('Greedy')?.map((p) => p.id)).toEqual([4, 3]);
     });
 
@@ -232,7 +232,7 @@ describe('domain/class/scoreboard', () => {
         direction: 'desc',
       };
       const groups = sortTopicGroupsByStudent(problems, users, ghostState);
-      expect(Array.from(groups.keys())).toEqual(['Dp', 'Greedy', 'Math']);
+      expect(Array.from(groups.keys())).toEqual(['DP', 'Greedy', 'Math']);
     });
   });
 });

@@ -11,16 +11,11 @@ import { CLASS_CONFIG, CLASS_LABELS } from './constants';
 
 describe('domain/class/problems', () => {
   describe('formatTopicTitle', () => {
-    it('converts lowercase and mixed case strings to canonical Title Case', () => {
-      expect(formatTopicTitle('dynamic programming')).toBe('Dynamic Programming');
-      expect(formatTopicTitle('greedy')).toBe('Greedy');
-      expect(formatTopicTitle('DATA STRUCTURES')).toBe('Data Structures');
-    });
-
-    it('handles separators like hyphens and underscores', () => {
-      expect(formatTopicTitle('two-pointers')).toBe('Two Pointers');
-      expect(formatTopicTitle('binary_search')).toBe('Binary Search');
-      expect(formatTopicTitle('depth-first_search')).toBe('Depth First Search');
+    it('preserves exact raw topic identifier strings and underscores', () => {
+      expect(formatTopicTitle('Algoritmo_de_Eppstein')).toBe('Algoritmo_de_Eppstein');
+      expect(formatTopicTitle('Max_Flow_Min_Cost')).toBe('Max_Flow_Min_Cost');
+      expect(formatTopicTitle('two-pointers')).toBe('two-pointers');
+      expect(formatTopicTitle('greedy')).toBe('greedy');
     });
 
     it('falls back to default topic name on empty or non-string inputs', () => {
@@ -33,27 +28,26 @@ describe('domain/class/problems', () => {
   });
 
   describe('groupProblemsByTopic', () => {
-    it('groups problems by topic name', () => {
+    it('groups problems by exact topic name', () => {
       const problems: Problem[] = [
-        { id: 1, name: 'P1', topic: 'Math' },
+        { id: 1, name: 'P1', topic: 'Algoritmo_de_Eppstein' },
         { id: 2, name: 'P2', topic: 'Greedy' },
-        { id: 3, name: 'P3', topic: 'Math' },
+        { id: 3, name: 'P3', topic: 'Algoritmo_de_Eppstein' },
       ];
       const groups = groupProblemsByTopic(problems);
-      expect(Array.from(groups.keys())).toEqual(['Math', 'Greedy']);
-      expect(groups.get('Math')?.map((p) => p.id)).toEqual([1, 3]);
+      expect(Array.from(groups.keys())).toEqual(['Algoritmo_de_Eppstein', 'Greedy']);
+      expect(groups.get('Algoritmo_de_Eppstein')?.map((p) => p.id)).toEqual([1, 3]);
       expect(groups.get('Greedy')?.map((p) => p.id)).toEqual([2]);
     });
 
-    it('merges topics that normalize to the same title without resetting arrays', () => {
+    it('preserves topic keys with underscores without converting to title case', () => {
       const problems: Problem[] = [
-        { id: 1, name: 'P1', topic: 'two-pointers' },
+        { id: 1, name: 'P1', topic: 'two_pointers' },
         { id: 2, name: 'P2', topic: 'two_pointers' },
-        { id: 3, name: 'P3', topic: 'Two Pointers' },
       ];
       const groups = groupProblemsByTopic(problems);
-      expect(Array.from(groups.keys())).toEqual(['Two Pointers']);
-      expect(groups.get('Two Pointers')?.map((p) => p.id)).toEqual([1, 2, 3]);
+      expect(Array.from(groups.keys())).toEqual(['two_pointers']);
+      expect(groups.get('two_pointers')?.map((p) => p.id)).toEqual([1, 2]);
     });
 
     it('assigns undefined or blank topic to General', () => {
