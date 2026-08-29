@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ClassData, classApi, CLASS_LABELS } from '@/domain/class';
+import { type ClassData, classApi, CLASS_LABELS } from '@/domain/class';
 
 /**
  * Custom React Hook: useScoreboardData
- * 
+ *
  * Fetches class scoreboard data via the classApi domain service.
  * Manages loading states, error boundaries, and cancels pending network requests
  * via AbortController when the component unmounts or classCode changes.
- * 
+ *
  * @param classCode Unique identifier string for the class (e.g. "basicos")
  * @returns Object containing `data`, `loading`, and `error`
  */
@@ -31,7 +31,10 @@ export function useScoreboardData(classCode: string) {
       })
       .catch((err: unknown) => {
         // Ignore deliberate abort signals triggered during unmount/class change
-        if (!axios.isCancel(err) && !(err instanceof Error && err.name === 'AbortError')) {
+        if (
+          !axios.isCancel(err) &&
+          !(err instanceof Error && err.name === 'AbortError')
+        ) {
           let message: string = CLASS_LABELS.ERRORS.FALLBACK;
 
           if (axios.isAxiosError(err)) {

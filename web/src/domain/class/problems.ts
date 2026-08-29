@@ -1,4 +1,9 @@
-import { Problem, ProblemDifficulty, DifficultyFilter, ProblemDifficultyMetadata } from './types';
+import {
+  Problem,
+  ProblemDifficulty,
+  DifficultyFilter,
+  ProblemDifficultyMetadata,
+} from './types';
 import { CLASS_CONFIG, CLASS_LABELS } from './constants';
 
 /**
@@ -90,7 +95,9 @@ export function parseDifficulty(raw?: string): ProblemDifficulty {
 /**
  * Resolves structured styling and label metadata for a problem difficulty level via O(1) lookup.
  */
-export function getProblemDifficultyMetadata(difficulty?: string): ProblemDifficultyMetadata {
+export function getProblemDifficultyMetadata(
+  difficulty?: string
+): ProblemDifficultyMetadata {
   const tier = parseDifficulty(difficulty);
   return DIFFICULTY_METADATA_MAP[tier];
 }

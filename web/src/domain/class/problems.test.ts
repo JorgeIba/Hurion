@@ -63,7 +63,9 @@ describe('domain/class/problems', () => {
       ];
       const groups = groupProblemsByTopic(problems);
       expect(Array.from(groups.keys())).toEqual([CLASS_CONFIG.DEFAULT_TOPIC_NAME]);
-      expect(groups.get(CLASS_CONFIG.DEFAULT_TOPIC_NAME)?.map((p) => p.id)).toEqual([1, 2]);
+      expect(groups.get(CLASS_CONFIG.DEFAULT_TOPIC_NAME)?.map((p) => p.id)).toEqual([
+        1, 2,
+      ]);
     });
 
     it('handles empty problems list', () => {
@@ -114,8 +116,18 @@ describe('domain/class/problems', () => {
   describe('filterProblems', () => {
     const sampleProblems: Problem[] = [
       { id: 1, name: 'Two Sum', topic: 'Arrays', difficulty: 'easy' },
-      { id: 2, name: 'Add Two Numbers', topic: 'Linked List', difficulty: 'medium' },
-      { id: 3, name: 'Median of Two Arrays', topic: 'Binary Search', difficulty: 'hard' },
+      {
+        id: 2,
+        name: 'Add Two Numbers',
+        topic: 'Linked List',
+        difficulty: 'medium',
+      },
+      {
+        id: 3,
+        name: 'Median of Two Arrays',
+        topic: 'Binary Search',
+        difficulty: 'hard',
+      },
     ];
 
     it('filters by difficulty tier', () => {
@@ -126,8 +138,12 @@ describe('domain/class/problems', () => {
     });
 
     it('filters by text search query across name, ID, and topic', () => {
-      expect(filterProblems(sampleProblems, 'two sum', 'all').map((p) => p.id)).toEqual([1]);
-      expect(filterProblems(sampleProblems, 'linked list', 'all').map((p) => p.id)).toEqual([2]);
+      expect(filterProblems(sampleProblems, 'two sum', 'all').map((p) => p.id)).toEqual([
+        1,
+      ]);
+      expect(
+        filterProblems(sampleProblems, 'linked list', 'all').map((p) => p.id)
+      ).toEqual([2]);
       expect(filterProblems(sampleProblems, '3', 'all').map((p) => p.id)).toEqual([3]);
     });
 

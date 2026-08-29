@@ -1,4 +1,10 @@
-import { UserScore, Problem, ActiveTab, CLASS_LABELS, CLASS_CONFIG } from '@/domain/class';
+import {
+  UserScore,
+  Problem,
+  ActiveTab,
+  CLASS_LABELS,
+  CLASS_CONFIG,
+} from '@/domain/class';
 import { NavigationTabs } from '@/components/NavigationTabs';
 
 interface HeaderBarProps {
@@ -31,10 +37,7 @@ export function HeaderBar({
       </div>
 
       {/* Center Segmented View Switcher */}
-      <NavigationTabs
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-      />
+      <NavigationTabs activeTab={activeTab} onTabChange={onTabChange} />
 
       {/* Dynamic Class Health Stats Bar */}
       <div className="class-stats-pill" id="class-stats">

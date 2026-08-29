@@ -1,5 +1,10 @@
 import { memo } from 'react';
-import { Problem, ProblemSolveStats, getProblemDifficultyMetadata, CLASS_CONFIG } from '@/domain/class';
+import {
+  Problem,
+  ProblemSolveStats,
+  getProblemDifficultyMetadata,
+  CLASS_CONFIG,
+} from '@/domain/class';
 
 export interface ProblemRowProps {
   problem: Problem;
@@ -9,7 +14,7 @@ export interface ProblemRowProps {
 
 /**
  * ProblemRow Component
- * 
+ *
  * Renders a single high-density problem row:
  * - Col 1: Monospace problem ID badge with difficulty color theme ([#01] / [#128])
  * - Col 2: Problem title with external link icon
@@ -20,7 +25,9 @@ export const ProblemRow = memo(function ProblemRow({
   stats,
   totalStudents,
 }: ProblemRowProps) {
-  const { badgeClassName, label: diffLabel } = getProblemDifficultyMetadata(problem.difficulty);
+  const { badgeClassName, label: diffLabel } = getProblemDifficultyMetadata(
+    problem.difficulty
+  );
 
   const solvedCount = stats?.solvedCount ?? 0;
   const effectiveTotalStudents = stats?.totalStudents ?? totalStudents;
@@ -54,7 +61,9 @@ export const ProblemRow = memo(function ProblemRow({
           title={`Open ${problemTitle} in new tab`}
         >
           <span className="problem-list-title-text">{problemTitle}</span>
-          <span className="external-link-icon" aria-hidden="true">↗</span>
+          <span className="external-link-icon" aria-hidden="true">
+            ↗
+          </span>
         </a>
       ) : (
         <div className="problem-list-title-plain">

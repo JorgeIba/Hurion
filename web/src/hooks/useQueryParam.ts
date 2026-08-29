@@ -3,13 +3,13 @@ import { ActiveTab, sanitizeTab, sanitizeClassCode, CLASS_CONFIG } from '@/domai
 
 /**
  * Generic React Hook: useQueryParam
- * 
+ *
  * Synchronizes any typed parameter with the browser URL query string:
  * - Reads lazily from `window.location.search` on mount.
  * - Handles browser Back / Forward navigation via `popstate` event.
  * - Non-destructively updates the URL via `window.history.replaceState`.
  * - Automatically deletes the query parameter if reset to its default value.
- * 
+ *
  * @param key The URL query parameter key (e.g. 'class', 'tab')
  * @param parse Pure domain parser / sanitizer to validate raw string input
  * @param defaultValue Fallback value if parameter is missing or invalid

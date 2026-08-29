@@ -19,7 +19,7 @@ export interface ProblemsViewProps {
 
 /**
  * ProblemsView Component (Orchestrator)
- * 
+ *
  * Manages the state, filtering, and layout orchestration for the Problems Tab.
  */
 export function ProblemsView({ problems, users }: ProblemsViewProps) {
@@ -42,7 +42,8 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
   }, [problems, users]);
 
   const allTopics = Array.from(topicGroups.keys());
-  const isAllCollapsed = allTopics.length > 0 && allTopics.every((t) => collapsedTopics.has(t));
+  const isAllCollapsed =
+    allTopics.length > 0 && allTopics.every((t) => collapsedTopics.has(t));
 
   const toggleTopicCollapse = (topicName: string) => {
     setCollapsedTopics((prev) => {

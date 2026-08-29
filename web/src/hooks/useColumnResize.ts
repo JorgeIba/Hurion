@@ -27,7 +27,7 @@ function getResponsiveDefaults(): { defaultWidth: number; minWidth: number } {
 
 /**
  * Custom React Hook: useColumnResize
- * 
+ *
  * Encapsulates pointer-based drag resizing using W3C Pointer Events API
  * and full keyboard accessibility support (WAI-ARIA Separator pattern).
  */

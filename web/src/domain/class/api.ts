@@ -14,7 +14,8 @@ function getBaseUrl(): string {
   }
 
   const isDiscord = new URLSearchParams(window.location.search).has('frame_id');
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isLocal =
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   if (isDiscord || isLocal) {
     return CLASS_CONFIG.API.LOCAL_EXPORTS_PATH;
@@ -42,9 +43,12 @@ export const apiClient = axios.create({
  */
 export const classApi = {
   async fetchClass(classCode: string, signal?: AbortSignal): Promise<ClassData> {
-    const response = await apiClient.get<ClassData>(`/${encodeURIComponent(classCode)}_score.json`, {
-      signal,
-    });
+    const response = await apiClient.get<ClassData>(
+      `/${encodeURIComponent(classCode)}_score.json`,
+      {
+        signal,
+      }
+    );
     return response.data;
   },
 };

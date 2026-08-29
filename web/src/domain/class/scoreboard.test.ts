@@ -135,9 +135,7 @@ describe('domain/class/scoreboard', () => {
 
     it('deduplicates multiple solves of the same problem by the same student', () => {
       const problems: Problem[] = [{ id: 101, name: 'P1' }];
-      const users: UserScore[] = [
-        { userId: 'u1', solved: [101, 101, 101] },
-      ];
+      const users: UserScore[] = [{ userId: 'u1', solved: [101, 101, 101] }];
 
       const statsMap = computeAllProblemSolveStats(problems, users);
       expect(statsMap.get(101)?.solvedCount).toBe(1);
@@ -229,7 +227,10 @@ describe('domain/class/scoreboard', () => {
     });
 
     it('handles student not found in users gracefully', () => {
-      const ghostState: SortState = { userId: 'nonexistent', direction: 'desc' };
+      const ghostState: SortState = {
+        userId: 'nonexistent',
+        direction: 'desc',
+      };
       const groups = sortTopicGroupsByStudent(problems, users, ghostState);
       expect(Array.from(groups.keys())).toEqual(['Dp', 'Greedy', 'Math']);
     });

@@ -19,7 +19,7 @@ interface ScoreboardTableProps {
 
 /**
  * ScoreboardTable Component
- * 
+ *
  * Renders the transposed matrix standings table:
  * - Columns: Student handles (Header Row 1) + Total AC summary counts (Header Row 2).
  * - Rows: Problem definitions grouped by section topics (e.g. "// TOPIC: MAX_FLOW_MIN_COST").
@@ -40,7 +40,10 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
   } = useColumnResize();
 
   // 2. Tri-State Student-Targeted Topic Sorting
-  const [sortState, setSortState] = useState<SortState>({ userId: null, direction: null });
+  const [sortState, setSortState] = useState<SortState>({
+    userId: null,
+    direction: null,
+  });
 
   const handleStudentClick = useCallback((userId: string) => {
     // React 19 Non-blocking transition keeps interaction responsive while re-ordering 200+ rows
@@ -90,11 +93,16 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
       <div className="table-wrapper">
         <table className="scoreboard-table">
           <colgroup>
-            <col className="col-problem-track" style={{ width: 'var(--col-problem-width)' }} />
+            <col
+              className="col-problem-track"
+              style={{ width: 'var(--col-problem-width)' }}
+            />
             {users.map((u, i) => (
               <col
                 key={`col-student-${u.userId || i}`}
-                style={{ width: `${CLASS_CONFIG.DIMENSIONS.STUDENT_COL_WIDTH_PX}px` }}
+                style={{
+                  width: `${CLASS_CONFIG.DIMENSIONS.STUDENT_COL_WIDTH_PX}px`,
+                }}
               />
             ))}
           </colgroup>
@@ -177,13 +185,23 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                   >
                     <div className="student-header-inner">
                       {crownEmoji && <span className="student-crown">{crownEmoji}</span>}
-                      <span className="student-name-text">{u.displayName || u.userId}</span>
-                      {isMastered && <span className="mastered-badge">{CLASS_LABELS.MASTERY_BADGE}</span>}
+                      <span className="student-name-text">
+                        {u.displayName || u.userId}
+                      </span>
+                      {isMastered && (
+                        <span className="mastered-badge">
+                          {CLASS_LABELS.MASTERY_BADGE}
+                        </span>
+                      )}
                       {sortDir === 'desc' && (
-                        <span className="sort-indicator-badge">{CLASS_LABELS.SORT_LABELS.TOP_ACS}</span>
+                        <span className="sort-indicator-badge">
+                          {CLASS_LABELS.SORT_LABELS.TOP_ACS}
+                        </span>
                       )}
                       {sortDir === 'asc' && (
-                        <span className="sort-indicator-badge sort-asc">{CLASS_LABELS.SORT_LABELS.ECHALE_GANAS}</span>
+                        <span className="sort-indicator-badge sort-asc">
+                          {CLASS_LABELS.SORT_LABELS.ECHALE_GANAS}
+                        </span>
                       )}
                     </div>
                   </th>
@@ -210,91 +228,93 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
 
           <tbody id="leaderboard">
             {Array.from(topicGroups.entries()).map(([topicName, topicProblems]) => (
-                <React.Fragment key={`topic-${topicName}`}>
-                  {/* Topic Section Header Banner */}
-                  <tr className="topic-header-row">
-                    <td colSpan={totalCols}>
-                      <div className="topic-header-sticky">
-                        {topicName.toUpperCase()}
-                      </div>
-                    </td>
-                  </tr>
+              <React.Fragment key={`topic-${topicName}`}>
+                {/* Topic Section Header Banner */}
+                <tr className="topic-header-row">
+                  <td colSpan={totalCols}>
+                    <div className="topic-header-sticky">{topicName.toUpperCase()}</div>
+                  </td>
+                </tr>
 
-                  {/* Problem Rows inside this Topic */}
-                  {topicProblems.map((p) => {
-                    const {
-                      rowClassName,
-                      badgeClassName,
-                      dotClassName,
-                      label: diffLabel,
-                    } = getProblemDifficultyMetadata(p.difficulty);
+                {/* Problem Rows inside this Topic */}
+                {topicProblems.map((p) => {
+                  const {
+                    rowClassName,
+                    badgeClassName,
+                    dotClassName,
+                    label: diffLabel,
+                  } = getProblemDifficultyMetadata(p.difficulty);
 
-                    const problemTitle = p.name || CLASS_CONFIG.DEFAULT_PROBLEM_NAME;
-                    const cleanUrl = p.url?.trim();
+                  const problemTitle = p.name || CLASS_CONFIG.DEFAULT_PROBLEM_NAME;
+                  const cleanUrl = p.url?.trim();
 
-                    return (
-                      <tr key={`prob-${p.id}`} className={`problem-row ${rowClassName}`}>
-                        {/* Col 1: Problem Title, Numerical ID, and Unified Difficulty Dot */}
-                        <th scope="row" className="problem-title-cell">
-                          {cleanUrl ? (
-                            <a
-                              href={cleanUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="problem-link"
-                              title={`Open ${problemTitle} in new tab`}
-                            >
-                              <span className={`problem-code-badge ${badgeClassName}`}>
-                                {`[${String(p.id).padStart(2, '0')}]`}
-                              </span>
+                  return (
+                    <tr key={`prob-${p.id}`} className={`problem-row ${rowClassName}`}>
+                      {/* Col 1: Problem Title, Numerical ID, and Unified Difficulty Dot */}
+                      <th scope="row" className="problem-title-cell">
+                        {cleanUrl ? (
+                          <a
+                            href={cleanUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="problem-link"
+                            title={`Open ${problemTitle} in new tab`}
+                          >
+                            <span className={`problem-code-badge ${badgeClassName}`}>
+                              {`[${String(p.id).padStart(2, '0')}]`}
+                            </span>
+                            <span
+                              className={`diff-dot ${dotClassName}`}
+                              title={`Difficulty: ${diffLabel}`}
+                              aria-label={`Difficulty: ${diffLabel}`}
+                            />
+                            <span className="problem-name-text">{problemTitle}</span>
+                            <span className="external-link-icon" aria-hidden="true">
+                              ↗
+                            </span>
+                          </a>
+                        ) : (
+                          <div className="problem-title-inner">
+                            <span className={`problem-code-badge ${badgeClassName}`}>
+                              {`[${String(p.id).padStart(2, '0')}]`}
+                            </span>
+                            <span
+                              className={`diff-dot ${dotClassName}`}
+                              title={`Difficulty: ${diffLabel}`}
+                              aria-label={`Difficulty: ${diffLabel}`}
+                            />
+                            <span className="problem-name-text" title={problemTitle}>
+                              {problemTitle}
+                            </span>
+                          </div>
+                        )}
+                      </th>
+
+                      {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}
+                      {userSolvedSets.map((solvedSet, uIndex) => {
+                        const isSolved = solvedSet.has(p.id);
+                        return (
+                          <td
+                            key={`status-${p.id}-${users[uIndex]?.userId || uIndex}`}
+                            className="status-cell"
+                          >
+                            {isSolved && (
                               <span
-                                className={`diff-dot ${dotClassName}`}
-                                title={`Difficulty: ${diffLabel}`}
-                                aria-label={`Difficulty: ${diffLabel}`}
-                              />
-                              <span className="problem-name-text">
-                                {problemTitle}
+                                className="status-ac-pill"
+                                aria-label="Solved"
+                                title="Solved"
+                              >
+                                ✓
                               </span>
-                              <span className="external-link-icon" aria-hidden="true">↗</span>
-                            </a>
-                          ) : (
-                            <div className="problem-title-inner">
-                              <span className={`problem-code-badge ${badgeClassName}`}>
-                                {`[${String(p.id).padStart(2, '0')}]`}
-                              </span>
-                              <span
-                                className={`diff-dot ${dotClassName}`}
-                                title={`Difficulty: ${diffLabel}`}
-                                aria-label={`Difficulty: ${diffLabel}`}
-                              />
-                              <span className="problem-name-text" title={problemTitle}>
-                                {problemTitle}
-                              </span>
-                            </div>
-                          )}
-                        </th>
-
-                        {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}
-                        {userSolvedSets.map((solvedSet, uIndex) => {
-                          const isSolved = solvedSet.has(p.id);
-                          return (
-                            <td
-                              key={`status-${p.id}-${users[uIndex]?.userId || uIndex}`}
-                              className="status-cell"
-                            >
-                              {isSolved && (
-                                <span className="status-ac-pill" aria-label="Solved" title="Solved">
-                                  ✓
-                                </span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </tbody>
         </table>
       </div>

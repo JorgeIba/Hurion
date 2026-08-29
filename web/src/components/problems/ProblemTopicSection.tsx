@@ -12,7 +12,7 @@ export interface ProblemTopicSectionProps {
 
 /**
  * ProblemTopicSection Component
- * 
+ *
  * Renders an accessible, collapsible section for problems sharing a topic:
  * - Semantic <h3> wrapper with WAI-ARIA 1.2 accordion header button
  * - Animated chevron toggle indicator
@@ -40,12 +40,13 @@ export function ProblemTopicSection({
           aria-controls={topicDomId}
         >
           <div className="topic-header-left">
-            <span className={`topic-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true">
+            <span
+              className={`topic-chevron ${isCollapsed ? 'is-collapsed' : ''}`}
+              aria-hidden="true"
+            >
               ▾
             </span>
-            <span className="topic-title-code">
-              {topicName.toUpperCase()}
-            </span>
+            <span className="topic-title-code">{topicName.toUpperCase()}</span>
           </div>
 
           <div className="topic-header-meta">

@@ -9,7 +9,10 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -19,6 +22,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.10",
     "@types/node": "^20.12.12",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

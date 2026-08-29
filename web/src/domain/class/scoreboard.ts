@@ -17,7 +17,9 @@ export function sanitizeClassCode(rawCode: string | null | undefined): string {
  */
 export function sanitizeTab(rawTab: string | null | undefined): ActiveTab {
   if (!rawTab || typeof rawTab !== 'string') return CLASS_CONFIG.DEFAULT_TAB;
-  return rawTab.trim().toLowerCase() === 'problems' ? 'problems' : CLASS_CONFIG.DEFAULT_TAB;
+  return rawTab.trim().toLowerCase() === 'problems'
+    ? 'problems'
+    : CLASS_CONFIG.DEFAULT_TAB;
 }
 
 /**
@@ -79,7 +81,10 @@ export function computeAllProblemSolveStats(
  * - Same User (currently 'desc') -> 'asc' (Échale Ganas / Backlog First)
  * - Same User (currently 'asc')  -> null (Reset to Default Curriculum Order)
  */
-export function getNextSortState(currentState: SortState, clickedUserId: string): SortState {
+export function getNextSortState(
+  currentState: SortState,
+  clickedUserId: string
+): SortState {
   if (currentState.userId !== clickedUserId) {
     return { userId: clickedUserId, direction: 'desc' };
   }
@@ -110,28 +115,30 @@ export function sortTopicGroupsByStudent(
   const targetSolvedSet = new Set(targetUser?.solved || []);
   const isDesc = sortState.direction === 'desc';
 
-  const entries = Array.from(rawGroups.entries()).map(([topicName, probList], originalIndex) => {
-    // 1. Sort problems inside this topic
-    const sortedProbs = [...probList].sort((a, b) => {
-      const aSolved = targetSolvedSet.has(a.id);
-      const bSolved = targetSolvedSet.has(b.id);
-      if (aSolved !== bSolved) {
-        return isDesc ? (aSolved ? -1 : 1) : (!aSolved ? -1 : 1);
-      }
-      return a.id - b.id; // Deterministic tie-breaker by problem ID
-    });
+  const entries = Array.from(rawGroups.entries()).map(
+    ([topicName, probList], originalIndex) => {
+      // 1. Sort problems inside this topic
+      const sortedProbs = [...probList].sort((a, b) => {
+        const aSolved = targetSolvedSet.has(a.id);
+        const bSolved = targetSolvedSet.has(b.id);
+        if (aSolved !== bSolved) {
+          return isDesc ? (aSolved ? -1 : 1) : !aSolved ? -1 : 1;
+        }
+        return a.id - b.id; // Deterministic tie-breaker by problem ID
+      });
 
-    const solvedCount = probList.filter((p) => targetSolvedSet.has(p.id)).length;
-    const totalCount = probList.length;
+      const solvedCount = probList.filter((p) => targetSolvedSet.has(p.id)).length;
+      const totalCount = probList.length;
 
-    return {
-      topicName,
-      probList: sortedProbs,
-      solvedCount,
-      totalCount,
-      originalIndex,
-    };
-  });
+      return {
+        topicName,
+        probList: sortedProbs,
+        solvedCount,
+        totalCount,
+        originalIndex,
+      };
+    }
+  );
 
   // 2. Sort topic sections
   entries.sort((a, b) => {

@@ -14,7 +14,8 @@ export const CLASS_CONFIG = {
   API: {
     TIMEOUT_MS: 10_000,
     LOCAL_EXPORTS_PATH: '/exports',
-    DEFAULT_AZURE_STORAGE_URL: 'https://huronproblemcheckerjorge.blob.core.windows.net/exports',
+    DEFAULT_AZURE_STORAGE_URL:
+      'https://huronproblemcheckerjorge.blob.core.windows.net/exports',
   },
   DIMENSIONS: {
     PROBLEM_COL_DEFAULT_WIDTH: 280,

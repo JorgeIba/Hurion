@@ -6,10 +6,7 @@ interface NavigationTabsProps {
   onTabChange: (tab: ActiveTab) => void;
 }
 
-export function NavigationTabs({
-  activeTab,
-  onTabChange,
-}: NavigationTabsProps) {
+export function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {
   const tabs: { id: ActiveTab; label: string; icon: string }[] = [
     {
       id: 'standings',

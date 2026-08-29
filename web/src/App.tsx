@@ -9,7 +9,7 @@ import { sortUsersBySolved, CLASS_LABELS, CLASS_CONFIG } from '@/domain/class';
 
 /**
  * ScoreboardContent Component
- * 
+ *
  * Fetches and renders class standings or problem catalog for the active class code:
  * 1. Reads `classCode` from URL search parameters via `useClassCodeParam`.
  * 2. Reads `activeTab` from URL search parameters via `useTabParam` ('standings' | 'problems').
@@ -73,16 +73,10 @@ function ScoreboardContent() {
       />
       <main className="tabpanels-main-container">
         <div className="tabpanel-wrapper" hidden={activeTab !== 'standings'}>
-          <ScoreboardTable
-            problems={data.problems || []}
-            users={sortedUsers}
-          />
+          <ScoreboardTable problems={data.problems || []} users={sortedUsers} />
         </div>
         <div className="tabpanel-wrapper" hidden={activeTab !== 'problems'}>
-          <ProblemsView
-            problems={data.problems || []}
-            users={sortedUsers}
-          />
+          <ProblemsView problems={data.problems || []} users={sortedUsers} />
         </div>
       </main>
     </div>
