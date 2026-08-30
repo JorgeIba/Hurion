@@ -62,6 +62,17 @@ describe('domain/class/problems', () => {
       ]);
     });
 
+    it('safely handles non-string topic properties and sparse arrays', () => {
+      const problems = [
+        null as unknown as Problem,
+        { id: 1, name: 'P1', topic: 1200 as unknown as string },
+        undefined as unknown as Problem,
+      ];
+      const groups = groupProblemsByTopic(problems);
+      expect(Array.from(groups.keys())).toEqual([CLASS_CONFIG.DEFAULT_TOPIC_NAME]);
+      expect(groups.get(CLASS_CONFIG.DEFAULT_TOPIC_NAME)?.map((p) => p.id)).toEqual([1]);
+    });
+
     it('handles empty problems list', () => {
       const groups = groupProblemsByTopic([]);
       expect(groups.size).toBe(0);

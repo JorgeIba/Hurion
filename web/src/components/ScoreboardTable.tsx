@@ -242,7 +242,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                     problemCount={topicProblems.length}
                     colSpan={totalCols}
                     isCollapsed={collapsed}
-                    onToggle={() => toggleTopic(topicName)}
+                    onToggle={toggleTopic}
                   />
 
                   {/* Problem Rows inside this Topic */}
@@ -341,42 +341,50 @@ interface ScoreboardTopicRowProps {
   problemCount: number;
   colSpan: number;
   isCollapsed: boolean;
-  onToggle: () => void;
+  onToggle: (topicName: string) => void;
 }
 
 /**
  * ScoreboardTopicRow Sub-Component
  *
  * Renders the collapsible topic section banner inside the Scoreboard standings table.
+ * Preserves semantic table row markup with an accessible button trigger.
  */
-const ScoreboardTopicRow: React.FC<ScoreboardTopicRowProps> = React.memo(
-  ({ topicName, problemCount, colSpan, isCollapsed, onToggle }) => {
+const ScoreboardTopicRow = React.memo(
+  ({
+    topicName,
+    problemCount,
+    colSpan,
+    isCollapsed,
+    onToggle,
+  }: ScoreboardTopicRowProps) => {
     return (
-      <tr
-        className="topic-header-row"
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
-        tabIndex={0}
-        role="button"
-        aria-expanded={!isCollapsed}
-        title={isCollapsed ? `Expand // ${topicName}` : `Collapse // ${topicName}`}
-      >
+      <tr className="topic-header-row">
         <td colSpan={colSpan}>
-          <div className="topic-header-sticky">
-            <span
-              className={`topic-chevron ${isCollapsed ? 'is-collapsed' : ''}`}
-              aria-hidden="true"
-            >
-              ▾
-            </span>
-            <span className="topic-code-comment">{`// ${topicName}`}</span>
-            <span className="topic-count-pill">{problemCount}</span>
-          </div>
+          <button
+            type="button"
+            className="topic-header-btn"
+            onClick={() => onToggle(topicName)}
+            aria-expanded={!isCollapsed}
+            title={
+              isCollapsed
+                ? `Expand ${CLASS_LABELS.TOPIC_PREFIX} ${topicName}`
+                : `Collapse ${CLASS_LABELS.TOPIC_PREFIX} ${topicName}`
+            }
+          >
+            <div className="topic-header-sticky">
+              <span
+                className={`topic-chevron ${isCollapsed ? 'is-collapsed' : ''}`}
+                aria-hidden="true"
+              >
+                ▾
+              </span>
+              <span className="topic-code-comment">
+                {`${CLASS_LABELS.TOPIC_PREFIX} ${topicName}`}
+              </span>
+              <span className="topic-count-pill">{problemCount}</span>
+            </div>
+          </button>
         </td>
       </tr>
     );

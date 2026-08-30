@@ -24,7 +24,7 @@ export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Prob
 
   (problems || []).forEach((p) => {
     if (!p) return;
-    const rawTopic = (p.topic || '').trim() || CLASS_CONFIG.DEFAULT_TOPIC_NAME;
+    const rawTopic = formatTopicTitle(p.topic);
     if (!groups.has(rawTopic)) {
       groups.set(rawTopic, []);
     }
