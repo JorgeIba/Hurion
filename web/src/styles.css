@@ -204,8 +204,8 @@ body {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em; /* Monospace tracking for column headers */
+  text-transform: none;
+  letter-spacing: 0.02em;
   padding: 0.85rem 1rem;
   border-bottom: var(--border-hairline);
   position: relative;
@@ -324,26 +324,90 @@ body {
   color: var(--accent-bronze) !important;
 }
 
-/* --- Topic Section Row --- */
+.topic-header-row {
+  transition: background-color 0.15s ease;
+}
+
+.topic-header-row:hover td {
+  background: #17243c;
+}
+
 .topic-header-row td {
   background: var(--bg-topic-banner);
   color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em; /* Code banner tracking */
-  text-transform: uppercase;
-  padding: 0.6rem 1rem;
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  padding: 0;
   border-top: var(--border-hairline);
   border-bottom: var(--border-hairline);
+}
+
+.topic-header-btn {
+  width: 100%;
+  padding: 0.65rem 1.15rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+}
+
+.topic-header-btn:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: -2px;
 }
 
 .topic-header-sticky {
   position: sticky;
   left: 1rem;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   white-space: nowrap;
   z-index: 8;
+}
+
+.topic-header-btn .topic-chevron {
+  color: var(--text-muted);
+}
+
+.topic-header-btn:hover .topic-chevron,
+.topic-header-row:hover .topic-chevron {
+  color: var(--accent-cyan);
+}
+
+.topic-code-comment {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #8592a6;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.topic-header-btn:hover .topic-code-comment,
+.topic-header-row:hover .topic-code-comment {
+  color: #cbd5e1;
+}
+
+.topic-count-pill {
+  margin-left: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+  padding: 0.08rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-family: var(--font-mono);
 }
 
 /* --- Table Body Rows (Problems in Rows) --- */
@@ -587,8 +651,8 @@ body {
   left: 0;
   z-index: 25 !important;
   background: #101728 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   color: var(--text-secondary) !important;
   font-family: var(--font-heading) !important;
   border-right: 1px solid rgba(255, 255, 255, 0.12);
@@ -818,7 +882,7 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 0.45rem 0.85rem;
+  padding: 0.65rem 1.15rem;
   background: #0d1527;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
@@ -838,26 +902,27 @@ body {
 .topic-header-left {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .topic-chevron {
-  font-size: 0.8rem;
-  color: var(--accent-cyan);
+  font-size: 0.85rem;
   display: inline-block;
-  transition: transform 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    color 0.15s ease;
 }
 
 .topic-chevron.is-collapsed {
   transform: rotate(-90deg);
 }
 
-.topic-title-code {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-primary);
+.problem-topic-header-btn .topic-chevron {
+  color: var(--accent-cyan);
+}
+
+.problem-topic-header-btn:hover .topic-code-comment {
+  color: #cbd5e1;
 }
 
 .topic-header-meta {

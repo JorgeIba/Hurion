@@ -46,7 +46,9 @@ export function ProblemTopicSection({
             >
               ▾
             </span>
-            <span className="topic-title-code">{topicName.toUpperCase()}</span>
+            <span className="topic-code-comment">
+              {`${CLASS_LABELS.TOPIC_PREFIX} ${topicName}`}
+            </span>
           </div>
 
           <div className="topic-header-meta">

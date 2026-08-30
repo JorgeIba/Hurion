@@ -7,7 +7,7 @@ FLAGS?=
 TEST_FLAGS?=-race
 
 # .PHONY tells make that these names are not files, but commands
-.PHONY: all build test test-unit test-integration test-workflow test-web generate clean run run-dev run-mock run-server stop-server
+.PHONY: all build build-web test test-unit test-integration test-workflow test-web generate clean run run-dev run-mock run-server stop-server
 
 # By default, running 'make' executes build
 all: build
@@ -73,8 +73,14 @@ run-mock: build
 	@echo "==> Running bot in Mock Script Mode..."
 	@$(BUILD_DIR)/$(BINARY_NAME) --mock-discord --script $(SCRIPT_PATH) $(FLAGS)
 
-## run-server: Launch local Web UI dev server (customizable via PORT=9090 or FLAGS="-port 9090")
-run-server:
+## build-web: Compile React frontend assets into web/dist
+build-web:
+	@echo "==> Compiling Web UI assets (pnpm build)..."
+	@pnpm --dir web build
+	@echo "==> Web UI assets compiled successfully."
+
+## run-server: Build frontend assets and launch local Web UI dev server (customizable via PORT=9090 or FLAGS="-port 9090")
+run-server: build-web
 	@echo "==> Starting local Web UI dev server on port $(PORT)..."
 	@PORT=$(PORT) go run web/cmd/main.go $(FLAGS)
 

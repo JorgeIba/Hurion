@@ -12,6 +12,8 @@ import {
 import { ProblemsFilterToolbar } from '@/components/problems/ProblemsFilterToolbar';
 import { ProblemTopicSection } from '@/components/problems/ProblemTopicSection';
 
+import { useTopicCollapse } from '@/hooks/useTopicCollapse';
+
 export interface ProblemsViewProps {
   problems: Problem[];
   users: UserScore[];
@@ -24,7 +26,6 @@ export interface ProblemsViewProps {
  */
 export function ProblemsView({ problems, users }: ProblemsViewProps) {
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
-  const [collapsedTopics, setCollapsedTopics] = useState<Set<string>>(new Set());
 
   // 1. Filter problems by active difficulty selection
   const filteredProblems = useMemo(() => {
@@ -41,31 +42,20 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
     return computeAllProblemSolveStats(problems, users);
   }, [problems, users]);
 
-  const allTopics = Array.from(topicGroups.keys());
-  const isAllCollapsed =
-    allTopics.length > 0 && allTopics.every((t) => collapsedTopics.has(t));
+  const allTopics = useMemo(() => Array.from(topicGroups.keys()), [topicGroups]);
 
-  const toggleTopicCollapse = (topicName: string) => {
-    setCollapsedTopics((prev) => {
-      const next = new Set(prev);
-      if (next.has(topicName)) {
-        next.delete(topicName);
-      } else {
-        next.add(topicName);
-      }
-      return next;
-    });
-  };
+  // 4. Shared Collapsible Topic Hook
+  const { isCollapsed, toggleTopic, expandAll, collapseAll, isAllCollapsed } =
+    useTopicCollapse();
 
-  const toggleAllTopics = () => {
-    setCollapsedTopics((prev) => {
-      if (isAllCollapsed) {
-        const next = new Set(prev);
-        allTopics.forEach((t) => next.delete(t));
-        return next;
-      }
-      return new Set([...prev, ...allTopics]);
-    });
+  const allCollapsed = isAllCollapsed(allTopics);
+
+  const handleToggleAll = () => {
+    if (allCollapsed) {
+      expandAll();
+    } else {
+      collapseAll(allTopics);
+    }
   };
 
   return (
@@ -80,8 +70,8 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
         difficultyFilter={difficultyFilter}
         onSelectDifficulty={setDifficultyFilter}
         hasMultipleTopics={allTopics.length > 1}
-        isAllCollapsed={isAllCollapsed}
-        onToggleAllTopics={toggleAllTopics}
+        isAllCollapsed={allCollapsed}
+        onToggleAllTopics={handleToggleAll}
         showingCount={filteredProblems.length}
         totalCount={problems.length}
       />
@@ -111,8 +101,8 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
               problems={topicProblems}
               problemStatsMap={problemStatsMap}
               totalStudents={users.length}
-              isCollapsed={collapsedTopics.has(topicName)}
-              onToggleCollapse={toggleTopicCollapse}
+              isCollapsed={isCollapsed(topicName)}
+              onToggleCollapse={toggleTopic}
             />
           ))
         )}
