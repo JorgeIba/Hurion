@@ -316,8 +316,8 @@ func (db *DB) GetClassCodeByRoomID(roomID string) (string, error) {
 	var classCode string
 	err := db.conn.QueryRow(query, roomID).Scan(&classCode)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", dataerr.NewNotFoundError(fmt.Sprintf("classroom with id %s not found", roomID), nil)
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", dataerr.NewNotFoundError(fmt.Sprintf("classroom with id %s not found", roomID), err)
 		}
 		return "", dataerr.NewQueryError(fmt.Sprintf("could not get class code by room id %s", roomID), err)
 	}
@@ -437,8 +437,8 @@ func (db *DB) GetUserByUserID(userID string) (User, error) {
 	err := db.conn.QueryRow(query, userID).Scan(&user.UserID, &user.DisplayName)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return User{}, dataerr.NewNotFoundError(fmt.Sprintf("no user found with id %s", userID), nil)
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, dataerr.NewNotFoundError(fmt.Sprintf("no user found with id %s", userID), err)
 		}
 		return User{}, dataerr.NewQueryError(fmt.Sprintf("could not get user for user id %s", userID), err)
 	}
@@ -452,8 +452,8 @@ func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
 	var class Class
 	err := db.conn.QueryRow(query, classCode).Scan(&class.ID, &class.ClassCode, &class.Name)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with code %s not found", classCode), nil)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with code %s not found", classCode), err)
 		}
 		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class ID from class code %s", classCode), err)
 	}
@@ -466,8 +466,8 @@ func (db *DB) GetClassByClassID(classID int64) (Class, error) {
 	var class Class
 	err := db.conn.QueryRow(query, classID).Scan(&class.ID, &class.ClassCode, &class.Name)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with ID %d not found", classID), nil)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Class{}, dataerr.NewNotFoundError(fmt.Sprintf("class with ID %d not found", classID), err)
 		}
 		return Class{}, dataerr.NewQueryError(fmt.Sprintf("could not get class with ID %d", classID), err)
 	}
@@ -482,9 +482,12 @@ func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
 	`
 	_, err := db.conn.Exec(query, confirmation.MessageID, confirmation.UserID, confirmation.ProblemID)
 	if err != nil {
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintForeignKey {
-			return dataerr.NewUserMissingFromDatabaseError(fmt.Sprintf("user %s not found in database", confirmation.UserID), err)
+		sqliteErr, ok := errors.AsType[sqlite3.Error](err)
+		if ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintForeignKey {
+			return dataerr.NewForeignKeyViolationError(
+				fmt.Sprintf("could not add pending confirmation: user %s or problem %d is missing", confirmation.UserID, confirmation.ProblemID),
+				err,
+			)
 		}
 		return dataerr.NewQueryError(fmt.Sprintf("could not add or update pending confirmation for message id %s, user id %s and problem %d", confirmation.MessageID, confirmation.UserID, confirmation.ProblemID), err)
 	}
@@ -516,8 +519,8 @@ func (db *DB) GetPendingConfirmation(messageID string) (string, int64, error) {
 
 	err := db.conn.QueryRow(query, messageID).Scan(&userID, &problemID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", -1, dataerr.NewNotFoundError(fmt.Sprintf("no pending confirmation with message id %s", messageID), nil)
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", -1, dataerr.NewNotFoundError(fmt.Sprintf("no pending confirmation with message id %s", messageID), err)
 		}
 		return "", 0, dataerr.NewQueryError(fmt.Sprintf("could not get pending confirmation from message id %s", messageID), err)
 	}
@@ -545,8 +548,8 @@ func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
 
 	err := db.conn.QueryRow(query, problemID).Scan(&problem.Name, &problem.URL, &problem.ClassID, &problem.Difficulty, &problem.Topic)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return Problem{}, dataerr.NewNotFoundError(fmt.Sprintf("ProblemID %d not found", problemID), nil)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Problem{}, dataerr.NewNotFoundError(fmt.Sprintf("ProblemID %d not found", problemID), err)
 		}
 		return Problem{}, dataerr.NewQueryError(fmt.Sprintf("could not get problem info for problem id %d", problemID), err)
 	}
@@ -628,8 +631,8 @@ func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	`
 
 	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic, problemID); err != nil {
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+		sqliteErr, ok := errors.AsType[sqlite3.Error](err)
+		if ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
 			return dataerr.NewRowConflictError(fmt.Sprintf("problem %q already exists in class %d", problem.Name, problem.ClassID), err)
 		}
 		return dataerr.NewQueryError(fmt.Sprintf("could not update problem with ID %d", problemID), err)

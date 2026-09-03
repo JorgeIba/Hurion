@@ -20,57 +20,49 @@ func (e *PresentationError) Unwrap() error {
 }
 
 type RenderingError struct {
-	*PresentationError
+	PresentationError
 }
 
 type StyleCreationError struct {
-	*PresentationError
+	PresentationError
 }
 
 type DataWritingError struct {
-	*PresentationError
+	PresentationError
 }
 
 type FormatError struct {
-	*PresentationError
+	PresentationError
 }
 
 func NewRenderingError(message string, original error) *RenderingError {
 	return &RenderingError{
-		PresentationError: &PresentationError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewStyleCreationError(message string, original error) *StyleCreationError {
 	return &StyleCreationError{
-		PresentationError: &PresentationError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewDataWritingError(message string, original error) *DataWritingError {
 	return &DataWritingError{
-		PresentationError: &PresentationError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewFormatError(message string, original error) *FormatError {
 	return &FormatError{
-		PresentationError: &PresentationError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }

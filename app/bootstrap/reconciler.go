@@ -38,13 +38,11 @@ func NewReconciler(classService ClassServiceInterface) *Reconciler {
 func (r *Reconciler) Reconcile(cfg Config) error {
 	logger.Log.Info("Starting configuration reconciliation...")
 
-	var notFoundErr *serviceerr.ClassCodeNotFoundError
-
 	for _, classCfg := range cfg.Classes {
 		// 1. Check and Create Class
 		_, err := r.classService.GetClassByClassCode(classCfg.Code)
 		if err != nil {
-			if errors.As(err, &notFoundErr) {
+			if _, ok := errors.AsType[*serviceerr.ClassCodeNotFoundError](err); ok {
 				// Class does not exist, safe to create
 				_, err = r.classService.CreateClass(classCfg.Code, classCfg.Name)
 				if err != nil {

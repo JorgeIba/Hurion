@@ -37,91 +37,35 @@ func (e *ServiceError) IsServiceError() bool {
 // ============================================================================
 
 type InternalError struct {
-	*ServiceError
-}
-
-func (e *InternalError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 type ConflictError struct {
-	*ServiceError
-}
-
-func (e *ConflictError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 type NotFoundInfoError struct {
-	*ServiceError
-}
-
-func (e *NotFoundInfoError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 type ClassCodeNotFoundError struct {
-	*ServiceError
-}
-
-func (e *ClassCodeNotFoundError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 type ProblemNotFoundError struct {
-	*ServiceError
-}
-
-func (e *ProblemNotFoundError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 type DuplicateProblemError struct {
-	*ServiceError
-}
-
-func (e *DuplicateProblemError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 type UserNotEnrolledError struct {
-	*ServiceError
-}
-
-func (e *UserNotEnrolledError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 type UserNotFoundError struct {
-	*ServiceError
-}
-
-func (e *UserNotFoundError) Unwrap() error {
-	if e == nil || e.ServiceError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ServiceError
 }
 
 // ============================================================================
@@ -130,81 +74,65 @@ func (e *UserNotFoundError) Unwrap() error {
 
 func NewInternalError(message string, original error) *InternalError {
 	return &InternalError{
-		ServiceError: &ServiceError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewConflictError(message string, original error) *ConflictError {
 	return &ConflictError{
-		ServiceError: &ServiceError{
-			Code:         409,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         409,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewNotFoundInfoError(message string, original error) *NotFoundInfoError {
 	return &NotFoundInfoError{
-		ServiceError: &ServiceError{
-			Code:         404,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         404,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewUserNotFoundError(message string, original error) *UserNotFoundError {
 	return &UserNotFoundError{
-		ServiceError: &ServiceError{
-			Code:         404,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         404,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewUserNotEnrolledError(message string, original error) *UserNotEnrolledError {
 	return &UserNotEnrolledError{
-		ServiceError: &ServiceError{
-			Code:         404,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         404,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewClassCodeNotFoundError(message string, original error) *ClassCodeNotFoundError {
 	return &ClassCodeNotFoundError{
-		ServiceError: &ServiceError{
-			Code:         404,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         404,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewProblemNotFoundError(message string, original error) *ProblemNotFoundError {
 	return &ProblemNotFoundError{
-		ServiceError: &ServiceError{
-			Code:         404,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         404,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewDuplicateProblemError(message string, original error) *DuplicateProblemError {
 	return &DuplicateProblemError{
-		ServiceError: &ServiceError{
-			Code:         409,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         409,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
@@ -214,6 +142,6 @@ func MakeGeneralError(err error) *InternalError {
 
 // IsServiceError checks if an error implements the ServiceErrorInterface.
 func IsServiceError(err error) bool {
-	var sErr ServiceErrorInterface
-	return errors.As(err, &sErr)
+	_, ok := errors.AsType[ServiceErrorInterface](err)
+	return ok
 }

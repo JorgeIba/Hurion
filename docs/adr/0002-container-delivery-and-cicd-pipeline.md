@@ -61,7 +61,7 @@ We decided to adopt a **Two-Tier Automated CI/CD Pipeline** using **GitHub Actio
 
 ### 1. Continuous Integration (`.github/workflows/ci.yml`)
 Runs on every Pull Request and branch push to `main` with zero credentials:
-* **Backend Job**: Sets up Go 1.25 and executes `make test` (invoking `go generate`, unit tests, integration tests, workflow tests, and web server tests with race detection).
+* **Backend Job**: Sets up Go 1.27 and executes `make test` (invoking `go generate`, unit tests, integration tests, workflow tests, and web server tests with race detection).
 * **Frontend Job**: Sets up Node 22 + pnpm, executes strict TypeScript type checking (`tsc -b`), and compiles the React 19 Vite bundle (`pnpm --dir web check`).
 * **Container Job**: Performs a dry-run build of the root `Dockerfile` to guarantee multi-stage build validity.
 

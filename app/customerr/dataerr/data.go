@@ -23,95 +23,95 @@ func (e *DataError) Unwrap() error {
 }
 
 type InitializationError struct {
-	*DataError
+	DataError
 }
 
 type QueryError struct {
-	*DataError
+	DataError
 }
 
 type TransactionError struct {
-	*DataError
+	DataError
 }
 
 type RowConflictError struct {
-	*DataError
+	DataError
 }
 
 type NotFoundError struct {
-	*DataError
+	DataError
 }
 
 type UserMissingFromDatabaseError struct {
-	*DataError
+	DataError
+}
+
+type ForeignKeyViolationError struct {
+	DataError
 }
 
 func NewInitializationError(message string, original error) *InitializationError {
 	return &InitializationError{
-		DataError: &DataError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewQueryError(message string, original error) *QueryError {
 	return &QueryError{
-		DataError: &DataError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewTransactionError(message string, original error) *TransactionError {
 	return &TransactionError{
-		DataError: &DataError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewRowConflictError(message string, original error) *RowConflictError {
 	return &RowConflictError{
-		DataError: &DataError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewNotFoundError(message string, original error) *NotFoundError {
 	return &NotFoundError{
-		DataError: &DataError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewUserMissingFromDatabaseError(message string, original error) *UserMissingFromDatabaseError {
 	return &UserMissingFromDatabaseError{
-		DataError: &DataError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
+	}
+}
+
+func NewForeignKeyViolationError(message string, original error) *ForeignKeyViolationError {
+	return &ForeignKeyViolationError{
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func IsNotFound(err error) bool {
-	var target *NotFoundError
-	return errors.As(err, &target)
+	_, ok := errors.AsType[*NotFoundError](err)
+	return ok
 }
 
 func IsRowConflict(err error) bool {
-	var target *RowConflictError
-	return errors.As(err, &target)
+	_, ok := errors.AsType[*RowConflictError](err)
+	return ok
 }

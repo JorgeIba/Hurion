@@ -37,47 +37,19 @@ func (e *ControllersError) IsControllerError() bool {
 // ============================================================================
 
 type ValidationError struct {
-	*ControllersError
-}
-
-func (e *ValidationError) Unwrap() error {
-	if e == nil || e.ControllersError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ControllersError
 }
 
 type InternalError struct {
-	*ControllersError
-}
-
-func (e *InternalError) Unwrap() error {
-	if e == nil || e.ControllersError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ControllersError
 }
 
 type ParsingError struct {
-	*ControllersError
-}
-
-func (e *ParsingError) Unwrap() error {
-	if e == nil || e.ControllersError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ControllersError
 }
 
 type UnauthorizedError struct {
-	*ControllersError
-}
-
-func (e *UnauthorizedError) Unwrap() error {
-	if e == nil || e.ControllersError == nil {
-		return nil
-	}
-	return e.WrappedError
+	ControllersError
 }
 
 // ============================================================================
@@ -86,46 +58,38 @@ func (e *UnauthorizedError) Unwrap() error {
 
 func NewValidationError(message string, original error) *ValidationError {
 	return &ValidationError{
-		ControllersError: &ControllersError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewInternalError(message string, original error) *InternalError {
 	return &InternalError{
-		ControllersError: &ControllersError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewParsingError(message string, original error) *ParsingError {
 	return &ParsingError{
-		ControllersError: &ControllersError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewUnauthorizedError(message string, original error) *UnauthorizedError {
 	return &UnauthorizedError{
-		ControllersError: &ControllersError{
-			Code:         403,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         403,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 // IsControllerError checks if an error implements the ControllerErrorInterface.
 func IsControllerError(err error) bool {
-	var cErr ControllerErrorInterface
-	return errors.As(err, &cErr)
+	_, ok := errors.AsType[ControllerErrorInterface](err)
+	return ok
 }
