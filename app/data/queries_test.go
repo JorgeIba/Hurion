@@ -1,8 +1,11 @@
 package data
 
 import (
+	"database/sql"
+	"errors"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1287,7 +1290,12 @@ func TestGetClassByClassCode(t *testing.T) {
 			name:      "should return error if class not found",
 			classCode: "missing",
 			assertFunc: func(t *testing.T, db *DB, class Class, err error) {
-				assert.Error(t, err)
+				if !assert.Error(t, err) {
+					return
+				}
+				_, ok := errors.AsType[*dataerr.NotFoundError](err)
+				assert.True(t, ok, "expected data NotFoundError in error chain")
+				assert.ErrorIs(t, err, sql.ErrNoRows)
 			},
 		},
 		{
@@ -1370,6 +1378,52 @@ func TestAddPendingConfirmation(t *testing.T) {
 
 			err := db.AddPendingConfirmation(tt.confirmation)
 			tt.assertFunc(t, db, err)
+		})
+	}
+}
+
+func TestAddPendingConfirmationClassifiesForeignKeyFailuresAccurately(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		setup        func(t *testing.T, db *DB)
+		confirmation PendingConfirmation
+	}{
+		{
+			name: "missing user",
+			setup: func(t *testing.T, db *DB) {
+				classID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{Name: "p1", URL: "u1", ClassID: classID})
+				require.NoError(t, err)
+			},
+			confirmation: PendingConfirmation{MessageID: "m1", UserID: "missing", ProblemID: 1},
+		},
+		{
+			name: "missing problem",
+			setup: func(t *testing.T, db *DB) {
+				err := db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
+				require.NoError(t, err)
+			},
+			confirmation: PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 999},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			defer db.CloseDB()
+
+			tt.setup(t, db)
+
+			err := db.AddPendingConfirmation(tt.confirmation)
+			require.Error(t, err)
+			_, ok := errors.AsType[*dataerr.ForeignKeyViolationError](err)
+			assert.True(t, ok, "expected ForeignKeyViolationError in error chain")
+			_, userMissing := errors.AsType[*dataerr.UserMissingFromDatabaseError](err)
+			assert.False(t, userMissing, "a generic foreign-key failure must not be mislabeled as a missing user")
 		})
 	}
 }

@@ -1,6 +1,6 @@
 module github.com/JorgeIba/Hurion
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/Necroforger/dgwidgets v0.0.0-20190131052008-56c8c1ca33e0

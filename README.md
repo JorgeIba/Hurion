@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&logo=go" alt="Go Version">
+  <img src="https://img.shields.io/badge/Go-1.27%2B-00ADD8?style=flat-square&logo=go" alt="Go Version">
   <img src="https://img.shields.io/badge/Database-SQLite-003B57?style=flat-square&logo=sqlite" alt="SQLite">
   <img src="https://img.shields.io/badge/Deployment-Docker-2496ED?style=flat-square&logo=docker" alt="Docker">
   <img src="https://img.shields.io/badge/Platform-Discord-5865F2?style=flat-square&logo=discord" alt="Discord">
@@ -66,7 +66,7 @@ Detailed guides for every part of the system:
 ## 🚀 Quick Start
 
 ### Prerequisites
-*   **Go 1.25+**
+*   **Go 1.27+**
 *   **GCC / C Compiler** (For SQLite CGo)
 *   **Discord Bot Token** with *Member* and *Message Content* intents enabled.
 

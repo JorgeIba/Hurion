@@ -20,29 +20,25 @@ func (e *DiscordError) Unwrap() error {
 }
 
 type InternalError struct {
-	*DiscordError
+	DiscordError
 }
 
 type NotFoundError struct {
-	*DiscordError
+	DiscordError
 }
 
 func NewInternalError(message string, original error) *InternalError {
 	return &InternalError{
-		DiscordError: &DiscordError{
-			Code:         500,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         500,
+		Message:      message,
+		WrappedError: original,
 	}
 }
 
 func NewNotFoundError(message string, original error) *NotFoundError {
 	return &NotFoundError{
-		DiscordError: &DiscordError{
-			Code:         404,
-			Message:      message,
-			WrappedError: original,
-		},
+		Code:         404,
+		Message:      message,
+		WrappedError: original,
 	}
 }

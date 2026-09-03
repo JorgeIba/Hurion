@@ -24,7 +24,7 @@ func (service *SolutionService) AddACToUserID(userID string, problemID int64) er
 
 	// 1. Business Logic
 	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(userID, problemID); err != nil {
-		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
+		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %w", userID, problemID, err))
 	} else if hasUserSolvedAlready {
 		return serviceerr.NewConflictError(fmt.Sprintf("user %s has already solved problem %d", userID, problemID), nil)
 	}
@@ -52,7 +52,7 @@ func (service *SolutionService) AddACByPrincipal(principal service_model.Princip
 // UndoAC removes an AC for a user.
 func (service *SolutionService) UndoAC(userID string, problemID int64) error {
 	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(userID, problemID); err != nil {
-		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", userID, problemID, err))
+		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %w", userID, problemID, err))
 	} else if !hasUserSolvedAlready {
 		return serviceerr.NewConflictError(fmt.Sprintf("user %s has not solved problem %d", userID, problemID), nil)
 	}
@@ -80,7 +80,7 @@ func (service *SolutionService) AddPendingACByPrincipal(messageID string, princi
 
 	// 2. Business Logic
 	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(principal.UserID, problemID); err != nil {
-		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %v", principal.UserID, problemID, err))
+		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %w", principal.UserID, problemID, err))
 	} else if hasUserSolvedAlready {
 		return serviceerr.NewConflictError(fmt.Sprintf("user %s has already solved problem %d", principal.UserID, problemID), nil)
 	}

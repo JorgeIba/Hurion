@@ -221,40 +221,35 @@ func MapError(err error, action Action, args ...any) string {
 }
 
 func getErrorKindFromError(err error) ErrorKind {
-	var userMissingErr *dataerr.UserMissingFromDatabaseError
-	var userNotEnrolledErr *serviceerr.UserNotEnrolledError
-	var userNotFoundErr *serviceerr.UserNotFoundError
-	var classCodeNotFoundErr *serviceerr.ClassCodeNotFoundError
-	var problemNotFoundErr *serviceerr.ProblemNotFoundError
-	var duplicateProblemErr *serviceerr.DuplicateProblemError
-	var conflictErr *serviceerr.ConflictError
-	var notFoundErr *serviceerr.NotFoundInfoError
-	var internalErr *serviceerr.InternalError
-
 	switch {
-	case errors.As(err, &userMissingErr):
+	case hasErrorType[*dataerr.UserMissingFromDatabaseError](err):
 		return errorKindUserMissingFromDB
-	case errors.As(err, &userNotEnrolledErr):
+	case hasErrorType[*serviceerr.UserNotEnrolledError](err):
 		return errorKindUserNotEnrolled
-	case errors.As(err, &userNotFoundErr):
+	case hasErrorType[*serviceerr.UserNotFoundError](err):
 		return errorKindUserNotFound
-	case errors.As(err, &classCodeNotFoundErr):
+	case hasErrorType[*serviceerr.ClassCodeNotFoundError](err):
 		return errorKindClassCodeNotFound
-	case errors.As(err, &problemNotFoundErr):
+	case hasErrorType[*serviceerr.ProblemNotFoundError](err):
 		return errorKindProblemNotFound
-	case errors.As(err, &duplicateProblemErr):
+	case hasErrorType[*serviceerr.DuplicateProblemError](err):
 		return errorKindDuplicateProblem
-	case errors.As(err, &conflictErr):
+	case hasErrorType[*serviceerr.ConflictError](err):
 		return errorKindConflict
-	case errors.As(err, &notFoundErr):
+	case hasErrorType[*serviceerr.NotFoundInfoError](err):
 		return errorKindNotFound
-	case errors.As(err, &internalErr):
+	case hasErrorType[*serviceerr.InternalError](err):
 		// InternalError must stay at the end because it unwraps and could shadow
 		// more specific wrapped errors if checked first.
 		return errorKindInternal
 	default:
 		return errorKindDefault
 	}
+}
+
+func hasErrorType[E error](err error) bool {
+	_, ok := errors.AsType[E](err)
+	return ok
 }
 
 func fromTemplate(action Action, kind ErrorKind, args ...any) (string, bool) {
