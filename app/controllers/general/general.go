@@ -343,7 +343,7 @@ func HandleGetUsersInClass(c *context.ContextMessage) {
 
 func HandleGetScoreAllClasses(c *context.ContextMessage) {
 
-	scoresMap, err := c.Services.Score.GetScoreAllClasses()
+	classScores, err := c.Services.Score.GetScoreAllClasses()
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -352,7 +352,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 		return
 	}
 
-	if len(scoresMap) == 0 {
+	if len(classScores) == 0 {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "No class scores found yet."),
 		)
@@ -361,8 +361,9 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 
 	var embeds []*discordgo.MessageEmbed
 	var files []*discordgo.File
-	idx := 0
-	for className, score := range scoresMap {
+	for _, classScore := range classScores {
+		score := classScore.Score
+
 		// Resolve display names
 		controllers_common.ResolveScoreDisplayNames(c, c.ExecutorGuildID, &score)
 
@@ -379,7 +380,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 			return
 		}
 
-		fileName := fmt.Sprintf("table_%d.png", idx)
+		fileName := fmt.Sprintf("score_%s.png", classScore.ClassCode)
 
 		file := &discordgo.File{
 			Name:   fileName,
@@ -387,7 +388,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 		}
 
 		embed := &discordgo.MessageEmbed{
-			Title: fmt.Sprintf("Score of class %s", className),
+			Title: fmt.Sprintf("Score of class %s", classScore.ClassName),
 			Image: &discordgo.MessageEmbedImage{
 				URL: fmt.Sprintf("attachment://%s", fileName),
 			},
@@ -396,8 +397,7 @@ func HandleGetScoreAllClasses(c *context.ContextMessage) {
 
 		files = append(files, file)
 		embeds = append(embeds, embed)
-		logger.Log.Debug(className, scoreTable.Header, scoreTable.Table)
-		idx++
+		logger.Log.Debug(classScore.ClassName, scoreTable.Header, scoreTable.Table)
 	}
 
 	c.Dispatcher.Send(dispatcher.MessageResponse{

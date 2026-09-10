@@ -1,7 +1,9 @@
 package services
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -129,21 +131,32 @@ func (service *ScoreService) GetNeighborsScoreForUserID(userID, classCode string
 	}, nil
 }
 
-// GetScoreAllClasses retrieves scores for all classes
-func (service *ScoreService) GetScoreAllClasses() (map[string]service_model.Score, error) {
+// GetScoreAllClasses retrieves scores for all classes in deterministic display order.
+func (service *ScoreService) GetScoreAllClasses() ([]service_model.ClassScore, error) {
 	classesData, err := service.Datastore.GetAllClasses()
 	if err != nil {
 		return nil, serviceerr.MakeGeneralError(err)
 	}
 
-	scores := make(map[string]service_model.Score)
+	scores := make([]service_model.ClassScore, 0, len(classesData))
 	for _, cData := range classesData {
 		score, err := service.GetScoreByClassCode(cData.ClassCode)
 		if err != nil {
 			return nil, err
 		}
-		scores[cData.Name] = score
+		scores = append(scores, service_model.ClassScore{
+			ClassCode: cData.ClassCode,
+			ClassName: cData.Name,
+			Score:     score,
+		})
 	}
+
+	slices.SortFunc(scores, func(left, right service_model.ClassScore) int {
+		if result := cmp.Compare(left.ClassName, right.ClassName); result != 0 {
+			return result
+		}
+		return cmp.Compare(left.ClassCode, right.ClassCode)
+	})
 
 	return scores, nil
 }

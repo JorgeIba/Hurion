@@ -107,5 +107,33 @@ func TestFormatScoreboard_MultipleSolvedProblems_AggregatesSolvedIDs(t *testing.
 
 	require.Len(t, result.Users, 1)
 	assert.Equal(t, 2, result.Users[0].SolvedCount)
-	assert.ElementsMatch(t, []int64{101, 103}, result.Users[0].Solved)
+	assert.Equal(t, []int64{101, 103}, result.Users[0].Solved)
+}
+
+func TestFormatScoreboard_SolvedIDsAreDeterministic(t *testing.T) {
+	newScore := func(problems map[int64]bool) service_model.Score {
+		return service_model.Score{
+			UserScores: []service_model.PairUserProblemScore{{
+				User:          service_model.User{UserID: "u456", DisplayName: "Bob"},
+				CountProblems: 3,
+				Problems:      problems,
+			}},
+		}
+	}
+
+	first, err := FormatScoreboard("cs102", "CS 102", newScore(map[int64]bool{
+		103: true,
+		101: true,
+		102: true,
+	}))
+	require.NoError(t, err)
+
+	second, err := FormatScoreboard("cs102", "CS 102", newScore(map[int64]bool{
+		102: true,
+		103: true,
+		101: true,
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, first, second)
 }
