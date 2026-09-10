@@ -2,6 +2,7 @@ package jsonexport
 
 import (
 	"encoding/json"
+	"slices"
 
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
@@ -51,6 +52,7 @@ func FormatScoreboard(classCode, className string, score service_model.Score) ([
 				solved = append(solved, pID)
 			}
 		}
+		slices.Sort(solved)
 		users = append(users, JSONUserScore{
 			UserID:      uScore.User.UserID,
 			DisplayName: uScore.User.DisplayName,

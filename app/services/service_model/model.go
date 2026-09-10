@@ -107,6 +107,15 @@ type Score struct {
 	ProblemsByTopic []ProblemsByTopic
 }
 
+// ClassScore pairs a class's stable identity and display name with its score.
+// A slice of ClassScore values preserves classes that share a display name and
+// supports a deterministic presentation order.
+type ClassScore struct {
+	ClassCode string
+	ClassName string
+	Score     Score
+}
+
 const (
 	DifficultyEasy    = "Easy"
 	DifficultyMedium  = "Medium"

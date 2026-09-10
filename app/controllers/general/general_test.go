@@ -580,6 +580,8 @@ func TestHandleGetScoreAllClasses(t *testing.T) {
 				assert.Equal(t, dispatcher.FileMessage, msg.Type)
 				assert.NotEmpty(t, msg.Files)
 				assert.NotEmpty(t, msg.Embeds)
+				assert.Equal(t, "score_basicos_1.png", msg.Files[0].Name)
+				assert.Equal(t, "attachment://score_basicos_1.png", msg.Embeds[0].Image.URL)
 			},
 		},
 		{

@@ -12,6 +12,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -330,14 +331,14 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 	tests := []struct {
 		name       string
 		setupMock  func(*mock_data.MockDataStore, *mock_services.MockProblemService)
-		assertFunc func(*testing.T, map[string]service_model.Score, error)
+		assertFunc func(*testing.T, []service_model.ClassScore, error)
 	}{
 		{
-			name: "success - scores for multiple classes",
+			name: "success - preserves duplicate class names in deterministic order",
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetAllClasses().Return([]data.Class{
-					{ID: 1, ClassCode: "C1", Name: "Class 1"},
-					{ID: 2, ClassCode: "C2", Name: "Class 2"},
+					{ID: 2, ClassCode: "C2", Name: "Algorithms"},
+					{ID: 1, ClassCode: "C1", Name: "Algorithms"},
 				}, nil)
 
 				m.EXPECT().GetClassByClassCode("C1").Return(data.Class{ID: 1, ClassCode: "C1"}, nil).AnyTimes()
@@ -348,13 +349,15 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 				m.EXPECT().GetAllSolvedProblemsByClass(int64(2)).Return(map[data.User][]data.SolvedProblem{{UserID: "u2"}: {{ProblemID: 200}}}, nil)
 				ps.EXPECT().GetProblemsGroupedByTopic("C2").Return([]service_model.ProblemsByTopic{{Problems: []service_model.Problem{{ID: 200}}}}, nil)
 			},
-			assertFunc: func(t *testing.T, res map[string]service_model.Score, err error) {
+			assertFunc: func(t *testing.T, res []service_model.ClassScore, err error) {
 				assert.NoError(t, err)
-				assert.Len(t, res, 2)
-				assert.Contains(t, res, "Class 1")
-				assert.Contains(t, res, "Class 2")
-				assert.Equal(t, "u1", res["Class 1"].UserScores[0].User.UserID)
-				assert.Equal(t, "u2", res["Class 2"].UserScores[0].User.UserID)
+				require.Len(t, res, 2)
+				assert.Equal(t, "C1", res[0].ClassCode)
+				assert.Equal(t, "Algorithms", res[0].ClassName)
+				assert.Equal(t, "u1", res[0].Score.UserScores[0].User.UserID)
+				assert.Equal(t, "C2", res[1].ClassCode)
+				assert.Equal(t, "Algorithms", res[1].ClassName)
+				assert.Equal(t, "u2", res[1].Score.UserScores[0].User.UserID)
 			},
 		},
 		{
@@ -362,7 +365,7 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore, ps *mock_services.MockProblemService) {
 				m.EXPECT().GetAllClasses().Return(nil, errors.New("db fail"))
 			},
-			assertFunc: func(t *testing.T, res map[string]service_model.Score, err error) {
+			assertFunc: func(t *testing.T, res []service_model.ClassScore, err error) {
 				assert.Error(t, err)
 			},
 		},
@@ -372,7 +375,7 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 				m.EXPECT().GetAllClasses().Return([]data.Class{{ID: 1, ClassCode: "C1"}}, nil)
 				m.EXPECT().GetClassByClassCode("C1").Return(data.Class{}, errors.New("db fail"))
 			},
-			assertFunc: func(t *testing.T, res map[string]service_model.Score, err error) {
+			assertFunc: func(t *testing.T, res []service_model.ClassScore, err error) {
 				assert.Error(t, err)
 			},
 		},
