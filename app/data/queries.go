@@ -34,8 +34,7 @@ func (db *DB) EnsureUser(user User) error {
 func (db *DB) AddProblem(problem Problem) (int64, error) {
 	query := `
 		INSERT INTO problems (name, url, class_id, difficulty, topic)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT(name, class_id) DO NOTHING;
+		VALUES (?, ?, ?, ?, ?);
 	`
 	response, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic)
 	if err != nil {
@@ -45,7 +44,7 @@ func (db *DB) AddProblem(problem Problem) (int64, error) {
 	if rowsAffected, err := response.RowsAffected(); err != nil {
 		return 0, dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when inserting problem %s into class %d", problem.Name, problem.ClassID), err)
 	} else if rowsAffected == 0 {
-		return 0, dataerr.NewRowConflictError(fmt.Sprintf("Problem %s already exists in class %d", problem.Name, problem.ClassID), nil)
+		return 0, dataerr.NewQueryError(fmt.Sprintf("problem %s was not inserted into class %d", problem.Name, problem.ClassID), nil)
 	}
 
 	problemID, err := response.LastInsertId()
@@ -631,10 +630,6 @@ func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	`
 
 	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic, problemID); err != nil {
-		sqliteErr, ok := errors.AsType[sqlite3.Error](err)
-		if ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-			return dataerr.NewRowConflictError(fmt.Sprintf("problem %q already exists in class %d", problem.Name, problem.ClassID), err)
-		}
 		return dataerr.NewQueryError(fmt.Sprintf("could not update problem with ID %d", problemID), err)
 	} else if rowsAffected, err := result.RowsAffected(); err != nil {
 		return dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when updating problem with ID %d", problemID), err)
