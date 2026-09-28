@@ -124,7 +124,7 @@ func TestAddProblem(t *testing.T) {
 			},
 		},
 		{
-			name: "should fail if problem name exists in class",
+			name: "should allow another problem with the same name in class",
 			setup: func(t *testing.T, db *DB) {
 				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
 				require.NoError(t, err)
@@ -133,8 +133,12 @@ func TestAddProblem(t *testing.T) {
 			},
 			problem: Problem{Name: "p1", URL: "u2", ClassID: 1},
 			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
-				assert.Error(t, err)
-				assert.Equal(t, int64(0), id)
+				assert.NoError(t, err)
+				assert.Greater(t, id, int64(0))
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE name = ? AND class_id = ?", "p1", 1).Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 2, count)
 			},
 		},
 		{
@@ -1851,7 +1855,7 @@ func TestUpdateProblemByProblemID(t *testing.T) {
 			},
 		},
 		{
-			name: "should return RowConflictError if problem name exists in class",
+			name: "should allow updating to a name already used in class",
 			setup: func(t *testing.T, db *DB) {
 				cID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
 				require.NoError(t, err)
@@ -1863,7 +1867,11 @@ func TestUpdateProblemByProblemID(t *testing.T) {
 			problemID: 1,
 			problem:   Problem{Name: "p2", URL: "u3", ClassID: 1},
 			assertFunc: func(t *testing.T, db *DB, err error) {
-				assert.Error(t, err)
+				assert.NoError(t, err)
+				var count int
+				err = db.conn.QueryRow("SELECT COUNT(*) FROM problems WHERE name = ? AND class_id = ?", "p2", 1).Scan(&count)
+				assert.NoError(t, err)
+				assert.Equal(t, 2, count)
 			},
 		},
 		{
