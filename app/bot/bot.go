@@ -80,7 +80,11 @@ func (bot *Bot) resolveUserRoles(m *discordgo.Member, guildID, userID string) []
 }
 
 func (bot *Bot) ConfigureSession(s *discordgo.Session) {
-	s.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions | discordgo.IntentsGuildMembers
+	s.Identify.Intents = discordgo.IntentsGuilds |
+		discordgo.IntentsGuildMessages |
+		discordgo.IntentsGuildMessageReactions |
+		discordgo.IntentsGuildMembers |
+		discordgo.IntentsMessageContent
 	s.StateEnabled = true
 }
 
