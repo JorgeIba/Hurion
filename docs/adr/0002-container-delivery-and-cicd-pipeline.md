@@ -73,27 +73,10 @@ Images are compiled in GitHub Actions on high-spec runners (16 GB RAM) and publi
 ### 3. Continuous Deployment (`.github/workflows/deploy.yml`)
 Triggered manually on demand via `workflow_dispatch` with maintainer access:
 1. Accepts an optional `image_tag` parameter (default: `latest`, or `sha-<commit>` for instant rollbacks).
-2. For new releases (`latest`), builds and publishes multi-tag container images to `ghcr.io`. For rollback tags (`sha-*`), skips rebuilding and deploys the existing image directly.
+2. For new releases (`latest`), builds and publishes multi-tag container images to `ghcr.io`, then deploys the exact build digest. For rollback tags (`sha-*`), skips rebuilding and deploys the existing image directly.
 3. Authenticates to Azure via `azure/login` using service principal credentials (`AZURE_VM_DEPLOY_CREDENTIALS` / `AZURE_CREDENTIALS`) or federated OIDC (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`).
-4. Invokes remote update on the VM via Azure Control Plane, injecting the ephemeral `GITHUB_TOKEN` in flight for zero-disk-credential security:
-   ```bash
-   VM_SCRIPT=$(cat <<EOF
-   set -euo pipefail
-
-   TEMP_DOCKER_CONFIG=\$(mktemp -d)
-   cleanup() {
-     rm -rf "\$TEMP_DOCKER_CONFIG" || true
-   }
-   trap cleanup EXIT
-
-   cd /hurion/app
-   echo "$GH_TOKEN" | sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-   sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose pull
-   sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose up -d
-   EOF
-   )
-   ```
-5. Docker on the VM downloads only the changed layer from `ghcr.io` in ~1.5 seconds, immediately purges registry credentials from memory by removing the temporary directory on script exit, and recreates the container without data loss.
+4. Invokes remote update on the VM via Azure Control Plane. The workflow is the source of truth for the remote script, including temporary registry authentication, image pull, container startup check, and explicit completion marker.
+5. Docker on the VM reuses cached layers when possible. The remote script removes its temporary Docker credential directory on exit and recreates the container without replacing the mounted database volume.
 
 ---
 

@@ -21,6 +21,8 @@ jobs:
     name: Build & Publish Container (GHCR)
     runs-on: ubuntu-latest
     if: ${{ inputs.image_tag == 'latest' || inputs.image_tag == '' }}
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
     permissions:
       contents: read
       packages: write
@@ -48,6 +50,7 @@ jobs:
             type=sha,prefix=sha-,format=short
 
       - name: Build and Push Docker Image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -72,10 +75,15 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       AZURE_CREDENTIALS: ${{ secrets.AZURE_VM_DEPLOY_CREDENTIALS || secrets.AZURE_CREDENTIALS }}
     steps:
+      - name: Validate Azure Credentials
+        run: |
+          if [[ -z "$AZURE_CREDENTIALS" ]] && [[ -z "$AZURE_CLIENT_ID" || -z "$AZURE_TENANT_ID" || -z "$AZURE_SUBSCRIPTION_ID" ]]; then
+            echo "Error: Azure service principal credentials or complete OIDC credentials are required for deployment." >&2
+            exit 1
+          fi
+
       - name: Azure Login
-        id: azure_login
         uses: azure/login@v2
-        if: ${{ env.AZURE_CLIENT_ID != '' || env.AZURE_CREDENTIALS != '' }}
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
           tenant-id: ${{ env.AZURE_TENANT_ID }}
@@ -83,9 +91,9 @@ jobs:
           creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Invoke Remote Update on Azure VM
-        if: ${{ steps.azure_login.outcome == 'success' }}
         env:
           INPUT_TAG: ${{ inputs.image_tag || 'latest' }}
+          IMAGE_DIGEST: ${{ needs.build-and-push.outputs.image_digest }}
           AZURE_RG: ${{ vars.AZURE_RESOURCE_GROUP || 'Hurion-RG-MX' }}
           AZURE_VM: ${{ vars.AZURE_VM_NAME || 'hurion-bot' }}
           GH_ACTOR: ${{ github.actor }}
@@ -99,12 +107,21 @@ jobs:
           fi
 
           REPO_LOWER=$(echo "$GH_REPO" | tr '[:upper:]' '[:lower:]')
-          IMAGE_URI="${{ env.REGISTRY }}/${REPO_LOWER}:${INPUT_TAG}"
+          IMAGE_REPO="${{ env.REGISTRY }}/${REPO_LOWER}"
+          if [[ "$INPUT_TAG" == "latest" ]]; then
+            if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "Error: The image built by this run has no valid digest." >&2
+              exit 1
+            fi
+            IMAGE_URI="${IMAGE_REPO}@${IMAGE_DIGEST}"
+          else
+            IMAGE_URI="${IMAGE_REPO}:${INPUT_TAG}"
+          fi
 
           echo "==> Preparing deployment for image: $IMAGE_URI"
 
           VM_SCRIPT=$(cat <<EOF
-          set -euo pipefail
+          set -eu
 
           TEMP_DOCKER_CONFIG=\$(mktemp -d)
           cleanup() {
@@ -116,21 +133,28 @@ jobs:
           echo "$GH_TOKEN" | sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" docker login ghcr.io -u "$GH_ACTOR" --password-stdin
           sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose pull
           sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose up -d
+          sleep 5
+          CONTAINER_ID=\$(sudo DOCKER_CONFIG="\$TEMP_DOCKER_CONFIG" IMAGE_NAME="$IMAGE_URI" docker compose ps -q service)
+          if [ -z "\$CONTAINER_ID" ] || [ "\$(sudo docker inspect -f '{{.State.Running}}' "\$CONTAINER_ID")" != "true" ]; then
+            echo "Deployment failed: service container is not running" >&2
+            exit 1
+          fi
+          echo HURION_DEPLOY_SUCCESS
           EOF
           )
 
           echo "==> Invoking remote update on VM '$AZURE_VM' in '$AZURE_RG'..."
-          az vm run-command invoke \
+          RUN_OUTPUT=$(az vm run-command invoke \
             --resource-group "$AZURE_RG" \
             --name "$AZURE_VM" \
             --command-id RunShellScript \
-            --scripts "$VM_SCRIPT"
+            --scripts "$VM_SCRIPT" \
+            --query 'value[0].message' \
+            --output tsv)
+          printf '%s\n' "$RUN_OUTPUT"
+          if [[ "$RUN_OUTPUT" != *HURION_DEPLOY_SUCCESS* ]]; then
+            echo "Error: VM command did not complete the deployment successfully." >&2
+            exit 1
+          fi
 
           echo "==> Production container updated to '$IMAGE_URI' successfully!"
-
-      - name: Deployment Notice (Manual / Pre-Secret Setup)
-        if: ${{ steps.azure_login.outcome != 'success' }}
-        run: |
-          echo "Notice: Azure credentials (AZURE_VM_DEPLOY_CREDENTIALS / OIDC) are not configured in GitHub Secrets."
-          echo "The Docker image was successfully built and published to GHCR:"
-          echo "  ${{ env.REGISTRY }}/${{ github.repository }}:${{ inputs.image_tag || 'latest' }}"
