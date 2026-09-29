@@ -17,16 +17,20 @@ Hurion uses SQLite as its primary database. To run safely on a single Azure Virt
 
 Litestream uses two configuration files depending on your runtime environment:
 
+Production replica paths follow `server-<id>/db.sqlite`. The ID starts at `1` for this migration and advances to a new, unused value only when intentionally starting a new replication history (for example, `server-2/db.sqlite` after another data replacement). A normal restart or restore keeps the same ID. The `server-1` path below is the **current value**, not a permanent path requirement.
+
 * **Production (`/etc/litestream.yml`)**:
   Streams database backups to Azure Blob Storage:
   ```yaml
   dbs:
     - path: ${DB_PATH}
       replicas:
-        - url: abs://${AZURE_STORAGE_ACCOUNT}@${AZURE_STORAGE_CONTAINER}/db.sqlite
+        - url: abs://${AZURE_STORAGE_ACCOUNT}@${AZURE_STORAGE_CONTAINER}/server-1/db.sqlite
   ```
 * **Local Development (`/etc/litestream.local.yml`)**:
   Streams local backups to `/hurion/local-backups/db.sqlite` on disk when Azure credentials are missing.
+
+Each new `server-<id>` prefix starts a separate replica history and leaves previous prefixes untouched. Changing this URL does **not** replace the local `/hurion/data/db.sqlite`: install the intended database while the service is stopped before starting an image with the new config, or Litestream will replicate the old local database to the new prefix.
 
 ---
 
