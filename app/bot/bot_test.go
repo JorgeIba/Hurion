@@ -3,8 +3,24 @@ package bot
 import (
 	"testing"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestConfigureSessionIntents(t *testing.T) {
+	t.Parallel()
+
+	session := &discordgo.Session{}
+	NewBot(nil, nil, nil, BotConfig{}).ConfigureSession(session)
+
+	expected := discordgo.IntentsGuilds |
+		discordgo.IntentsGuildMessages |
+		discordgo.IntentsGuildMessageReactions |
+		discordgo.IntentsGuildMembers |
+		discordgo.IntentsMessageContent
+	assert.Equal(t, expected, session.Identify.Intents)
+	assert.True(t, session.StateEnabled)
+}
 
 func TestIsWhitelisted(t *testing.T) {
 	t.Parallel()
