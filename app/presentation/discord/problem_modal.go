@@ -9,8 +9,8 @@ type ProblemModalFields struct {
 	Topic      string
 }
 
-// AddProblemModal holds the editable values for a problem-creation form.
-type AddProblemModal struct {
+// CreateProblemModal holds the editable values for a problem-creation form.
+type CreateProblemModal struct {
 	ClassCode string
 	ProblemModalFields
 }
