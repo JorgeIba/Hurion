@@ -77,6 +77,18 @@ type CreateProblemParams struct {
 	Topic      *string
 }
 
+// UpdateProblemParams identifies the target and supplies all replacement values,
+// including class membership. Nil Difficulty or Topic clears the stored value;
+// omitted fields do not mean "leave unchanged". This type does not validate input.
+type UpdateProblemParams struct {
+	ProblemID  int64
+	Name       string
+	URL        string
+	ClassID    int64
+	Difficulty *string
+	Topic      *string
+}
+
 // ============================================================================
 // Composite Models (Used for presentation/business logic)
 // ============================================================================

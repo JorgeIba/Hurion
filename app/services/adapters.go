@@ -6,6 +6,22 @@ import (
 )
 
 // ============================================================================
+// Service Model to Request Params Adapters
+// ============================================================================
+
+// MapProblemToUpdateProblemParams prepares a pending update from saved values.
+func MapProblemToUpdateProblemParams(problem service_model.Problem) service_model.UpdateProblemParams {
+	return service_model.UpdateProblemParams{
+		ProblemID:  problem.ID,
+		Name:       problem.Name,
+		URL:        problem.URL,
+		ClassID:    problem.ClassID,
+		Difficulty: problem.Difficulty,
+		Topic:      problem.Topic,
+	}
+}
+
+// ============================================================================
 // Data to Service Adapters
 // ============================================================================
 
