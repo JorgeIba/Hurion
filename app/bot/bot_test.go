@@ -35,11 +35,11 @@ func TestIsWhitelisted(t *testing.T) {
 		expected       bool
 	}{
 		{
-			name:           "Test Mode Off - Any User",
+			name:           "Test Mode Off - Non-Whitelisted User",
 			testMode:       false,
 			whitelistUsers: []string{"user1"},
 			userID:         "user2",
-			expected:       true,
+			expected:       false,
 		},
 		{
 			name:           "Test Mode On - Whitelisted User",

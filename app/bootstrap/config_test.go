@@ -67,6 +67,17 @@ classes: []
 			},
 		},
 		{
+			name: "should trim guild ID when loading configuration",
+			yamlConfig: `
+guild_id: "  guild-123  "
+admin_role_id: "inline-admin"
+mentor_role_id: "inline-mentor"
+`,
+			assertFunc: func(t *testing.T, cfg Config) {
+				assert.Equal(t, "guild-123", cfg.GuildID)
+			},
+		},
+		{
 			name: "environment variables should NOT override YAML configuration",
 			yamlConfig: `
 admin_role_id: "original-yaml-admin"

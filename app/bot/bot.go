@@ -19,12 +19,14 @@ type Bot struct {
 	testMode        bool
 	whitelistUsers  map[string]struct{}
 	whitelistRoles  map[string]struct{}
+	guildID         string
 }
 
 type BotConfig struct {
 	TestMode         bool
 	WhitelistUserIDs []string
 	WhitelistRoleIDs []string
+	GuildID          string
 }
 
 func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender dispatcher.MessageSender, cfg BotConfig) *Bot {
@@ -45,13 +47,11 @@ func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender 
 		testMode:        cfg.TestMode,
 		whitelistUsers:  userMap,
 		whitelistRoles:  roleMap,
+		guildID:         cfg.GuildID,
 	}
 }
 
 func (bot *Bot) isWhitelisted(userID string, userRoles []string) bool {
-	if !bot.testMode {
-		return true
-	}
 	if _, ok := bot.whitelistUsers[userID]; ok {
 		return true
 	}
@@ -68,15 +68,12 @@ func (bot *Bot) resolveUserRoles(m *discordgo.Member, guildID, userID string) []
 	if m != nil && len(m.Roles) > 0 {
 		return m.Roles
 	}
-	if guildID != "" {
-		if mem, err := bot.discordProvider.GetCachedMember(guildID, userID); err == nil {
+	if guildID != "" && bot.discordProvider != nil {
+		if mem, err := bot.discordProvider.GetCachedMember(guildID, userID); err == nil && mem != nil {
 			return mem.Roles
 		}
 	}
-	if m != nil {
-		return m.Roles
-	}
-	return []string{}
+	return nil
 }
 
 func (bot *Bot) ConfigureSession(s *discordgo.Session) {
@@ -99,14 +96,19 @@ func (bot *Bot) RegisterHandlers(s *discordgo.Session) {
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 		bot.HandleReactionEvent(r)
 	})
+	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		bot.HandleInteractionEvent(s, i)
+	})
+}
+
+func recoverHandlerPanic(eventName string) {
+	if recovered := recover(); recovered != nil {
+		logger.Log.Errorf("Panic recovered in %s handler: %v", eventName, recovered)
+	}
 }
 
 func (bot *Bot) HandleMessageEvent(m *discordgo.MessageCreate) {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Log.Errorf("Panic recovered in messageHandler: %v", r)
-		}
-	}()
+	defer recoverHandlerPanic("message event")
 
 	if bot.testMode {
 		roles := bot.resolveUserRoles(m.Member, m.GuildID, m.Author.ID)
@@ -159,11 +161,7 @@ func (bot *Bot) messageHandler(m *discordgo.MessageCreate) {
 }
 
 func (bot *Bot) HandleReactionEvent(r *discordgo.MessageReactionAdd) {
-	defer func() {
-		if rec := recover(); rec != nil {
-			logger.Log.Errorf("Panic recovered in reactionHandler: %v", rec)
-		}
-	}()
+	defer recoverHandlerPanic("reaction event")
 
 	if bot.testMode {
 		roles := bot.resolveUserRoles(r.Member, r.GuildID, r.UserID)
@@ -212,10 +210,65 @@ func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
 	}
 }
 
-func botUserIDFromSession(s *discordgo.Session) string {
-	if s != nil && s.State != nil && s.State.User != nil {
-		return s.State.User.ID
+type interactionResponder interface {
+	InteractionRespond(interaction *discordgo.Interaction, response *discordgo.InteractionResponse, options ...discordgo.RequestOption) error
+}
+
+func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.InteractionCreate) {
+	defer recoverHandlerPanic("interaction event")
+
+	if event == nil || event.Interaction == nil {
+		return
 	}
 
-	return ""
+	if bot.testMode {
+		userID := ""
+		if event.Member != nil && event.Member.User != nil {
+			userID = event.Member.User.ID
+		}
+		if userID == "" && event.User != nil {
+			userID = event.User.ID
+		}
+
+		roles := bot.resolveUserRoles(event.Member, event.GuildID, userID)
+		if !bot.isWhitelisted(userID, roles) {
+			if event.Type == discordgo.InteractionApplicationCommand && hasInteractionCommand(event.ApplicationCommandData().Name) {
+				bot.respondPrivately(s, event.Interaction, "This development command is not enabled for your account.")
+			}
+			return
+		}
+	}
+
+	bot.interactionHandler(s, event)
+}
+
+func (bot *Bot) interactionHandler(responder interactionResponder, event *discordgo.InteractionCreate) {
+	if event.Type != discordgo.InteractionApplicationCommand {
+		return
+	}
+
+	command := event.ApplicationCommandData()
+	if !hasInteractionCommand(command.Name) {
+		return
+	}
+
+	if event.GuildID != bot.guildID {
+		bot.respondPrivately(responder, event.Interaction, "The /"+command.Name+" command is only available in the configured server.")
+		return
+	}
+
+	routeInteractionCommand(bot, responder, event)
+}
+
+func (bot *Bot) respondPrivately(responder interactionResponder, interaction *discordgo.Interaction, content string) {
+	err := responder.InteractionRespond(interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: content,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+	if err != nil {
+		logger.Log.Errorf("Failed to respond to slash command: %v", err)
+	}
 }
