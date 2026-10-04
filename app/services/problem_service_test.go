@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -31,6 +32,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 				ClassCode:  "CS101",
 				Difficulty: helpers.PtrStr("Easy"),
 				Topic:      helpers.PtrStr("Arrays"),
+				Priority:   helpers.PtrStr(service_model.PriorityRecommended),
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
@@ -40,6 +42,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 					ClassID:    10,
 					Difficulty: helpers.PtrStr("Easy"),
 					Topic:      helpers.PtrStr("Arrays"),
+					Priority:   helpers.PtrStr(service_model.PriorityRecommended),
 				}).Return(int64(100), nil)
 			},
 			assertFunc: func(t *testing.T, id int64, err error) {
@@ -215,10 +218,16 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 		{
 			name:      "success",
 			problemID: 1,
-			problem:   service_model.Problem{Name: "New Name"},
+			problem: service_model.Problem{
+				Name:     "New Name",
+				Priority: helpers.PtrStr(service_model.PriorityRecommended),
+			},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "New Name"}).Return(nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{
+					Name:     "New Name",
+					Priority: helpers.PtrStr(service_model.PriorityRecommended),
+				}).Return(nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.NoError(t, err)
@@ -359,6 +368,7 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 
 func TestProblemService_GetProblemByID(t *testing.T) {
 	t.Parallel()
+	createdAt := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 
 	tests := []struct {
 		name       string
@@ -370,11 +380,20 @@ func TestProblemService_GetProblemByID(t *testing.T) {
 			name:      "success",
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, Name: "P100"}, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{
+					ID:        100,
+					Name:      "P100",
+					Priority:  helpers.PtrStr("recommended"),
+					CreatedAt: createdAt,
+				}, nil)
 			},
 			assertFunc: func(t *testing.T, p service_model.Problem, err error) {
 				assert.NoError(t, err)
 				assert.Equal(t, int64(100), p.ID)
+				if assert.NotNil(t, p.Priority) {
+					assert.Equal(t, service_model.PriorityRecommended, *p.Priority)
+				}
+				assert.Equal(t, createdAt, p.CreatedAt)
 			},
 		},
 		{

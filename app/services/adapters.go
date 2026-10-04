@@ -18,6 +18,7 @@ func MapProblemToUpdateProblemParams(problem service_model.Problem) service_mode
 		ClassID:    problem.ClassID,
 		Difficulty: problem.Difficulty,
 		Topic:      problem.Topic,
+		Priority:   problem.Priority,
 	}
 }
 
@@ -48,6 +49,8 @@ func mapDataProblemToServiceProblem(p data.Problem) service_model.Problem {
 		URL:        p.URL,
 		Difficulty: p.Difficulty,
 		Topic:      p.Topic,
+		Priority:   p.Priority,
+		CreatedAt:  p.CreatedAt,
 	}
 }
 
@@ -156,6 +159,7 @@ func mapServiceProblemToDataProblem(p service_model.Problem) data.Problem {
 		URL:        p.URL,
 		Difficulty: p.Difficulty,
 		Topic:      p.Topic,
+		Priority:   p.Priority,
 	}
 }
 

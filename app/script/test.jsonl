@@ -22,9 +22,9 @@
 {"type": "command", "command": "!link_roles advanced_go 1111111111", "executor_id": "admin_jorge", "channel_id": "#basicos"}
 
 # 5. Mentor Workflow: Add Problems
-{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p1 Easy Go Basics", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
-{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p2 Medium Go Concurrency", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
-{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p3 Hard Go Generics", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p1 Easy Go - Basics", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p2 Medium Go - Concurrency", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
+{"type": "command", "command": "!add_problem advanced_go http://leetcode.com/p3 Hard Go - Generics", "executor_id": "mentor_pedro", "channel_id": "#basicos"}
 
 # 6. Student Workflow: Proposing ACs
 {"type": "command", "command": "!list", "executor_id": "student_luis", "channel_id": "#basicos"}

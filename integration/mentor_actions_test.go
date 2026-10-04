@@ -109,14 +109,18 @@ func TestIntegration_Mentor_UpdateProblem(t *testing.T) {
 	classID := env.SeedClass(t, "class_1", "Class One")
 	class2ID := env.SeedClass(t, "class_2", "Class Two")
 	problemID := env.SeedProblem(t, "Old Name", "old_url", classID, "Easy", "Arrays")
+	originalProblem, err := env.DB.GetProblemByID(problemID)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
 	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
 		return userID == mentorUser.UserID, nil
 	}
 
-	// !update_problem <id> <class_code> <url> <difficulty> <topic> <name...>
-	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!update_problem", fmt.Sprintf("%d", problemID), "class_2", "new_url", "Hard", "Graphs", "New Name"})
+	// !update_problem <id> <class_code> <url> <difficulty> <topic> <priority> <name...>
+	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!update_problem", fmt.Sprintf("%d", problemID), "class_2", "new_url", "Hard", "Graphs", "recommended", "New Name"})
 
 	// 2. ACT
 	mentor.HandleUpdateProblem(ctx)
@@ -128,6 +132,9 @@ func TestIntegration_Mentor_UpdateProblem(t *testing.T) {
 	assert.Equal(t, class2ID, updatedProblem.ClassID)
 	assert.Equal(t, "Hard", *updatedProblem.Difficulty)
 	assert.Equal(t, "Graphs", *updatedProblem.Topic)
+	assert.NotNil(t, updatedProblem.Priority)
+	assert.Equal(t, "recommended", *updatedProblem.Priority)
+	assert.Equal(t, originalProblem.CreatedAt, updatedProblem.CreatedAt, "CreatedAt must remain unchanged")
 	assert.Equal(t, "new_url", updatedProblem.URL)
 	assert.Equal(t, problemID, updatedProblem.ID, "ID must remain unchanged")
 }
@@ -159,7 +166,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleAddProblem(c)
 			},
-			args: []string{"!add_problem", "class_1", "url", "Easy", "Topic", "Name"},
+			args: []string{"!add_problem", "class_1", "url", "Easy", "Topic", "-", "Name"},
 		},
 		{
 			name: "RemoveProblem unauthorized",
@@ -173,7 +180,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleUpdateProblem(c)
 			},
-			args: []string{"!update_problem", "1", "class_1", "url", "Easy", "Topic", "Name"},
+			args: []string{"!update_problem", "1", "class_1", "url", "Easy", "Topic", "-", "Name"},
 		},
 	}
 

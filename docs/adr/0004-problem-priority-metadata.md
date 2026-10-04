@@ -1,6 +1,6 @@
 # ADR 0004: Optional Problem Priority and Class-Specific Presentation
 
-* **Status**: Proposed
+* **Status**: Accepted
 * **Date**: 2026-10-03
 
 ---
@@ -29,6 +29,8 @@ Add a nullable `priority` field to problems. Store one of these stable codes:
 
 An absent priority is represented by SQL `NULL` and by an absent optional value in Go. It means no priority has been assigned; it is not another priority code. Do not store `unassigned`, an empty string, or a separate `unreviewed` state for the same condition. Difficulty remains a separate optional field.
 
+Store priority as nullable `TEXT` without a database `CHECK` constraint, following the existing difficulty field. The mentor command handlers validate priority codes at the application boundary; other writers must apply the same validation.
+
 These codes describe priority categories. They do not change AC values, student scores, or leaderboard calculations. Their fixed category order is used only for problem-list sorting.
 
 ### Presentation contract
@@ -45,7 +47,9 @@ When a problem list is sorted by priority, preserve the existing topic grouping 
 
 ### Persistence and rollout
 
-Persist and read both fields through the existing data layer and carry them through service, presentation, and exported scoreboard models. The schema is rebuilt through the existing clean-database workflow before use; do not add a historical migration for this release.
+Persist and read both fields through the existing data layer and carry them through service, presentation, and exported scoreboard models. Use a freshly created database for the initial rollout; no historical migration is in scope. `CREATE TABLE IF NOT EXISTS` does not upgrade an existing table definition, so a database created from an earlier schema needs an explicit migration or recreation.
+
+Mentor create and update commands take priority as a positional argument, like difficulty and topic. Use `-` to leave priority unset; otherwise provide one of the canonical codes.
 
 ## 3. Alternatives Considered
 
@@ -66,8 +70,8 @@ Persist and read both fields through the existing data layer and carry them thro
 
 ## 5. Incremental Implementation Plan
 
-1. **Contract and models:** review the canonical priority values, optional representation, and model fields for priority and creation time. Stop here for review and approval before implementation proceeds.
-2. **Persistence and commands:** add SQLite fields and data access, generate `created_at` in SQLite, carry priority through service mappings, and design how create/edit commands set or clear it.
+1. **Contract and models:** define the canonical priority values, optional representation, and model fields for priority and creation time; review this contract before proceeding to persistence.
+2. **Persistence and commands:** add SQLite fields and data access, generate `created_at` in SQLite, carry priority through service mappings, and accept a positional priority code with `-` for no priority in create/edit commands.
 3. **Presentation and sorting:** display priority in problem lists, score views, web, images, and Excel exports; add priority sorting with timestamp and ID tie-breaks.
 4. **Class overrides:** add general display defaults and optional class-specific label, explanation, and symbol overrides; configure the advanced class.
 

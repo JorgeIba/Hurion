@@ -1,8 +1,6 @@
 package service_model
 
 import (
-	"fmt"
-	"strings"
 	"time"
 )
 
@@ -31,7 +29,7 @@ type Problem struct {
 	URL        string
 	Difficulty *string
 	Topic      *string
-	Priority   *Priority
+	Priority   *string
 	CreatedAt  time.Time
 }
 
@@ -80,7 +78,7 @@ type CreateProblemParams struct {
 	ClassCode  string
 	Difficulty *string
 	Topic      *string
-	Priority   *Priority
+	Priority   *string
 }
 
 // UpdateProblemParams identifies the target and supplies all replacement values,
@@ -94,7 +92,7 @@ type UpdateProblemParams struct {
 	ClassID    int64
 	Difficulty *string
 	Topic      *string
-	Priority   *Priority
+	Priority   *string
 }
 
 // ============================================================================
@@ -144,35 +142,14 @@ const (
 	DefaultTopic      = "General"
 )
 
-// Priority is a stable, class-independent code describing a problem's
-// recommendation category. Display labels and symbols belong to presentation.
-type Priority string
-
+// Priority codes are stable across classes; labels and symbols belong to presentation.
 const (
-	PriorityEssential     Priority = "essential"
-	PriorityRecommended   Priority = "recommended"
-	PrioritySupplementary Priority = "supplementary"
-	PriorityNotRequired   Priority = "not_required"
-	PriorityDiscouraged   Priority = "discouraged"
+	PriorityEssential     = "essential"
+	PriorityRecommended   = "recommended"
+	PrioritySupplementary = "supplementary"
+	PriorityNotRequired   = "not_required"
+	PriorityDiscouraged   = "discouraged"
 )
-
-func (p Priority) IsValid() bool {
-	switch p {
-	case PriorityEssential, PriorityRecommended, PrioritySupplementary, PriorityNotRequired, PriorityDiscouraged:
-		return true
-	default:
-		return false
-	}
-}
-
-// ParsePriority converts a canonical priority code to the typed domain value.
-func ParsePriority(value string) (Priority, error) {
-	priority := Priority(strings.ToLower(strings.TrimSpace(value)))
-	if !priority.IsValid() {
-		return "", fmt.Errorf("invalid priority: %s", value)
-	}
-	return priority, nil
-}
 
 func (p *Problem) GetDifficulty() string {
 	if p.Difficulty == nil {

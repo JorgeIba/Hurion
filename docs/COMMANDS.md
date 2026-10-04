@@ -44,8 +44,8 @@ Available to users with the Mentor Discord role.
 |---|---|---|:---:|
 | `!ac` | `!ac <@user> <problem_id>` | Directly mark a problem as solved for a user. | No |
 | `!undo_ac` | `!undo_ac <@user> <problem_id>` | Remove a solved problem from another user's list. | No |
-| `!add_problem` | `!add_problem <class_code> <url> <difficulty or -> <topic or -> <Name>` | Add a new problem to a class. | No |
-| `!update_problem` | `!update_problem <problem_id> <class_code> <url> <difficulty or -> <topic or -> <Name>` | Update a problem's details (preserves ID). | No |
+| `!add_problem` | `!add_problem <class_code> <url> <difficulty or -> <topic or -> <priority or -> <Name>` | Add a new problem to a class. | No |
+| `!update_problem` | `!update_problem <problem_id> <class_code> <url> <difficulty or -> <topic or -> <priority or -> <Name>` | Update a problem's details (preserves ID). | No |
 | `!remove_problem` | `!remove_problem <problem_id>` | Remove a problem and its ACs. | Yes 👍/👎 |
 
 ---
@@ -69,4 +69,5 @@ Available to users with the Admin Discord role.
 > ℹ️ **Note on Parameters**: 
 > - `CamelUpperCase` parameters (like Problem Name) can contain spaces. 
 > - `lowercase_snake` parameters (like class_code) must be a single word. 
-> - **Optional Positional Parameters**: Arguments like `difficulty` and `topic` cannot be entirely omitted. You must use a dash (`-`) to skip them (e.g., `!add_problem basicos_1 http://link.com - - My Problem`).
+> - **Optional Positional Parameters**: Arguments like `difficulty`, `topic`, and `priority` cannot be entirely omitted. Use a dash (`-`) to skip one (e.g., `!add_problem basicos_1 http://link.com - - - My Problem`).
+> - **Priority**: Priority is a positional argument, like difficulty and topic. Use `-` to leave it unset. Valid codes are `essential`, `recommended`, `supplementary`, `not_required`, and `discouraged` (case-insensitive).

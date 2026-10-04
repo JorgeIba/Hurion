@@ -106,18 +106,18 @@ var Commands = map[Command]CommandData{
 	AddProblem: {
 		Cmd:         "!add_problem",
 		Name:        "add_problem",
-		Usage:       "!add_problem <class_code> <url> [difficulty] [topic] <ProblemName>",
-		Description: "Add a new problem to a class with URL, optional difficulty and topic, and name",
+		Usage:       "!add_problem <class_code> <url> <difficulty or -> <topic or -> <priority or -> <ProblemName>",
+		Description: "Add a new problem to a class with optional difficulty, topic, and priority",
 		UserRoles:   NewUserRoleSet(RoleMentor),
 		ExtraInfo: "The `class_code` should be one word, url should have 'http://' prefix (Discord policies I guess), " +
-			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (No case sensitive). " +
+			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (case-insensitive). " +
 			"`topic` can be any text, one word, use '-' to skip (No case sensitive). " +
-			"`ProblemName` can include multiple words.\n" +
+			"`ProblemName` can include multiple words. `priority` must be essential, recommended, supplementary, not_required, discouraged, or `-` to leave it unset (case-insensitive).\n" +
 			"Examples:\n" +
-			"  !add_problem basicos http://example.com - - Two Sum (no difficulty, no topic)\n" +
-			"  !add_problem basicos http://example.com Easy - Two Sum (only difficulty)\n" +
-			"  !add_problem basicos http://example.com - DP Two Sum (only topic)\n" +
-			"  !add_problem basicos http://example.com Medium Graphs Binary Tree Problem (both)",
+			"  !add_problem basicos http://example.com - - - Two Sum (no difficulty, topic, or priority)\n" +
+			"  !add_problem basicos http://example.com Easy - recommended Two Sum (difficulty and priority)\n" +
+			"  !add_problem basicos http://example.com - DP essential Binary Tree Problem (topic and priority)\n" +
+			"  !add_problem basicos http://example.com Hard Graphs recommended Binary Tree Problem (difficulty, topic, and priority)",
 	},
 	RemoveProblem: {
 		Cmd:         "!remove_problem",
@@ -129,18 +129,18 @@ var Commands = map[Command]CommandData{
 	UpdateProblem: {
 		Cmd:         "!update_problem",
 		Name:        "update_problem",
-		Usage:       "!update_problem <problem_id> <class_code> <url> [difficulty] [topic] <ProblemName>",
+		Usage:       "!update_problem <problem_id> <class_code> <url> <difficulty or -> <topic or -> <priority or -> <ProblemName>",
 		Description: "Update a problem's details while preserving its ID for AC records",
 		UserRoles:   NewUserRoleSet(RoleMentor),
 		ExtraInfo: "The `problem_id` and `class_code` should be one word, url should have 'http://' prefix (Discord policies I guess), " +
-			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (No case sensitive). " +
+			"`difficulty` can be: Easy, Medium, Hard, or use '-' to skip (case-insensitive). " +
 			"`topic` can be any text, one word, use '-' to skip (No case sensitive). " +
-			"`ProblemName` can include multiple words.\n" +
+			"`ProblemName` can include multiple words. `priority` must be essential, recommended, supplementary, not_required, discouraged, or `-` to leave it unset (case-insensitive).\n" +
 			"Examples:\n" +
-			"  !update_problem 3 basicos http://example.com - - Updated Name (no difficulty, no topic)\n" +
-			"  !update_problem 3 basicos http://example.com Hard - Updated Name (only difficulty)\n" +
-			"  !update_problem 3 basicos http://example.com - DP Updated Name (only topic)\n" +
-			"  !update_problem 3 basicos http://example.com Easy Graphs Updated Problem Name (both)",
+			"  !update_problem 3 basicos http://example.com - - - Updated Name (no difficulty, topic, or priority)\n" +
+			"  !update_problem 3 basicos http://example.com Hard - recommended Updated Name (difficulty and priority)\n" +
+			"  !update_problem 3 basicos http://example.com - DP essential Updated Problem Name (topic and priority)\n" +
+			"  !update_problem 3 basicos http://example.com Hard Graphs recommended Updated Problem Name (difficulty, topic, and priority)",
 	},
 	ClearClass: {
 		Cmd:         "!clear_class",
