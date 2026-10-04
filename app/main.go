@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/JorgeIba/Hurion/app/bootstrap"
@@ -116,6 +117,7 @@ func main() {
 		TestMode:         cfg.TestMode,
 		WhitelistUserIDs: cfg.WhitelistUserIDs,
 		WhitelistRoleIDs: cfg.WhitelistRoleIDs,
+		GuildID:          cfg.GuildID,
 	}
 	appBot := bot.NewBot(svcs, provider, sender, botCfg)
 
@@ -134,6 +136,25 @@ func main() {
 			log.Fatalf("Script runner execution failed: %v", err)
 		}
 	case bootstrap.ModeOnlineDaemon:
+		guildID := cfg.GuildID
+		if guildID == "" {
+			log.Fatalf("Configuration error: 'guild_id' must be configured to register guild slash commands.")
+		}
+
+		applicationUser, err := session.User("@me")
+		if err != nil {
+			log.Fatalf("Failed to identify Discord application before command registration: %v", err)
+		}
+		if applicationUser == nil || strings.TrimSpace(applicationUser.ID) == "" {
+			log.Fatalf("Failed to identify Discord application before command registration: bot user ID is empty")
+		}
+		// Register the /problem slash command for the guild
+		// It needs the associated application user ID to register the command correctly in the guild
+		if err := bot.UpsertProblemSlashCommand(session, applicationUser.ID, guildID); err != nil {
+			log.Fatalf("Failed to register guild slash commands: %v", err)
+		}
+		logger.Log.Infof("Upserted guild slash command /problem in server %s", guildID)
+
 		appBot.ConfigureSession(session)
 		appBot.RegisterHandlers(session)
 

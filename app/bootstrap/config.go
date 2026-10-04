@@ -86,6 +86,8 @@ func LoadConfig(configPath string) (Config, error) {
 		return Config{}, fmt.Errorf("failed to unmarshal config (strict mode): %w", err)
 	}
 
+	cfg.GuildID = strings.TrimSpace(cfg.GuildID)
+
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("configuration validation failed: %w", err)
 	}
