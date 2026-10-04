@@ -69,6 +69,7 @@ func (service *problemService) CreateProblemIntoClass(params service_model.Creat
 		ClassID:    class.ID,
 		Difficulty: params.Difficulty,
 		Topic:      params.Topic,
+		Priority:   params.Priority,
 	})
 	if err != nil {
 		switch {

@@ -238,13 +238,22 @@ func HandleAddProblem(c *context.ContextMessage) {
 		return
 	}
 
-	// Parse: !add_problem <class_code> <url> <difficulty> <topic> <ProblemName...>
-	// Args[0] = command, Args[1] = class_code, Args[2] = url, Args[3] = difficulty, Args[4] = topic, Args[5+] = name
+	// Parse: !add_problem <class_code> <url> <difficulty or -> <topic or -> <priority or -> <ProblemName...>
+	// Args[0] = command, Args[1] = class_code, Args[2] = url, Args[3] = difficulty, Args[4] = topic, Args[5] = priority, Args[6+] = name
 	classCode := c.Args[1]
 	url := c.Args[2]
 	difficultyStr := c.Args[3]
 	topicStr := c.Args[4]
-	problemName := strings.Join(c.Args[5:], " ")
+	priority, err := parsePriority(c.Args[5])
+	if err != nil {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, err.Error()))
+		return
+	}
+	problemName := strings.Join(c.Args[6:], " ")
+	if problemName == "" {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, "problem name is required"))
+		return
+	}
 
 	// Parse difficulty (case-insensitive)
 	difficulty, err := parseDifficulty(difficultyStr)
@@ -265,6 +274,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 		ClassCode:  classCode,
 		Difficulty: difficulty,
 		Topic:      topic,
+		Priority:   priority,
 	})
 
 	if err != nil {
@@ -352,7 +362,16 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	url := c.Args[3]
 	difficultyStr := c.Args[4]
 	topicStr := c.Args[5]
-	problemName := strings.Join(c.Args[6:], " ")
+	priority, err := parsePriority(c.Args[6])
+	if err != nil {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, err.Error()))
+		return
+	}
+	problemName := strings.Join(c.Args[7:], " ")
+	if problemName == "" {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, "problem name is required"))
+		return
+	}
 
 	problemID, err := strconv.ParseInt(problemIDStr, 10, 64)
 	if err != nil {
@@ -392,6 +411,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 		URL:        url,
 		Difficulty: difficulty,
 		Topic:      topic,
+		Priority:   priority,
 	}); err != nil {
 		logger.Log.Error(err)
 
@@ -411,6 +431,14 @@ var difficultyMap = map[string]string{
 	"easy":   "Easy",
 	"medium": "Medium",
 	"hard":   "Hard",
+}
+
+var validPriorities = []string{
+	service_model.PriorityEssential,
+	service_model.PriorityRecommended,
+	service_model.PrioritySupplementary,
+	service_model.PriorityNotRequired,
+	service_model.PriorityDiscouraged,
 }
 
 func parseDifficulty(input string) (*string, error) {
@@ -434,6 +462,22 @@ func parseTopic(input string) *string {
 		return nil
 	}
 	return &input
+}
+
+func parsePriority(input string) (*string, error) {
+	if input == "-" {
+		return nil, nil
+	}
+
+	lowerInput := strings.ToLower(input)
+
+	for _, priority := range validPriorities {
+		if lowerInput == priority {
+			return &lowerInput, nil
+		}
+	}
+
+	return nil, fmt.Errorf("invalid priority '%s'. Valid options: %s", input, strings.Join(validPriorities, ", "))
 }
 
 func checkIfUserIsMentor(c *context.ContextMessage) (bool, error) {

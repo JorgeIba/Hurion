@@ -29,6 +29,8 @@ type Problem struct {
 	URL        string
 	Difficulty *string
 	Topic      *string
+	Priority   *string
+	CreatedAt  time.Time
 }
 
 // Class represents a class or group of problems
@@ -68,18 +70,21 @@ type PendingConfirmation struct {
 // Request Parameters
 // ============================================================================
 
-// CreateProblemParams represents the parameters needed to create a new problem
+// CreateProblemParams represents the parameters needed to create a new problem.
+// CreatedAt is intentionally absent; the database assigns it on insertion.
 type CreateProblemParams struct {
 	Name       string
 	URL        string
 	ClassCode  string
 	Difficulty *string
 	Topic      *string
+	Priority   *string
 }
 
 // UpdateProblemParams identifies the target and supplies all replacement values,
-// including class membership. Nil Difficulty or Topic clears the stored value;
-// omitted fields do not mean "leave unchanged". This type does not validate input.
+// including class membership. Nil Difficulty, Topic, or Priority clears that stored
+// value; omitted fields do not mean "leave unchanged". CreatedAt is immutable.
+// This type does not validate input.
 type UpdateProblemParams struct {
 	ProblemID  int64
 	Name       string
@@ -87,6 +92,7 @@ type UpdateProblemParams struct {
 	ClassID    int64
 	Difficulty *string
 	Topic      *string
+	Priority   *string
 }
 
 // ============================================================================
@@ -134,6 +140,15 @@ const (
 	DifficultyHard    = "Hard"
 	DifficultyDefault = "Not specified"
 	DefaultTopic      = "General"
+)
+
+// Priority codes are stable across classes; labels and symbols belong to presentation.
+const (
+	PriorityEssential     = "essential"
+	PriorityRecommended   = "recommended"
+	PrioritySupplementary = "supplementary"
+	PriorityNotRequired   = "not_required"
+	PriorityDiscouraged   = "discouraged"
 )
 
 func (p *Problem) GetDifficulty() string {

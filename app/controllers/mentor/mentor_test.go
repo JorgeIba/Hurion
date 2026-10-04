@@ -14,6 +14,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/helpers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -316,7 +317,7 @@ func TestHandleAddProblem(t *testing.T) {
 	}{
 		{
 			name:       "successful add problem (full args)",
-			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "Two", "Sum"},
+			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "recommended", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -326,6 +327,12 @@ func TestHandleAddProblem(t *testing.T) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).Times(2)
 				m.EXPECT().AddProblem(gomock.Any()).DoAndReturn(func(p data.Problem) (int64, error) {
 					assert.Equal(t, "Two Sum", p.Name)
+					if assert.NotNil(t, p.Difficulty) {
+						assert.Equal(t, "Easy", *p.Difficulty)
+					}
+					if assert.NotNil(t, p.Priority) {
+						assert.Equal(t, "recommended", *p.Priority)
+					}
 					return 100, nil
 				})
 			},
@@ -336,7 +343,7 @@ func TestHandleAddProblem(t *testing.T) {
 		},
 		{
 			name:       "invalid difficulty",
-			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Insane", "Loops", "Two", "Sum"},
+			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Insane", "Loops", "-", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -348,8 +355,21 @@ func TestHandleAddProblem(t *testing.T) {
 			},
 		},
 		{
+			name:       "invalid priority",
+			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "maybe", "Two", "Sum"},
+			executorID: "mentor_123",
+			guildID:    "guild_123",
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "invalid priority")
+			},
+		},
+		{
 			name:       "service error",
-			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "Two", "Sum"},
+			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "-", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -365,7 +385,7 @@ func TestHandleAddProblem(t *testing.T) {
 		},
 		{
 			name:       "permission check failure",
-			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "Two", "Sum"},
+			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "-", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -740,7 +760,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 	}{
 		{
 			name:       "successful update problem",
-			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "New", "Name"},
+			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "essential", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -748,8 +768,13 @@ func TestHandleUpdateProblem(t *testing.T) {
 				f.EXPECT().GetCachedMember("guild_123", gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
 				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(100), gomock.Any()).Return(nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, Priority: helpers.PtrStr("recommended")}, nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(100), gomock.Any()).DoAndReturn(func(_ int64, updated data.Problem) error {
+					if assert.NotNil(t, updated.Priority) {
+						assert.Equal(t, "essential", *updated.Priority)
+					}
+					return nil
+				})
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -758,7 +783,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 		},
 		{
 			name:       "class not found",
-			args:       []string{"!update_problem", "100", "invalid_class", "https://new-url.com", "Medium", "Strings", "New", "Name"},
+			args:       []string{"!update_problem", "100", "invalid_class", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -773,8 +798,29 @@ func TestHandleUpdateProblem(t *testing.T) {
 			},
 		},
 		{
+			name:       "clear priority",
+			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
+			executorID: "mentor_123",
+			guildID:    "guild_123",
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
+				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+				f.EXPECT().GetCachedMember("guild_123", gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
+				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(100), gomock.Any()).DoAndReturn(func(_ int64, updated data.Problem) error {
+					assert.Nil(t, updated.Priority)
+					return nil
+				})
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Contains(t, msg.Content, "updated successfully")
+			},
+		},
+		{
 			name:       "permission check failure",
-			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "New", "Name"},
+			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -787,7 +833,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 		},
 		{
 			name:       "parsing error (ID)",
-			args:       []string{"!update_problem", "not_an_int", "basicos_1", "https://new-url.com", "Medium", "Strings", "New", "Name"},
+			args:       []string{"!update_problem", "not_an_int", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -800,7 +846,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 		},
 		{
 			name:       "update service error",
-			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "New", "Name"},
+			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
@@ -836,6 +882,83 @@ func TestHandleUpdateProblem(t *testing.T) {
 			HandleUpdateProblem(ctx)
 			if tt.assertFunc != nil {
 				tt.assertFunc(t, out)
+			}
+		})
+	}
+}
+
+func TestParseDifficulty(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		input          string
+		wantDifficulty string
+		wantError      bool
+	}{
+		{name: "dash leaves difficulty unset", input: "-"},
+		{name: "difficulty is normalized to canonical form", input: "MeDiUm", wantDifficulty: "Medium"},
+		{name: "unknown difficulty rejected", input: "expert", wantError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotDifficulty, err := parseDifficulty(tt.input)
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			if tt.wantDifficulty == "" {
+				assert.Nil(t, gotDifficulty)
+			} else if assert.NotNil(t, gotDifficulty) {
+				assert.Equal(t, tt.wantDifficulty, *gotDifficulty)
+			}
+		})
+	}
+}
+
+func TestParsePriority(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		input        string
+		wantPriority string
+		wantError    bool
+	}{
+		{
+			name:  "dash leaves priority unset",
+			input: "-",
+		},
+		{
+			name:         "priority is normalized",
+			input:        "RECOMMENDED",
+			wantPriority: "recommended",
+		},
+		{
+			name:      "unknown priority rejected",
+			input:     "maybe",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotPriority, err := parsePriority(tt.input)
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			if tt.wantPriority == "" {
+				assert.Nil(t, gotPriority)
+			} else if assert.NotNil(t, gotPriority) {
+				assert.Equal(t, tt.wantPriority, *gotPriority)
 			}
 		})
 	}

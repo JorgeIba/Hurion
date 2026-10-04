@@ -31,7 +31,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 			return false, nil
 		}
 
-		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "url", "Easy", "Arrays", "New Problem"})
+		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "url", "Easy", "Arrays", "-", "New Problem"})
 		mentor.HandleAddProblem(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
@@ -51,7 +51,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 			return true, nil
 		}
 
-		ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "http://valid.url", "Easy", "Arrays", "Success Problem"})
+		ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "http://valid.url", "Easy", "Arrays", "recommended", "Success Problem"})
 		mentor.HandleAddProblem(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
@@ -61,6 +61,8 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 		class, _ := env.DB.GetClassByClassCode(classCode)
 		problems, _ := env.DB.GetProblemsByClass(class.ID)
 		assert.Len(t, problems, 1)
+		assert.NotNil(t, problems[0].Priority)
+		assert.Equal(t, "recommended", *problems[0].Priority)
 	})
 
 	t.Run("Admin - Non-admin cannot create class", func(t *testing.T) {

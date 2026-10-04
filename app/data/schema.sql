@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS problems (
     class_id INTEGER,
     difficulty TEXT,
     topic TEXT,
+    priority TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
 );
 

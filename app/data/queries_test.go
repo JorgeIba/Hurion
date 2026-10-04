@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,10 @@ func setupDB(t *testing.T) *DB {
 	db, err := NewDB(cfg)
 	require.NoError(t, err, "failed to create test db")
 	return db
+}
+
+func ptrStr(value string) *string {
+	return &value
 }
 
 func TestEnsureUser(t *testing.T) {
@@ -113,14 +118,33 @@ func TestAddProblem(t *testing.T) {
 				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
 				require.NoError(t, err)
 			},
-			problem: Problem{Name: "p1", URL: "u1", ClassID: 1},
+			problem: Problem{Name: "p1", URL: "u1", ClassID: 1, Priority: ptrStr("recommended")},
 			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
 				assert.NoError(t, err)
 				assert.Greater(t, id, int64(0))
-				var name string
-				err = db.conn.QueryRow("SELECT name FROM problems WHERE id = ?", id).Scan(&name)
+				problem, err := db.GetProblemByID(id)
+				require.NoError(t, err)
+				assert.Equal(t, "p1", problem.Name)
+				if assert.NotNil(t, problem.Priority) {
+					assert.Equal(t, "recommended", *problem.Priority)
+				}
+				assert.False(t, problem.CreatedAt.IsZero())
+			},
+		},
+		{
+			name: "stores priority values without database-level validation",
+			setup: func(t *testing.T, db *DB) {
+				_, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+			},
+			problem: Problem{Name: "p1", URL: "u1", ClassID: 1, Priority: ptrStr("top_tier")},
+			assertFunc: func(t *testing.T, db *DB, id int64, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, "p1", name)
+				problem, err := db.GetProblemByID(id)
+				require.NoError(t, err)
+				if assert.NotNil(t, problem.Priority) {
+					assert.Equal(t, "top_tier", *problem.Priority)
+				}
 			},
 		},
 		{
@@ -377,6 +401,8 @@ func TestGetProblemsByClass(t *testing.T) {
 				assert.Len(t, problems, 2)
 				assert.Equal(t, "p1", problems[0].Name)
 				assert.Equal(t, "p2", problems[1].Name)
+				assert.Nil(t, problems[0].Priority)
+				assert.False(t, problems[0].CreatedAt.IsZero())
 			},
 		},
 		{
@@ -1822,11 +1848,12 @@ func TestUpdateProblemByProblemID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		setup      func(t *testing.T, db *DB)
-		problemID  int64
-		problem    Problem
-		assertFunc func(t *testing.T, db *DB, err error)
+		name                    string
+		setup                   func(t *testing.T, db *DB)
+		problemID               int64
+		problem                 Problem
+		checkCreatedAtUnchanged bool
+		assertFunc              func(t *testing.T, db *DB, err error)
 	}{
 		{
 			name: "should update problem details",
@@ -1844,6 +1871,40 @@ func TestUpdateProblemByProblemID(t *testing.T) {
 				err = db.conn.QueryRow("SELECT name FROM problems WHERE id = 1").Scan(&name)
 				assert.NoError(t, err)
 				assert.Equal(t, "p2", name)
+			},
+		},
+		{
+			name: "should update priority without changing creation timestamp",
+			setup: func(t *testing.T, db *DB) {
+				classID, err := db.CreateClass(Class{ClassCode: "c1", Name: "n1"})
+				require.NoError(t, err)
+				_, err = db.AddProblem(Problem{
+					Name:     "p1",
+					URL:      "u1",
+					ClassID:  classID,
+					Priority: ptrStr("essential"),
+				})
+				require.NoError(t, err)
+			},
+			problemID: 1,
+			problem: Problem{
+				Name:      "p2",
+				URL:       "u2",
+				ClassID:   1,
+				Priority:  ptrStr("discouraged"),
+				CreatedAt: time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC),
+			},
+			checkCreatedAtUnchanged: true,
+			assertFunc: func(t *testing.T, db *DB, err error) {
+				assert.NoError(t, err)
+				updated, err := db.GetProblemByID(1)
+				if !assert.NoError(t, err) {
+					return
+				}
+				assert.Equal(t, "p2", updated.Name)
+				if assert.NotNil(t, updated.Priority) {
+					assert.Equal(t, "discouraged", *updated.Priority)
+				}
 			},
 		},
 		{
@@ -1897,8 +1958,24 @@ func TestUpdateProblemByProblemID(t *testing.T) {
 				tt.setup(t, db)
 			}
 
+			var originalCreatedAt time.Time
+			if tt.checkCreatedAtUnchanged {
+				original, err := db.GetProblemByID(tt.problemID)
+				if !assert.NoError(t, err) {
+					return
+				}
+				originalCreatedAt = original.CreatedAt
+			}
+
 			err := db.UpdateProblemByProblemID(tt.problemID, tt.problem)
 			tt.assertFunc(t, db, err)
+
+			if tt.checkCreatedAtUnchanged {
+				updated, err := db.GetProblemByID(tt.problemID)
+				if assert.NoError(t, err) {
+					assert.Equal(t, originalCreatedAt, updated.CreatedAt)
+				}
+			}
 		})
 	}
 }

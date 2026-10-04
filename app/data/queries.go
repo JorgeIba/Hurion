@@ -33,10 +33,10 @@ func (db *DB) EnsureUser(user User) error {
 
 func (db *DB) AddProblem(problem Problem) (int64, error) {
 	query := `
-		INSERT INTO problems (name, url, class_id, difficulty, topic)
-		VALUES (?, ?, ?, ?, ?);
+		INSERT INTO problems (name, url, class_id, difficulty, topic, priority)
+		VALUES (?, ?, ?, ?, ?, ?);
 	`
-	response, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic)
+	response, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic, problem.Priority)
 	if err != nil {
 		return 0, dataerr.NewQueryError(fmt.Sprintf("could not add the problem %s into the class id %d", problem.Name, problem.ClassID), err)
 	}
@@ -93,7 +93,7 @@ func (db *DB) RemoveAC(userID string, problemID int64) error {
 
 func (db *DB) GetProblemsByClass(classID int64) ([]Problem, error) {
 	query := `
-		SELECT id, name, url, difficulty, topic
+		SELECT id, name, url, difficulty, topic, priority, created_at
 		FROM problems
 		WHERE class_id = ?
 	`
@@ -108,7 +108,7 @@ func (db *DB) GetProblemsByClass(classID int64) ([]Problem, error) {
 
 	for rows.Next() {
 		var problem Problem
-		if err := rows.Scan(&problem.ID, &problem.Name, &problem.URL, &problem.Difficulty, &problem.Topic); err != nil {
+		if err := rows.Scan(&problem.ID, &problem.Name, &problem.URL, &problem.Difficulty, &problem.Topic, &problem.Priority, &problem.CreatedAt); err != nil {
 			return nil, dataerr.NewQueryError(fmt.Sprintf("could not scan problem when fetching problems from class id %d", classID), err)
 		}
 
@@ -539,13 +539,13 @@ func (db *DB) RemovePendingConfirmation(messageID string) error {
 
 func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
 	query := `
-		SELECT name, url, class_id, difficulty, topic 
+		SELECT name, url, class_id, difficulty, topic, priority, created_at
 		FROM problems
 		WHERE id = ?;
 	`
 	var problem Problem
 
-	err := db.conn.QueryRow(query, problemID).Scan(&problem.Name, &problem.URL, &problem.ClassID, &problem.Difficulty, &problem.Topic)
+	err := db.conn.QueryRow(query, problemID).Scan(&problem.Name, &problem.URL, &problem.ClassID, &problem.Difficulty, &problem.Topic, &problem.Priority, &problem.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Problem{}, dataerr.NewNotFoundError(fmt.Sprintf("ProblemID %d not found", problemID), err)
@@ -625,11 +625,11 @@ func (db *DB) GetAllClasses() ([]Class, error) {
 func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
 	query := `
 		UPDATE problems
-		SET name = ?, url = ?, class_id = ?, difficulty = ?, topic = ?
+		SET name = ?, url = ?, class_id = ?, difficulty = ?, topic = ?, priority = ?
 		WHERE id = ?;
 	`
 
-	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic, problemID); err != nil {
+	if result, err := db.conn.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic, problem.Priority, problemID); err != nil {
 		return dataerr.NewQueryError(fmt.Sprintf("could not update problem with ID %d", problemID), err)
 	} else if rowsAffected, err := result.RowsAffected(); err != nil {
 		return dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when updating problem with ID %d", problemID), err)

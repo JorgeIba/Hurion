@@ -12,6 +12,8 @@ type Problem struct {
 	URL        string
 	Difficulty *string // Optional field
 	Topic      *string // Optional field
+	Priority   *string // Optional field; canonical code from the problem contract
+	CreatedAt  time.Time
 }
 
 type SolvedProblem struct {
