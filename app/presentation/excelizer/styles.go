@@ -1,6 +1,9 @@
 package excelizer
 
-import "github.com/xuri/excelize/v2"
+import (
+	"github.com/JorgeIba/Hurion/app/services/service_model"
+	"github.com/xuri/excelize/v2"
+)
 
 // Common color palette
 const (
@@ -210,14 +213,18 @@ func CreateTopicHeaderStyle(f *excelize.File) (int, error) {
 }
 
 // Creates a style for difficulty cells based on the difficulty level
-func CreateDifficultyStyle(f *excelize.File, difficulty string) (int, error) {
+func CreateDifficultyStyle(f *excelize.File, difficulty *string) (int, error) {
 	var color string
-	switch difficulty {
-	case "Easy":
+	code := ""
+	if difficulty != nil {
+		code = *difficulty
+	}
+	switch code {
+	case service_model.DifficultyEasy:
 		color = ColorDifficultyEasy
-	case "Medium":
+	case service_model.DifficultyMedium:
 		color = ColorDifficultyMedium
-	case "Hard":
+	case service_model.DifficultyHard:
 		color = ColorDifficultyHard
 	default:
 		color = ColorDifficultyNone

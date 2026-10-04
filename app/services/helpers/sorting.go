@@ -7,9 +7,12 @@ import (
 )
 
 // GetDifficultyOrder returns the sort order for a difficulty
-// Easy=1, Medium=2, Hard=3, Not specified=4
-func GetDifficultyOrder(difficulty string) int {
-	switch difficulty {
+// easy=1, medium=2, hard=3, absent or unknown=4
+func GetDifficultyOrder(difficulty *string) int {
+	if difficulty == nil {
+		return 4
+	}
+	switch *difficulty {
 	case service_model.DifficultyEasy:
 		return 1
 	case service_model.DifficultyMedium:
@@ -33,9 +36,7 @@ func SortProblemsByTopicAndDifficulty(problems []service_model.Problem) {
 		}
 
 		// If topics are the same, sort by difficulty
-		diffI := problems[i].GetDifficulty()
-		diffJ := problems[j].GetDifficulty()
-		return GetDifficultyOrder(diffI) < GetDifficultyOrder(diffJ)
+		return GetDifficultyOrder(problems[i].Difficulty) < GetDifficultyOrder(problems[j].Difficulty)
 	})
 }
 

@@ -427,34 +427,16 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	)
 }
 
-var difficultyMap = map[string]string{
-	"easy":   "Easy",
-	"medium": "Medium",
-	"hard":   "Hard",
-}
-
-var validPriorities = []string{
-	service_model.PriorityEssential,
-	service_model.PriorityRecommended,
-	service_model.PrioritySupplementary,
-	service_model.PriorityNotRequired,
-	service_model.PriorityDiscouraged,
-}
-
 func parseDifficulty(input string) (*string, error) {
 	if input == "-" {
 		return nil, nil
 	}
 
-	// Convert to lowercase for case-insensitive comparison
-	lowerInput := strings.ToLower(input)
-
-	if canonical, ok := difficultyMap[lowerInput]; ok {
-		return &canonical, nil
+	code, err := service_model.ParseDifficulty(input)
+	if err != nil {
+		return nil, err
 	}
-
-	validDifficulties := []string{"easy", "medium", "hard"}
-	return nil, fmt.Errorf("invalid difficulty '%s'. Valid options: %s", input, strings.Join(validDifficulties, ", "))
+	return &code, nil
 }
 
 func parseTopic(input string) *string {
@@ -469,15 +451,11 @@ func parsePriority(input string) (*string, error) {
 		return nil, nil
 	}
 
-	lowerInput := strings.ToLower(input)
-
-	for _, priority := range validPriorities {
-		if lowerInput == priority {
-			return &lowerInput, nil
-		}
+	code, err := service_model.ParsePriority(input)
+	if err != nil {
+		return nil, err
 	}
-
-	return nil, fmt.Errorf("invalid priority '%s'. Valid options: %s", input, strings.Join(validPriorities, ", "))
+	return &code, nil
 }
 
 func checkIfUserIsMentor(c *context.ContextMessage) (bool, error) {

@@ -38,7 +38,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 							ID:         1,
 							Name:       "Two Sum",
 							URL:        "https://leetcode.com/problems/two-sum",
-							Difficulty: "Easy",
+							Difficulty: new("easy"),
 						},
 					},
 				},
@@ -60,13 +60,13 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				{
 					Topic: "Arrays",
 					Problems: []presentation.Problem{
-						{ID: 1, Name: "Two Sum", URL: "url1", Difficulty: "Easy"},
+						{ID: 1, Name: "Two Sum", URL: "url1", Difficulty: new("easy")},
 					},
 				},
 				{
 					Topic: "Strings",
 					Problems: []presentation.Problem{
-						{ID: 2, Name: "Reverse", URL: "url2", Difficulty: "Medium"},
+						{ID: 2, Name: "Reverse", URL: "url2", Difficulty: new("medium")},
 					},
 				},
 			},
@@ -89,7 +89,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 						ID:         int64(i),
 						Name:       fmt.Sprintf("Problem %d", i),
 						URL:        "http://url",
-						Difficulty: "Easy",
+						Difficulty: new("easy"),
 					})
 				}
 				return []presentation.ProblemsByTopic{
@@ -120,7 +120,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 							ID:         1,
 							Name:       strings.Repeat("A", 1500), // Larger than maxFieldLength
 							URL:        "http://url",
-							Difficulty: "Easy",
+							Difficulty: new("easy"),
 						},
 					},
 				},
@@ -152,14 +152,14 @@ func TestGetDifficultyEmoji(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		difficulty string
+		difficulty *string
 		expected   string
 	}{
-		{"Easy", "Easy", "🟩"},
-		{"Medium", "Medium", "🟨"},
-		{"Hard", "Hard", "🟥"},
-		{"Default", "Not specified", "⬜"},
-		{"Unknown", "Unknown", "⬜"},
+		{"Easy", new("easy"), "🟩"},
+		{"Medium", new("medium"), "🟨"},
+		{"Hard", new("hard"), "🟥"},
+		{"Default", nil, "⬜"},
+		{"Unknown", new("Unknown"), "⬜"},
 	}
 
 	for _, tt := range tests {

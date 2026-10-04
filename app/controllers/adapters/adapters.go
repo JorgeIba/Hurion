@@ -17,7 +17,7 @@ func mapServiceProblemToPresentationProblem(p service_model.Problem) presentatio
 		ID:         p.ID,
 		Name:       p.Name,
 		URL:        p.URL,
-		Difficulty: string(p.GetDifficulty()),
+		Difficulty: p.Difficulty,
 		Topic:      p.GetTopic(),
 	}
 }
@@ -68,7 +68,7 @@ func TransformToExcelizerProblemsByTopic(problemsByTopic []service_model.Problem
 				ID:         p.ID,
 				Name:       p.Name,
 				URL:        p.URL,
-				Difficulty: string(p.GetDifficulty()),
+				Difficulty: p.Difficulty,
 				Topic:      p.GetTopic(),
 			}
 		}

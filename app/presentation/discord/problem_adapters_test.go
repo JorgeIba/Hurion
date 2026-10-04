@@ -3,6 +3,7 @@ package discord_test
 import (
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ func TestProblemParamsToModalsPreserveRawValuesAndPrefillMissingOptionalValues(t
 	}{
 		{
 			name: "missing difficulty shows unspecified and missing topic stays blank",
-			want: discord.ProblemModalFields{Difficulty: service_model.DifficultyDefault},
+			want: discord.ProblemModalFields{Difficulty: presentation.DifficultyUnspecifiedLabel},
 		},
 		{
 			name: "explicit empty values stay empty", difficulty: &empty, topic: &empty,

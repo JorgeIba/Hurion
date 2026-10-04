@@ -5,6 +5,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/JorgeIba/Hurion/app/presentation"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -148,13 +149,16 @@ func truncateProblemName(name, formattedRow string) string {
 }
 
 // GetDifficultyEmoji returns the emoji representation of a problem's difficulty.
-func GetDifficultyEmoji(difficulty string) string {
-	switch difficulty {
-	case presentation.DifficultyEasy:
+func GetDifficultyEmoji(difficulty *string) string {
+	if difficulty == nil {
+		return "⬜"
+	}
+	switch *difficulty {
+	case service_model.DifficultyEasy:
 		return "🟩"
-	case presentation.DifficultyMedium:
+	case service_model.DifficultyMedium:
 		return "🟨"
-	case presentation.DifficultyHard:
+	case service_model.DifficultyHard:
 		return "🟥"
 	default:
 		return "⬜"

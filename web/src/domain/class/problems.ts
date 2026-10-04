@@ -67,7 +67,7 @@ const DIFFICULTY_METADATA_MAP: Record<ProblemDifficulty, ProblemDifficultyMetada
 /**
  * Normalizes an arbitrary raw difficulty string into a typed ProblemDifficulty tier.
  */
-export function parseDifficulty(raw?: string): ProblemDifficulty {
+export function parseDifficulty(raw?: string | null): ProblemDifficulty {
   const normalized = (typeof raw === 'string' ? raw : '').trim().toLowerCase();
   if (normalized === 'easy') return 'easy';
   if (normalized === 'medium') return 'medium';
@@ -79,7 +79,7 @@ export function parseDifficulty(raw?: string): ProblemDifficulty {
  * Resolves structured styling and label metadata for a problem difficulty level via O(1) lookup.
  */
 export function getProblemDifficultyMetadata(
-  difficulty?: string
+  difficulty?: string | null
 ): ProblemDifficultyMetadata {
   const tier = parseDifficulty(difficulty);
   return DIFFICULTY_METADATA_MAP[tier];

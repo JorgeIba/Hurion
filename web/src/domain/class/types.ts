@@ -1,3 +1,4 @@
+// 'unspecified' is a UI/filter fallback, not a stored difficulty code.
 export type ProblemDifficulty = 'easy' | 'medium' | 'hard' | 'unspecified';
 export type DifficultyFilter = 'all' | ProblemDifficulty;
 export type ActiveTab = 'standings' | 'problems';
@@ -7,7 +8,8 @@ export interface Problem {
   name: string;
   url?: string;
   topic?: string;
-  difficulty?: ProblemDifficulty | string;
+  difficulty?: ProblemDifficulty | string | null;
+  priority?: string | null;
 }
 
 export interface UserScore {
