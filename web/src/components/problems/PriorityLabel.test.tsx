@@ -22,7 +22,13 @@ describe('priority presentation', () => {
     ['recommended', 'Recommended'],
     [null, 'No priority assigned'],
   ])('shows %s in the catalog and scoreboard', (priority, label) => {
-    const problem = { id: 1, name: 'Two Sum', difficulty: 'easy', priority };
+    const problem = {
+      createdAt: '2026-10-04T00:00:00Z',
+      id: 1,
+      name: 'Two Sum',
+      difficulty: 'easy',
+      priority,
+    };
     const catalog = renderToStaticMarkup(
       <ProblemRow problem={problem} totalStudents={1} />
     );

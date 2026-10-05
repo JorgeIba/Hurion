@@ -3,6 +3,9 @@ import {
   Problem,
   UserScore,
   DifficultyFilter,
+  PriorityFilter,
+  ProblemSort,
+  compareProblems,
   ProblemSolveStats,
   computeAllProblemSolveStats,
   filterProblems,
@@ -26,16 +29,25 @@ export interface ProblemsViewProps {
  */
 export function ProblemsView({ problems, users }: ProblemsViewProps) {
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
+  const [sortBy, setSortBy] = useState<ProblemSort>('difficulty-easy-first');
 
   // 1. Filter problems by active difficulty selection
   const filteredProblems = useMemo(() => {
-    return filterProblems(problems, '', difficultyFilter);
-  }, [problems, difficultyFilter]);
+    return filterProblems(problems, '', difficultyFilter, priorityFilter);
+  }, [problems, difficultyFilter, priorityFilter]);
 
   // 2. Group filtered problems by their topic categories
   const topicGroups = useMemo(() => {
-    return groupProblemsByTopic(filteredProblems);
-  }, [filteredProblems]);
+    const groups = groupProblemsByTopic(filteredProblems);
+    for (const [topic, entries] of groups) {
+      groups.set(
+        topic,
+        [...entries].sort((a, b) => compareProblems(a, b, sortBy))
+      );
+    }
+    return groups;
+  }, [filteredProblems, sortBy]);
 
   // 3. Batched single-pass solve statistics lookup map: O(U*S + P)
   const problemStatsMap: Map<number, ProblemSolveStats> = useMemo(() => {
@@ -69,6 +81,10 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
       <ProblemsFilterToolbar
         difficultyFilter={difficultyFilter}
         onSelectDifficulty={setDifficultyFilter}
+        priorityFilter={priorityFilter}
+        onSelectPriority={setPriorityFilter}
+        sortBy={sortBy}
+        onSelectSort={setSortBy}
         hasMultipleTopics={allTopics.length > 1}
         isAllCollapsed={allCollapsed}
         onToggleAllTopics={handleToggleAll}
@@ -88,7 +104,10 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
             <button
               type="button"
               className="btn-reset-filters"
-              onClick={() => setDifficultyFilter('all')}
+              onClick={() => {
+                setDifficultyFilter('all');
+                setPriorityFilter('all');
+              }}
             >
               {CLASS_LABELS.PROBLEMS_VIEW.CLEAR_SEARCH}
             </button>

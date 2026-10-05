@@ -1,10 +1,24 @@
 // 'unspecified' is a UI/filter fallback, not a stored difficulty code.
 export type ProblemDifficulty = 'easy' | 'medium' | 'hard' | 'unspecified';
 export type DifficultyFilter = 'all' | ProblemDifficulty;
+export type PriorityFilter =
+  | 'all'
+  | 'unset'
+  | 'essential'
+  | 'recommended'
+  | 'supplementary'
+  | 'not_required'
+  | 'discouraged';
+export type ProblemSort =
+  | 'difficulty-easy-first'
+  | 'difficulty-hard-first'
+  | 'priority-essential-first'
+  | 'priority-discouraged-first';
 export type ActiveTab = 'standings' | 'problems';
 
 export interface Problem {
   id: number;
+  createdAt: string;
   name: string;
   url?: string;
   topic?: string;

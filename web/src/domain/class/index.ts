@@ -11,6 +11,8 @@ export {
   parseDifficulty,
   getProblemDifficultyMetadata,
   filterProblems,
+  compareProblems,
+  PRIORITY_ORDER,
 } from './problems';
 
 // Scoreboard & Standings Domain Calculations

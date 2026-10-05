@@ -5,11 +5,111 @@ import {
   parseDifficulty,
   getProblemDifficultyMetadata,
   filterProblems,
+  compareProblems,
 } from './problems';
 import { Problem } from './types';
 import { CLASS_CONFIG, CLASS_LABELS } from './constants';
 
 describe('domain/class/problems', () => {
+  it.each(['difficulty-easy-first', 'priority-essential-first'] as const)(
+    'compares a topic slice by %s with chronological and ID ties without mutating input',
+    (sortBy) => {
+      const problems: Problem[] = [
+        {
+          id: 8,
+          name: 'P8',
+          topic: 'Z',
+          difficulty: 'easy',
+          priority: 'discouraged',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+        {
+          id: 3,
+          name: 'P3',
+          topic: 'Z',
+          difficulty: 'hard',
+          priority: 'essential',
+          createdAt: '2026-01-03T00:00:00Z',
+        },
+        {
+          id: 2,
+          name: 'P2',
+          topic: 'Z',
+          difficulty: 'hard',
+          priority: 'essential',
+          createdAt: '2026-01-02T01:00:00+01:00',
+        },
+        {
+          id: 1,
+          name: 'P1',
+          topic: 'Z',
+          difficulty: 'hard',
+          priority: 'essential',
+          createdAt: '2026-01-02T00:00:00Z',
+        },
+        {
+          id: 9,
+          name: 'P9',
+          topic: 'A',
+          difficulty: 'easy',
+          priority: 'essential',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      ];
+      const groups = groupProblemsByTopic(problems);
+      const ordered = [...groups.get('Z')!].sort((a, b) => compareProblems(a, b, sortBy));
+      expect(ordered.map((p) => p.id)).toEqual(
+        sortBy === 'difficulty-easy-first' ? [8, 1, 2, 3] : [1, 2, 3, 8]
+      );
+      expect([...groups.keys()]).toEqual(['Z', 'A']);
+      expect(groups.get('Z')?.map((p) => p.id)).toEqual([8, 3, 2, 1]);
+      expect(problems.map((p) => p.id)).toEqual([8, 3, 2, 1, 9]);
+    }
+  );
+
+  it('orders all priority categories and combines priority with difficulty filters', () => {
+    const problems: Problem[] = [
+      'discouraged',
+      null,
+      'not_required',
+      'supplementary',
+      'recommended',
+      'essential',
+      'future_code',
+    ].map((priority, id) => ({
+      id,
+      name: `P${id}`,
+      priority,
+      difficulty: id === 5 ? 'hard' : 'easy',
+      createdAt: '2026-01-01T00:00:00Z',
+    }));
+    expect(
+      [...problems]
+        .sort((a, b) => compareProblems(a, b, 'priority-essential-first'))
+        .map((p) => p.priority)
+    ).toEqual([
+      'essential',
+      'recommended',
+      'supplementary',
+      'not_required',
+      'discouraged',
+      null,
+      'future_code',
+    ]);
+    expect(filterProblems(problems, '', 'hard', 'essential').map((p) => p.id)).toEqual([
+      5,
+    ]);
+    expect(filterProblems(problems, '', 'easy', 'essential')).toEqual([]);
+    expect(filterProblems(problems, '', 'all', 'unset').map((p) => p.id)).toEqual([1]);
+    expect(filterProblems(problems, '', 'all', 'not_required').map((p) => p.id)).toEqual([
+      2,
+    ]);
+    expect(filterProblems(problems, '', 'all', 'all')).toEqual(problems);
+    expect(
+      compareProblems(problems[1], { ...problems[6], id: 1 }, 'priority-essential-first')
+    ).toBe(0);
+  });
+
   describe('formatTopicTitle', () => {
     it('preserves exact raw topic identifier strings and underscores', () => {
       expect(formatTopicTitle('Algoritmo_de_Eppstein')).toBe('Algoritmo_de_Eppstein');
@@ -30,9 +130,19 @@ describe('domain/class/problems', () => {
   describe('groupProblemsByTopic', () => {
     it('groups problems by exact topic name', () => {
       const problems: Problem[] = [
-        { id: 1, name: 'P1', topic: 'Algoritmo_de_Eppstein' },
-        { id: 2, name: 'P2', topic: 'Greedy' },
-        { id: 3, name: 'P3', topic: 'Algoritmo_de_Eppstein' },
+        {
+          createdAt: '2026-10-04T00:00:00Z',
+          id: 1,
+          name: 'P1',
+          topic: 'Algoritmo_de_Eppstein',
+        },
+        { createdAt: '2026-10-04T00:00:00Z', id: 2, name: 'P2', topic: 'Greedy' },
+        {
+          createdAt: '2026-10-04T00:00:00Z',
+          id: 3,
+          name: 'P3',
+          topic: 'Algoritmo_de_Eppstein',
+        },
       ];
       const groups = groupProblemsByTopic(problems);
       expect(Array.from(groups.keys())).toEqual(['Algoritmo_de_Eppstein', 'Greedy']);
@@ -42,8 +152,8 @@ describe('domain/class/problems', () => {
 
     it('preserves topic keys with underscores without converting to title case', () => {
       const problems: Problem[] = [
-        { id: 1, name: 'P1', topic: 'two_pointers' },
-        { id: 2, name: 'P2', topic: 'two_pointers' },
+        { createdAt: '2026-10-04T00:00:00Z', id: 1, name: 'P1', topic: 'two_pointers' },
+        { createdAt: '2026-10-04T00:00:00Z', id: 2, name: 'P2', topic: 'two_pointers' },
       ];
       const groups = groupProblemsByTopic(problems);
       expect(Array.from(groups.keys())).toEqual(['two_pointers']);
@@ -52,8 +162,8 @@ describe('domain/class/problems', () => {
 
     it('assigns undefined or blank topic to General', () => {
       const problems: Problem[] = [
-        { id: 1, name: 'P1' },
-        { id: 2, name: 'P2', topic: '   ' },
+        { createdAt: '2026-10-04T00:00:00Z', id: 1, name: 'P1' },
+        { createdAt: '2026-10-04T00:00:00Z', id: 2, name: 'P2', topic: '   ' },
       ];
       const groups = groupProblemsByTopic(problems);
       expect(Array.from(groups.keys())).toEqual([CLASS_CONFIG.DEFAULT_TOPIC_NAME]);
@@ -65,7 +175,12 @@ describe('domain/class/problems', () => {
     it('safely handles non-string topic properties and sparse arrays', () => {
       const problems = [
         null as unknown as Problem,
-        { id: 1, name: 'P1', topic: 1200 as unknown as string },
+        {
+          createdAt: '2026-10-04T00:00:00Z',
+          id: 1,
+          name: 'P1',
+          topic: 1200 as unknown as string,
+        },
         undefined as unknown as Problem,
       ];
       const groups = groupProblemsByTopic(problems);
@@ -120,14 +235,22 @@ describe('domain/class/problems', () => {
 
   describe('filterProblems', () => {
     const sampleProblems: Problem[] = [
-      { id: 1, name: 'Two Sum', topic: 'Arrays', difficulty: 'easy' },
       {
+        createdAt: '2026-10-04T00:00:00Z',
+        id: 1,
+        name: 'Two Sum',
+        topic: 'Arrays',
+        difficulty: 'easy',
+      },
+      {
+        createdAt: '2026-10-04T00:00:00Z',
         id: 2,
         name: 'Add Two Numbers',
         topic: 'Linked List',
         difficulty: 'medium',
       },
       {
+        createdAt: '2026-10-04T00:00:00Z',
         id: 3,
         name: 'Median of Two Arrays',
         topic: 'Binary Search',
