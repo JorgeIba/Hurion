@@ -143,9 +143,10 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		handler func(*context.ContextMessage)
-		args    []string
+		name              string
+		handler           func(*context.ContextMessage)
+		args              []string
+		permissionMessage string
 	}{
 		{
 			name: "AddAC unauthorized",
@@ -162,7 +163,8 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			args: []string{"!m_undo_ac", "<@123>", "1"},
 		},
 		{
-			name: "AddProblem unauthorized",
+			name:              "AddProblem unauthorized",
+			permissionMessage: "mentor or admin",
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleAddProblem(c)
 			},
@@ -176,7 +178,8 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			args: []string{"!remove_problem", "1"},
 		},
 		{
-			name: "UpdateProblem unauthorized",
+			name:              "UpdateProblem unauthorized",
+			permissionMessage: "mentor or admin",
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleUpdateProblem(c)
 			},
@@ -209,7 +212,11 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			// ASSERT
 			sentMsgs := env.Dispatcher.GetSentMessages()
 			assert.NotEmpty(t, sentMsgs)
-			assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not mentor")
+			permissionMessage := tt.permissionMessage
+			if permissionMessage == "" {
+				permissionMessage = "is not mentor"
+			}
+			assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, permissionMessage)
 
 			// Verify DB side-effects: problem should still exist
 			_, err := env.DB.GetProblemByID(problemID)

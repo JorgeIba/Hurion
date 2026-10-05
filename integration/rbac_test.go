@@ -36,7 +36,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
 		assert.NotEmpty(t, sentMsgs)
-		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "is not mentor")
+		assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, "mentor or admin")
 
 		env.AssertProblemNotExists(t, 1)
 	})

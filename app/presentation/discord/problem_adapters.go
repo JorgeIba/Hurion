@@ -27,8 +27,8 @@ func MapUpdateProblemParamsToEditProblemModal(params service_model.UpdateProblem
 }
 
 // MapCreateProblemModalToCreateProblemParams converts form text into a pending create request.
-// Blank optional text and unassigned metadata markers become nil. Other text stays raw;
-// the application must normalize and validate it before writing.
+// Blank optional text and unassigned metadata markers become nil. The multiword
+// priority label maps to its code; other text remains raw for application validation.
 func MapCreateProblemModalToCreateProblemParams(modal CreateProblemModal) service_model.CreateProblemParams {
 	return service_model.CreateProblemParams{
 		Name:       modal.Name,
@@ -84,6 +84,11 @@ func mapModalTextToOptionalValue(value string) *string {
 }
 
 func mapModalPriorityToOptionalValue(value string) *string {
+	code := service_model.PriorityNotRequired
+	if strings.EqualFold(strings.TrimSpace(value), presentation.PriorityLabel(&code)) {
+		return &code
+	}
+
 	if strings.EqualFold(strings.TrimSpace(value), presentation.PriorityUnspecifiedLabel) {
 		return nil
 	}
