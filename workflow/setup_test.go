@@ -29,6 +29,7 @@ type workflowEnv struct {
 	Services   *services.Services
 	Discord    *stubDiscordProvider
 	Dispatcher *fakeSender
+	Responder  *recordingDiscordInteractionClient
 	Session    *discordgo.Session
 }
 
@@ -53,6 +54,7 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	svcs := services.NewServices(db)
 	discord := newStubDiscordProvider()
 	sender := &fakeSender{}
+	client := &recordingDiscordInteractionClient{t: t}
 	session := &discordgo.Session{
 		State: &discordgo.State{
 			Ready: discordgo.Ready{
@@ -62,11 +64,12 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	}
 
 	return &workflowEnv{
-		Bot:        appbot.NewBot(svcs, discord, sender, cfg),
+		Bot:        appbot.NewBot(svcs, discord, sender, dispatcher.NewDiscordInteractionResponder(client), cfg),
 		DB:         db,
 		Services:   svcs,
 		Discord:    discord,
 		Dispatcher: sender,
+		Responder:  client,
 		Session:    session,
 	}
 }

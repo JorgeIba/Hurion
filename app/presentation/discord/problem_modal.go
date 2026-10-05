@@ -6,16 +6,17 @@ type ProblemModalFields struct {
 	Name       string
 	URL        string
 	Difficulty string
+	Priority   string
 	Topic      string
 }
 
-// CreateProblemModal holds the editable values for a problem-creation form.
+// CreateProblemModal holds editable values and the class selected before opening the form.
 type CreateProblemModal struct {
 	ClassCode string
 	ProblemModalFields
 }
 
-// EditProblemModal holds the editable values for a problem-editing form.
+// EditProblemModal holds editable values and the destination class selected before opening the form.
 // ProblemID is display metadata for the title, not an editable input. Saving
 // must use the target ID from the controller's owned session.
 type EditProblemModal struct {

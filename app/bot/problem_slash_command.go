@@ -55,6 +55,13 @@ func problemSlashCommand() *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        problemAddCommandName,
 				Description: "Start adding a problem",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "class",
+						Description: "Class code; defaults to the class linked to this channel",
+					},
+				},
 			},
 		},
 	}

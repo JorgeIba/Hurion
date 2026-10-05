@@ -117,7 +117,7 @@ func TestRunScript_HappyPath(t *testing.T) {
 	fakeSender := &mockMessageSender{}
 	svcs := services.NewServices(db)
 
-	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
+	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
 	runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 	// 3. Act - execute script
@@ -151,7 +151,7 @@ func TestRunScript_ParseFailure(t *testing.T) {
 	fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
 	fakeSender := &mockMessageSender{}
 	svcs := services.NewServices(db)
-	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
+	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
 	runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 	// 3. Act
@@ -204,7 +204,7 @@ func TestRunScript_ValidationFailures(t *testing.T) {
 		require.NoError(t, err)
 
 		fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
-		appBot := bot.NewBot(svcs, fakeProvider, fakeSender, bot.BotConfig{})
+		appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
 		runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 		err = runner.RunScript(scriptPath)
@@ -222,7 +222,7 @@ func TestRunScript_ValidationFailures(t *testing.T) {
 		require.NoError(t, err)
 
 		realProvider := &dummyProvider{}
-		appBot := bot.NewBot(svcs, realProvider, fakeSender, bot.BotConfig{})
+		appBot := bot.NewBot(svcs, realProvider, fakeSender, nil, bot.BotConfig{})
 		runner := NewRunner(appBot, realProvider, "guild_1")
 
 		err = runner.RunScript(scriptPath)

@@ -1,0 +1,293 @@
+package discord_test
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+	"unicode/utf16"
+
+	"github.com/JorgeIba/Hurion/app/presentation"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/bwmarrin/discordgo"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		modal discord.CreateProblemModal
+	}{
+		{
+			name: "unassigned metadata is prefilled",
+			modal: discord.CreateProblemModal{
+				ClassCode:          "basicos_1",
+				ProblemModalFields: discord.ProblemModalFields{Difficulty: presentation.DifficultyUnspecifiedLabel, Priority: presentation.PriorityUnspecifiedLabel},
+			},
+		},
+		{
+			name: "all supplied text is preserved for prefilling",
+			modal: discord.CreateProblemModal{
+				ClassCode: "basicos_1",
+				ProblemModalFields: discord.ProblemModalFields{
+					Name: "Two Sum 🚀", URL: "https://example.com/problem?id=2",
+					Difficulty: " Medium ", Priority: " Recommended ", Topic: "Binary search and two pointers",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			response, err := discord.BuildCreateProblemModalResponse(tt.modal)
+			if !assert.NoError(t, err) {
+				return
+			}
+			encoded, err := json.Marshal(response)
+			if !assert.NoError(t, err) {
+				return
+			}
+			var wire struct {
+				Type discordgo.InteractionResponseType `json:"type"`
+				Data struct {
+					CustomID   string `json:"custom_id"`
+					Title      string `json:"title"`
+					Components []struct {
+						Type      discordgo.ComponentType `json:"type"`
+						Label     string                  `json:"label"`
+						Component struct {
+							Type     discordgo.ComponentType `json:"type"`
+							CustomID string                  `json:"custom_id"`
+							Label    string                  `json:"label"`
+							Value    string                  `json:"value"`
+							Required *bool                   `json:"required"`
+						} `json:"component"`
+					} `json:"components"`
+				} `json:"data"`
+			}
+			if !assert.NoError(t, json.Unmarshal(encoded, &wire)) {
+				return
+			}
+			assert.Equal(t, discordgo.InteractionResponseModal, wire.Type)
+			assert.Equal(t, discord.CreateProblemModalCustomID+"|basicos_1", wire.Data.CustomID)
+			assert.LessOrEqual(t, len(wire.Data.CustomID), 100)
+			assert.Equal(t, "Add problem", wire.Data.Title)
+			if !assert.Len(t, wire.Data.Components, 5) {
+				return
+			}
+			expected := []struct {
+				id, label, value string
+				required         bool
+			}{
+				{"name", "Name", tt.modal.Name, true},
+				{"url", "URL", tt.modal.URL, true},
+				{"difficulty", "Difficulty", tt.modal.Difficulty, false},
+				{"priority", "Priority", tt.modal.Priority, false},
+				{"topic", "Topic", tt.modal.Topic, false},
+			}
+			for i, want := range expected {
+				label := wire.Data.Components[i]
+				assert.Equal(t, discordgo.LabelComponent, label.Type)
+				assert.Equal(t, want.label, label.Label)
+				assert.Equal(t, discordgo.TextInputComponent, label.Component.Type)
+				assert.Equal(t, want.id, label.Component.CustomID)
+				assert.Equal(t, want.value, label.Component.Value)
+				assert.Empty(t, label.Component.Label, "the label belongs to its wrapper")
+				if assert.NotNil(t, label.Component.Required, "required=false must reach Discord explicitly") {
+					assert.Equal(t, want.required, *label.Component.Required)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateProblemModalContextPreservesClassCodesThroughSDKSubmission(t *testing.T) {
+	t.Parallel()
+	for _, classCode := range []string{"basicos_1", "básicos_2026", "class|with%separators"} {
+		t.Run(classCode, func(t *testing.T) {
+			t.Parallel()
+			response, err := discord.BuildCreateProblemModalResponse(discord.CreateProblemModal{ClassCode: classCode})
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Equal(t, discord.CreateProblemModalCustomID, discord.ModalRouteFromCustomID(response.Data.CustomID))
+			var event discordgo.InteractionCreate
+			if !assert.NoError(t, json.Unmarshal([]byte(createProblemModalSubmission), &event)) {
+				return
+			}
+			data := event.ModalSubmitData()
+			data.CustomID = response.Data.CustomID
+			modal, err := discord.ParseCreateProblemModal(data)
+			assert.NoError(t, err)
+			assert.Equal(t, classCode, modal.ClassCode)
+		})
+	}
+}
+
+func TestBuildCreateProblemModalResponseRejectsMissingClassAndEnforcesCustomIDLimit(t *testing.T) {
+	t.Parallel()
+	classCapacity := 100 - len(discord.CreateProblemModalCustomID) - len("|")
+	response, err := discord.BuildCreateProblemModalResponse(discord.CreateProblemModal{ClassCode: strings.Repeat("a", classCapacity)})
+	if assert.NoError(t, err) {
+		assert.Len(t, response.Data.CustomID, 100)
+	}
+	for _, classCode := range []string{"", " \t ", strings.Repeat("a", classCapacity+1)} {
+		response, err := discord.BuildCreateProblemModalResponse(discord.CreateProblemModal{ClassCode: classCode})
+		assert.Error(t, err)
+		assert.Nil(t, response)
+	}
+}
+
+// Discord's submission payload has labels wrapping inputs, without the outgoing
+// label, style, or required attributes. Decode it through the actual SDK first.
+const createProblemModalSubmission = `{
+	"type": 5,
+	"guild_id": "guild_1",
+	"data": {
+		"custom_id": "huron:problem:create|basicos_1",
+		"components": [
+			{"type":18,"id":3,"component":{"type":4,"id":4,"custom_id":"name","value":"  Two Sum 🚀  "}},
+			{"type":18,"id":5,"component":{"type":4,"id":6,"custom_id":"url","value":" https://example.com/problem?id=2 "}},
+			{"type":18,"id":7,"component":{"type":4,"id":8,"custom_id":"difficulty","value":" mEDium "}},
+			{"type":18,"id":11,"component":{"type":4,"id":12,"custom_id":"priority","value":" Recommended "}},
+			{"type":18,"id":9,"component":{"type":4,"id":10,"custom_id":"topic","value":"Binary search\nTwo pointers"}}
+		]
+	}
+}`
+
+func TestParseCreateProblemModalReadsSDKSubmissionsByFieldIDAndPreservesRawText(t *testing.T) {
+	t.Parallel()
+
+	expected := discord.CreateProblemModal{
+		ClassCode: "basicos_1",
+		ProblemModalFields: discord.ProblemModalFields{
+			Name: "  Two Sum 🚀  ", URL: " https://example.com/problem?id=2 ",
+			Difficulty: " mEDium ", Priority: " Recommended ", Topic: "Binary search\nTwo pointers",
+		},
+	}
+	blankOptional := expected
+	blankOptional.Difficulty, blankOptional.Priority, blankOptional.Topic = "", "", ""
+	invalidValues := expected
+	invalidValues.Name, invalidValues.Difficulty, invalidValues.Priority = "", "Insane", "Urgent"
+
+	tests := []struct {
+		name   string
+		change func(*discordgo.ModalSubmitInteractionData)
+		want   discord.CreateProblemModal
+	}{
+		{name: "multiword unicode and whitespace survive the SDK and parser", want: expected},
+		{
+			name: "fields are identified by custom ID rather than their position", want: expected,
+			change: func(data *discordgo.ModalSubmitInteractionData) {
+				data.Components[0], data.Components[4] = data.Components[4], data.Components[0]
+			},
+		},
+		{
+			name: "empty optional inputs stay empty", want: blankOptional,
+			change: func(data *discordgo.ModalSubmitInteractionData) {
+				data.Components[2].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
+				data.Components[3].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
+				data.Components[4].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
+			},
+		},
+		{
+			name: "domain-invalid values remain available for later validation", want: invalidValues,
+			change: func(data *discordgo.ModalSubmitInteractionData) {
+				data.Components[0].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
+				data.Components[2].(*discordgo.Label).Component.(*discordgo.TextInput).Value = "Insane"
+				data.Components[3].(*discordgo.Label).Component.(*discordgo.TextInput).Value = "Urgent"
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var event discordgo.InteractionCreate
+			if !assert.NoError(t, json.Unmarshal([]byte(createProblemModalSubmission), &event)) {
+				return
+			}
+			data := event.ModalSubmitData()
+			if tt.change != nil {
+				tt.change(&data)
+			}
+			modal, err := discord.ParseCreateProblemModal(data)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, modal)
+		})
+	}
+}
+
+func TestParseCreateProblemModalRejectsIncompleteAmbiguousAndUnexpectedComponents(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		change func(*discordgo.ModalSubmitInteractionData)
+	}{
+		{"different form ID", func(data *discordgo.ModalSubmitInteractionData) { data.CustomID = "other-form" }},
+		{"missing class context", func(data *discordgo.ModalSubmitInteractionData) { data.CustomID = discord.CreateProblemModalCustomID }},
+		{"invalid class encoding", func(data *discordgo.ModalSubmitInteractionData) {
+			data.CustomID = discord.CreateProblemModalCustomID + "|%ZZ"
+		}},
+		{"empty class context", func(data *discordgo.ModalSubmitInteractionData) {
+			data.CustomID = discord.CreateProblemModalCustomID + "|"
+		}},
+		{"missing input", func(data *discordgo.ModalSubmitInteractionData) { data.Components = data.Components[:4] }},
+		{"repeated input ID", func(data *discordgo.ModalSubmitInteractionData) {
+			data.Components[4] = data.Components[0]
+		}},
+		{"unknown input ID", func(data *discordgo.ModalSubmitInteractionData) {
+			data.Components[0].(*discordgo.Label).Component.(*discordgo.TextInput).CustomID = "unknown"
+		}},
+		{"unexpected layout", func(data *discordgo.ModalSubmitInteractionData) {
+			data.Components[0] = &discordgo.ActionsRow{}
+		}},
+		{"unexpected input type", func(data *discordgo.ModalSubmitInteractionData) {
+			data.Components[0].(*discordgo.Label).Component = &discordgo.SelectMenu{}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var event discordgo.InteractionCreate
+			if !assert.NoError(t, json.Unmarshal([]byte(createProblemModalSubmission), &event)) {
+				return
+			}
+			data := event.ModalSubmitData()
+			tt.change(&data)
+			modal, err := discord.ParseCreateProblemModal(data)
+			assert.Error(t, err)
+			assert.Equal(t, discord.CreateProblemModal{}, modal, "a malformed form must not produce a partial request")
+		})
+	}
+}
+
+func TestFormatCreateProblemModalPreviewReportsRawValuesWithinDiscordMessageLimit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"normal text is shown", "Two Sum", `Name: "Two Sum"`},
+		{"newlines stay inside their field", "Two\nSum", `Name: "Two\nSum"`},
+		{"large unicode input gets an explicit preview limitation", strings.Repeat("🚀", 1000), "too long to show"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			modal := discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: discord.ProblemModalFields{Name: tt.input, Priority: "Recommended"}}
+			content := discord.FormatCreateProblemModalPreview(modal)
+			assert.Contains(t, content, tt.want)
+			assert.Contains(t, content, "No problem has been saved.")
+			if tt.name != "large unicode input gets an explicit preview limitation" {
+				assert.Contains(t, content, `Class: "basicos_1"`)
+				assert.Contains(t, content, `Priority: "Recommended"`)
+			}
+			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
+			assert.Equal(t, tt.input, modal.Name)
+		})
+	}
+}

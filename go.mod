@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/Necroforger/dgwidgets v0.0.0-20190131052008-56c8c1ca33e0
-	github.com/bwmarrin/discordgo v0.28.1
+	github.com/bwmarrin/discordgo v0.29.1-0.20260214123928-f43dd94faaac
 	github.com/fogleman/gg v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.27
 	github.com/sirupsen/logrus v1.9.3

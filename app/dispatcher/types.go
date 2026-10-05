@@ -2,6 +2,13 @@ package dispatcher
 
 import "github.com/bwmarrin/discordgo"
 
+// InteractionResponder sends initial responses directly and edits their original result.
+type InteractionResponder interface {
+	Respond(*discordgo.Interaction, *discordgo.InteractionResponse) error
+	RespondPrivately(*discordgo.Interaction, string) error
+	EditResponse(*discordgo.Interaction, *discordgo.WebhookEdit) (*discordgo.Message, error)
+}
+
 type MessageType int
 
 const (

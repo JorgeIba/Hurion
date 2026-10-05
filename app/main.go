@@ -113,13 +113,17 @@ func main() {
 	}
 
 	// 7. Assemble the Bot
+	var responder dispatcher.InteractionResponder
+	if session != nil {
+		responder = dispatcher.NewDiscordInteractionResponder(session)
+	}
 	botCfg := bot.BotConfig{
 		TestMode:         cfg.TestMode,
 		WhitelistUserIDs: cfg.WhitelistUserIDs,
 		WhitelistRoleIDs: cfg.WhitelistRoleIDs,
 		GuildID:          cfg.GuildID,
 	}
-	appBot := bot.NewBot(svcs, provider, sender, botCfg)
+	appBot := bot.NewBot(svcs, provider, sender, responder, botCfg)
 
 	// 8. Execute Application Behavior
 	switch runCfg.Mode {

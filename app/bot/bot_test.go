@@ -11,7 +11,7 @@ func TestConfigureSessionIntents(t *testing.T) {
 	t.Parallel()
 
 	session := &discordgo.Session{}
-	NewBot(nil, nil, nil, BotConfig{}).ConfigureSession(session)
+	NewBot(nil, nil, nil, nil, BotConfig{}).ConfigureSession(session)
 
 	expected := discordgo.IntentsGuilds |
 		discordgo.IntentsGuildMessages |
@@ -84,7 +84,7 @@ func TestIsWhitelisted(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			bot := NewBot(nil, nil, nil, BotConfig{
+			bot := NewBot(nil, nil, nil, nil, BotConfig{
 				TestMode:         tt.testMode,
 				WhitelistUserIDs: tt.whitelistUsers,
 				WhitelistRoleIDs: tt.whitelistRoles,
