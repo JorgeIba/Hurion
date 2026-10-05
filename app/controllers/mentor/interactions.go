@@ -16,7 +16,7 @@ func HandleAddProblemInteraction(c *context.InteractionContext) {
 	// Opening a modal must be the initial response within Discord's three-second
 	// deadline. Permission verification calls Discord; it and the class lookup
 	// must finish within that window because a modal cannot follow a deferred reply.
-	if !authorizeMentorInteraction(c) {
+	if !authorizeProblemInteraction(c) {
 		return
 	}
 	selectedClass, err := resolveInteractionClass(c)
@@ -40,7 +40,7 @@ func HandleAddProblemInteraction(c *context.InteractionContext) {
 // No problem is saved.
 func HandleCreateProblemModalSubmitInteraction(c *context.InteractionContext) {
 	event := c.Interaction
-	if !authorizeMentorInteraction(c) {
+	if !authorizeProblemInteraction(c) {
 		return
 	}
 	modal, err := discord.ParseCreateProblemModal(event.ModalSubmitData())
@@ -101,22 +101,22 @@ func resolveInteractionClass(c *context.InteractionContext) (service_model.Class
 	return selectedClass, nil
 }
 
-func authorizeMentorInteraction(c *context.InteractionContext) bool {
+func authorizeProblemInteraction(c *context.InteractionContext) bool {
 	event := c.Interaction
 	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
-		c.Dispatcher.RespondPrivately(event.Interaction, "Mentor commands require an identified server member.")
+		c.Dispatcher.RespondPrivately(event.Interaction, "Problem commands require an identified server member.")
 		return false
 	}
 
-	isMentor, err := c.DiscordValidator.IsMentor(event.GuildID, event.Member.User.ID)
+	allowed, err := canManageProblems(c.DiscordValidator, event.GuildID, event.Member.User.ID)
 	if err != nil {
-		logger.Log.Errorf("Failed to verify interaction mentor permissions: %v", err)
+		logger.Log.Errorf("Failed to verify interaction problem-management permissions: %v", err)
 		c.Dispatcher.RespondPrivately(event.Interaction, messageErrVerifying)
 		return false
 	}
 
-	if !isMentor {
-		c.Dispatcher.RespondPrivately(event.Interaction, messageErrNotPermissions)
+	if !allowed {
+		c.Dispatcher.RespondPrivately(event.Interaction, messageErrProblemPermissions)
 		return false
 	}
 	return true

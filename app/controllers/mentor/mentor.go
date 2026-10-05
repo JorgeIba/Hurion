@@ -11,13 +11,15 @@ import (
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
 const (
-	messageErrVerifying      = "There was a problem verifying permissions."
-	messageErrNotPermissions = "Bro has not enough permissions (is not mentor)."
-	messageErrUnexpected     = "Unexpected error."
+	messageErrVerifying          = "There was a problem verifying permissions."
+	messageErrNotPermissions     = "Bro has not enough permissions (is not mentor)."
+	messageErrProblemPermissions = "Problem management requires the mentor or admin role."
+	messageErrUnexpected         = "Unexpected error."
 )
 
 func HandlePendingConfirmation(c *context.ContextMessage) {
@@ -224,16 +226,16 @@ func HandleUndoAC(c *context.ContextMessage) {
 }
 
 func HandleAddProblem(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
+	if allowed, err := checkIfUserCanManageProblems(c); err != nil {
+		logger.Log.Errorf("Failed to verify problem-management permissions: %v", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
 		)
 		return
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
+	} else if !allowed {
+		logger.Log.Errorln(messageErrProblemPermissions)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrProblemPermissions),
 		)
 		return
 	}
@@ -343,16 +345,16 @@ func HandleRemoveProblem(c *context.ContextMessage) error {
 }
 
 func HandleUpdateProblem(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
+	if allowed, err := checkIfUserCanManageProblems(c); err != nil {
+		logger.Log.Errorf("Failed to verify problem-management permissions: %v", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
 		)
 		return
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
+	} else if !allowed {
+		logger.Log.Errorln(messageErrProblemPermissions)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrProblemPermissions),
 		)
 		return
 	}
@@ -468,4 +470,24 @@ func checkIfUserIsMentor(c *context.ContextMessage) (bool, error) {
 	}
 
 	return c.DiscordValidator.IsMentor(c.ExecutorGuildID, c.Executor.UserID)
+}
+
+func checkIfUserCanManageProblems(c *context.ContextMessage) (bool, error) {
+	if c.Executor.UserID == "" {
+		return false, fmt.Errorf("no executor user ID available")
+	}
+	if c.ExecutorGuildID == "" {
+		return false, fmt.Errorf("problem commands can only be used in a server, not in DMs")
+	}
+	return canManageProblems(c.DiscordValidator, c.ExecutorGuildID, c.Executor.UserID)
+}
+
+// canManageProblems permits either configured role. A failed role lookup stops
+// authorization; admin is checked only after a successful negative mentor check.
+func canManageProblems(validator providers.DiscordValidator, guildID, userID string) (bool, error) {
+	isMentor, err := validator.IsMentor(guildID, userID)
+	if err != nil || isMentor {
+		return isMentor, err
+	}
+	return validator.IsAdmin(guildID, userID)
 }

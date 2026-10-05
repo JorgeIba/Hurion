@@ -24,10 +24,12 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 			name          string
 			member        *discordgo.Member
 			permissionErr error
+			adminErr      error
 			want          string
 		}{
-			{name: "non mentor", member: &discordgo.Member{User: &discordgo.User{ID: "student_1"}}, want: "not mentor"},
+			{name: "neither mentor nor admin", member: &discordgo.Member{User: &discordgo.User{ID: "student_1"}}, want: "mentor or admin"},
 			{name: "permission lookup fails", member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}, permissionErr: fmt.Errorf("Discord unavailable"), want: "problem verifying permissions"},
+			{name: "admin lookup fails", member: &discordgo.Member{User: &discordgo.User{ID: "admin_1"}}, adminErr: fmt.Errorf("Discord unavailable"), want: "problem verifying permissions"},
 			{name: "missing member", want: "identified server member"},
 			{name: "missing member user", member: &discordgo.Member{}, want: "identified server member"},
 			{name: "missing user identity", member: &discordgo.Member{User: &discordgo.User{}}, want: "identified server member"},
@@ -40,6 +42,13 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 					assert.Equal(t, testGuildID, guildID)
 					assert.Equal(t, test.member.User.ID, userID)
 					return false, test.permissionErr
+				}
+				adminCalls := 0
+				env.Discord.isAdminFunc = func(guildID, userID string) (bool, error) {
+					adminCalls++
+					assert.Equal(t, testGuildID, guildID)
+					assert.Equal(t, test.member.User.ID, userID)
+					return false, test.adminErr
 				}
 				var data discordgo.InteractionData = discordgo.ApplicationCommandInteractionData{
 					Name: "problem", Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: "add", Type: discordgo.ApplicationCommandOptionSubCommand}},
@@ -58,8 +67,14 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 				assert.Contains(t, response.Data.Content, test.want)
 				if test.member == nil || test.member.User == nil || test.member.User.ID == "" {
 					assert.Zero(t, calls)
+					assert.Zero(t, adminCalls)
 				} else {
 					assert.Equal(t, 1, calls)
+					if test.permissionErr != nil {
+						assert.Zero(t, adminCalls)
+					} else {
+						assert.Equal(t, 1, adminCalls)
+					}
 				}
 			})
 		}
@@ -88,7 +103,7 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 	}}
 	env.Bot.HandleInteractionEvent(nil, submit)
 	require.Len(t, env.Responder.responses, 2)
-	assert.Contains(t, env.Responder.responses[1].response.Data.Content, "not mentor")
+	assert.Contains(t, env.Responder.responses[1].response.Data.Content, "mentor or admin")
 	assert.Equal(t, 2, checks)
 }
 
@@ -159,16 +174,20 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAndPreview(t *testing.T
 		channelClass string
 		optionClass  string
 		wantClass    string
+		adminOnly    bool
 	}{
 		{name: "mapped channel supplies its class", channelClass: "basicos_1", wantClass: "basicos_1"},
 		{name: "unmapped channel accepts an explicit class", optionClass: "basicos_2", wantClass: "basicos_2"},
 		{name: "explicit class overrides the mapped channel", channelClass: "basicos_1", optionClass: "basicos_2", wantClass: "basicos_2"},
+		{name: "admin without mentor role opens and submits", channelClass: "basicos_1", wantClass: "basicos_1", adminOnly: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return !test.adminOnly, nil }
+			adminChecks := 0
+			env.Discord.isAdminFunc = func(_, _ string) (bool, error) { adminChecks++; return test.adminOnly, nil }
 			env.seedClass(t, "basicos_1", "Basicos 2026")
 			env.seedClass(t, "basicos_2", "Basicos 2027")
 			if test.channelClass != "" {
@@ -252,8 +271,45 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAndPreview(t *testing.T
 			problems, err := env.Services.Problem.GetProblemsGroupedByTopic(test.wantClass)
 			require.NoError(t, err)
 			assert.Empty(t, problems)
+			if test.adminOnly {
+				assert.Equal(t, 2, adminChecks, "admin authority is checked both on open and submit")
+			} else {
+				assert.Zero(t, adminChecks, "mentors do not require another role lookup")
+			}
 		})
 	}
+}
+
+func TestWorkflow_AdminWithoutMentorRoleCreatesAndUpdatesProblemThroughPrefixCommands(t *testing.T) {
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.seedClass(t, "basicos_1", "Basicos")
+	env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
+		assert.Equal(t, testGuildID, guildID)
+		assert.Equal(t, "admin_1", userID)
+		return false, nil
+	}
+	env.Discord.isAdminFunc = func(guildID, userID string) (bool, error) {
+		assert.Equal(t, testGuildID, guildID)
+		assert.Equal(t, "admin_1", userID)
+		return true, nil
+	}
+	env.sendMessage(t, "admin_1", "Admin", "!add_problem basicos_1 https://example.com/problem easy - recommended Two Sum")
+	problems, err := env.Services.Problem.GetProblemsGroupedByTopic("basicos_1")
+	require.NoError(t, err)
+	require.Len(t, problems, 1)
+	require.Len(t, problems[0].Problems, 1)
+	problem := problems[0].Problems[0]
+	env.sendMessage(t, "admin_1", "Admin", fmt.Sprintf("!update_problem %d basicos_1 https://example.com/updated hard Arrays essential Updated Name", problem.ID))
+	updated, err := env.Services.Problem.GetProblemsGroupedByTopic("basicos_1")
+	require.NoError(t, err)
+	require.Len(t, updated, 1)
+	assert.Equal(t, "Arrays", updated[0].Topic)
+	require.Len(t, updated[0].Problems, 1)
+	assert.Equal(t, "Updated Name", updated[0].Problems[0].Name)
+	messages := env.Dispatcher.Messages()
+	require.Len(t, messages, 2)
+	assert.Contains(t, messages[0].Content, "added correctly")
+	assert.Contains(t, messages[1].Content, "updated successfully")
 }
 
 func TestWorkflow_ProblemAdd_ReportsClassErrorsBeforeOpeningForm(t *testing.T) {
