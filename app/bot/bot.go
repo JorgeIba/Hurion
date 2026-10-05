@@ -13,13 +13,14 @@ import (
 )
 
 type Bot struct {
-	messageSender   dispatcher.MessageSender
-	discordProvider providers.DiscordProvider
-	services        *services.Services
-	testMode        bool
-	whitelistUsers  map[string]struct{}
-	whitelistRoles  map[string]struct{}
-	guildID         string
+	messageSender        dispatcher.MessageSender
+	interactionResponder dispatcher.InteractionResponder
+	discordProvider      providers.DiscordProvider
+	services             *services.Services
+	testMode             bool
+	whitelistUsers       map[string]struct{}
+	whitelistRoles       map[string]struct{}
+	guildID              string
 }
 
 type BotConfig struct {
@@ -29,7 +30,8 @@ type BotConfig struct {
 	GuildID          string
 }
 
-func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender dispatcher.MessageSender, cfg BotConfig) *Bot {
+// NewBot accepts a nil responder only when no interaction events will be handled.
+func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender dispatcher.MessageSender, responder dispatcher.InteractionResponder, cfg BotConfig) *Bot {
 	userMap := make(map[string]struct{})
 	for _, id := range cfg.WhitelistUserIDs {
 		userMap[id] = struct{}{}
@@ -41,13 +43,14 @@ func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender 
 	}
 
 	return &Bot{
-		messageSender:   sender,
-		discordProvider: provider,
-		services:        svcs,
-		testMode:        cfg.TestMode,
-		whitelistUsers:  userMap,
-		whitelistRoles:  roleMap,
-		guildID:         cfg.GuildID,
+		messageSender:        sender,
+		interactionResponder: responder,
+		discordProvider:      provider,
+		services:             svcs,
+		testMode:             cfg.TestMode,
+		whitelistUsers:       userMap,
+		whitelistRoles:       roleMap,
+		guildID:              cfg.GuildID,
 	}
 }
 
@@ -210,14 +213,14 @@ func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
 	}
 }
 
-type interactionResponder interface {
-	InteractionRespond(interaction *discordgo.Interaction, response *discordgo.InteractionResponse, options ...discordgo.RequestOption) error
-}
-
+// HandleInteractionEvent delivers replies through the responder supplied to NewBot.
 func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.InteractionCreate) {
 	defer recoverHandlerPanic("interaction event")
 
 	if event == nil || event.Interaction == nil {
+		return
+	}
+	if !hasInteractionRoute(event) {
 		return
 	}
 
@@ -232,43 +235,29 @@ func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.In
 
 		roles := bot.resolveUserRoles(event.Member, event.GuildID, userID)
 		if !bot.isWhitelisted(userID, roles) {
-			if event.Type == discordgo.InteractionApplicationCommand && hasInteractionCommand(event.ApplicationCommandData().Name) {
-				bot.respondPrivately(s, event.Interaction, "This development command is not enabled for your account.")
-			}
+			bot.interactionResponder.RespondPrivately(event.Interaction, "This development interaction is not enabled for your account.")
 			return
 		}
 	}
 
-	bot.interactionHandler(s, event)
+	bot.interactionHandler(event)
 }
 
-func (bot *Bot) interactionHandler(responder interactionResponder, event *discordgo.InteractionCreate) {
-	if event.Type != discordgo.InteractionApplicationCommand {
-		return
-	}
-
-	command := event.ApplicationCommandData()
-	if !hasInteractionCommand(command.Name) {
-		return
-	}
-
+func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate) {
 	if event.GuildID != bot.guildID {
-		bot.respondPrivately(responder, event.Interaction, "The /"+command.Name+" command is only available in the configured server.")
+		bot.interactionResponder.RespondPrivately(event.Interaction, "This interaction is only available in the configured server.")
 		return
 	}
 
-	routeInteractionCommand(bot, responder, event)
-}
-
-func (bot *Bot) respondPrivately(responder interactionResponder, interaction *discordgo.Interaction, content string) {
-	err := responder.InteractionRespond(interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: content,
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-	if err != nil {
-		logger.Log.Errorf("Failed to respond to slash command: %v", err)
+	c := &context.InteractionContext{
+		Interaction: event,
+		Services:    bot.services,
+		Dispatcher:  bot.interactionResponder,
+	}
+	switch event.Type {
+	case discordgo.InteractionApplicationCommand:
+		routeInteractionCommand(c)
+	case discordgo.InteractionModalSubmit:
+		routeInteractionModalSubmit(c)
 	}
 }

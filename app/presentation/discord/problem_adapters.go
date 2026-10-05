@@ -8,11 +8,11 @@ import (
 )
 
 // MapCreateProblemParamsToCreateProblemModal prefills the creation form from supplied values.
-// Missing difficulty uses the existing display default; missing topic is blank.
+// Missing difficulty and priority use their display defaults; missing topic is blank.
 func MapCreateProblemParamsToCreateProblemModal(params service_model.CreateProblemParams) CreateProblemModal {
 	return CreateProblemModal{
 		ClassCode:          params.ClassCode,
-		ProblemModalFields: mapProblemValuesToModalFields(params.Name, params.URL, params.Difficulty, params.Topic),
+		ProblemModalFields: mapProblemValuesToModalFields(params.Name, params.URL, params.Difficulty, params.Topic, params.Priority),
 	}
 }
 
@@ -22,12 +22,12 @@ func MapUpdateProblemParamsToEditProblemModal(params service_model.UpdateProblem
 	return EditProblemModal{
 		ProblemID:          params.ProblemID,
 		ClassCode:          classCode,
-		ProblemModalFields: mapProblemValuesToModalFields(params.Name, params.URL, params.Difficulty, params.Topic),
+		ProblemModalFields: mapProblemValuesToModalFields(params.Name, params.URL, params.Difficulty, params.Topic, params.Priority),
 	}
 }
 
 // MapCreateProblemModalToCreateProblemParams converts form text into a pending create request.
-// Blank optional text and unspecified difficulty become nil. Other text stays raw;
+// Blank optional text and unassigned metadata markers become nil. Other text stays raw;
 // the application must normalize and validate it before writing.
 func MapCreateProblemModalToCreateProblemParams(modal CreateProblemModal) service_model.CreateProblemParams {
 	return service_model.CreateProblemParams{
@@ -36,6 +36,7 @@ func MapCreateProblemModalToCreateProblemParams(modal CreateProblemModal) servic
 		ClassCode:  modal.ClassCode,
 		Difficulty: mapModalDifficultyToOptionalValue(modal.Difficulty),
 		Topic:      mapModalTextToOptionalValue(modal.Topic),
+		Priority:   mapModalPriorityToOptionalValue(modal.Priority),
 	}
 }
 
@@ -51,14 +52,16 @@ func MapEditProblemModalToUpdateProblemParams(modal EditProblemModal, problemID,
 		ClassID:    destinationClassID,
 		Difficulty: mapModalDifficultyToOptionalValue(modal.Difficulty),
 		Topic:      mapModalTextToOptionalValue(modal.Topic),
+		Priority:   mapModalPriorityToOptionalValue(modal.Priority),
 	}
 }
 
-// mapProblemValuesToModalFields formats canonical difficulty codes for display
+// mapProblemValuesToModalFields formats canonical metadata codes for display
 // while preserving other supplied text for prefill or correction.
-func mapProblemValuesToModalFields(name, url string, difficulty, topic *string) ProblemModalFields {
+func mapProblemValuesToModalFields(name, url string, difficulty, topic, priority *string) ProblemModalFields {
 	fields := ProblemModalFields{
 		Name: name, URL: url, Difficulty: presentation.DifficultyLabel(difficulty),
+		Priority: presentation.PriorityLabel(priority),
 	}
 	if topic != nil {
 		fields.Topic = *topic
@@ -78,4 +81,11 @@ func mapModalTextToOptionalValue(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func mapModalPriorityToOptionalValue(value string) *string {
+	if strings.EqualFold(strings.TrimSpace(value), presentation.PriorityUnspecifiedLabel) {
+		return nil
+	}
+	return mapModalTextToOptionalValue(value)
 }

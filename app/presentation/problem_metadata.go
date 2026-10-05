@@ -3,6 +3,7 @@ package presentation
 import "github.com/JorgeIba/Hurion/app/services/service_model"
 
 const DifficultyUnspecifiedLabel = "Not specified"
+const PriorityUnspecifiedLabel = "No priority assigned"
 
 // DifficultyLabel formats a canonical code without changing the stored value.
 // Unknown text is preserved so an editor can show it for correction.
@@ -26,7 +27,7 @@ func DifficultyLabel(code *string) string {
 // Unknown text is preserved so it remains distinguishable from an unassigned priority.
 func PriorityLabel(code *string) string {
 	if code == nil {
-		return "No priority assigned"
+		return PriorityUnspecifiedLabel
 	}
 	switch *code {
 	case service_model.PriorityEssential:
