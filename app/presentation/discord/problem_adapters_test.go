@@ -73,6 +73,7 @@ func TestProblemModalsToParamsClearOptionalValuesAndPreserveOtherRawText(t *test
 		{name: "unspecified difficulty clears stored value", difficulty: "Not specified"},
 		{name: "unspecified marker ignores case and surrounding whitespace", difficulty: " nOt SpEcIfIeD "},
 		{name: "unassigned priority clears stored value", priority: presentation.PriorityUnspecifiedLabel},
+		{name: "display priority with spaces maps to its canonical code", priority: " Not required ", wantPriority: stringPointerForProblemModalTest(service_model.PriorityNotRequired)},
 		{name: "unassigned priority marker ignores case and surrounding whitespace", priority: " nO PrIoRiTy AsSiGnEd "},
 		{
 			name: "metadata and topic remain raw for application normalization", difficulty: " mEDium ", topic: " Binary search ", priority: " Recommended ",

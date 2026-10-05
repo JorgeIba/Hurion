@@ -14,7 +14,11 @@ import (
 func HandleAddProblemInteraction(c *context.InteractionContext) {
 	event := c.Interaction
 	// Opening a modal must be the initial response within Discord's three-second
-	// deadline. This direct path assumes the local classroom lookup finishes quickly.
+	// deadline. Permission verification calls Discord; it and the class lookup
+	// must finish within that window because a modal cannot follow a deferred reply.
+	if !authorizeMentorInteraction(c) {
+		return
+	}
 	selectedClass, err := resolveInteractionClass(c)
 	if err != nil {
 		c.Dispatcher.RespondPrivately(event.Interaction, err.Error())
@@ -30,6 +34,36 @@ func HandleAddProblemInteraction(c *context.InteractionContext) {
 		return
 	}
 	c.Dispatcher.Respond(event.Interaction, response)
+}
+
+// HandleCreateProblemModalSubmitInteraction validates submitted values and sends a preview.
+// No problem is saved.
+func HandleCreateProblemModalSubmitInteraction(c *context.InteractionContext) {
+	event := c.Interaction
+	if !authorizeMentorInteraction(c) {
+		return
+	}
+	modal, err := discord.ParseCreateProblemModal(event.ModalSubmitData())
+	if err != nil {
+		logger.Log.Errorf("Failed to read problem form submission: %v", err)
+		c.Dispatcher.RespondPrivately(event.Interaction, "Could not read the complete form. Please start again with /problem add.")
+		return
+	}
+
+	params, err := service_model.NormalizeAndValidateCreateProblemParams(discord.MapCreateProblemModalToCreateProblemParams(modal))
+	if err != nil {
+		c.Dispatcher.RespondPrivately(event.Interaction, "Please correct the form: "+err.Error()+". Start again with /problem add.")
+		return
+	}
+
+	_, err = c.Services.Class.GetClassByClassCode(params.ClassCode)
+	if err != nil {
+		logger.Log.Warnf("Failed to load submitted problem class: %v", err)
+		c.Dispatcher.RespondPrivately(event.Interaction, "Could not load the selected class. Please start again with /problem add.")
+		return
+	}
+
+	c.Dispatcher.RespondPrivately(event.Interaction, discord.FormatCreateProblemModalPreview(discord.MapCreateProblemParamsToCreateProblemModal(params)))
 }
 
 // resolveInteractionClass gives the explicit class option precedence over the
@@ -67,23 +101,23 @@ func resolveInteractionClass(c *context.InteractionContext) (service_model.Class
 	return selectedClass, nil
 }
 
-// HandleCreateProblemModalSubmitInteraction reads the submitted form and sends a receipt.
-// This preview does not validate domain values or save a problem.
-func HandleCreateProblemModalSubmitInteraction(c *context.InteractionContext) {
+func authorizeMentorInteraction(c *context.InteractionContext) bool {
 	event := c.Interaction
-	modal, err := discord.ParseCreateProblemModal(event.ModalSubmitData())
-	if err != nil {
-		logger.Log.Errorf("Failed to read problem form submission: %v", err)
-		c.Dispatcher.RespondPrivately(event.Interaction, "Could not read the complete form. Please start again with /problem add.")
-		return
+	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
+		c.Dispatcher.RespondPrivately(event.Interaction, "Mentor commands require an identified server member.")
+		return false
 	}
 
-	_, err = c.Services.Class.GetClassByClassCode(modal.ClassCode)
+	isMentor, err := c.DiscordValidator.IsMentor(event.GuildID, event.Member.User.ID)
 	if err != nil {
-		logger.Log.Warnf("Failed to load submitted problem class: %v", err)
-		c.Dispatcher.RespondPrivately(event.Interaction, "Could not load the selected class. Please start again with /problem add.")
-		return
+		logger.Log.Errorf("Failed to verify interaction mentor permissions: %v", err)
+		c.Dispatcher.RespondPrivately(event.Interaction, messageErrVerifying)
+		return false
 	}
 
-	c.Dispatcher.RespondPrivately(event.Interaction, discord.FormatCreateProblemModalPreview(modal))
+	if !isMentor {
+		c.Dispatcher.RespondPrivately(event.Interaction, messageErrNotPermissions)
+		return false
+	}
+	return true
 }

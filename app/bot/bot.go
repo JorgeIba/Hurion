@@ -250,9 +250,10 @@ func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate) {
 	}
 
 	c := &context.InteractionContext{
-		Interaction: event,
-		Services:    bot.services,
-		Dispatcher:  bot.interactionResponder,
+		Interaction:      event,
+		Services:         bot.services,
+		Dispatcher:       bot.interactionResponder,
+		DiscordValidator: bot.discordProvider,
 	}
 	switch event.Type {
 	case discordgo.InteractionApplicationCommand:
