@@ -43,7 +43,7 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 				Title: title,
 				Fields: []*discordgo.MessageEmbedField{
 					{Name: "ID", Value: idColumn, Inline: true},
-					{Name: "Difficulty", Value: difficultyColumn, Inline: true},
+					{Name: "Difficulty / Priority", Value: difficultyColumn, Inline: true},
 					{Name: "Name", Value: nameColumn, Inline: true},
 				},
 			})
@@ -91,11 +91,11 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 
 		// Add problems in this topic
 		for _, problem := range group.Problems {
-			difficultyEmoji := GetDifficultyEmoji(problem.Difficulty)
+			metadata := fmt.Sprintf("%s / %s", GetDifficultyEmoji(problem.Difficulty), presentation.PriorityLabel(problem.Priority))
 
 			// Build what we want to add for problem
 			pAddID := fmt.Sprintf("\n%d", problem.ID)
-			pAddDiff := fmt.Sprintf("\n%s", difficultyEmoji)
+			pAddDiff := fmt.Sprintf("\n%s", metadata)
 			pAddName := fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
 
 			// Truncate to avoid exceeding max field length individually

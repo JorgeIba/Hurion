@@ -12,6 +12,7 @@ import {
 } from '@/domain/class';
 import { useColumnResize } from '@/hooks/useColumnResize';
 import { useTopicCollapse } from '@/hooks/useTopicCollapse';
+import { PriorityLabel } from './problems/PriorityLabel';
 
 interface ScoreboardTableProps {
   problems: Problem[];
@@ -301,6 +302,7 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                                 </span>
                               </div>
                             )}
+                            <PriorityLabel priority={p.priority} />
                           </th>
 
                           {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}

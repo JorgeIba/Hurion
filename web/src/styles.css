@@ -496,6 +496,16 @@ body {
   flex: 1;
 }
 
+.problem-priority-label {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
 .scoreboard-table tbody tr.problem-row:nth-child(even) .problem-title-cell {
   background-color: #0e1526;
 }
@@ -986,9 +996,14 @@ body {
   flex-shrink: 0;
 }
 
+.problem-list-details {
+  flex: 1;
+  min-width: 0;
+}
+
 .problem-list-title-link,
 .problem-list-title-plain {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.4rem;
   flex: 1;
@@ -1144,7 +1159,7 @@ body {
   }
 
   .problem-list-id {
-    width: 2.4rem;
+    width: auto;
     min-width: 2.4rem;
     font-size: 0.72rem;
   }

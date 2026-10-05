@@ -18,6 +18,7 @@ func mapServiceProblemToPresentationProblem(p service_model.Problem) presentatio
 		Name:       p.Name,
 		URL:        p.URL,
 		Difficulty: p.Difficulty,
+		Priority:   p.Priority,
 		Topic:      p.GetTopic(),
 	}
 }
@@ -69,6 +70,7 @@ func TransformToExcelizerProblemsByTopic(problemsByTopic []service_model.Problem
 				Name:       p.Name,
 				URL:        p.URL,
 				Difficulty: p.Difficulty,
+				Priority:   p.Priority,
 				Topic:      p.GetTopic(),
 			}
 		}
@@ -152,7 +154,7 @@ func ScoreToTableScore(score service_model.Score) presentation.TableScore {
 
 		// Add problem rows for this topic
 		for _, problem := range topicGroup.Problems {
-			row := []string{fmt.Sprintf("(%d) %s", problem.ID, problem.Name)}
+			row := []string{fmt.Sprintf("(%d) %s [Priority: %s]", problem.ID, problem.Name, presentation.PriorityLabel(problem.Priority))}
 			cellMetadata := []presentation.CellMetadata{
 				{IsProblemName: true, IsAC: false, IsUsername: false, IsTotal: false}, // First cell is problem name
 			}

@@ -10,6 +10,7 @@ type Problem struct {
 	Name       string
 	URL        string
 	Difficulty *string
+	Priority   *string
 	Topic      string
 }
 

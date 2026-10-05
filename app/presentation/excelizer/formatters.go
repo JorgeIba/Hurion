@@ -51,12 +51,11 @@ func formatUsersList(f *excelize.File, sheetName string, userCount int) error {
 }
 
 func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []ProblemsByTopic) error {
-	// Apply header style to first row (A1:D1)
 	headerStyle, err := CreateHeaderStyle(f)
 	if err != nil {
 		return presentationerr.NewStyleCreationError("failed to create header style", err)
 	}
-	f.SetCellStyle(sheetName, makeCellRef(0, 1), makeCellRef(3, 1), headerStyle)
+	f.SetCellStyle(sheetName, makeCellRef(0, 1), makeCellRef(4, 1), headerStyle)
 
 	// Styles for topic header, ID, Name, URL, Difficulty columns
 	topicHeaderStyle, err := CreateTopicHeaderStyle(f)
@@ -84,7 +83,7 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 	// Iterate through topics
 	for _, topicGroup := range problemsByTopic {
 		// Apply topic header style
-		f.SetCellStyle(sheetName, makeCellRef(0, currentRow), makeCellRef(3, currentRow), topicHeaderStyle)
+		f.SetCellStyle(sheetName, makeCellRef(0, currentRow), makeCellRef(4, currentRow), topicHeaderStyle)
 		currentRow++
 
 		// Apply styles to problems in this topic
@@ -104,13 +103,14 @@ func formatProblemsList(f *excelize.File, sheetName string, problemsByTopic []Pr
 				return presentationerr.NewStyleCreationError("failed to create difficulty style", err)
 			}
 			f.SetCellStyle(sheetName, makeCellRef(3, currentRow), makeCellRef(3, currentRow), difficultyStyle)
+			f.SetCellStyle(sheetName, makeCellRef(4, currentRow), makeCellRef(4, currentRow), nameStyle)
 
 			currentRow++
 		}
 	}
 
 	// Auto-fit columns
-	err = autoFitColumns(f, sheetName, []string{"A", "B", "C", "D"})
+	err = autoFitColumns(f, sheetName, []string{"A", "B", "C", "D", "E"})
 	if err != nil {
 		return presentationerr.NewFormatError("failed to auto-fit columns", err)
 	}

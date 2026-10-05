@@ -39,6 +39,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 							Name:       "Two Sum",
 							URL:        "https://leetcode.com/problems/two-sum",
 							Difficulty: new("easy"),
+							Priority:   new("recommended"),
 						},
 					},
 				},
@@ -50,6 +51,8 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				assert.Contains(t, res[0].Fields[0].Value, "**Arrays**")
 				assert.Contains(t, res[0].Fields[0].Value, "1")
 				assert.Contains(t, res[0].Fields[1].Value, "🟩")
+				assert.Equal(t, "Difficulty / Priority", res[0].Fields[1].Name)
+				assert.Contains(t, res[0].Fields[1].Value, "Recommended")
 				assert.Contains(t, res[0].Fields[2].Value, "[Two Sum](https://leetcode.com/problems/two-sum)")
 			},
 		},
@@ -76,6 +79,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				assert.Contains(t, res[0].Fields[0].Value, "**Strings**")
 				assert.Contains(t, res[0].Fields[1].Value, "🟩")
 				assert.Contains(t, res[0].Fields[1].Value, "🟨")
+				assert.Contains(t, res[0].Fields[1].Value, "No priority assigned")
 			},
 		},
 		{

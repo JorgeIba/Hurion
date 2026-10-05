@@ -21,3 +21,25 @@ func DifficultyLabel(code *string) string {
 		return *code
 	}
 }
+
+// PriorityLabel formats a canonical code without changing the stored value.
+// Unknown text is preserved so it remains distinguishable from an unassigned priority.
+func PriorityLabel(code *string) string {
+	if code == nil {
+		return "No priority assigned"
+	}
+	switch *code {
+	case service_model.PriorityEssential:
+		return "Essential"
+	case service_model.PriorityRecommended:
+		return "Recommended"
+	case service_model.PrioritySupplementary:
+		return "Supplementary"
+	case service_model.PriorityNotRequired:
+		return "Not required"
+	case service_model.PriorityDiscouraged:
+		return "Discouraged"
+	default:
+		return *code
+	}
+}
