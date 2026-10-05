@@ -6,37 +6,10 @@ import (
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
-// GetDifficultyOrder returns the sort order for a difficulty
-// easy=1, medium=2, hard=3, absent or unknown=4
-func GetDifficultyOrder(difficulty *string) int {
-	if difficulty == nil {
-		return 4
-	}
-	switch *difficulty {
-	case service_model.DifficultyEasy:
-		return 1
-	case service_model.DifficultyMedium:
-		return 2
-	case service_model.DifficultyHard:
-		return 3
-	default:
-		return 4 // Default
-	}
-}
-
-// SortProblemsByTopicAndDifficulty sorts problems by topic (alphabetically) and then by difficulty
-func SortProblemsByTopicAndDifficulty(problems []service_model.Problem) {
+// SortProblemsByID establishes insertion order before topic grouping.
+func SortProblemsByID(problems []service_model.Problem) {
 	sort.Slice(problems, func(i, j int) bool {
-		topicI := problems[i].GetTopic()
-		topicJ := problems[j].GetTopic()
-
-		// First, sort by topic (alphabetically)
-		if topicI != topicJ {
-			return topicI < topicJ
-		}
-
-		// If topics are the same, sort by difficulty
-		return GetDifficultyOrder(problems[i].Difficulty) < GetDifficultyOrder(problems[j].Difficulty)
+		return problems[i].ID < problems[j].ID
 	})
 }
 

@@ -11,9 +11,14 @@ import { Problem } from './types';
 import { CLASS_CONFIG, CLASS_LABELS } from './constants';
 
 describe('domain/class/problems', () => {
-  it.each(['difficulty-easy-first', 'priority-essential-first'] as const)(
-    'compares a topic slice by %s with chronological and ID ties without mutating input',
-    (sortBy) => {
+  it.each([
+    ['difficulty-easy-first', [8, 1, 2, 3]],
+    ['difficulty-hard-first', [1, 2, 3, 8]],
+    ['priority-essential-first', [1, 2, 3, 8]],
+    ['priority-discouraged-first', [8, 1, 2, 3]],
+  ] as const)(
+    'compares a topic slice by %s with ID ties regardless of timestamps without mutating input',
+    (sortBy, expectedIDs) => {
       const problems: Problem[] = [
         {
           id: 8,
@@ -29,7 +34,7 @@ describe('domain/class/problems', () => {
           topic: 'Z',
           difficulty: 'hard',
           priority: 'essential',
-          createdAt: '2026-01-03T00:00:00Z',
+          createdAt: '2025-01-01T00:00:00Z',
         },
         {
           id: 2,
@@ -58,11 +63,9 @@ describe('domain/class/problems', () => {
       ];
       const groups = groupProblemsByTopic(problems);
       const ordered = [...groups.get('Z')!].sort((a, b) => compareProblems(a, b, sortBy));
-      expect(ordered.map((p) => p.id)).toEqual(
-        sortBy === 'difficulty-easy-first' ? [8, 1, 2, 3] : [1, 2, 3, 8]
-      );
+      expect(ordered.map((p) => p.id)).toEqual(expectedIDs);
       expect([...groups.keys()]).toEqual(['Z', 'A']);
-      expect(groups.get('Z')?.map((p) => p.id)).toEqual([8, 3, 2, 1]);
+      expect(groups.get('Z')?.map((p) => p.id)).toEqual([1, 2, 3, 8]);
       expect(problems.map((p) => p.id)).toEqual([8, 3, 2, 1, 9]);
     }
   );
@@ -128,6 +131,18 @@ describe('domain/class/problems', () => {
   });
 
   describe('groupProblemsByTopic', () => {
+    it('orders topics by their minimum ID and problems by ID without mutating input', () => {
+      const problems: Problem[] = [
+        { id: 8, name: 'P8', topic: 'Z', createdAt: '2025-01-01T00:00:00Z' },
+        { id: 2, name: 'P2', topic: 'A', createdAt: '2026-01-01T00:00:00Z' },
+        { id: 1, name: 'P1', topic: 'Z', createdAt: '2026-01-01T00:00:00Z' },
+      ];
+      const groups = groupProblemsByTopic(problems);
+      expect([...groups.keys()]).toEqual(['Z', 'A']);
+      expect(groups.get('Z')?.map((p) => p.id)).toEqual([1, 8]);
+      expect(problems.map((p) => p.id)).toEqual([8, 2, 1]);
+    });
+
     it('groups problems by exact topic name', () => {
       const problems: Problem[] = [
         {

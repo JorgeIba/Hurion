@@ -146,8 +146,8 @@ func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]se
 	// Map data.Problem to Problem
 	problems := mapDataProblemsToServiceProblems(problemsData)
 
-	// Sort problems using helper!
-	helpers.SortProblemsByTopicAndDifficulty(problems)
+	// First appearance sets each topic's position by its lowest problem ID.
+	helpers.SortProblemsByID(problems)
 
 	// Group problems in map
 	topicMap := make(map[string][]service_model.Problem)
