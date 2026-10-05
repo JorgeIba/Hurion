@@ -104,9 +104,9 @@ describe('domain/class/scoreboard', () => {
   describe('computeAllProblemSolveStats', () => {
     it('computes solve statistics across all students accurately', () => {
       const problems: Problem[] = [
-        { id: 101, name: 'P1' },
-        { id: 102, name: 'P2' },
-        { id: 103, name: 'P3' },
+        { createdAt: '2026-10-04T00:00:00Z', id: 101, name: 'P1' },
+        { createdAt: '2026-10-04T00:00:00Z', id: 102, name: 'P2' },
+        { createdAt: '2026-10-04T00:00:00Z', id: 103, name: 'P3' },
       ];
       const users: UserScore[] = [
         { userId: 'u1', solved: [101, 102] },
@@ -134,7 +134,9 @@ describe('domain/class/scoreboard', () => {
     });
 
     it('deduplicates multiple solves of the same problem by the same student', () => {
-      const problems: Problem[] = [{ id: 101, name: 'P1' }];
+      const problems: Problem[] = [
+        { createdAt: '2026-10-04T00:00:00Z', id: 101, name: 'P1' },
+      ];
       const users: UserScore[] = [{ userId: 'u1', solved: [101, 101, 101] }];
 
       const statsMap = computeAllProblemSolveStats(problems, users);
@@ -142,7 +144,9 @@ describe('domain/class/scoreboard', () => {
     });
 
     it('handles zero students without division by zero or errors', () => {
-      const problems: Problem[] = [{ id: 101, name: 'P1' }];
+      const problems: Problem[] = [
+        { createdAt: '2026-10-04T00:00:00Z', id: 101, name: 'P1' },
+      ];
       const statsMap = computeAllProblemSolveStats(problems, []);
 
       expect(statsMap.get(101)).toEqual({
@@ -189,11 +193,11 @@ describe('domain/class/scoreboard', () => {
 
   describe('sortTopicGroupsByStudent', () => {
     const problems: Problem[] = [
-      { id: 1, name: 'P1', topic: 'DP' },
-      { id: 2, name: 'P2', topic: 'DP' },
-      { id: 3, name: 'P3', topic: 'Greedy' },
-      { id: 4, name: 'P4', topic: 'Greedy' },
-      { id: 5, name: 'P5', topic: 'Math' },
+      { createdAt: '2026-10-04T00:00:00Z', id: 1, name: 'P1', topic: 'DP' },
+      { createdAt: '2026-10-04T00:00:00Z', id: 2, name: 'P2', topic: 'DP' },
+      { createdAt: '2026-10-04T00:00:00Z', id: 3, name: 'P3', topic: 'Greedy' },
+      { createdAt: '2026-10-04T00:00:00Z', id: 4, name: 'P4', topic: 'Greedy' },
+      { createdAt: '2026-10-04T00:00:00Z', id: 5, name: 'P5', topic: 'Math' },
     ];
 
     const users: UserScore[] = [

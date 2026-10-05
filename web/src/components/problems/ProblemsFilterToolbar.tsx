@@ -1,12 +1,19 @@
 import {
   DifficultyFilter,
-  getProblemDifficultyMetadata,
   CLASS_LABELS,
+  PriorityFilter,
+  ProblemSort,
+  PRIORITY_ORDER,
 } from '@/domain/class';
+import { getProblemPriorityLabel } from '@/domain/class/problems';
 
 export interface ProblemsFilterToolbarProps {
   difficultyFilter: DifficultyFilter;
   onSelectDifficulty: (filter: DifficultyFilter) => void;
+  priorityFilter: PriorityFilter;
+  onSelectPriority: (filter: PriorityFilter) => void;
+  sortBy: ProblemSort;
+  onSelectSort: (sort: ProblemSort) => void;
   hasMultipleTopics: boolean;
   isAllCollapsed: boolean;
   onToggleAllTopics: () => void;
@@ -14,40 +21,21 @@ export interface ProblemsFilterToolbarProps {
   totalCount: number;
 }
 
-const DIFFICULTY_BUTTONS: {
-  id: DifficultyFilter;
-  label: string;
-  dotClassName?: string;
-}[] = [
-  { id: 'all', label: CLASS_LABELS.PROBLEMS_VIEW.FILTER_ALL },
-  {
-    id: 'easy',
-    label: CLASS_LABELS.DIFFICULTY.EASY,
-    dotClassName: getProblemDifficultyMetadata('easy').dotClassName,
-  },
-  {
-    id: 'medium',
-    label: CLASS_LABELS.DIFFICULTY.MEDIUM,
-    dotClassName: getProblemDifficultyMetadata('medium').dotClassName,
-  },
-  {
-    id: 'hard',
-    label: CLASS_LABELS.DIFFICULTY.HARD,
-    dotClassName: getProblemDifficultyMetadata('hard').dotClassName,
-  },
-];
-
 /**
  * ProblemsFilterToolbar Component
  *
  * Renders the top filter and action toolbar for the Problems Catalog:
- * - Difficulty filter pill group (All, Easy, Medium, Hard)
+ * - Difficulty and priority filters
  * - Global Expand All / Collapse All topics toggle
  * - Live problem count badge (Showing X of Y)
  */
 export function ProblemsFilterToolbar({
   difficultyFilter,
   onSelectDifficulty,
+  priorityFilter,
+  onSelectPriority,
+  sortBy,
+  onSelectSort,
   hasMultipleTopics,
   isAllCollapsed,
   onToggleAllTopics,
@@ -56,30 +44,53 @@ export function ProblemsFilterToolbar({
 }: ProblemsFilterToolbarProps) {
   return (
     <div className="problems-toolbar">
-      {/* Difficulty Filter Pills */}
-      <div
-        className="difficulty-filter-group"
-        role="group"
-        aria-label="Filter by difficulty"
-      >
-        {DIFFICULTY_BUTTONS.map((btn) => {
-          const isSelected = difficultyFilter === btn.id;
-          return (
-            <button
-              key={btn.id}
-              type="button"
-              className={`diff-filter-pill ${isSelected ? 'is-selected' : ''}`}
-              onClick={() => onSelectDifficulty(btn.id)}
-              aria-pressed={isSelected}
-            >
-              {btn.dotClassName && (
-                <span className={`diff-dot ${btn.dotClassName}`} aria-hidden="true" />
-              )}
-              <span>{btn.label}</span>
-            </button>
-          );
-        })}
+      <div className="problem-filter-controls">
+        <label
+          className={`problem-select-control problem-filter-select ${difficultyFilter !== 'all' ? 'is-active' : ''}`}
+        >
+          <span className="problem-control-label">Difficulty</span>
+          <select
+            value={difficultyFilter}
+            onChange={(event) =>
+              onSelectDifficulty(event.target.value as DifficultyFilter)
+            }
+          >
+            <option value="all">All difficulties</option>
+            <option value="easy">{CLASS_LABELS.DIFFICULTY.EASY}</option>
+            <option value="medium">{CLASS_LABELS.DIFFICULTY.MEDIUM}</option>
+            <option value="hard">{CLASS_LABELS.DIFFICULTY.HARD}</option>
+          </select>
+        </label>
+
+        <label
+          className={`problem-select-control problem-filter-select ${priorityFilter !== 'all' ? 'is-active' : ''}`}
+        >
+          <span className="problem-control-label">Priority</span>
+          <select
+            value={priorityFilter}
+            onChange={(event) => onSelectPriority(event.target.value as PriorityFilter)}
+          >
+            <option value="all">All priorities</option>
+            {PRIORITY_ORDER.map((code) => (
+              <option key={code ?? 'unset'} value={code ?? 'unset'}>
+                {getProblemPriorityLabel(code)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
+      <label className="problem-select-control problem-order-select">
+        <span className="problem-control-label">Order within topics</span>
+        <select
+          value={sortBy}
+          onChange={(event) => onSelectSort(event.target.value as ProblemSort)}
+        >
+          <option value="difficulty-easy-first">Difficulty · Easy first</option>
+          <option value="difficulty-hard-first">Difficulty · Hard first</option>
+          <option value="priority-essential-first">Priority · Essential first</option>
+          <option value="priority-discouraged-first">Priority · Discouraged first</option>
+        </select>
+      </label>
 
       {/* Right Actions: Expand/Collapse All + Count Badge */}
       <div className="toolbar-right-actions">
@@ -94,7 +105,12 @@ export function ProblemsFilterToolbar({
           </button>
         )}
 
-        <div className="problems-count-badge">
+        <div
+          className="problems-count-badge"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {CLASS_LABELS.PROBLEMS_VIEW.STATS_SHOWING}{' '}
           <span className="count-highlight">{showingCount}</span>{' '}
           {CLASS_LABELS.PROBLEMS_VIEW.STATS_OF} {totalCount}{' '}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,7 @@ import (
 func TestFormatScoreboard(t *testing.T) {
 	diff := "easy"
 	topic := "Arrays"
+	createdAt := time.Date(2026, 10, 4, 12, 30, 0, 0, time.FixedZone("offset", -6*60*60))
 	score := service_model.Score{
 		ProblemsByTopic: []service_model.ProblemsByTopic{
 			{
@@ -24,6 +26,7 @@ func TestFormatScoreboard(t *testing.T) {
 						URL:        "http://example.com/101",
 						Difficulty: &diff,
 						Topic:      &topic,
+						CreatedAt:  createdAt,
 					},
 				},
 			},
@@ -56,6 +59,8 @@ func TestFormatScoreboard(t *testing.T) {
 	assert.Equal(t, int64(101), result.Problems[0].ID)
 	assert.Equal(t, "Two Sum", result.Problems[0].Name)
 	assert.Equal(t, &diff, result.Problems[0].Difficulty)
+	assert.Equal(t, createdAt.UTC(), result.Problems[0].CreatedAt)
+	assert.Contains(t, string(data), `"createdAt": "2026-10-04T18:30:00Z"`)
 
 	require.Len(t, result.Users, 1)
 	assert.Equal(t, "u123", result.Users[0].UserID)

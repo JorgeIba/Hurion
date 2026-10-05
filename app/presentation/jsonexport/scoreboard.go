@@ -3,6 +3,7 @@ package jsonexport
 import (
 	"encoding/json"
 	"slices"
+	"time"
 
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
@@ -15,12 +16,13 @@ type ScoreboardJSON struct {
 }
 
 type JSONProblem struct {
-	ID         int64   `json:"id"`
-	Name       string  `json:"name"`
-	URL        string  `json:"url"`
-	Difficulty *string `json:"difficulty"`
-	Priority   *string `json:"priority"`
-	Topic      string  `json:"topic"`
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	URL        string    `json:"url"`
+	Difficulty *string   `json:"difficulty"`
+	Priority   *string   `json:"priority"`
+	Topic      string    `json:"topic"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 type JSONUserScore struct {
@@ -42,6 +44,7 @@ func FormatScoreboard(classCode, className string, score service_model.Score) ([
 				Difficulty: p.Difficulty,
 				Priority:   p.Priority,
 				Topic:      p.GetTopic(),
+				CreatedAt:  p.CreatedAt.UTC(),
 			})
 		}
 	}

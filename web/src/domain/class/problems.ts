@@ -3,8 +3,67 @@ import {
   ProblemDifficulty,
   DifficultyFilter,
   ProblemDifficultyMetadata,
+  PriorityFilter,
+  ProblemSort,
 } from './types';
 import { CLASS_CONFIG, CLASS_LABELS } from './constants';
+
+export const PRIORITY_ORDER = [
+  'essential',
+  'recommended',
+  'supplementary',
+  'not_required',
+  'discouraged',
+  null, // Unset priority stays last in either sort direction
+] as const;
+
+type SortField = 'difficulty' | 'priority';
+type SortConfig = { field: SortField; direction: 1 | -1 };
+
+const SORT_CONFIG = {
+  'difficulty-easy-first': { field: 'difficulty', direction: 1 },
+  'difficulty-hard-first': { field: 'difficulty', direction: -1 },
+  'priority-essential-first': { field: 'priority', direction: 1 },
+  'priority-discouraged-first': { field: 'priority', direction: -1 },
+} satisfies Record<ProblemSort, SortConfig>;
+
+const DIFFICULTY_ORDER: Exclude<ProblemDifficulty, 'unspecified'>[] = [
+  'easy',
+  'medium',
+  'hard',
+];
+
+function getProblemSortRank(problem: Problem, field: SortField): number | null {
+  if (field === 'difficulty') {
+    const difficulty = parseDifficulty(problem.difficulty);
+    return difficulty === 'unspecified' ? null : DIFFICULTY_ORDER.indexOf(difficulty);
+  }
+
+  const priority = problem.priority ?? null;
+  if (priority === null) return null;
+
+  const index = PRIORITY_ORDER.findIndex((code) => code === priority);
+  return index < 0 ? null : index;
+}
+
+export function compareProblems(a: Problem, b: Problem, sortBy: ProblemSort): number {
+  const { field, direction } = SORT_CONFIG[sortBy];
+  const rankA = getProblemSortRank(a, field);
+  const rankB = getProblemSortRank(b, field);
+
+  const rankComparison =
+    rankA === null
+      ? rankB === null
+        ? 0
+        : 1
+      : rankB === null
+        ? -1
+        : (rankA - rankB) * direction;
+
+  return (
+    rankComparison || Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id - b.id
+  );
+}
 
 /**
  * Preserves the exact topic identifier string (e.g. "Algoritmo_de_Eppstein").
@@ -110,13 +169,21 @@ export function getProblemPriorityLabel(priority?: string | null): string {
 export function filterProblems(
   problems: Problem[] = [],
   query: string = '',
-  difficultyFilter: DifficultyFilter = 'all'
+  difficultyFilter: DifficultyFilter = 'all',
+  priorityFilter: PriorityFilter = 'all'
 ): Problem[] {
   const safeProblems = problems || [];
   const cleanQuery = (typeof query === 'string' ? query : '').trim().toLowerCase();
 
   return safeProblems.filter((p) => {
     if (!p) return false;
+    if (
+      priorityFilter === 'unset'
+        ? p.priority != null
+        : priorityFilter !== 'all' && p.priority !== priorityFilter
+    ) {
+      return false;
+    }
 
     // 1. Difficulty filter match
     if (difficultyFilter !== 'all') {
