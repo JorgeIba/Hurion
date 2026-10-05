@@ -32,22 +32,32 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [sortBy, setSortBy] = useState<ProblemSort>('difficulty-easy-first');
 
-  // 1. Filter problems by active difficulty selection
-  const filteredProblems = useMemo(() => {
-    return filterProblems(problems, '', difficultyFilter, priorityFilter);
-  }, [problems, difficultyFilter, priorityFilter]);
-
-  // 2. Group filtered problems by their topic categories
+  // Establish topic order before filtering out each topic's earliest problems.
   const topicGroups = useMemo(() => {
-    const groups = groupProblemsByTopic(filteredProblems);
+    const groups = groupProblemsByTopic(problems);
     for (const [topic, entries] of groups) {
+      const visibleProblems = filterProblems(
+        entries,
+        '',
+        difficultyFilter,
+        priorityFilter
+      );
+      if (visibleProblems.length === 0) {
+        groups.delete(topic);
+        continue;
+      }
       groups.set(
         topic,
-        [...entries].sort((a, b) => compareProblems(a, b, sortBy))
+        visibleProblems.sort((a, b) => compareProblems(a, b, sortBy))
       );
     }
     return groups;
-  }, [filteredProblems, sortBy]);
+  }, [problems, difficultyFilter, priorityFilter, sortBy]);
+
+  const showingCount = Array.from(topicGroups.values()).reduce(
+    (count, entries) => count + entries.length,
+    0
+  );
 
   // 3. Batched single-pass solve statistics lookup map: O(U*S + P)
   const problemStatsMap: Map<number, ProblemSolveStats> = useMemo(() => {
@@ -88,7 +98,7 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
         hasMultipleTopics={allTopics.length > 1}
         isAllCollapsed={allCollapsed}
         onToggleAllTopics={handleToggleAll}
-        showingCount={filteredProblems.length}
+        showingCount={showingCount}
         totalCount={problems.length}
       />
 
@@ -98,7 +108,7 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
           <div className="state-row">
             <p>{CLASS_LABELS.NO_PROBLEMS}</p>
           </div>
-        ) : filteredProblems.length === 0 ? (
+        ) : showingCount === 0 ? (
           <div className="state-row empty-search-state">
             <p>{CLASS_LABELS.PROBLEMS_VIEW.EMPTY_SEARCH}</p>
             <button

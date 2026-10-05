@@ -7,37 +7,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetDifficultyOrder(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, 1, GetDifficultyOrder(new("easy")))
-	assert.Equal(t, 2, GetDifficultyOrder(new("medium")))
-	assert.Equal(t, 3, GetDifficultyOrder(new("hard")))
-	assert.Equal(t, 4, GetDifficultyOrder(nil))
-	assert.Equal(t, 4, GetDifficultyOrder(new("Unknown")))
-}
-
-func TestSortProblemsByTopicAndDifficulty(t *testing.T) {
+func TestSortProblemsByID(t *testing.T) {
 	t.Parallel()
 
 	problems := []service_model.Problem{
-		{ID: 1, Topic: new("Strings"), Difficulty: new("medium")},
-		{ID: 2, Topic: new("Arrays"), Difficulty: new("hard")},
-		{ID: 3, Topic: new("Arrays"), Difficulty: new("easy")},
 		{ID: 4, Topic: new("Strings"), Difficulty: new("easy")},
+		{ID: 2, Topic: new("Arrays"), Difficulty: new("hard")},
+		{ID: 3, Topic: new("Arrays")},
+		{ID: 1, Topic: new("Strings"), Difficulty: new("medium")},
 	}
 
-	SortProblemsByTopicAndDifficulty(problems)
+	SortProblemsByID(problems)
 
-	// Order should be:
-	// 1. Arrays, Easy (ID 3)
-	// 2. Arrays, Hard (ID 2)
-	// 3. Strings, Easy (ID 4)
-	// 4. Strings, Medium (ID 1)
-	assert.Equal(t, int64(3), problems[0].ID)
+	assert.Equal(t, int64(1), problems[0].ID)
 	assert.Equal(t, int64(2), problems[1].ID)
-	assert.Equal(t, int64(4), problems[2].ID)
-	assert.Equal(t, int64(1), problems[3].ID)
+	assert.Equal(t, int64(3), problems[2].ID)
+	assert.Equal(t, int64(4), problems[3].ID)
 }
 
 func TestSortScore(t *testing.T) {

@@ -60,9 +60,7 @@ export function compareProblems(a: Problem, b: Problem, sortBy: ProblemSort): nu
         ? -1
         : (rankA - rankB) * direction;
 
-  return (
-    rankComparison || Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id - b.id
-  );
+  return rankComparison || a.id - b.id;
 }
 
 /**
@@ -76,13 +74,13 @@ export function formatTopicTitle(rawTopic?: string): string {
 
 /**
  * Groups problems into a Map keyed by topic section name.
- * Preserves the exact topic identifier string and sequence.
+ * Orders topics by their lowest problem ID, and problems by ID within each topic.
  */
 export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Problem[]> {
   const groups = new Map<string, Problem[]>();
 
-  (problems || []).forEach((p) => {
-    if (!p) return;
+  const orderedProblems = (problems || []).filter(Boolean).sort((a, b) => a.id - b.id);
+  orderedProblems.forEach((p) => {
     const rawTopic = formatTopicTitle(p.topic);
     if (!groups.has(rawTopic)) {
       groups.set(rawTopic, []);

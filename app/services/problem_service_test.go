@@ -301,21 +301,25 @@ func TestProblemService_GetProblemsGroupedByTopic(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().GetProblemsByClass(int64(10)).Return([]data.Problem{
-					{ID: 1, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("1")},
-					{ID: 2, Topic: helpers.PtrStr("Math"), Difficulty: helpers.PtrStr("2")},
-					{ID: 3, Topic: helpers.PtrStr("Strings"), Difficulty: helpers.PtrStr("1")},
+					{ID: 4, Topic: helpers.PtrStr("Strings"), Difficulty: new("easy")},
+					{ID: 2, Topic: helpers.PtrStr("Math")},
+					{ID: 3},
+					{ID: 1, Topic: helpers.PtrStr("Strings"), Difficulty: new("hard")},
 				}, nil)
 			},
 			assertFunc: func(t *testing.T, res []service_model.ProblemsByTopic, err error) {
 				assert.NoError(t, err)
-				assert.Len(t, res, 2)
-				assert.Equal(t, "Math", res[0].Topic)
+				assert.Len(t, res, 3)
+				assert.Equal(t, "Strings", res[0].Topic)
 				assert.Len(t, res[0].Problems, 2)
 				assert.Equal(t, int64(1), res[0].Problems[0].ID)
-				assert.Equal(t, int64(2), res[0].Problems[1].ID)
-				assert.Equal(t, "Strings", res[1].Topic)
+				assert.Equal(t, int64(4), res[0].Problems[1].ID)
+				assert.Equal(t, "Math", res[1].Topic)
 				assert.Len(t, res[1].Problems, 1)
-				assert.Equal(t, int64(3), res[1].Problems[0].ID)
+				assert.Equal(t, int64(2), res[1].Problems[0].ID)
+				assert.Equal(t, service_model.DefaultTopic, res[2].Topic)
+				assert.Len(t, res[2].Problems, 1)
+				assert.Equal(t, int64(3), res[2].Problems[0].ID)
 			},
 		},
 		{

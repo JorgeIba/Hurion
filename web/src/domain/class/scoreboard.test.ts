@@ -209,7 +209,7 @@ describe('domain/class/scoreboard', () => {
 
     it('returns default topic order when sortState is null or inactive', () => {
       const nullState: SortState = { userId: null, direction: null };
-      const groups = sortTopicGroupsByStudent(problems, users, nullState);
+      const groups = sortTopicGroupsByStudent([...problems].reverse(), users, nullState);
       expect(Array.from(groups.keys())).toEqual(['DP', 'Greedy', 'Math']);
       expect(groups.get('DP')?.map((p) => p.id)).toEqual([1, 2]);
     });
