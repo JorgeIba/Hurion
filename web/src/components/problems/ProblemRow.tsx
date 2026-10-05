@@ -5,6 +5,7 @@ import {
   getProblemDifficultyMetadata,
   CLASS_CONFIG,
 } from '@/domain/class';
+import { PriorityLabel } from './PriorityLabel';
 
 export interface ProblemRowProps {
   problem: Problem;
@@ -51,25 +52,27 @@ export const ProblemRow = memo(function ProblemRow({
         </span>
       </div>
 
-      {/* Col 2: Problem Name / Link */}
-      {cleanUrl ? (
-        <a
-          href={cleanUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="problem-list-title-link"
-          title={`Open ${problemTitle} in new tab`}
-        >
-          <span className="problem-list-title-text">{problemTitle}</span>
-          <span className="external-link-icon" aria-hidden="true">
-            ↗
-          </span>
-        </a>
-      ) : (
-        <div className="problem-list-title-plain">
-          <span className="problem-list-title-text">{problemTitle}</span>
-        </div>
-      )}
+      <div className="problem-list-details">
+        {cleanUrl ? (
+          <a
+            href={cleanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="problem-list-title-link"
+            title={`Open ${problemTitle} in new tab`}
+          >
+            <span className="problem-list-title-text">{problemTitle}</span>
+            <span className="external-link-icon" aria-hidden="true">
+              ↗
+            </span>
+          </a>
+        ) : (
+          <div className="problem-list-title-plain">
+            <span className="problem-list-title-text">{problemTitle}</span>
+          </div>
+        )}
+        <PriorityLabel priority={problem.priority} />
+      </div>
 
       {/* Col 3: Class Solves Micro-Progress Pill */}
       <div

@@ -2,12 +2,13 @@ package excelizer
 
 import (
 	"github.com/JorgeIba/Hurion/app/customerr/presentationerr"
+	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/xuri/excelize/v2"
 )
 
 func writeProblemsData(f *excelize.File, sheetName string, problemsByTopic []ProblemsByTopic) error {
 	// Write headers in row 1
-	headers := []string{"ID", "Name", "URL", "Difficulty"}
+	headers := []string{"ID", "Name", "URL", "Difficulty", "Priority"}
 	for i, header := range headers {
 		cell := makeCellRef(i, HeaderRow)
 		f.SetCellValue(sheetName, cell, header)
@@ -21,8 +22,7 @@ func writeProblemsData(f *excelize.File, sheetName string, problemsByTopic []Pro
 		topicCell := makeCellRef(0, currentRow)
 		f.SetCellValue(sheetName, topicCell, topicGroup.Topic)
 
-		// Merge cells from A to D for this row
-		f.MergeCell(sheetName, makeCellRef(0, currentRow), makeCellRef(3, currentRow))
+		f.MergeCell(sheetName, makeCellRef(0, currentRow), makeCellRef(len(headers)-1, currentRow))
 
 		currentRow++
 
@@ -44,6 +44,9 @@ func writeProblemsData(f *excelize.File, sheetName string, problemsByTopic []Pro
 			// Column D: Difficulty (empty, will be colored)
 			cellDifficulty := makeCellRef(3, currentRow)
 			f.SetCellValue(sheetName, cellDifficulty, "")
+
+			// Priority stays independent of difficulty colors.
+			f.SetCellValue(sheetName, makeCellRef(4, currentRow), presentation.PriorityLabel(problem.Priority))
 
 			currentRow++
 		}

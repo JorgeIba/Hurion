@@ -85,6 +85,25 @@ export function getProblemDifficultyMetadata(
   return DIFFICULTY_METADATA_MAP[tier];
 }
 
+/** Preserves unknown codes; null/undefined mean no assigned priority. */
+export function getProblemPriorityLabel(priority?: string | null): string {
+  if (priority == null) return 'No priority assigned';
+  switch (priority) {
+    case 'essential':
+      return 'Essential';
+    case 'recommended':
+      return 'Recommended';
+    case 'supplementary':
+      return 'Supplementary';
+    case 'not_required':
+      return 'Not required';
+    case 'discouraged':
+      return 'Discouraged';
+    default:
+      return priority;
+  }
+}
+
 /**
  * Filters problem catalog by search query (matching name, numeric ID, or topic) and difficulty level.
  */

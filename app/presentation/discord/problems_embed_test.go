@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/bwmarrin/discordgo"
@@ -39,6 +40,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 							Name:       "Two Sum",
 							URL:        "https://leetcode.com/problems/two-sum",
 							Difficulty: new("easy"),
+							Priority:   new("recommended"),
 						},
 					},
 				},
@@ -50,6 +52,8 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				assert.Contains(t, res[0].Fields[0].Value, "**Arrays**")
 				assert.Contains(t, res[0].Fields[0].Value, "1")
 				assert.Contains(t, res[0].Fields[1].Value, "🟩")
+				assert.Equal(t, "Difficulty / Priority", res[0].Fields[1].Name)
+				assert.Contains(t, res[0].Fields[1].Value, "Recommended")
 				assert.Contains(t, res[0].Fields[2].Value, "[Two Sum](https://leetcode.com/problems/two-sum)")
 			},
 		},
@@ -76,6 +80,7 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 				assert.Contains(t, res[0].Fields[0].Value, "**Strings**")
 				assert.Contains(t, res[0].Fields[1].Value, "🟩")
 				assert.Contains(t, res[0].Fields[1].Value, "🟨")
+				assert.Contains(t, res[0].Fields[1].Value, "No priority assigned")
 			},
 		},
 		{
@@ -143,6 +148,51 @@ func TestFormatProblemsAsEmbeds(t *testing.T) {
 			if tt.assertFunc != nil {
 				tt.assertFunc(t, res)
 			}
+		})
+	}
+}
+
+func TestFormatProblemsAsEmbeds_OversizePriority(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		priority string
+	}{
+		{name: "ASCII", priority: strings.Repeat("A", 1500)},
+		{name: "emoji", priority: strings.Repeat("😀", 750)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			problems := []presentation.ProblemsByTopic{{
+				Topic: "Arrays",
+				Problems: []presentation.Problem{
+					{ID: 1, Name: "Before", URL: "url1"},
+					{ID: 2, Name: "Oversized", URL: "url2", Difficulty: new("easy"), Priority: &tt.priority},
+					{ID: 3, Name: "After", URL: "url3"},
+				},
+			}}
+			embeds := FormatProblemsAsEmbeds("CS101", problems)
+			if !assert.Len(t, embeds, 3) {
+				return
+			}
+			for i, embed := range embeds {
+				if !assert.Len(t, embed.Fields, 3) {
+					continue
+				}
+				for _, field := range embed.Fields {
+					assert.LessOrEqual(t, utf16Count(field.Value), maxFieldLength)
+					assert.True(t, utf8.ValidString(field.Value))
+				}
+				assert.Equal(t, fmt.Sprintf("**Arrays**\n%d", i+1), embed.Fields[0].Value)
+				assert.Equal(t, fmt.Sprintf("\u200b\n[%s](%s)", problems[0].Problems[i].Name, problems[0].Problems[i].URL), embed.Fields[2].Value)
+			}
+			metadata := embeds[1].Fields[1].Value
+			assert.True(t, strings.HasPrefix(metadata, "\u200b\n🟩 / "))
+			assert.True(t, strings.HasSuffix(metadata, "…"))
+			assert.NotContains(t, metadata, "�")
+			assert.Contains(t, embeds[0].Fields[1].Value, "No priority assigned")
+			assert.Contains(t, embeds[2].Fields[1].Value, "No priority assigned")
 		})
 	}
 }

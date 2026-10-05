@@ -77,7 +77,9 @@ Mentor create and update commands take priority as a positional argument, like d
 1. **Contract and models:** define the canonical priority values, optional representation, and model fields for priority and creation time; review this contract before proceeding to persistence.
 2. **Persistence and commands:** add SQLite fields and data access, generate `created_at` in SQLite, carry priority through service mappings, and accept a positional priority code with `-` for no priority in create/edit commands.
 3. **Code/presentation separation:** centralize difficulty and priority parsing, keep optional canonical codes through adapters and JSON, and move difficulty labels out of data/service models. Review this independently before adding priority presentation.
-4. **Presentation and sorting:** display priority in problem lists, score views, web, images, and Excel exports; add priority sorting with timestamp and ID tie-breaks.
+4. **Presentation and sorting**, split into separate reviews:
+   * **Priority display:** use general English labels in problem lists, score views, web, images, and Excel exports. Display absence as “No priority assigned.” Keep all existing ordering, colors, ACs, and totals unchanged; class-specific symbols are not part of this step.
+   * **Priority sorting:** add the web sorting option and export creation timestamps for timestamp and ID tie-breaks, preserving topic grouping.
 5. **Class overrides:** add general display defaults and optional class-specific label, explanation, and symbol overrides; configure the advanced class.
 
 Keep the stages independently reviewable. Do not combine the stages into a broad refactor.

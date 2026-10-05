@@ -43,7 +43,7 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 				Title: title,
 				Fields: []*discordgo.MessageEmbedField{
 					{Name: "ID", Value: idColumn, Inline: true},
-					{Name: "Difficulty", Value: difficultyColumn, Inline: true},
+					{Name: "Difficulty / Priority", Value: difficultyColumn, Inline: true},
 					{Name: "Name", Value: nameColumn, Inline: true},
 				},
 			})
@@ -91,14 +91,15 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 
 		// Add problems in this topic
 		for _, problem := range group.Problems {
-			difficultyEmoji := GetDifficultyEmoji(problem.Difficulty)
+			metadata := fmt.Sprintf("%s / %s", GetDifficultyEmoji(problem.Difficulty), presentation.PriorityLabel(problem.Priority))
 
 			// Build what we want to add for problem
 			pAddID := fmt.Sprintf("\n%d", problem.ID)
-			pAddDiff := fmt.Sprintf("\n%s", difficultyEmoji)
+			pAddDiff := fmt.Sprintf("\n%s", metadata)
 			pAddName := fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
 
 			// Truncate to avoid exceeding max field length individually
+			pAddDiff = truncateProblemMetadata(pAddDiff)
 			pAddName = truncateProblemName(problem.Name, pAddName)
 
 			// Check if adding this problem would exceed limit
@@ -115,6 +116,25 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 	flushPage()
 
 	return embeds
+}
+
+// truncateProblemMetadata leaves room for the topic header without splitting Unicode runes.
+func truncateProblemMetadata(row string) string {
+	safeMax := maxFieldLength - truncationSafetyMargin
+	if utf16Count(row) <= safeMax {
+		return row
+	}
+
+	const ellipsis = "…"
+	prefixLimit := safeMax - utf16Count(ellipsis)
+	units := 0
+	for i, r := range row {
+		units += utf16.RuneLen(r)
+		if units > prefixLimit {
+			return row[:i] + ellipsis
+		}
+	}
+	return row
 }
 
 // truncateProblemName ensures that the formatted problem row does not exceed the safe maximum field length.
