@@ -3,6 +3,7 @@ package discord
 import (
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
@@ -53,13 +54,11 @@ func MapEditProblemModalToUpdateProblemParams(modal EditProblemModal, problemID,
 	}
 }
 
-// mapProblemValuesToModalFields preserves supplied strings for prefill or correction.
+// mapProblemValuesToModalFields formats canonical difficulty codes for display
+// while preserving other supplied text for prefill or correction.
 func mapProblemValuesToModalFields(name, url string, difficulty, topic *string) ProblemModalFields {
 	fields := ProblemModalFields{
-		Name: name, URL: url, Difficulty: service_model.DifficultyDefault,
-	}
-	if difficulty != nil {
-		fields.Difficulty = *difficulty
+		Name: name, URL: url, Difficulty: presentation.DifficultyLabel(difficulty),
 	}
 	if topic != nil {
 		fields.Topic = *topic
@@ -68,7 +67,7 @@ func mapProblemValuesToModalFields(name, url string, difficulty, topic *string) 
 }
 
 func mapModalDifficultyToOptionalValue(value string) *string {
-	if strings.EqualFold(strings.TrimSpace(value), service_model.DifficultyDefault) {
+	if strings.EqualFold(strings.TrimSpace(value), presentation.DifficultyUnspecifiedLabel) {
 		return nil
 	}
 	return mapModalTextToOptionalValue(value)

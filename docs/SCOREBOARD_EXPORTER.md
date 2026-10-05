@@ -87,7 +87,8 @@ Exported files (`<class_code>_score.json`) follow this JSON schema:
       "id": 101,
       "name": "Two Sum",
       "url": "https://leetcode.com/problems/two-sum",
-      "difficulty": "Easy",
+      "difficulty": "easy",
+      "priority": "recommended",
       "topic": "Arrays"
     }
   ],
@@ -101,6 +102,8 @@ Exported files (`<class_code>_score.json`) follow this JSON schema:
   ]
 }
 ```
+
+`difficulty` and `priority` contain canonical codes, or `null` when unassigned. Display labels belong to the frontend.
 
 ---
 

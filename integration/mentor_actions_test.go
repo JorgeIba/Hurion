@@ -130,7 +130,7 @@ func TestIntegration_Mentor_UpdateProblem(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "New Name", updatedProblem.Name)
 	assert.Equal(t, class2ID, updatedProblem.ClassID)
-	assert.Equal(t, "Hard", *updatedProblem.Difficulty)
+	assert.Equal(t, "hard", *updatedProblem.Difficulty)
 	assert.Equal(t, "Graphs", *updatedProblem.Topic)
 	assert.NotNil(t, updatedProblem.Priority)
 	assert.Equal(t, "recommended", *updatedProblem.Priority)

@@ -10,21 +10,21 @@ import (
 func TestGetDifficultyOrder(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, 1, GetDifficultyOrder("Easy"))
-	assert.Equal(t, 2, GetDifficultyOrder("Medium"))
-	assert.Equal(t, 3, GetDifficultyOrder("Hard"))
-	assert.Equal(t, 4, GetDifficultyOrder(service_model.DifficultyDefault))
-	assert.Equal(t, 4, GetDifficultyOrder("Unknown"))
+	assert.Equal(t, 1, GetDifficultyOrder(new("easy")))
+	assert.Equal(t, 2, GetDifficultyOrder(new("medium")))
+	assert.Equal(t, 3, GetDifficultyOrder(new("hard")))
+	assert.Equal(t, 4, GetDifficultyOrder(nil))
+	assert.Equal(t, 4, GetDifficultyOrder(new("Unknown")))
 }
 
 func TestSortProblemsByTopicAndDifficulty(t *testing.T) {
 	t.Parallel()
 
 	problems := []service_model.Problem{
-		{ID: 1, Topic: ptrStr("Strings"), Difficulty: ptrStr("Medium")},
-		{ID: 2, Topic: ptrStr("Arrays"), Difficulty: ptrStr("Hard")},
-		{ID: 3, Topic: ptrStr("Arrays"), Difficulty: ptrStr("Easy")},
-		{ID: 4, Topic: ptrStr("Strings"), Difficulty: ptrStr("Easy")},
+		{ID: 1, Topic: new("Strings"), Difficulty: new("medium")},
+		{ID: 2, Topic: new("Arrays"), Difficulty: new("hard")},
+		{ID: 3, Topic: new("Arrays"), Difficulty: new("easy")},
+		{ID: 4, Topic: new("Strings"), Difficulty: new("easy")},
 	}
 
 	SortProblemsByTopicAndDifficulty(problems)
@@ -55,5 +55,3 @@ func TestSortScore(t *testing.T) {
 	assert.Equal(t, "u1", userScores[1].User.UserID)
 	assert.Equal(t, "u3", userScores[2].User.UserID)
 }
-
-func ptrStr(s string) *string { return &s }

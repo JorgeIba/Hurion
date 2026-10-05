@@ -41,7 +41,7 @@ func TestScoreboardExportOnDbHook(t *testing.T) {
 
 	probName := "Two Sum"
 	probURL := "https://leetcode.com/problems/two-sum"
-	probDifficulty := "Easy"
+	probDifficulty := "easy"
 	probTopic := "Arrays"
 	probID := env.seedProblem(t, probName, probURL, classID, probDifficulty, probTopic)
 
@@ -87,7 +87,7 @@ func TestScoreboardExportOnDbHook(t *testing.T) {
 	assert.Equal(t, probID, scoreboard.Problems[0].ID)
 	assert.Equal(t, probName, scoreboard.Problems[0].Name)
 	assert.Equal(t, probURL, scoreboard.Problems[0].URL)
-	assert.Equal(t, probDifficulty, scoreboard.Problems[0].Difficulty)
+	assert.Equal(t, &probDifficulty, scoreboard.Problems[0].Difficulty)
 	assert.Equal(t, probTopic, scoreboard.Problems[0].Topic)
 
 	// Assert correct user mapping and solve list

@@ -29,6 +29,10 @@ Add a nullable `priority` field to problems. Store one of these stable codes:
 
 An absent priority is represented by SQL `NULL` and by an absent optional value in Go. It means no priority has been assigned; it is not another priority code. Do not store `unassigned`, an empty string, or a separate `unreviewed` state for the same condition. Difficulty remains a separate optional field.
 
+Difficulty follows the same contract: its canonical codes are `easy`, `medium`, and `hard`, with `NULL` for absence. Both fields remain `*string` in Go. Canonical codes and their case-insensitive parsers belong to `service_model`; the data layer stores the supplied optional strings without adding labels or defaults. Command handlers interpret `-` as absence before parsing a code.
+
+Presentation alone supplies labels such as “Hard” or “Not specified.” Scoreboard JSON exports the original codes or explicit `null` for both fields; changing a label must not affect persistence, validation, colors, or sorting. Existing difficulty colors and ordering remain unchanged. The fresh-database rollout also applies to this lowercase difficulty contract; no conversion of existing stored values is included.
+
 Store priority as nullable `TEXT` without a database `CHECK` constraint, following the existing difficulty field. The mentor command handlers validate priority codes at the application boundary; other writers must apply the same validation.
 
 These codes describe priority categories. They do not change AC values, student scores, or leaderboard calculations. Their fixed category order is used only for problem-list sorting.
@@ -72,7 +76,8 @@ Mentor create and update commands take priority as a positional argument, like d
 
 1. **Contract and models:** define the canonical priority values, optional representation, and model fields for priority and creation time; review this contract before proceeding to persistence.
 2. **Persistence and commands:** add SQLite fields and data access, generate `created_at` in SQLite, carry priority through service mappings, and accept a positional priority code with `-` for no priority in create/edit commands.
-3. **Presentation and sorting:** display priority in problem lists, score views, web, images, and Excel exports; add priority sorting with timestamp and ID tie-breaks.
-4. **Class overrides:** add general display defaults and optional class-specific label, explanation, and symbol overrides; configure the advanced class.
+3. **Code/presentation separation:** centralize difficulty and priority parsing, keep optional canonical codes through adapters and JSON, and move difficulty labels out of data/service models. Review this independently before adding priority presentation.
+4. **Presentation and sorting:** display priority in problem lists, score views, web, images, and Excel exports; add priority sorting with timestamp and ID tie-breaks.
+5. **Class overrides:** add general display defaults and optional class-specific label, explanation, and symbol overrides; configure the advanced class.
 
 Keep the stages independently reviewable. Do not combine the stages into a broad refactor.

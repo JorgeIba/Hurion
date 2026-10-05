@@ -328,7 +328,7 @@ func TestHandleAddProblem(t *testing.T) {
 				m.EXPECT().AddProblem(gomock.Any()).DoAndReturn(func(p data.Problem) (int64, error) {
 					assert.Equal(t, "Two Sum", p.Name)
 					if assert.NotNil(t, p.Difficulty) {
-						assert.Equal(t, "Easy", *p.Difficulty)
+						assert.Equal(t, "easy", *p.Difficulty)
 					}
 					if assert.NotNil(t, p.Priority) {
 						assert.Equal(t, "recommended", *p.Priority)
@@ -897,7 +897,7 @@ func TestParseDifficulty(t *testing.T) {
 		wantError      bool
 	}{
 		{name: "dash leaves difficulty unset", input: "-"},
-		{name: "difficulty is normalized to canonical form", input: "MeDiUm", wantDifficulty: "Medium"},
+		{name: "difficulty is normalized to canonical form", input: "MeDiUm", wantDifficulty: "medium"},
 		{name: "unknown difficulty rejected", input: "expert", wantError: true},
 	}
 

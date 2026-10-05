@@ -1,6 +1,8 @@
 package service_model
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -134,16 +136,13 @@ type ClassScore struct {
 	Score     Score
 }
 
+// Difficulty and priority codes are stable data, not display labels.
+// An unassigned value is represented by nil in problem fields, not another code.
 const (
-	DifficultyEasy    = "Easy"
-	DifficultyMedium  = "Medium"
-	DifficultyHard    = "Hard"
-	DifficultyDefault = "Not specified"
-	DefaultTopic      = "General"
-)
+	DifficultyEasy   = "easy"
+	DifficultyMedium = "medium"
+	DifficultyHard   = "hard"
 
-// Priority codes are stable across classes; labels and symbols belong to presentation.
-const (
 	PriorityEssential     = "essential"
 	PriorityRecommended   = "recommended"
 	PrioritySupplementary = "supplementary"
@@ -151,12 +150,34 @@ const (
 	PriorityDiscouraged   = "discouraged"
 )
 
-func (p *Problem) GetDifficulty() string {
-	if p.Difficulty == nil {
-		return DifficultyDefault
-	}
-	return *p.Difficulty
+// ParseDifficulty normalizes input and validates it against canonical difficulty codes.
+func ParseDifficulty(input string) (string, error) {
+	return parseProblemCode(input, "difficulty", []string{
+		DifficultyEasy, DifficultyMedium, DifficultyHard,
+	})
 }
+
+// ParsePriority normalizes input and validates it against canonical priority codes.
+func ParsePriority(input string) (string, error) {
+	return parseProblemCode(input, "priority", []string{
+		PriorityEssential, PriorityRecommended, PrioritySupplementary,
+		PriorityNotRequired, PriorityDiscouraged,
+	})
+}
+
+func parseProblemCode(input, field string, validCodes []string) (string, error) {
+	code := strings.ToLower(strings.TrimSpace(input))
+	for _, valid := range validCodes {
+		if code == valid {
+			return code, nil
+		}
+	}
+	return "", fmt.Errorf("invalid %s '%s'. Valid options: %s", field, input, strings.Join(validCodes, ", "))
+}
+
+const (
+	DefaultTopic = "General"
+)
 
 func (p *Problem) GetTopic() string {
 	if p.Topic == nil {

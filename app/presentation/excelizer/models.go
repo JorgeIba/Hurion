@@ -9,7 +9,7 @@ type Problem struct {
 	ID         int64
 	Name       string
 	URL        string
-	Difficulty string
+	Difficulty *string
 	Topic      string
 }
 

@@ -11,7 +11,7 @@ import (
 )
 
 func TestFormatScoreboard(t *testing.T) {
-	diff := "Easy"
+	diff := "easy"
 	topic := "Arrays"
 	score := service_model.Score{
 		ProblemsByTopic: []service_model.ProblemsByTopic{
@@ -55,7 +55,7 @@ func TestFormatScoreboard(t *testing.T) {
 	require.Len(t, result.Problems, 1)
 	assert.Equal(t, int64(101), result.Problems[0].ID)
 	assert.Equal(t, "Two Sum", result.Problems[0].Name)
-	assert.Equal(t, "Easy", result.Problems[0].Difficulty)
+	assert.Equal(t, &diff, result.Problems[0].Difficulty)
 
 	require.Len(t, result.Users, 1)
 	assert.Equal(t, "u123", result.Users[0].UserID)

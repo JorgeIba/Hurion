@@ -8,18 +8,12 @@ type CellMetadata struct {
 	IsTotal       bool // True if this cell is part of the totals row
 }
 
-const (
-	DifficultyEasy   = "Easy"
-	DifficultyMedium = "Medium"
-	DifficultyHard   = "Hard"
-)
-
 // Problem represents a problem in the presentation layer
 type Problem struct {
 	ID         int64
 	Name       string
 	URL        string
-	Difficulty string
+	Difficulty *string
 	Topic      string
 }
 

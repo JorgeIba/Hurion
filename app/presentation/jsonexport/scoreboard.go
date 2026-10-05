@@ -15,11 +15,12 @@ type ScoreboardJSON struct {
 }
 
 type JSONProblem struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	URL        string `json:"url"`
-	Difficulty string `json:"difficulty"`
-	Topic      string `json:"topic"`
+	ID         int64   `json:"id"`
+	Name       string  `json:"name"`
+	URL        string  `json:"url"`
+	Difficulty *string `json:"difficulty"`
+	Priority   *string `json:"priority"`
+	Topic      string  `json:"topic"`
 }
 
 type JSONUserScore struct {
@@ -38,7 +39,8 @@ func FormatScoreboard(classCode, className string, score service_model.Score) ([
 				ID:         p.ID,
 				Name:       p.Name,
 				URL:        p.URL,
-				Difficulty: p.GetDifficulty(),
+				Difficulty: p.Difficulty,
+				Priority:   p.Priority,
 				Topic:      p.GetTopic(),
 			})
 		}
