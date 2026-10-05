@@ -99,6 +99,7 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 			pAddName := fmt.Sprintf("\n[%s](%s)", problem.Name, problem.URL)
 
 			// Truncate to avoid exceeding max field length individually
+			pAddDiff = truncateProblemMetadata(pAddDiff)
 			pAddName = truncateProblemName(problem.Name, pAddName)
 
 			// Check if adding this problem would exceed limit
@@ -115,6 +116,25 @@ func FormatProblemsAsEmbeds(classCode string, groupedProblems []presentation.Pro
 	flushPage()
 
 	return embeds
+}
+
+// truncateProblemMetadata leaves room for the topic header without splitting Unicode runes.
+func truncateProblemMetadata(row string) string {
+	safeMax := maxFieldLength - truncationSafetyMargin
+	if utf16Count(row) <= safeMax {
+		return row
+	}
+
+	const ellipsis = "…"
+	prefixLimit := safeMax - utf16Count(ellipsis)
+	units := 0
+	for i, r := range row {
+		units += utf16.RuneLen(r)
+		if units > prefixLimit {
+			return row[:i] + ellipsis
+		}
+	}
+	return row
 }
 
 // truncateProblemName ensures that the formatted problem row does not exceed the safe maximum field length.
