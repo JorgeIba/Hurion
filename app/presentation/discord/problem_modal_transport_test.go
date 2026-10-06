@@ -263,31 +263,53 @@ func TestParseCreateProblemModalRejectsIncompleteAmbiguousAndUnexpectedComponent
 	}
 }
 
-func TestFormatCreateProblemModalPreviewReportsRawValuesWithinDiscordMessageLimit(t *testing.T) {
+func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input string
-		want  string
+		name       string
+		input      string
+		assertFunc func(*testing.T, string)
 	}{
-		{"normal text is shown", "Two Sum", `Name: "Two Sum"`},
-		{"newlines stay inside their field", "Two\nSum", `Name: "Two\nSum"`},
-		{"large unicode input gets an explicit preview limitation", strings.Repeat("🚀", 1000), "too long to show"},
+		{
+			name:  "normal text is shown",
+			input: "Two Sum",
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two Sum\"", content)
+			},
+		},
+		{
+			name:  "newlines stay inside their field",
+			input: "Two\nSum",
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two\\nSum\"", content)
+			},
+		},
+		{
+			name:  "unicode name within the UTF-16 limit is shown even when its UTF-8 bytes exceed 2000",
+			input: strings.Repeat("🚀", 600),
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \""+strings.Repeat("🚀", 600)+"\"", content)
+			},
+		},
+		{
+			name:  "large unicode name is omitted from the receipt",
+			input: strings.Repeat("🚀", 1000),
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".", content)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			modal := discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: discord.ProblemModalFields{Name: tt.input, Priority: "Recommended"}}
-			content := discord.FormatCreateProblemModalPreview(modal)
-			assert.Contains(t, content, tt.want)
-			assert.Contains(t, content, "No problem has been saved.")
-			if tt.name != "large unicode input gets an explicit preview limitation" {
-				assert.Contains(t, content, `Class: "basicos_1"`)
-				assert.Contains(t, content, `Priority: "Recommended"`)
-			}
+			content := discord.FormatCreatedProblemReceipt(42, "basicos_1", tt.input)
+			tt.assertFunc(t, content)
 			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
-			assert.Equal(t, tt.input, modal.Name)
 		})
 	}
 }

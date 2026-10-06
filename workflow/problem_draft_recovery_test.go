@@ -48,7 +48,7 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
-			env.seedClass(t, "basicos_1", "Basicos")
+			classID := env.seedClass(t, "basicos_1", "Basicos")
 			env.seedClassroom(t, testChannelID, "basicos_1")
 			opened := env.openProblemForm(t, "mentor_1", "")
 			assert.Empty(t, opened.Name)
@@ -59,29 +59,44 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 				},
 			}
 			env.submitProblemForm(t, "mentor_1", failed)
-			assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "URL must be")
-			assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "/problem add class:basicos_1")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "URL must be")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "Try /problem add again.")
 			assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", "basicos_1"), "explicit class recovers the channel-derived draft without normalizing values")
 
 			// A corrected submission that still fails replaces the original input.
 			failed.URL = "https://example.com/problem"
 			failed.Difficulty = "extreme"
 			env.submitProblemForm(t, "mentor_1", failed)
-			assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "invalid difficulty")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "invalid difficulty")
 			assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", ""), "the latest failed values are recovered")
 			if test.validRetry {
 				failed.Difficulty = "Hard"
 				env.submitProblemForm(t, "mentor_1", failed)
-				assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "Form received")
+				assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "was added to class")
 			}
 			// Closing a modal sends no event, so cancellation is simulated by opening again without submitting.
 			next := env.openProblemForm(t, "mentor_1", "")
 			assert.Empty(t, next.Name)
 			assert.Empty(t, next.URL)
 			assert.Empty(t, next.Topic)
-			problems, err := env.Services.Problem.GetProblemsGroupedByTopic("basicos_1")
+			problems, err := env.DB.GetProblemsByClass(classID)
 			require.NoError(t, err)
-			assert.Empty(t, problems, "this flow still previews without saving")
+			if test.validRetry {
+				require.Len(t, problems, 1)
+				problem := problems[0]
+				assert.Positive(t, problem.ID)
+				assert.Equal(t, classID, problem.ClassID)
+				assert.Equal(t, "Two Sum 🚀", problem.Name)
+				assert.Equal(t, "https://example.com/problem", problem.URL)
+				require.NotNil(t, problem.Difficulty)
+				require.NotNil(t, problem.Priority)
+				require.NotNil(t, problem.Topic)
+				assert.Equal(t, "hard", *problem.Difficulty)
+				assert.Equal(t, "recommended", *problem.Priority)
+				assert.Equal(t, "Binary search", *problem.Topic)
+			} else {
+				assert.Empty(t, problems, "cancelled forms do not save a problem")
+			}
 		})
 	}
 }
@@ -181,12 +196,15 @@ func (env *workflowEnv) submitProblemForm(t *testing.T, userID string, modal for
 	response, err := form.BuildCreateProblemModalResponse(modal)
 	require.NoError(t, err)
 	before := len(env.Responder.responses)
+	beforeEdits := len(env.Responder.edits)
 	env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 		GuildID: testGuildID, ChannelID: testChannelID, Member: &discordgo.Member{User: &discordgo.User{ID: userID}},
 		Type: discordgo.InteractionModalSubmit, Data: submittedProblemFormData(t, response),
 	}})
 	require.Len(t, env.Responder.responses, before+1)
+	assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, env.Responder.responses[before].response.Type)
 	assert.Equal(t, discordgo.MessageFlagsEphemeral, env.Responder.responses[before].response.Data.Flags)
+	require.Len(t, env.Responder.edits, beforeEdits+1)
 }
 
 func submittedProblemFormData(t *testing.T, response *discordgo.InteractionResponse) discordgo.ModalSubmitInteractionData {
