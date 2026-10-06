@@ -16,8 +16,10 @@ import { ProblemsFilterToolbar } from '@/components/problems/ProblemsFilterToolb
 import { ProblemTopicSection } from '@/components/problems/ProblemTopicSection';
 
 import { useTopicCollapse } from '@/hooks/useTopicCollapse';
+import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
 export interface ProblemsViewProps {
+  priorityPresentation: PriorityPresentationTable;
   problems: Problem[];
   users: UserScore[];
 }
@@ -27,7 +29,11 @@ export interface ProblemsViewProps {
  *
  * Manages the state, filtering, and layout orchestration for the Problems Tab.
  */
-export function ProblemsView({ problems, users }: ProblemsViewProps) {
+export function ProblemsView({
+  priorityPresentation,
+  problems,
+  users,
+}: ProblemsViewProps) {
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [sortBy, setSortBy] = useState<ProblemSort>('difficulty-easy-first');
@@ -89,6 +95,7 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
     >
       {/* 1. Filter and Action Toolbar */}
       <ProblemsFilterToolbar
+        priorityPresentation={priorityPresentation}
         difficultyFilter={difficultyFilter}
         onSelectDifficulty={setDifficultyFilter}
         priorityFilter={priorityFilter}
@@ -125,6 +132,7 @@ export function ProblemsView({ problems, users }: ProblemsViewProps) {
         ) : (
           Array.from(topicGroups.entries()).map(([topicName, topicProblems]) => (
             <ProblemTopicSection
+              priorityPresentation={priorityPresentation}
               key={`topic-${topicName}`}
               topicName={topicName}
               problems={topicProblems}

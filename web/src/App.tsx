@@ -6,6 +6,7 @@ import { ScoreboardTable } from '@/components/ScoreboardTable';
 import { ProblemsView } from '@/components/ProblemsView';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { sortUsersBySolved, CLASS_LABELS, CLASS_CONFIG } from '@/domain/class';
+import { resolvePriorityPresentation } from '@/presentation/priority';
 
 /**
  * ScoreboardContent Component
@@ -62,6 +63,8 @@ function ScoreboardContent() {
     );
   }
 
+  const priorityPresentation = resolvePriorityPresentation(data.classCode);
+
   return (
     <div className="app-container">
       <HeaderBar
@@ -73,10 +76,18 @@ function ScoreboardContent() {
       />
       <main className="tabpanels-main-container">
         <div className="tabpanel-wrapper" hidden={activeTab !== 'standings'}>
-          <ScoreboardTable problems={data.problems || []} users={sortedUsers} />
+          <ScoreboardTable
+            priorityPresentation={priorityPresentation}
+            problems={data.problems || []}
+            users={sortedUsers}
+          />
         </div>
         <div className="tabpanel-wrapper" hidden={activeTab !== 'problems'}>
-          <ProblemsView problems={data.problems || []} users={sortedUsers} />
+          <ProblemsView
+            priorityPresentation={priorityPresentation}
+            problems={data.problems || []}
+            users={sortedUsers}
+          />
         </div>
       </main>
     </div>

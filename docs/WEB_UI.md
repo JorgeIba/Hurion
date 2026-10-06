@@ -84,3 +84,10 @@ Azure Static Web Apps uses `web/public/staticwebapp.config.json` (which Vite cop
 | `EXPORTS_DIR` | Local Dev (Go) | Path to local directory containing exported JSON score files | `./data/exports` |
 | `VITE_EXPORTS_BASE_URL` | Frontend (Vite) | Base URL for fetching scoreboards (uses `/exports` if unset) | `https://<your-storage-account>.blob.core.windows.net/exports` |
 | `WEB_UI_BASE_URL` | Discord Bot (VM) | Base URL used by Discord embeds to link to the Web UI (`!score`) | `https://<your-app-name>.azurestaticapps.net` |
+
+## 5. Class Priority Presentation
+
+Priority presentation supports general defaults and class-specific overrides,
+configured in `web/src/presentation/priorityConfig.ts`. Overrides affect web display
+only, not stored codes or sorting. Configuration changes require rebuilding the
+web app.

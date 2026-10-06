@@ -6,8 +6,11 @@ import {
   CLASS_CONFIG,
 } from '@/domain/class';
 import { PriorityLabel } from './PriorityLabel';
+import { getPriorityPresentation } from '@/presentation/priority';
+import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
 export interface ProblemRowProps {
+  priorityPresentation: PriorityPresentationTable;
   problem: Problem;
   stats?: ProblemSolveStats;
   totalStudents: number;
@@ -22,6 +25,7 @@ export interface ProblemRowProps {
  * - Col 3: GPU-composited class solve progress meter
  */
 export const ProblemRow = memo(function ProblemRow({
+  priorityPresentation,
   problem,
   stats,
   totalStudents,
@@ -71,7 +75,9 @@ export const ProblemRow = memo(function ProblemRow({
             <span className="problem-list-title-text">{problemTitle}</span>
           </div>
         )}
-        <PriorityLabel priority={problem.priority} />
+        <PriorityLabel
+          presentation={getPriorityPresentation(problem.priority, priorityPresentation)}
+        />
       </div>
 
       {/* Col 3: Class Solves Micro-Progress Pill */}
