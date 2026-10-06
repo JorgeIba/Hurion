@@ -105,7 +105,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 			// Keep raw input after validation failure so corrections do not require
 			// retyping the form, including the values that failed validation.
 			ctrl.problemDrafts.saveFailedDraft(key, modal)
-			content += ". Try /problem add again."
+			content += ". Try /problem add class:" + modal.ClassCode + " again."
 		} else {
 			logger.Log.Errorf("Failed to create problem from form: %v", err)
 		}

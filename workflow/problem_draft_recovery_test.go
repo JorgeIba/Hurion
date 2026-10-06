@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
@@ -60,7 +61,7 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 			}
 			env.submitProblemForm(t, "mentor_1", failed)
 			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "URL must be")
-			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "Try /problem add again.")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "Try /problem add class:basicos_1 again.")
 			assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", "basicos_1"), "explicit class recovers the channel-derived draft without normalizing values")
 
 			// A corrected submission that still fails replaces the original input.
@@ -96,6 +97,61 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 				assert.Equal(t, "Binary search", *problem.Topic)
 			} else {
 				assert.Empty(t, problems, "cancelled forms do not save a problem")
+			}
+		})
+	}
+}
+
+func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name         string
+		channelClass string
+		optionClass  string
+		wantClass    string
+	}{
+		{name: "class resolved from the channel", channelClass: "basicos_1", wantClass: "basicos_1"},
+		{name: "explicit class differs from the channel", channelClass: "basicos_1", optionClass: "basicos_2", wantClass: "basicos_2"},
+		{name: "explicit class from an unmapped channel", optionClass: "basicos_2", wantClass: "basicos_2"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.seedClass(t, "basicos_1", "Basicos 1")
+			env.seedClass(t, "basicos_2", "Basicos 2")
+			if test.channelClass != "" {
+				env.seedClassroom(t, testChannelID, test.channelClass)
+			}
+			failed := env.openProblemForm(t, "mentor_1", test.optionClass)
+			require.Equal(t, test.wantClass, failed.ClassCode)
+			failed.Name, failed.URL = " Two Sum ", "invalid"
+			env.submitProblemForm(t, "mentor_1", failed)
+
+			content := *env.Responder.edits[len(env.Responder.edits)-1].response.Content
+			_, retryClass, found := strings.Cut(content, ". Try /problem add class:")
+			require.True(t, found, "the retry instruction must identify the class used by the failed form")
+			require.True(t, strings.HasSuffix(retryClass, " again."))
+			retryClass = strings.TrimSuffix(retryClass, " again.")
+			require.Equal(t, test.wantClass, retryClass)
+			recovered := env.openProblemForm(t, "mentor_1", retryClass)
+			assert.Equal(t, failed, recovered, "following the instruction must restore all original form values")
+			recovered.URL = "https://example.com/problem"
+			env.submitProblemForm(t, "mentor_1", recovered)
+
+			for _, classCode := range []string{"basicos_1", "basicos_2"} {
+				class, err := env.DB.GetClassByClassCode(classCode)
+				require.NoError(t, err)
+				problems, err := env.DB.GetProblemsByClass(class.ID)
+				require.NoError(t, err)
+				if classCode != test.wantClass {
+					assert.Empty(t, problems, "retry must not create a problem in another class")
+					continue
+				}
+				require.Len(t, problems, 1)
+				assert.Equal(t, class.ID, problems[0].ClassID)
+				assert.Equal(t, "Two Sum", problems[0].Name)
+				assert.Equal(t, "https://example.com/problem", problems[0].URL)
 			}
 		})
 	}
