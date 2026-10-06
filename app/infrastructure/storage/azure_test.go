@@ -123,6 +123,10 @@ func TestAzureBlobStorage_Save(t *testing.T) {
 						assert.Equal(t, "exports", containerName)
 						assert.Equal(t, "basicos_1_score.json", blobName)
 						assert.Equal(t, []byte("{\"test\":true}"), buffer)
+						require.NotNil(t, options)
+						require.NotNil(t, options.HTTPHeaders)
+						assert.Equal(t, new("application/json"), options.HTTPHeaders.BlobContentType)
+						assert.Equal(t, new("no-cache"), options.HTTPHeaders.BlobCacheControl)
 						return azblob.UploadBufferResponse{}, nil
 					},
 				}
