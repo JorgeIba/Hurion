@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
@@ -153,6 +154,51 @@ func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testin
 				assert.Equal(t, "Two Sum", problems[0].Name)
 				assert.Equal(t, "https://example.com/problem", problems[0].URL)
 			}
+		})
+	}
+}
+
+func TestWorkflow_LongInvalidProblemMetadataReturnsCorrectionInstructionsAndPreservesDraft(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		difficulty string
+		priority   string
+		wantReason string
+	}{
+		{name: "long difficulty", difficulty: strings.Repeat("a", 2500), wantReason: "invalid difficulty. Valid options: easy, medium, hard"},
+		{name: "long unicode priority", priority: strings.Repeat("🚀", 1500), wantReason: "invalid priority. Valid options: essential, recommended, supplementary, not_required, discouraged"},
+		{name: "both metadata fields invalid", difficulty: strings.Repeat("a", 2500), priority: strings.Repeat("🚀", 1500), wantReason: "invalid difficulty. Valid options: easy, medium, hard\ninvalid priority. Valid options: essential, recommended, supplementary, not_required, discouraged"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos_2", "Basicos 2")
+			failed := env.openProblemForm(t, "mentor_1", "basicos_2")
+			failed.Name, failed.URL = "Two Sum", "https://example.com/problem"
+			failed.Difficulty, failed.Priority = test.difficulty, test.priority
+			env.submitProblemForm(t, "mentor_1", failed)
+			require.Len(t, env.Responder.edits, 1)
+			content := *env.Responder.edits[0].response.Content
+			assert.Equal(t, "Please correct the values: "+test.wantReason+". Try /problem add class:basicos_2 again.", content)
+			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
+			problems, err := env.DB.GetProblemsByClass(classID)
+			require.NoError(t, err)
+			assert.Empty(t, problems)
+			recovered := env.openProblemForm(t, "mentor_1", "basicos_2")
+			assert.Equal(t, failed, recovered, "shortening the error must not change the cached input")
+			recovered.Difficulty, recovered.Priority = "Hard", "Recommended"
+			env.submitProblemForm(t, "mentor_1", recovered)
+			problems, err = env.DB.GetProblemsByClass(classID)
+			require.NoError(t, err)
+			require.Len(t, problems, 1)
+			assert.Equal(t, "Two Sum", problems[0].Name)
+			assert.Equal(t, "https://example.com/problem", problems[0].URL)
+			require.NotNil(t, problems[0].Difficulty)
+			require.NotNil(t, problems[0].Priority)
+			assert.Equal(t, "hard", *problems[0].Difficulty)
+			assert.Equal(t, "recommended", *problems[0].Priority)
 		})
 	}
 }

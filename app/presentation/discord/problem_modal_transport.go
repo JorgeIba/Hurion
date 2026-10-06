@@ -150,6 +150,15 @@ func ParseCreateProblemModal(data discordgo.ModalSubmitInteractionData) (CreateP
 	return modal, nil
 }
 
+// FormatCreateProblemError keeps mapped errors within Discord's message limit.
+func FormatCreateProblemError(content, classCode string) string {
+	if utf16Count(content) <= maxMessageContentLength {
+		return content
+	}
+	// The modal identifier already bounds the selected class code's length.
+	return "Could not add the problem. Please check the values and try /problem add class:" + classCode + " again."
+}
+
 // FormatCreatedProblemReceipt identifies the saved problem without truncating stored values.
 func FormatCreatedProblemReceipt(problemID int64, classCode, problemName string) string {
 	identity := fmt.Sprintf("Problem `%d` was added to class %q.", problemID, strings.TrimSpace(classCode))

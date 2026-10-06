@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/presentation"
 	form "github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type interactionResponseCall struct {
@@ -179,6 +183,26 @@ func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *t
 			}
 		})
 	}
+}
+
+func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	classID := env.seedClass(t, "basicos_2", "Basicos 2")
+	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
+	modal.Name, modal.URL = strings.Repeat("🚀", 1500), "https://example.com/problem"
+	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
+	problemService.EXPECT().CreateProblemIntoClass(form.MapCreateProblemModalToCreateProblemParams(modal)).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
+	env.Services.Problem = problemService
+	env.submitProblemForm(t, "mentor_1", modal)
+	require.Len(t, env.Responder.edits, 1)
+	content := *env.Responder.edits[0].response.Content
+	assert.Equal(t, "Could not add the problem. Please check the values and try /problem add class:basicos_2 again.", content)
+	assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
+	problems, err := env.DB.GetProblemsByClass(classID)
+	require.NoError(t, err)
+	assert.Empty(t, problems)
 }
 
 type recordingDiscordInteractionClient struct {

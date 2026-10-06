@@ -109,7 +109,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		} else {
 			logger.Log.Errorf("Failed to create problem from form: %v", err)
 		}
-		ctrl.editInteractionResponse(event.Interaction, content)
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatCreateProblemError(content, modal.ClassCode))
 		return
 	}
 
