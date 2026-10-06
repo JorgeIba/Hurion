@@ -1,4 +1,4 @@
 dbs:
   - path: ${DB_PATH}
     replicas:
-      - url: abs://${AZURE_STORAGE_ACCOUNT}@${AZURE_STORAGE_CONTAINER}/server-2/db.sqlite
+      - url: abs://${AZURE_STORAGE_ACCOUNT}@${AZURE_STORAGE_CONTAINER}/server-3/db.sqlite

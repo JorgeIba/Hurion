@@ -17,7 +17,7 @@ Hurion uses SQLite as its primary database. To run safely on a single Azure Virt
 
 Litestream uses two configuration files depending on your runtime environment:
 
-Production replica paths follow `server-<id>/db.sqlite`. The ID started at `1` for the disposable test database; the production classroom database uses `server-2/db.sqlite`. Advance to a new, unused ID only when intentionally starting another replication history. A normal restart or restore keeps the same ID. The path below is the **current value**, not a permanent path requirement.
+Production replica paths follow `server-<id>/db.sqlite`. The ID started at `1` for the disposable test database; the current classroom database uses `server-3/db.sqlite`. Advance to a new, unused ID only when intentionally starting another replication history. A normal restart or restore keeps the same ID. The path below is the **current value**, not a permanent path requirement.
 
 * **Production (`/etc/litestream.yml`)**:
   Streams database backups to Azure Blob Storage:
@@ -25,7 +25,7 @@ Production replica paths follow `server-<id>/db.sqlite`. The ID started at `1` f
   dbs:
     - path: ${DB_PATH}
       replicas:
-        - url: abs://${AZURE_STORAGE_ACCOUNT}@${AZURE_STORAGE_CONTAINER}/server-2/db.sqlite
+        - url: abs://${AZURE_STORAGE_ACCOUNT}@${AZURE_STORAGE_CONTAINER}/server-3/db.sqlite
   ```
 * **Local Development (`/etc/litestream.local.yml`)**:
   Streams local backups to `/hurion/local-backups/db.sqlite` on disk when Azure credentials are missing.
