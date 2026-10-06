@@ -88,7 +88,7 @@ func (bot *Bot) ConfigureSession(s *discordgo.Session) {
 	s.StateEnabled = true
 }
 
-func (bot *Bot) RegisterHandlers(s *discordgo.Session) {
+func (bot *Bot) RegisterHandlers(s *discordgo.Session, problemInteractionController context.ProblemInteractionController) {
 	if s == nil {
 		return
 	}
@@ -100,7 +100,7 @@ func (bot *Bot) RegisterHandlers(s *discordgo.Session) {
 		bot.HandleReactionEvent(r)
 	})
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		bot.HandleInteractionEvent(s, i)
+		bot.HandleInteractionEvent(s, i, problemInteractionController)
 	})
 }
 
@@ -213,8 +213,7 @@ func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
 	}
 }
 
-// HandleInteractionEvent delivers replies through the responder supplied to NewBot.
-func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.InteractionCreate) {
+func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.InteractionCreate, problemInteractionController context.ProblemInteractionController) {
 	defer recoverHandlerPanic("interaction event")
 
 	if event == nil || event.Interaction == nil {
@@ -240,20 +239,19 @@ func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.In
 		}
 	}
 
-	bot.interactionHandler(event)
+	bot.interactionHandler(event, problemInteractionController)
 }
 
-func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate) {
+func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate, problemInteractionController context.ProblemInteractionController) {
 	if event.GuildID != bot.guildID {
 		bot.interactionResponder.RespondPrivately(event.Interaction, "This interaction is only available in the configured server.")
 		return
 	}
 
 	c := &context.InteractionContext{
-		Interaction:      event,
-		Services:         bot.services,
-		Dispatcher:       bot.interactionResponder,
-		DiscordValidator: bot.discordProvider,
+		Interaction:       event,
+		Dispatcher:        bot.interactionResponder,
+		ProblemController: problemInteractionController,
 	}
 	switch event.Type {
 	case discordgo.InteractionApplicationCommand:

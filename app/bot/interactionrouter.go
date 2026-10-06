@@ -3,7 +3,6 @@ package bot
 import (
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/controllers/general"
-	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 )
@@ -15,12 +14,16 @@ type InteractionRouter func(*context.InteractionContext)
 
 var interactionCommandMap = map[string]map[string]InteractionRouter{
 	problemCommandName: {
-		problemAddCommandName: mentor.HandleAddProblemInteraction,
+		problemAddCommandName: func(c *context.InteractionContext) {
+			c.ProblemController.HandleAddProblemInteraction(c.Interaction)
+		},
 	},
 }
 
 var interactionModalMap = map[string]InteractionRouter{
-	discord.CreateProblemModalCustomID: mentor.HandleCreateProblemModalSubmitInteraction,
+	discord.CreateProblemModalCustomID: func(c *context.InteractionContext) {
+		c.ProblemController.HandleCreateProblemModalSubmitInteraction(c.Interaction)
+	},
 }
 
 func hasInteractionRoute(event *discordgo.InteractionCreate) bool {

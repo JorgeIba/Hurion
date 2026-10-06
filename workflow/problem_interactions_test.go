@@ -59,7 +59,7 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 				event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 					GuildID: testGuildID, ChannelID: testChannelID, Type: kind, Member: test.member, Data: data,
 				}}
-				env.Bot.HandleInteractionEvent(nil, event)
+				env.handleInteractionEvent(event)
 				require.Len(t, env.Responder.responses, 1)
 				response := env.Responder.responses[0].response
 				assert.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, response.Type)
@@ -93,7 +93,7 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 		GuildID: testGuildID, ChannelID: testChannelID, Member: member, Type: discordgo.InteractionApplicationCommand,
 		Data: discordgo.ApplicationCommandInteractionData{Name: "problem", Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: "add", Type: discordgo.ApplicationCommandOptionSubCommand}}},
 	}}
-	env.Bot.HandleInteractionEvent(nil, command)
+	env.handleInteractionEvent(command)
 	require.Len(t, env.Responder.responses, 1)
 	require.Equal(t, discordgo.InteractionResponseModal, env.Responder.responses[0].response.Type)
 	isMentor = false
@@ -101,7 +101,7 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 		GuildID: testGuildID, ChannelID: testChannelID, Member: member, Type: discordgo.InteractionModalSubmit,
 		Data: discordgo.ModalSubmitInteractionData{CustomID: env.Responder.responses[0].response.Data.CustomID},
 	}}
-	env.Bot.HandleInteractionEvent(nil, submit)
+	env.handleInteractionEvent(submit)
 	require.Len(t, env.Responder.responses, 2)
 	assert.Contains(t, env.Responder.responses[1].response.Data.Content, "mentor or admin")
 	assert.Equal(t, 2, checks)
@@ -134,7 +134,7 @@ func TestWorkflow_ProblemSubmitValidatesAndNormalizesWithoutSaving(t *testing.T)
 			event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				GuildID: testGuildID, ChannelID: testChannelID, Member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}, Type: discordgo.InteractionModalSubmit, Data: data,
 			}}
-			env.Bot.HandleInteractionEvent(nil, event)
+			env.handleInteractionEvent(event)
 			require.Len(t, env.Responder.responses, 1)
 			assert.Contains(t, env.Responder.responses[0].response.Data.Content, test.want)
 			assert.Equal(t, discordgo.MessageFlagsEphemeral, env.Responder.responses[0].response.Data.Flags)
@@ -150,12 +150,16 @@ func TestWorkflow_ProblemSubmitValidatesAndNormalizesWithoutSaving(t *testing.T)
 }
 
 type recordingDiscordInteractionClient struct {
-	t         *testing.T
-	responses []interactionResponseCall
+	t           *testing.T
+	responses   []interactionResponseCall
+	respondFunc func(*discordgo.InteractionResponse) error
 }
 
 func (r *recordingDiscordInteractionClient) InteractionRespond(interaction *discordgo.Interaction, response *discordgo.InteractionResponse, _ ...discordgo.RequestOption) error {
 	r.responses = append(r.responses, interactionResponseCall{interaction: interaction, response: response})
+	if r.respondFunc != nil {
+		return r.respondFunc(response)
+	}
 	return nil
 }
 
@@ -209,7 +213,7 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAndPreview(t *testing.T
 				},
 			}}
 
-			env.Bot.HandleInteractionEvent(nil, command)
+			env.handleInteractionEvent(command)
 
 			require.Len(t, env.Responder.responses, 1)
 			formCall := env.Responder.responses[0]
@@ -251,7 +255,7 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAndPreview(t *testing.T
 				env.seedClassroom(t, testChannelID, "basicos_2")
 			}
 
-			env.Bot.HandleInteractionEvent(nil, submit)
+			env.handleInteractionEvent(submit)
 
 			require.Len(t, env.Responder.responses, 2)
 			previewCall := env.Responder.responses[1]
@@ -341,7 +345,7 @@ func TestWorkflow_ProblemAdd_ReportsClassErrorsBeforeOpeningForm(t *testing.T) {
 					{Name: "add", Type: discordgo.ApplicationCommandOptionSubCommand, Options: options},
 				}},
 			}}
-			env.Bot.HandleInteractionEvent(nil, event)
+			env.handleInteractionEvent(event)
 			require.Len(t, env.Responder.responses, 1)
 			response := env.Responder.responses[0].response
 			assert.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, response.Type)
@@ -387,7 +391,7 @@ func TestWorkflow_ProblemSubmit_UsesInjectedResponderForPrivateErrors(t *testing
 				Data:   discordgo.ModalSubmitInteractionData{CustomID: "huron:problem:create"},
 			}}
 
-			env.Bot.HandleInteractionEvent(nil, event)
+			env.handleInteractionEvent(event)
 
 			require.Len(t, env.Responder.responses, 1)
 			call := env.Responder.responses[0]

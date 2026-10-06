@@ -10,6 +10,7 @@ import (
 
 	"github.com/JorgeIba/Hurion/app/bootstrap"
 	"github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/infrastructure/storage"
@@ -123,6 +124,7 @@ func main() {
 		WhitelistRoleIDs: cfg.WhitelistRoleIDs,
 		GuildID:          cfg.GuildID,
 	}
+	problemInteractionController := mentor.NewProblemInteractionController(svcs, provider, responder)
 	appBot := bot.NewBot(svcs, provider, sender, responder, botCfg)
 
 	// 8. Execute Application Behavior
@@ -160,7 +162,7 @@ func main() {
 		logger.Log.Infof("Upserted guild slash command /problem in server %s", guildID)
 
 		appBot.ConfigureSession(session)
-		appBot.RegisterHandlers(session)
+		appBot.RegisterHandlers(session, problemInteractionController)
 
 		if err := session.Open(); err != nil {
 			log.Fatalf("Error opening Discord session: %v", err)
