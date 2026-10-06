@@ -1,7 +1,9 @@
 import { Problem, ProblemSolveStats, CLASS_LABELS } from '@/domain/class';
 import { ProblemRow } from '@/components/problems/ProblemRow';
+import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
 export interface ProblemTopicSectionProps {
+  priorityPresentation: PriorityPresentationTable;
   topicName: string;
   problems: Problem[];
   problemStatsMap: Map<number, ProblemSolveStats>;
@@ -19,6 +21,7 @@ export interface ProblemTopicSectionProps {
  * - Enclosed problem list container with row mappings
  */
 export function ProblemTopicSection({
+  priorityPresentation,
   topicName,
   problems,
   problemStatsMap,
@@ -63,6 +66,7 @@ export function ProblemTopicSection({
       <div id={topicDomId} className="problem-list" role="list" hidden={isCollapsed}>
         {problems.map((p) => (
           <ProblemRow
+            priorityPresentation={priorityPresentation}
             key={`prob-row-${p.id}`}
             problem={p}
             stats={problemStatsMap.get(p.id)}

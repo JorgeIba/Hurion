@@ -13,8 +13,11 @@ import {
 import { useColumnResize } from '@/hooks/useColumnResize';
 import { useTopicCollapse } from '@/hooks/useTopicCollapse';
 import { PriorityLabel } from './problems/PriorityLabel';
+import { getPriorityPresentation } from '@/presentation/priority';
+import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
 interface ScoreboardTableProps {
+  priorityPresentation: PriorityPresentationTable;
   problems: Problem[];
   users: UserScore[];
 }
@@ -30,7 +33,11 @@ interface ScoreboardTableProps {
  * - Tri-State Adaptive Sorting: Via React 19 `startTransition` non-blocking re-ordering.
  * - Collapsible Topics: Via `useTopicCollapse` hook and `ScoreboardTopicRow` component.
  */
-export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
+export function ScoreboardTable({
+  priorityPresentation,
+  problems,
+  users,
+}: ScoreboardTableProps) {
   // 1. Column Resizing State (Pointer Events & Keyboard A11y)
   const {
     width: problemWidth,
@@ -302,7 +309,12 @@ export function ScoreboardTable({ problems, users }: ScoreboardTableProps) {
                                 </span>
                               </div>
                             )}
-                            <PriorityLabel priority={p.priority} />
+                            <PriorityLabel
+                              presentation={getPriorityPresentation(
+                                p.priority,
+                                priorityPresentation
+                              )}
+                            />
                           </th>
 
                           {/* Cols 2..N: Per-Student Solve Status (3D Glass Inset AC Pills) */}

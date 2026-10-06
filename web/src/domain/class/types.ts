@@ -1,14 +1,13 @@
 // 'unspecified' is a UI/filter fallback, not a stored difficulty code.
 export type ProblemDifficulty = 'easy' | 'medium' | 'hard' | 'unspecified';
 export type DifficultyFilter = 'all' | ProblemDifficulty;
-export type PriorityFilter =
-  | 'all'
-  | 'unset'
+export type ProblemPriority =
   | 'essential'
   | 'recommended'
   | 'supplementary'
   | 'not_required'
   | 'discouraged';
+export type PriorityFilter = 'all' | 'unset' | ProblemPriority;
 export type ProblemSort =
   | 'difficulty-easy-first'
   | 'difficulty-hard-first'

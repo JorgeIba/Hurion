@@ -5,9 +5,11 @@ import {
   ProblemSort,
   PRIORITY_ORDER,
 } from '@/domain/class';
-import { getProblemPriorityLabel } from '@/domain/class/problems';
+import { getProblemPriorityLabel } from '@/presentation/priority';
+import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
 export interface ProblemsFilterToolbarProps {
+  priorityPresentation: PriorityPresentationTable;
   difficultyFilter: DifficultyFilter;
   onSelectDifficulty: (filter: DifficultyFilter) => void;
   priorityFilter: PriorityFilter;
@@ -30,6 +32,7 @@ export interface ProblemsFilterToolbarProps {
  * - Live problem count badge (Showing X of Y)
  */
 export function ProblemsFilterToolbar({
+  priorityPresentation,
   difficultyFilter,
   onSelectDifficulty,
   priorityFilter,
@@ -73,7 +76,7 @@ export function ProblemsFilterToolbar({
             <option value="all">All priorities</option>
             {PRIORITY_ORDER.map((code) => (
               <option key={code ?? 'unset'} value={code ?? 'unset'}>
-                {getProblemPriorityLabel(code)}
+                {getProblemPriorityLabel(code, priorityPresentation)}
               </option>
             ))}
           </select>
@@ -87,8 +90,12 @@ export function ProblemsFilterToolbar({
         >
           <option value="difficulty-easy-first">Difficulty · Easy first</option>
           <option value="difficulty-hard-first">Difficulty · Hard first</option>
-          <option value="priority-essential-first">Priority · Essential first</option>
-          <option value="priority-discouraged-first">Priority · Discouraged first</option>
+          <option value="priority-essential-first">
+            Priority · Most recommended first
+          </option>
+          <option value="priority-discouraged-first">
+            Priority · Least recommended first
+          </option>
         </select>
       </label>
 
