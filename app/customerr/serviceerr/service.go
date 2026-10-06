@@ -40,6 +40,11 @@ type InternalError struct {
 	ServiceError
 }
 
+// ValidationError contains input-validation reasons safe to show to the caller.
+type ValidationError struct {
+	ServiceError
+}
+
 type ConflictError struct {
 	ServiceError
 }
@@ -71,6 +76,14 @@ type UserNotFoundError struct {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+func NewValidationError(message string, original error) *ValidationError {
+	return &ValidationError{
+		Code:         400,
+		Message:      message,
+		WrappedError: original,
+	}
+}
 
 func NewInternalError(message string, original error) *InternalError {
 	return &InternalError{

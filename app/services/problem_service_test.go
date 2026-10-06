@@ -25,14 +25,14 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		assertFunc func(*testing.T, int64, error)
 	}{
 		{
-			name: "success - problem created",
+			name: "normalizes values before creating the problem",
 			params: service_model.CreateProblemParams{
-				Name:       "Two Sum",
-				URL:        "https://leetcode.com/problems/two-sum/",
-				ClassCode:  "CS101",
-				Difficulty: helpers.PtrStr("Easy"),
-				Topic:      helpers.PtrStr("Arrays"),
-				Priority:   helpers.PtrStr(service_model.PriorityRecommended),
+				Name:       " Two Sum ",
+				URL:        " https://leetcode.com/problems/two-sum/ ",
+				ClassCode:  " CS101 ",
+				Difficulty: helpers.PtrStr(" Easy "),
+				Topic:      helpers.PtrStr(" Arrays "),
+				Priority:   helpers.PtrStr(" RECOMMENDED "),
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
@@ -40,7 +40,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 					Name:       "Two Sum",
 					URL:        "https://leetcode.com/problems/two-sum/",
 					ClassID:    10,
-					Difficulty: helpers.PtrStr("Easy"),
+					Difficulty: helpers.PtrStr(service_model.DifficultyEasy),
 					Topic:      helpers.PtrStr("Arrays"),
 					Priority:   helpers.PtrStr(service_model.PriorityRecommended),
 				}).Return(int64(100), nil)
@@ -53,6 +53,8 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		{
 			name: "class not found",
 			params: service_model.CreateProblemParams{
+				Name:      "Two Sum",
+				URL:       "https://example.com/problem",
 				ClassCode: "UNKNOWN",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
@@ -66,6 +68,8 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		{
 			name: "generic error in IsClassCodeValid",
 			params: service_model.CreateProblemParams{
+				Name:      "Two Sum",
+				URL:       "https://example.com/problem",
 				ClassCode: "CS101",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
@@ -81,6 +85,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			params: service_model.CreateProblemParams{
 				ClassCode: "CS101",
 				Name:      "Two Sum",
+				URL:       "https://example.com/problem",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
@@ -94,6 +99,8 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 		{
 			name: "generic error in GetClassByClassCode",
 			params: service_model.CreateProblemParams{
+				Name:      "Two Sum",
+				URL:       "https://example.com/problem",
 				ClassCode: "CS101",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
@@ -110,6 +117,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			params: service_model.CreateProblemParams{
 				ClassCode: "CS101",
 				Name:      "Two Sum",
+				URL:       "https://example.com/problem",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
@@ -133,6 +141,59 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			svc := NewProblemService(mockStore)
 			id, err := svc.CreateProblemIntoClass(tt.params)
 			tt.assertFunc(t, id, err)
+		})
+	}
+}
+
+func TestCreateProblemIntoClassRejectsInvalidValuesBeforeAccessingDatastore(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*service_model.CreateProblemParams)
+		reason string
+	}{
+		{
+			name:   "blank problem name",
+			mutate: func(p *service_model.CreateProblemParams) { p.Name = " " },
+			reason: "problem name is required",
+		},
+		{
+			name:   "blank class code",
+			mutate: func(p *service_model.CreateProblemParams) { p.ClassCode = " " },
+			reason: "class code is required",
+		},
+		{
+			name:   "unsupported URL scheme",
+			mutate: func(p *service_model.CreateProblemParams) { p.URL = "ftp://example.com/problem" },
+			reason: "URL must be an absolute HTTP or HTTPS URL",
+		},
+		{
+			name:   "invalid difficulty",
+			mutate: func(p *service_model.CreateProblemParams) { p.Difficulty = helpers.PtrStr("impossible") },
+			reason: "difficulty",
+		},
+		{
+			name:   "invalid priority",
+			mutate: func(p *service_model.CreateProblemParams) { p.Priority = helpers.PtrStr("urgent") },
+			reason: "priority",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			params := service_model.CreateProblemParams{
+				Name: "Two Sum", URL: "https://example.com/problem", ClassCode: "CS101",
+			}
+			tt.mutate(&params)
+			// No datastore calls are expected for invalid input.
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			id, err := NewProblemService(store).CreateProblemIntoClass(params)
+			assert.Zero(t, id)
+			assert.IsType(t, &serviceerr.ValidationError{}, err)
+			assert.ErrorContains(t, err, tt.reason)
+			assert.True(t, serviceerr.IsServiceError(err))
 		})
 	}
 }
