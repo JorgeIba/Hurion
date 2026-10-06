@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 )
 
 var (
@@ -115,7 +116,12 @@ func (s *AzureBlobStorage) Save(ctx context.Context, name string, data []byte) e
 	if err != nil {
 		return fmt.Errorf("invalid filename %q: %w", name, err)
 	}
-	_, err = s.client.UploadBuffer(ctx, s.containerName, safeName, data, nil)
+	_, err = s.client.UploadBuffer(ctx, s.containerName, safeName, data, &azblob.UploadBufferOptions{
+		HTTPHeaders: &blob.HTTPHeaders{
+			BlobContentType:  new("application/json"),
+			BlobCacheControl: new("no-cache"),
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("failed to upload blob %s to container %s: %w", safeName, s.containerName, err)
 	}
