@@ -7,6 +7,7 @@ require (
 	github.com/bwmarrin/discordgo v0.29.1-0.20260214123928-f43dd94faaac
 	github.com/fogleman/gg v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.27
+	github.com/maypok86/otter/v2 v2.3.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1

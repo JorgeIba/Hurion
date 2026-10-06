@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
@@ -24,13 +25,14 @@ const (
 )
 
 type workflowEnv struct {
-	Bot        *appbot.Bot
-	DB         *data.DB
-	Services   *services.Services
-	Discord    *stubDiscordProvider
-	Dispatcher *fakeSender
-	Responder  *recordingDiscordInteractionClient
-	Session    *discordgo.Session
+	ProblemController *mentor.ProblemInteractionController
+	Bot               *appbot.Bot
+	DB                *data.DB
+	Services          *services.Services
+	Discord           *stubDiscordProvider
+	Dispatcher        *fakeSender
+	Responder         *recordingDiscordInteractionClient
+	Session           *discordgo.Session
 }
 
 func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
@@ -55,6 +57,8 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	discord := newStubDiscordProvider()
 	sender := &fakeSender{}
 	client := &recordingDiscordInteractionClient{t: t}
+	responder := dispatcher.NewDiscordInteractionResponder(client)
+	problemInteractionController := mentor.NewProblemInteractionController(svcs, discord, responder)
 	session := &discordgo.Session{
 		State: &discordgo.State{
 			Ready: discordgo.Ready{
@@ -64,14 +68,19 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	}
 
 	return &workflowEnv{
-		Bot:        appbot.NewBot(svcs, discord, sender, dispatcher.NewDiscordInteractionResponder(client), cfg),
-		DB:         db,
-		Services:   svcs,
-		Discord:    discord,
-		Dispatcher: sender,
-		Responder:  client,
-		Session:    session,
+		ProblemController: problemInteractionController,
+		Bot:               appbot.NewBot(svcs, discord, sender, responder, cfg),
+		DB:                db,
+		Services:          svcs,
+		Discord:           discord,
+		Dispatcher:        sender,
+		Responder:         client,
+		Session:           session,
 	}
+}
+
+func (env *workflowEnv) handleInteractionEvent(event *discordgo.InteractionCreate) {
+	env.Bot.HandleInteractionEvent(nil, event, env.ProblemController)
 }
 
 func (env *workflowEnv) sendMessage(t *testing.T, userID, displayName, content string) {
