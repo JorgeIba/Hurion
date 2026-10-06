@@ -12,6 +12,59 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestAddProblemPrefixUsesServiceValidationBeforeSaving(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		url      string
+		wantSave bool
+	}{
+		{name: "unsupported URL is explained and not saved", url: "ftp://example.com/problem"},
+		{name: "valid values are normalized and saved", url: " https://example.com/problem ", wantSave: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupIntegrationEnv(t)
+			classID := env.SeedClass(t, "basicos_1", "Basicos")
+			env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
+				return true, nil
+			}
+			ctx := env.NewContext("mentor_1", "Mentor", "guild_1", []string{
+				"!add_problem", " basicos_1 ", tt.url, "-", "-", "-", " Two Sum ",
+			})
+
+			mentor.HandleAddProblem(ctx)
+
+			problems, err := env.DB.GetProblemsByClass(classID)
+			if !assert.NoError(t, err) {
+				return
+			}
+			messages := env.Dispatcher.GetSentMessages()
+			if !assert.NotEmpty(t, messages) {
+				return
+			}
+			if !tt.wantSave {
+				assert.Empty(t, problems)
+				assert.Contains(t, messages[len(messages)-1].Content, "Please correct the values: URL must be an absolute HTTP or HTTPS URL")
+				return
+			}
+			if !assert.Len(t, problems, 1) {
+				return
+			}
+			assert.Equal(t, "Two Sum", problems[0].Name)
+			assert.Equal(t, "https://example.com/problem", problems[0].URL)
+			assert.Equal(t, classID, problems[0].ClassID)
+			assert.Nil(t, problems[0].Difficulty)
+			assert.Nil(t, problems[0].Topic)
+			assert.Nil(t, problems[0].Priority)
+			assert.Contains(t, messages[len(messages)-1].Content, "was added correctly")
+		})
+	}
+}
+
 func TestIntegration_Mentor_AddAC(t *testing.T) {
 	t.Parallel()
 

@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -20,6 +21,24 @@ func TestMapError(t *testing.T) {
 		want       string
 		assertFunc func(t *testing.T, got string)
 	}{
+		{
+			name:   "validation reasons are shown without technical error metadata",
+			err:    serviceerr.NewValidationError("invalid problem values", errors.Join(errors.New("problem name is required"), errors.New("class code is required"))),
+			action: ActionMentorAddProblem,
+			want:   "Please correct the values: problem name is required\nclass code is required",
+		},
+		{
+			name:   "wrapped validation errors still show the correction reason",
+			err:    fmt.Errorf("create failed: %w", serviceerr.NewValidationError("invalid problem values", errors.New("URL must be an absolute HTTP or HTTPS URL"))),
+			action: ActionMentorAddProblem,
+			want:   "Please correct the values: URL must be an absolute HTTP or HTTPS URL",
+		},
+		{
+			name:   "validation without a cause uses its summary",
+			err:    serviceerr.NewValidationError("problem name is required", nil),
+			action: ActionMentorAddProblem,
+			want:   "Please correct the values: problem name is required",
+		},
 		{
 			name:   "nil error returns fallback",
 			err:    nil,

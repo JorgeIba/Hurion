@@ -12,6 +12,7 @@ func NormalizeAndValidateCreateProblemParams(params CreateProblemParams) (Create
 	params.Name = strings.TrimSpace(params.Name)
 	params.URL = strings.TrimSpace(params.URL)
 	params.ClassCode = strings.TrimSpace(params.ClassCode)
+
 	var problems []error
 	if params.Name == "" {
 		problems = append(problems, errors.New("problem name is required"))
@@ -19,10 +20,12 @@ func NormalizeAndValidateCreateProblemParams(params CreateProblemParams) (Create
 	if params.ClassCode == "" {
 		problems = append(problems, errors.New("class code is required"))
 	}
+
 	parsed, err := url.ParseRequestURI(params.URL)
 	if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		problems = append(problems, errors.New("URL must be an absolute HTTP or HTTPS URL"))
 	}
+
 	params.Topic = normalizeOptionalProblemText(params.Topic)
 	params.Difficulty = normalizeOptionalProblemText(params.Difficulty)
 	if params.Difficulty != nil {
@@ -33,6 +36,7 @@ func NormalizeAndValidateCreateProblemParams(params CreateProblemParams) (Create
 			params.Difficulty = &code
 		}
 	}
+
 	params.Priority = normalizeOptionalProblemText(params.Priority)
 	if params.Priority != nil {
 		code, err := ParsePriority(*params.Priority)

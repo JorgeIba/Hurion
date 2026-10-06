@@ -203,6 +203,14 @@ func MapError(err error, action Action, args ...any) string {
 		return defaultFallbackMessage
 	}
 
+	if validation, ok := errors.AsType[*serviceerr.ValidationError](err); ok {
+		reason := validation.Message
+		if validation.WrappedError != nil {
+			reason = validation.WrappedError.Error()
+		}
+		return "Please correct the values: " + reason
+	}
+
 	kind := getErrorKindFromError(err)
 	if kind == errorKindInternal {
 		return internalHiddenMessage

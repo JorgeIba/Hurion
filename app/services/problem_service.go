@@ -47,6 +47,11 @@ func (service *problemService) GetProblemByID(problemID int64) (service_model.Pr
 
 // CreateProblemIntoClass creates a new problem in a class
 func (service *problemService) CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error) {
+	params, err := service_model.NormalizeAndValidateCreateProblemParams(params)
+	if err != nil {
+		return 0, serviceerr.NewValidationError("invalid problem values", err)
+	}
+
 	if isClassCodeValid, err := helpers.IsClassCodeValid(service.Datastore, params.ClassCode); err != nil {
 		return 0, err
 	} else if !isClassCodeValid {
