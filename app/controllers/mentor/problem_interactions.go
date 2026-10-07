@@ -1,9 +1,12 @@
 package mentor
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/controllers/adapters"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
@@ -35,7 +38,8 @@ func (ctrl *ProblemInteractionController) HandleAddProblemInteraction(event *dis
 	// Opening a modal must be the initial response within Discord's three-second
 	// deadline. Permission verification calls Discord; it and the class lookup
 	// must finish within that window because a modal cannot follow a deferred reply.
-	if !ctrl.authorizeProblemInteraction(event) {
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
 	selectedClass, err := ctrl.resolveInteractionClass(event)
@@ -67,16 +71,24 @@ func (ctrl *ProblemInteractionController) HandleAddProblemInteraction(event *dis
 	}
 }
 
-// HandleCreateProblemModalSubmitInteraction validates submitted values and sends a preview.
-// No problem is saved.
+// HandleCreateProblemModalSubmitInteraction saves the submitted problem and reports its identity.
 func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteraction(event *discordgo.InteractionCreate) {
-	if !ctrl.authorizeProblemInteraction(event) {
+	// Acknowledge before live permission checks and persistence. Failed or duplicate
+	// acknowledgements stop here, before any write can run.
+	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+	}); err != nil {
+		return
+	}
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
 	modal, err := discord.ParseCreateProblemModal(event.ModalSubmitData())
 	if err != nil {
 		logger.Log.Errorf("Failed to read problem form submission: %v", err)
-		ctrl.responder.RespondPrivately(event.Interaction, "Could not read the complete form. Please start again with /problem add.")
+		ctrl.editInteractionResponse(event.Interaction, "Could not read the complete form. Please start again with /problem add.")
 		return
 	}
 
@@ -85,23 +97,32 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		userID:    event.Member.User.ID,
 		classCode: modal.ClassCode,
 	}
-	params, err := service_model.NormalizeAndValidateCreateProblemParams(discord.MapCreateProblemModalToCreateProblemParams(modal))
+	params := discord.MapCreateProblemModalToCreateProblemParams(modal)
+	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(params)
 	if err != nil {
-		// Keep the submitted values so reopening after a validation error prefills
-		// the form instead of making the user enter everything again.
-		ctrl.problemDrafts.saveFailedDraft(key, modal)
-		ctrl.responder.RespondPrivately(event.Interaction, "Please correct the form: "+err.Error()+". Your draft can be recovered for up to 10 minutes. Reopen with /problem add class:"+modal.ClassCode+" to try again.")
+		content := adapters.MapError(err, adapters.ActionMentorAddProblem, params.ClassCode, params.URL, params.Name)
+		if _, invalid := errors.AsType[*serviceerr.ValidationError](err); invalid {
+			// Keep raw input after validation failure so corrections do not require
+			// retyping the form, including the values that failed validation.
+			ctrl.problemDrafts.saveFailedDraft(key, modal)
+			content += ". Try /problem add class:" + modal.ClassCode + " again."
+		} else {
+			logger.Log.Errorf("Failed to create problem from form: %v", err)
+		}
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatCreateProblemError(content, modal.ClassCode))
 		return
 	}
 
-	_, err = ctrl.services.Class.GetClassByClassCode(params.ClassCode)
-	if err != nil {
-		logger.Log.Warnf("Failed to load submitted problem class: %v", err)
-		ctrl.responder.RespondPrivately(event.Interaction, "Could not load the selected class. Please start again with /problem add.")
-		return
-	}
+	ctrl.problemDrafts.consumeDraft(key)
+	// Response delivery is separate from persistence; a failed receipt must not retry the write.
+	ctrl.editInteractionResponse(event.Interaction, discord.FormatCreatedProblemReceipt(problemID, params.ClassCode, params.Name))
+}
 
-	ctrl.responder.RespondPrivately(event.Interaction, discord.FormatCreateProblemModalPreview(discord.MapCreateProblemParamsToCreateProblemModal(params)))
+func (ctrl *ProblemInteractionController) editInteractionResponse(interaction *discordgo.Interaction, content string) {
+	ctrl.responder.EditResponse(interaction, &discordgo.WebhookEdit{
+		Content:         &content,
+		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
+	})
 }
 
 // resolveInteractionClass gives the explicit class option precedence over the
@@ -138,22 +159,19 @@ func (ctrl *ProblemInteractionController) resolveInteractionClass(event *discord
 	return selectedClass, nil
 }
 
-func (ctrl *ProblemInteractionController) authorizeProblemInteraction(event *discordgo.InteractionCreate) bool {
+func (ctrl *ProblemInteractionController) authorizeProblemInteraction(event *discordgo.InteractionCreate) error {
 	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
-		ctrl.responder.RespondPrivately(event.Interaction, "Problem commands require an identified server member.")
-		return false
+		return errors.New("Problem commands require an identified server member.")
 	}
 
 	allowed, err := canManageProblems(ctrl.validator, event.GuildID, event.Member.User.ID)
 	if err != nil {
 		logger.Log.Errorf("Failed to verify interaction problem-management permissions: %v", err)
-		ctrl.responder.RespondPrivately(event.Interaction, messageErrVerifying)
-		return false
+		return errors.New(messageErrVerifying)
 	}
 
 	if !allowed {
-		ctrl.responder.RespondPrivately(event.Interaction, messageErrProblemPermissions)
-		return false
+		return errors.New(messageErrProblemPermissions)
 	}
-	return true
+	return nil
 }

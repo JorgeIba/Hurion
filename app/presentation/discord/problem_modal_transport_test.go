@@ -263,31 +263,76 @@ func TestParseCreateProblemModalRejectsIncompleteAmbiguousAndUnexpectedComponent
 	}
 }
 
-func TestFormatCreateProblemModalPreviewReportsRawValuesWithinDiscordMessageLimit(t *testing.T) {
+func TestFormatCreateProblemErrorPreservesDetailsWithinLimitAndFallsBackAboveIt(t *testing.T) {
+	t.Parallel()
+	fallback := "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."
+	for _, test := range []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{name: "short error keeps correction details", content: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again.", want: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again."},
+		{name: "exactly 2000 ASCII units are preserved", content: strings.Repeat("a", 2000), want: strings.Repeat("a", 2000)},
+		{name: "2001 ASCII units use the selected class in the fallback", content: strings.Repeat("a", 2001), want: fallback},
+		{name: "exactly 2000 UTF-16 units are preserved despite larger UTF-8 length", content: strings.Repeat("🚀", 1000), want: strings.Repeat("🚀", 1000)},
+		{name: "2001 UTF-16 units use the fallback", content: strings.Repeat("🚀", 1000) + "a", want: fallback},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			content := discord.FormatCreateProblemError(test.content, "basicos_2")
+			assert.Equal(t, test.want, content)
+			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
+		})
+	}
+}
+
+func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input string
-		want  string
+		name       string
+		input      string
+		assertFunc func(*testing.T, string)
 	}{
-		{"normal text is shown", "Two Sum", `Name: "Two Sum"`},
-		{"newlines stay inside their field", "Two\nSum", `Name: "Two\nSum"`},
-		{"large unicode input gets an explicit preview limitation", strings.Repeat("🚀", 1000), "too long to show"},
+		{
+			name:  "normal text is shown",
+			input: "Two Sum",
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two Sum\"", content)
+			},
+		},
+		{
+			name:  "newlines stay inside their field",
+			input: "Two\nSum",
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two\\nSum\"", content)
+			},
+		},
+		{
+			name:  "unicode name within the UTF-16 limit is shown even when its UTF-8 bytes exceed 2000",
+			input: strings.Repeat("🚀", 600),
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \""+strings.Repeat("🚀", 600)+"\"", content)
+			},
+		},
+		{
+			name:  "large unicode name is omitted from the receipt",
+			input: strings.Repeat("🚀", 1000),
+			assertFunc: func(t *testing.T, content string) {
+				t.Helper()
+				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".", content)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			modal := discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: discord.ProblemModalFields{Name: tt.input, Priority: "Recommended"}}
-			content := discord.FormatCreateProblemModalPreview(modal)
-			assert.Contains(t, content, tt.want)
-			assert.Contains(t, content, "No problem has been saved.")
-			if tt.name != "large unicode input gets an explicit preview limitation" {
-				assert.Contains(t, content, `Class: "basicos_1"`)
-				assert.Contains(t, content, `Priority: "Recommended"`)
-			}
+			content := discord.FormatCreatedProblemReceipt(42, "basicos_1", tt.input)
+			tt.assertFunc(t, content)
 			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
-			assert.Equal(t, tt.input, modal.Name)
 		})
 	}
 }

@@ -2,7 +2,9 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"unicode/utf16"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
@@ -48,7 +50,7 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
-			env.seedClass(t, "basicos_1", "Basicos")
+			classID := env.seedClass(t, "basicos_1", "Basicos")
 			env.seedClassroom(t, testChannelID, "basicos_1")
 			opened := env.openProblemForm(t, "mentor_1", "")
 			assert.Empty(t, opened.Name)
@@ -59,29 +61,144 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 				},
 			}
 			env.submitProblemForm(t, "mentor_1", failed)
-			assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "URL must be")
-			assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "/problem add class:basicos_1")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "URL must be")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "Try /problem add class:basicos_1 again.")
 			assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", "basicos_1"), "explicit class recovers the channel-derived draft without normalizing values")
 
 			// A corrected submission that still fails replaces the original input.
 			failed.URL = "https://example.com/problem"
 			failed.Difficulty = "extreme"
 			env.submitProblemForm(t, "mentor_1", failed)
-			assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "invalid difficulty")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "invalid difficulty")
 			assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", ""), "the latest failed values are recovered")
 			if test.validRetry {
 				failed.Difficulty = "Hard"
 				env.submitProblemForm(t, "mentor_1", failed)
-				assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "Form received")
+				assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "was added to class")
 			}
 			// Closing a modal sends no event, so cancellation is simulated by opening again without submitting.
 			next := env.openProblemForm(t, "mentor_1", "")
 			assert.Empty(t, next.Name)
 			assert.Empty(t, next.URL)
 			assert.Empty(t, next.Topic)
-			problems, err := env.Services.Problem.GetProblemsGroupedByTopic("basicos_1")
+			problems, err := env.DB.GetProblemsByClass(classID)
 			require.NoError(t, err)
-			assert.Empty(t, problems, "this flow still previews without saving")
+			if test.validRetry {
+				require.Len(t, problems, 1)
+				problem := problems[0]
+				assert.Positive(t, problem.ID)
+				assert.Equal(t, classID, problem.ClassID)
+				assert.Equal(t, "Two Sum 🚀", problem.Name)
+				assert.Equal(t, "https://example.com/problem", problem.URL)
+				require.NotNil(t, problem.Difficulty)
+				require.NotNil(t, problem.Priority)
+				require.NotNil(t, problem.Topic)
+				assert.Equal(t, "hard", *problem.Difficulty)
+				assert.Equal(t, "recommended", *problem.Priority)
+				assert.Equal(t, "Binary search", *problem.Topic)
+			} else {
+				assert.Empty(t, problems, "cancelled forms do not save a problem")
+			}
+		})
+	}
+}
+
+func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name         string
+		channelClass string
+		optionClass  string
+		wantClass    string
+	}{
+		{name: "class resolved from the channel", channelClass: "basicos_1", wantClass: "basicos_1"},
+		{name: "explicit class differs from the channel", channelClass: "basicos_1", optionClass: "basicos_2", wantClass: "basicos_2"},
+		{name: "explicit class from an unmapped channel", optionClass: "basicos_2", wantClass: "basicos_2"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.seedClass(t, "basicos_1", "Basicos 1")
+			env.seedClass(t, "basicos_2", "Basicos 2")
+			if test.channelClass != "" {
+				env.seedClassroom(t, testChannelID, test.channelClass)
+			}
+			failed := env.openProblemForm(t, "mentor_1", test.optionClass)
+			require.Equal(t, test.wantClass, failed.ClassCode)
+			failed.Name, failed.URL = " Two Sum ", "invalid"
+			env.submitProblemForm(t, "mentor_1", failed)
+
+			content := *env.Responder.edits[len(env.Responder.edits)-1].response.Content
+			_, retryClass, found := strings.Cut(content, ". Try /problem add class:")
+			require.True(t, found, "the retry instruction must identify the class used by the failed form")
+			require.True(t, strings.HasSuffix(retryClass, " again."))
+			retryClass = strings.TrimSuffix(retryClass, " again.")
+			require.Equal(t, test.wantClass, retryClass)
+			recovered := env.openProblemForm(t, "mentor_1", retryClass)
+			assert.Equal(t, failed, recovered, "following the instruction must restore all original form values")
+			recovered.URL = "https://example.com/problem"
+			env.submitProblemForm(t, "mentor_1", recovered)
+
+			for _, classCode := range []string{"basicos_1", "basicos_2"} {
+				class, err := env.DB.GetClassByClassCode(classCode)
+				require.NoError(t, err)
+				problems, err := env.DB.GetProblemsByClass(class.ID)
+				require.NoError(t, err)
+				if classCode != test.wantClass {
+					assert.Empty(t, problems, "retry must not create a problem in another class")
+					continue
+				}
+				require.Len(t, problems, 1)
+				assert.Equal(t, class.ID, problems[0].ClassID)
+				assert.Equal(t, "Two Sum", problems[0].Name)
+				assert.Equal(t, "https://example.com/problem", problems[0].URL)
+			}
+		})
+	}
+}
+
+func TestWorkflow_LongInvalidProblemMetadataReturnsCorrectionInstructionsAndPreservesDraft(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		difficulty string
+		priority   string
+		wantReason string
+	}{
+		{name: "long difficulty", difficulty: strings.Repeat("a", 2500), wantReason: "invalid difficulty. Valid options: easy, medium, hard"},
+		{name: "long unicode priority", priority: strings.Repeat("🚀", 1500), wantReason: "invalid priority. Valid options: essential, recommended, supplementary, not_required, discouraged"},
+		{name: "both metadata fields invalid", difficulty: strings.Repeat("a", 2500), priority: strings.Repeat("🚀", 1500), wantReason: "invalid difficulty. Valid options: easy, medium, hard\ninvalid priority. Valid options: essential, recommended, supplementary, not_required, discouraged"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos_2", "Basicos 2")
+			failed := env.openProblemForm(t, "mentor_1", "basicos_2")
+			failed.Name, failed.URL = "Two Sum", "https://example.com/problem"
+			failed.Difficulty, failed.Priority = test.difficulty, test.priority
+			env.submitProblemForm(t, "mentor_1", failed)
+			require.Len(t, env.Responder.edits, 1)
+			content := *env.Responder.edits[0].response.Content
+			assert.Equal(t, "Please correct the values: "+test.wantReason+". Try /problem add class:basicos_2 again.", content)
+			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
+			problems, err := env.DB.GetProblemsByClass(classID)
+			require.NoError(t, err)
+			assert.Empty(t, problems)
+			recovered := env.openProblemForm(t, "mentor_1", "basicos_2")
+			assert.Equal(t, failed, recovered, "shortening the error must not change the cached input")
+			recovered.Difficulty, recovered.Priority = "Hard", "Recommended"
+			env.submitProblemForm(t, "mentor_1", recovered)
+			problems, err = env.DB.GetProblemsByClass(classID)
+			require.NoError(t, err)
+			require.Len(t, problems, 1)
+			assert.Equal(t, "Two Sum", problems[0].Name)
+			assert.Equal(t, "https://example.com/problem", problems[0].URL)
+			require.NotNil(t, problems[0].Difficulty)
+			require.NotNil(t, problems[0].Priority)
+			assert.Equal(t, "hard", *problems[0].Difficulty)
+			assert.Equal(t, "recommended", *problems[0].Priority)
 		})
 	}
 }
@@ -181,12 +298,15 @@ func (env *workflowEnv) submitProblemForm(t *testing.T, userID string, modal for
 	response, err := form.BuildCreateProblemModalResponse(modal)
 	require.NoError(t, err)
 	before := len(env.Responder.responses)
+	beforeEdits := len(env.Responder.edits)
 	env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 		GuildID: testGuildID, ChannelID: testChannelID, Member: &discordgo.Member{User: &discordgo.User{ID: userID}},
 		Type: discordgo.InteractionModalSubmit, Data: submittedProblemFormData(t, response),
 	}})
 	require.Len(t, env.Responder.responses, before+1)
+	assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, env.Responder.responses[before].response.Type)
 	assert.Equal(t, discordgo.MessageFlagsEphemeral, env.Responder.responses[before].response.Data.Flags)
+	require.Len(t, env.Responder.edits, beforeEdits+1)
 }
 
 func submittedProblemFormData(t *testing.T, response *discordgo.InteractionResponse) discordgo.ModalSubmitInteractionData {

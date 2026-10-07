@@ -4,18 +4,27 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/presentation"
 	form "github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type interactionResponseCall struct {
 	interaction *discordgo.Interaction
 	response    *discordgo.InteractionResponse
+}
+
+type interactionResponseEditCall struct {
+	interaction *discordgo.Interaction
+	response    *discordgo.WebhookEdit
 }
 
 func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupOrParsing(t *testing.T) {
@@ -62,9 +71,15 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 				env.handleInteractionEvent(event)
 				require.Len(t, env.Responder.responses, 1)
 				response := env.Responder.responses[0].response
-				assert.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, response.Type)
 				assert.Equal(t, discordgo.MessageFlagsEphemeral, response.Data.Flags)
-				assert.Contains(t, response.Data.Content, test.want)
+				if kind == discordgo.InteractionModalSubmit {
+					assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, response.Type)
+					require.Len(t, env.Responder.edits, 1)
+					assert.Contains(t, *env.Responder.edits[0].response.Content, test.want)
+				} else {
+					assert.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, response.Type)
+					assert.Contains(t, response.Data.Content, test.want)
+				}
 				if test.member == nil || test.member.User == nil || test.member.User.ID == "" {
 					assert.Zero(t, calls)
 					assert.Zero(t, adminCalls)
@@ -83,7 +98,7 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 
 func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(t *testing.T) {
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.seedClass(t, "basicos_1", "Basicos")
+	classID := env.seedClass(t, "basicos_1", "Basicos")
 	env.seedClassroom(t, testChannelID, "basicos_1")
 	isMentor := true
 	checks := 0
@@ -103,18 +118,24 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 	}}
 	env.handleInteractionEvent(submit)
 	require.Len(t, env.Responder.responses, 2)
-	assert.Contains(t, env.Responder.responses[1].response.Data.Content, "mentor or admin")
+	assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, env.Responder.responses[1].response.Type)
+	require.Len(t, env.Responder.edits, 1)
+	assert.Contains(t, *env.Responder.edits[0].response.Content, "mentor or admin")
+	problems, err := env.DB.GetProblemsByClass(classID)
+	require.NoError(t, err)
+	assert.Empty(t, problems)
 	assert.Equal(t, 2, checks)
 }
 
-func TestWorkflow_ProblemSubmitValidatesAndNormalizesWithoutSaving(t *testing.T) {
+func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		fields form.ProblemModalFields
 		want   string
+		saved  bool
 	}{
-		{name: "normalized values", fields: form.ProblemModalFields{Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: " HARD ", Priority: " Not required ", Topic: " Binary search "}, want: "Priority: \"Not required\""},
-		{name: "blank optional fields", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"}, want: "No priority assigned"},
+		{name: "normalized values", fields: form.ProblemModalFields{Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: " HARD ", Priority: " Not required ", Topic: " Binary search "}, want: "was added to class", saved: true},
+		{name: "blank optional fields", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"}, want: "was added to class", saved: true},
 		{name: "blank required name", fields: form.ProblemModalFields{Name: " ", URL: "https://example.com/problem"}, want: "problem name is required"},
 		{name: "invalid URL", fields: form.ProblemModalFields{Name: "Two Sum", URL: "javascript:alert(1)"}, want: "URL must be"},
 		{name: "invalid difficulty", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Difficulty: "extreme"}, want: "invalid difficulty"},
@@ -123,7 +144,7 @@ func TestWorkflow_ProblemSubmitValidatesAndNormalizesWithoutSaving(t *testing.T)
 		t.Run(test.name, func(t *testing.T) {
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
-			env.seedClass(t, "basicos_1", "Basicos")
+			classID := env.seedClass(t, "basicos_1", "Basicos")
 			response, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: test.fields})
 			require.NoError(t, err)
 			data := discordgo.ModalSubmitInteractionData{CustomID: response.Data.CustomID}
@@ -136,23 +157,60 @@ func TestWorkflow_ProblemSubmitValidatesAndNormalizesWithoutSaving(t *testing.T)
 			}}
 			env.handleInteractionEvent(event)
 			require.Len(t, env.Responder.responses, 1)
-			assert.Contains(t, env.Responder.responses[0].response.Data.Content, test.want)
+			assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, env.Responder.responses[0].response.Type)
 			assert.Equal(t, discordgo.MessageFlagsEphemeral, env.Responder.responses[0].response.Data.Flags)
-			if test.name == "normalized values" {
-				assert.Contains(t, env.Responder.responses[0].response.Data.Content, "Name: \"Two Sum\"")
-				assert.Contains(t, env.Responder.responses[0].response.Data.Content, "Difficulty: \"Hard\"")
-			}
-			problems, err := env.Services.Problem.GetProblemsGroupedByTopic("basicos_1")
+			require.Len(t, env.Responder.edits, 1)
+			assert.Contains(t, *env.Responder.edits[0].response.Content, test.want)
+			problems, err := env.DB.GetProblemsByClass(classID)
 			require.NoError(t, err)
-			assert.Empty(t, problems)
+			if !test.saved {
+				assert.Empty(t, problems)
+				return
+			}
+			require.Len(t, problems, 1)
+			problem := problems[0]
+			assert.Contains(t, *env.Responder.edits[0].response.Content, fmt.Sprintf("Problem `%d`", problem.ID))
+			assert.Equal(t, "Two Sum", problem.Name)
+			assert.Equal(t, "https://example.com/problem", problem.URL)
+			if test.name == "normalized values" {
+				assert.Equal(t, "hard", *problem.Difficulty)
+				assert.Equal(t, "not_required", *problem.Priority)
+				assert.Equal(t, "Binary search", *problem.Topic)
+			} else {
+				assert.Nil(t, problem.Difficulty)
+				assert.Nil(t, problem.Priority)
+				assert.Nil(t, problem.Topic)
+			}
 		})
 	}
+}
+
+func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	classID := env.seedClass(t, "basicos_2", "Basicos 2")
+	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
+	modal.Name, modal.URL = strings.Repeat("🚀", 1500), "https://example.com/problem"
+	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
+	problemService.EXPECT().CreateProblemIntoClass(form.MapCreateProblemModalToCreateProblemParams(modal)).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
+	env.Services.Problem = problemService
+	env.submitProblemForm(t, "mentor_1", modal)
+	require.Len(t, env.Responder.edits, 1)
+	content := *env.Responder.edits[0].response.Content
+	assert.Equal(t, "Could not add the problem. Please check the values and try /problem add class:basicos_2 again.", content)
+	assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
+	problems, err := env.DB.GetProblemsByClass(classID)
+	require.NoError(t, err)
+	assert.Empty(t, problems)
 }
 
 type recordingDiscordInteractionClient struct {
 	t           *testing.T
 	responses   []interactionResponseCall
+	edits       []interactionResponseEditCall
 	respondFunc func(*discordgo.InteractionResponse) error
+	editFunc    func(*discordgo.WebhookEdit) error
 }
 
 func (r *recordingDiscordInteractionClient) InteractionRespond(interaction *discordgo.Interaction, response *discordgo.InteractionResponse, _ ...discordgo.RequestOption) error {
@@ -163,27 +221,31 @@ func (r *recordingDiscordInteractionClient) InteractionRespond(interaction *disc
 	return nil
 }
 
-func (r *recordingDiscordInteractionClient) InteractionResponseEdit(_ *discordgo.Interaction, _ *discordgo.WebhookEdit, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
-	r.t.Helper()
-	err := fmt.Errorf("unexpected interaction response edit")
-	r.t.Error(err)
-	return nil, err
+func (r *recordingDiscordInteractionClient) InteractionResponseEdit(interaction *discordgo.Interaction, response *discordgo.WebhookEdit, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
+	r.edits = append(r.edits, interactionResponseEditCall{interaction: interaction, response: response})
+	if r.editFunc != nil {
+		return nil, r.editFunc(response)
+	}
+	return &discordgo.Message{Content: *response.Content}, nil
 }
 
-func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAndPreview(t *testing.T) {
+func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSavedReceipt(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
-		name         string
-		channelClass string
-		optionClass  string
-		wantClass    string
-		adminOnly    bool
+		name              string
+		channelClass      string
+		optionClass       string
+		wantClass         string
+		adminOnly         bool
+		problemName       string
+		omitNameInReceipt bool
 	}{
 		{name: "mapped channel supplies its class", channelClass: "basicos_1", wantClass: "basicos_1"},
 		{name: "unmapped channel accepts an explicit class", optionClass: "basicos_2", wantClass: "basicos_2"},
 		{name: "explicit class overrides the mapped channel", channelClass: "basicos_1", optionClass: "basicos_2", wantClass: "basicos_2"},
 		{name: "admin without mentor role opens and submits", channelClass: "basicos_1", wantClass: "basicos_1", adminOnly: true},
+		{name: "long name is saved completely even when the receipt omits it", channelClass: "basicos_1", wantClass: "basicos_1", problemName: strings.Repeat("🚀", 1000), omitNameInReceipt: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -223,8 +285,12 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAndPreview(t *testing.T
 			require.NotNil(t, form.Data)
 			require.Len(t, form.Data.Components, 5)
 
+			problemName := test.problemName
+			if problemName == "" {
+				problemName = "Two Sum 🚀"
+			}
 			values := map[string]string{
-				"name": "Two Sum 🚀", "url": "https://example.com/two-sum",
+				"name": problemName, "url": "https://example.com/two-sum",
 				"difficulty": "Medium", "priority": "Recommended", "topic": "Binary search and two pointers",
 			}
 			data := discordgo.ModalSubmitInteractionData{CustomID: form.Data.CustomID}
@@ -258,23 +324,39 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAndPreview(t *testing.T
 			env.handleInteractionEvent(submit)
 
 			require.Len(t, env.Responder.responses, 2)
-			previewCall := env.Responder.responses[1]
-			assert.Same(t, submit.Interaction, previewCall.interaction)
-			preview := previewCall.response
-			assert.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, preview.Type)
-			require.NotNil(t, preview.Data)
-			assert.Equal(t, discordgo.MessageFlagsEphemeral, preview.Data.Flags)
-			require.NotNil(t, preview.Data.AllowedMentions)
-			assert.Empty(t, preview.Data.AllowedMentions.Parse)
-			assert.Contains(t, preview.Data.Content, "Two Sum 🚀")
-			assert.Contains(t, preview.Data.Content, "Binary search and two pointers")
-			assert.Contains(t, preview.Data.Content, `Priority: "Recommended"`)
-			assert.Contains(t, preview.Data.Content, fmt.Sprintf("Class: %q", test.wantClass))
-			assert.Contains(t, preview.Data.Content, "No problem has been saved.")
+			acknowledgement := env.Responder.responses[1]
+			assert.Same(t, submit.Interaction, acknowledgement.interaction)
+			assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, acknowledgement.response.Type)
+			assert.Equal(t, discordgo.MessageFlagsEphemeral, acknowledgement.response.Data.Flags)
+			require.Len(t, env.Responder.edits, 1)
+			receipt := env.Responder.edits[0]
+			assert.Same(t, submit.Interaction, receipt.interaction)
+			require.NotNil(t, receipt.response.AllowedMentions)
+			assert.Empty(t, receipt.response.AllowedMentions.Parse)
+			assert.Contains(t, *receipt.response.Content, fmt.Sprintf("class %q", test.wantClass))
 			assert.Empty(t, env.Dispatcher.Messages())
-			problems, err := env.Services.Problem.GetProblemsGroupedByTopic(test.wantClass)
+			class, err := env.DB.GetClassByClassCode(test.wantClass)
 			require.NoError(t, err)
-			assert.Empty(t, problems)
+			problems, err := env.DB.GetProblemsByClass(class.ID)
+			require.NoError(t, err)
+			require.Len(t, problems, 1)
+			problem := problems[0]
+			assert.Positive(t, problem.ID)
+			assert.Equal(t, class.ID, problem.ClassID)
+			assert.Equal(t, problemName, problem.Name)
+			assert.Equal(t, "https://example.com/two-sum", problem.URL)
+			require.NotNil(t, problem.Topic)
+			require.NotNil(t, problem.Difficulty)
+			require.NotNil(t, problem.Priority)
+			assert.Equal(t, "Binary search and two pointers", *problem.Topic)
+			assert.Equal(t, "medium", *problem.Difficulty)
+			assert.Equal(t, "recommended", *problem.Priority)
+			assert.Contains(t, *receipt.response.Content, fmt.Sprintf("Problem `%d`", problem.ID))
+			if test.omitNameInReceipt {
+				assert.NotContains(t, *receipt.response.Content, "Name:")
+			} else {
+				assert.Contains(t, *receipt.response.Content, problemName)
+			}
 			if test.adminOnly {
 				assert.Equal(t, 2, adminChecks, "admin authority is checked both on open and submit")
 			} else {
@@ -314,6 +396,107 @@ func TestWorkflow_AdminWithoutMentorRoleCreatesAndUpdatesProblemThroughPrefixCom
 	require.Len(t, messages, 2)
 	assert.Contains(t, messages[0].Content, "added correctly")
 	assert.Contains(t, messages[1].Content, "updated successfully")
+}
+
+func TestWorkflow_ProblemSubmitDoesNotCheckPermissionsOrSaveWhenAcknowledgementFails(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name string
+		err  error
+	}{
+		{name: "network failure", err: fmt.Errorf("Discord response failed")},
+		{name: "already acknowledged interaction", err: &discordgo.RESTError{Message: &discordgo.APIErrorMessage{Code: discordgo.ErrCodeInteractionHasAlreadyBeenAcknowledged, Message: "Interaction has already been acknowledged"}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			classID := env.seedClass(t, "basicos_1", "Basicos")
+			checks := 0
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return true, nil }
+			env.Responder.respondFunc = func(response *discordgo.InteractionResponse) error {
+				assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, response.Type)
+				return test.err
+			}
+			formResponse, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{
+				ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"},
+			})
+			require.NoError(t, err)
+			event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				ID: "submit_1", GuildID: testGuildID, ChannelID: testChannelID, Type: discordgo.InteractionModalSubmit,
+				Member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}, Data: submittedProblemFormData(t, formResponse),
+			}}
+			env.handleInteractionEvent(event)
+			require.Len(t, env.Responder.responses, 1)
+			acknowledgement := env.Responder.responses[0]
+			assert.Same(t, event.Interaction, acknowledgement.interaction)
+			assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, acknowledgement.response.Type)
+			require.NotNil(t, acknowledgement.response.Data)
+			assert.Equal(t, discordgo.MessageFlagsEphemeral, acknowledgement.response.Data.Flags)
+			assert.Zero(t, checks)
+			assert.Empty(t, env.Responder.edits)
+			problems, err := env.DB.GetProblemsByClass(classID)
+			require.NoError(t, err)
+			assert.Empty(t, problems)
+		})
+	}
+}
+
+func TestWorkflow_ProblemSubmitAcknowledgesBeforePermissionLookupAndKeepsSaveWhenReceiptFails(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	classID := env.seedClass(t, "basicos_1", "Basicos")
+	acknowledged := false
+	checks := 0
+	env.Discord.isMentorFunc = func(_, _ string) (bool, error) {
+		assert.True(t, acknowledged, "submit must be acknowledged before live permission lookup")
+		checks++
+		return true, nil
+	}
+	env.Responder.respondFunc = func(response *discordgo.InteractionResponse) error {
+		require.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, response.Type)
+		if acknowledged {
+			return &discordgo.RESTError{Message: &discordgo.APIErrorMessage{Code: discordgo.ErrCodeInteractionHasAlreadyBeenAcknowledged, Message: "Interaction has already been acknowledged"}}
+		}
+		acknowledged = true
+		return nil
+	}
+	env.Responder.editFunc = func(response *discordgo.WebhookEdit) error {
+		assert.Contains(t, *response.Content, "was added to class")
+		return fmt.Errorf("Discord receipt failed")
+	}
+	response, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{
+		ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"},
+	})
+	require.NoError(t, err)
+	event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+		ID: "submit_1", Token: "submit_token", GuildID: testGuildID, ChannelID: testChannelID, Type: discordgo.InteractionModalSubmit,
+		Member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}, Data: submittedProblemFormData(t, response),
+	}}
+	env.handleInteractionEvent(event)
+	env.handleInteractionEvent(event)
+	problems, err := env.DB.GetProblemsByClass(classID)
+	require.NoError(t, err)
+	require.Len(t, problems, 1)
+	assert.Equal(t, "Two Sum", problems[0].Name)
+	assert.Equal(t, 1, checks, "repeated delivery must not proceed past the failed acknowledgement")
+	require.Len(t, env.Responder.edits, 1, "a failed receipt does not cause a write or delivery loop")
+	assert.Contains(t, *env.Responder.edits[0].response.Content, fmt.Sprintf("Problem `%d`", problems[0].ID))
+}
+
+func TestWorkflow_ProblemSubmitReportsClassRemovedAfterFormOpenedWithoutSaving(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	classID := env.seedClass(t, "basicos_1", "Basicos")
+	modal := env.openProblemForm(t, "mentor_1", "basicos_1")
+	modal.Name, modal.URL = "Two Sum", "https://example.com/problem"
+	require.NoError(t, env.Services.Class.DeleteClassByClassCode("basicos_1"))
+	env.submitProblemForm(t, "mentor_1", modal)
+	require.Len(t, env.Responder.edits, 1)
+	assert.Contains(t, *env.Responder.edits[0].response.Content, "Class code `basicos_1` not found")
+	problems, err := env.DB.GetProblemsByClass(classID)
+	require.NoError(t, err)
+	assert.Empty(t, problems)
 }
 
 func TestWorkflow_ProblemAdd_ReportsClassErrorsBeforeOpeningForm(t *testing.T) {
@@ -360,14 +543,15 @@ func TestWorkflow_ProblemSubmit_UsesInjectedResponderForPrivateErrors(t *testing
 	t.Parallel()
 
 	for _, test := range []struct {
-		name    string
-		guildID string
-		config  appbot.BotConfig
-		content string
+		name     string
+		guildID  string
+		config   appbot.BotConfig
+		content  string
+		deferred bool
 	}{
 		{
 			name: "incomplete submission receives a private error", guildID: testGuildID,
-			config: appbot.BotConfig{GuildID: testGuildID}, content: "Could not read the complete form.",
+			config: appbot.BotConfig{GuildID: testGuildID}, content: "Could not read the complete form.", deferred: true,
 		},
 		{
 			name: "test mode rejects an account outside the whitelist", guildID: testGuildID,
@@ -396,10 +580,17 @@ func TestWorkflow_ProblemSubmit_UsesInjectedResponderForPrivateErrors(t *testing
 			require.Len(t, env.Responder.responses, 1)
 			call := env.Responder.responses[0]
 			assert.Same(t, event.Interaction, call.interaction)
-			assert.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, call.response.Type)
 			require.NotNil(t, call.response.Data)
 			assert.Equal(t, discordgo.MessageFlagsEphemeral, call.response.Data.Flags)
-			assert.Contains(t, call.response.Data.Content, test.content)
+			if test.deferred {
+				assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, call.response.Type)
+				require.Len(t, env.Responder.edits, 1)
+				assert.Same(t, event.Interaction, env.Responder.edits[0].interaction)
+				assert.Contains(t, *env.Responder.edits[0].response.Content, test.content)
+			} else {
+				assert.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, call.response.Type)
+				assert.Contains(t, call.response.Data.Content, test.content)
+			}
 			assert.Empty(t, env.Dispatcher.Messages())
 		})
 	}

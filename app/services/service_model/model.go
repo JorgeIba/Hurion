@@ -172,7 +172,7 @@ func parseProblemCode(input, field string, validCodes []string) (string, error) 
 			return code, nil
 		}
 	}
-	return "", fmt.Errorf("invalid %s '%s'. Valid options: %s", field, input, strings.Join(validCodes, ", "))
+	return "", fmt.Errorf("invalid %s. Valid options: %s", field, strings.Join(validCodes, ", "))
 }
 
 const (

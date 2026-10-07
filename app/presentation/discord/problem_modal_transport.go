@@ -150,13 +150,21 @@ func ParseCreateProblemModal(data discordgo.ModalSubmitInteractionData) (CreateP
 	return modal, nil
 }
 
-// FormatCreateProblemModalPreview confirms the read without saving or normalizing.
-func FormatCreateProblemModalPreview(modal CreateProblemModal) string {
-	content := fmt.Sprintf("Form received. No problem has been saved.\n\nClass: %q\nName: %q\nURL: %q\nDifficulty: %q\nPriority: %q\nTopic: %q",
-		modal.ClassCode, modal.Name, modal.URL, modal.Difficulty, modal.Priority, modal.Topic)
-	// Keep the receipt within Discord's message limit without truncating form data.
+// FormatCreateProblemError keeps mapped errors within Discord's message limit.
+func FormatCreateProblemError(content, classCode string) string {
+	if utf16Count(content) <= maxMessageContentLength {
+		return content
+	}
+	// The modal identifier already bounds the selected class code's length.
+	return "Could not add the problem. Please check the values and try /problem add class:" + classCode + " again."
+}
+
+// FormatCreatedProblemReceipt identifies the saved problem without truncating stored values.
+func FormatCreatedProblemReceipt(problemID int64, classCode, problemName string) string {
+	identity := fmt.Sprintf("Problem `%d` was added to class %q.", problemID, strings.TrimSpace(classCode))
+	content := identity + fmt.Sprintf("\nName: %q", strings.TrimSpace(problemName))
 	if utf16Count(content) > maxMessageContentLength {
-		return "All five form fields were received. No problem has been saved. The values are too long to show in this text preview."
+		return identity
 	}
 	return content
 }
