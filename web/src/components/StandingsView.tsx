@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import type { Problem, UserScore } from '@/domain/class/types';
-import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
-import { useScoreboardSearch } from '@/hooks/useScoreboardSearch';
+import { useDebouncedCallback } from 'use-debounce';
 import { ScoreboardSearchBar } from '@/components/ScoreboardSearchBar';
 import { ScoreboardTable } from '@/components/ScoreboardTable';
+import { CLASS_CONFIG } from '@/domain/class/constants';
+import type { Problem, UserScore } from '@/domain/class/types';
+import { useScoreboardSearch } from '@/hooks/useScoreboardSearch';
+import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
 interface StandingsViewProps {
   priorityPresentation: PriorityPresentationTable;
@@ -17,10 +19,35 @@ export function StandingsView({
   users,
 }: StandingsViewProps) {
   const [query, setQuery] = useState('');
-  const { issues } = useScoreboardSearch(query, problems, users);
+  const [appliedQuery, setAppliedQuery] = useState('');
+  const applyQuery = useDebouncedCallback(
+    setAppliedQuery,
+    CLASS_CONFIG.SCOREBOARD_SEARCH.DEBOUNCE_MS
+  );
+  const { issues } = useScoreboardSearch(appliedQuery, problems, users);
+
+  const changeQuery = (value: string, isComposing = false) => {
+    setQuery(value);
+    if (value === '' || isComposing) {
+      applyQuery.cancel();
+      if (value === '') setAppliedQuery('');
+    } else {
+      applyQuery(value);
+    }
+  };
+  const submitQuery = () => {
+    applyQuery.cancel();
+    setAppliedQuery(query);
+  };
+
   return (
     <div className="standings-view">
-      <ScoreboardSearchBar query={query} onQueryChange={setQuery} issues={issues} />
+      <ScoreboardSearchBar
+        query={query}
+        onQueryChange={changeQuery}
+        onQuerySubmit={submitQuery}
+        issues={query === appliedQuery ? issues : []}
+      />
       <ScoreboardTable
         priorityPresentation={priorityPresentation}
         problems={problems}

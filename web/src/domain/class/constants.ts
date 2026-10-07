@@ -11,6 +11,9 @@ export const CLASS_CONFIG = {
   DEFAULT_PROBLEM_NAME: 'Problem',
   DEFAULT_LEADER_NAME: '--',
   DEFAULT_PAGE_TITLE: 'Scoreboard',
+  SCOREBOARD_SEARCH: {
+    DEBOUNCE_MS: 200,
+  },
   API: {
     TIMEOUT_MS: 10_000,
     LOCAL_EXPORTS_PATH: '/exports',
@@ -35,9 +38,11 @@ export const CLASS_LABELS = {
   TOPIC_PREFIX: '//',
   NO_PROBLEMS: 'No problems recorded for this class',
   SCOREBOARD_SEARCH: {
+    TRIGGER: 'Search',
     LABEL: 'Search standings',
     PLACEHOLDER: '@jorge t:grafos + #12',
     CLEAR: 'Clear search',
+    HELP_LABEL: 'Search syntax help',
     HELP: 'Use @name for students, t:topic for topics, #12 for an exact problem ID, or a problem name. Add + for another alternative.',
     INVALID_ID: 'Invalid problem ID:',
     ID_HINT:
