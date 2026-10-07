@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { useClassCodeParam, useTabParam } from '@/hooks/useQueryParam';
 import { HeaderBar } from '@/components/HeaderBar';
-import { ScoreboardTable } from '@/components/ScoreboardTable';
+import { StandingsView } from '@/components/StandingsView';
 import { ProblemsView } from '@/components/ProblemsView';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { sortUsersBySolved, CLASS_LABELS, CLASS_CONFIG } from '@/domain/class';
@@ -76,7 +76,8 @@ function ScoreboardContent() {
       />
       <main className="tabpanels-main-container">
         <div className="tabpanel-wrapper" hidden={activeTab !== 'standings'}>
-          <ScoreboardTable
+          <StandingsView
+            key={classCode}
             priorityPresentation={priorityPresentation}
             problems={data.problems || []}
             users={sortedUsers}

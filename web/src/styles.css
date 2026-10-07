@@ -1240,3 +1240,76 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Standings search shares the existing toolbar and input styles. */
+.standings-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.scoreboard-search {
+  flex-shrink: 0;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.scoreboard-search label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.scoreboard-search-controls {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.scoreboard-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  background: var(--bg-surface);
+  border: var(--border-hairline);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.scoreboard-search input::placeholder {
+  color: var(--text-secondary);
+}
+
+.scoreboard-search input:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+.scoreboard-search-help,
+.scoreboard-search-issues p {
+  margin: 0.5rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.scoreboard-search-issues {
+  color: var(--accent-gold);
+}
+
+.scoreboard-search button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (max-width: 480px) {
+  .scoreboard-search-controls {
+    flex-wrap: wrap;
+  }
+
+  .scoreboard-search input {
+    flex-basis: 100%;
+  }
+}
