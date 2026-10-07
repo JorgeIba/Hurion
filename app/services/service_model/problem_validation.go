@@ -9,44 +9,64 @@ import (
 // NormalizeAndValidateCreateProblemParams checks problem values without looking up
 // classes or checking permissions. It returns a copy and leaves supplied pointers unchanged.
 func NormalizeAndValidateCreateProblemParams(params CreateProblemParams) (CreateProblemParams, error) {
-	params.Name = strings.TrimSpace(params.Name)
-	params.URL = strings.TrimSpace(params.URL)
 	params.ClassCode = strings.TrimSpace(params.ClassCode)
+	var err error
+	params.ProblemFields, err = normalizeAndValidateProblemFields(params.ProblemFields)
+	if params.ClassCode == "" {
+		err = errors.Join(err, errors.New("class code is required"))
+	}
+	return params, err
+}
+
+// NormalizeAndValidateUpdateProblemParams checks replacement values and identity
+// without accessing storage. Nil optional values clear their stored values.
+func NormalizeAndValidateUpdateProblemParams(params UpdateProblemParams) (UpdateProblemParams, error) {
+	var err error
+	params.ProblemFields, err = normalizeAndValidateProblemFields(params.ProblemFields)
+	if params.ProblemID <= 0 {
+		err = errors.Join(err, errors.New("problem ID must be positive"))
+	}
+	if params.ClassID <= 0 {
+		err = errors.Join(err, errors.New("destination class ID must be positive"))
+	}
+	return params, err
+}
+
+func normalizeAndValidateProblemFields(fields ProblemFields) (ProblemFields, error) {
+	fields.Name = strings.TrimSpace(fields.Name)
+	fields.URL = strings.TrimSpace(fields.URL)
 
 	var problems []error
-	if params.Name == "" {
+	if fields.Name == "" {
 		problems = append(problems, errors.New("problem name is required"))
 	}
-	if params.ClassCode == "" {
-		problems = append(problems, errors.New("class code is required"))
-	}
 
-	parsed, err := url.ParseRequestURI(params.URL)
+	parsed, err := url.ParseRequestURI(fields.URL)
 	if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		problems = append(problems, errors.New("URL must be an absolute HTTP or HTTPS URL"))
 	}
 
-	params.Topic = normalizeOptionalProblemText(params.Topic)
-	params.Difficulty = normalizeOptionalProblemText(params.Difficulty)
-	if params.Difficulty != nil {
-		code, err := ParseDifficulty(*params.Difficulty)
+	fields.Topic = normalizeOptionalProblemText(fields.Topic)
+	fields.Difficulty = normalizeOptionalProblemText(fields.Difficulty)
+	if fields.Difficulty != nil {
+		code, err := ParseDifficulty(*fields.Difficulty)
 		if err != nil {
 			problems = append(problems, err)
 		} else {
-			params.Difficulty = &code
+			fields.Difficulty = &code
 		}
 	}
 
-	params.Priority = normalizeOptionalProblemText(params.Priority)
-	if params.Priority != nil {
-		code, err := ParsePriority(*params.Priority)
+	fields.Priority = normalizeOptionalProblemText(fields.Priority)
+	if fields.Priority != nil {
+		code, err := ParsePriority(*fields.Priority)
 		if err != nil {
 			problems = append(problems, err)
 		} else {
-			params.Priority = &code
+			fields.Priority = &code
 		}
 	}
-	return params, errors.Join(problems...)
+	return fields, errors.Join(problems...)
 }
 
 func normalizeOptionalProblemText(value *string) *string {

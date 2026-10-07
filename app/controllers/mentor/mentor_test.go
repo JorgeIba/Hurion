@@ -769,6 +769,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, Priority: helpers.PtrStr("recommended")}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(100), gomock.Any()).DoAndReturn(func(_ int64, updated data.Problem) error {
 					if assert.NotNil(t, updated.Priority) {
 						assert.Equal(t, "essential", *updated.Priority)
@@ -808,6 +809,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(100), gomock.Any()).DoAndReturn(func(_ int64, updated data.Problem) error {
 					assert.Nil(t, updated.Priority)
 					return nil
@@ -855,6 +857,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1}, nil)
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(100), gomock.Any()).Return(fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {

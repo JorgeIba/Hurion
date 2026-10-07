@@ -270,79 +270,124 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		problemID  int64
-		problem    service_model.Problem
-		setupMock  func(*mock_data.MockDataStore)
-		assertFunc func(*testing.T, error)
+		name      string
+		setupMock func(*mock_data.MockDataStore)
+		wantErr   error
 	}{
 		{
-			name:      "success",
-			problemID: 1,
-			problem: service_model.Problem{
-				Name:     "New Name",
-				Priority: helpers.PtrStr(service_model.PriorityRecommended),
-			},
+			name: "normalizes replacement values before saving",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{
-					Name:     "New Name",
-					Priority: helpers.PtrStr(service_model.PriorityRecommended),
+					ID: 1, Name: "New Name", URL: "https://example.com/problem", ClassID: 10,
+					Difficulty: helpers.PtrStr("hard"), Topic: helpers.PtrStr("Binary search"), Priority: helpers.PtrStr("recommended"),
 				}).Return(nil)
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.NoError(t, err)
-			},
 		},
 		{
-			name:      "not found",
-			problemID: 2,
+			name: "problem not found",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetProblemByID(int64(2)).Return(data.Problem{}, &dataerr.NotFoundError{})
+				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{}, dataerr.NewNotFoundError("missing problem", nil))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.IsType(t, &serviceerr.ProblemNotFoundError{}, err)
-			},
+			wantErr: &serviceerr.ProblemNotFoundError{},
 		},
 		{
-			name:      "duplicate conflict on update",
-			problemID: 1,
-			problem:   service_model.Problem{Name: "Repeated Name"},
+			name: "problem lookup error",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{}, errors.New("db fail"))
+			},
+			wantErr: &serviceerr.InternalError{},
+		},
+		{
+			name: "destination class not found",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{Name: "Repeated Name"}).Return(dataerr.NewRowConflictError("problem exists", nil))
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{}, dataerr.NewNotFoundError("missing class", nil))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.IsType(t, &serviceerr.DuplicateProblemError{}, err)
-			},
+			wantErr: &serviceerr.ClassCodeNotFoundError{},
 		},
 		{
-			name:      "generic error UpdateProblemByProblemID",
-			problemID: 1,
+			name: "destination class lookup error",
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{}, errors.New("db fail"))
+			},
+			wantErr: &serviceerr.InternalError{},
+		},
+		{
+			name: "problem deleted between lookup and update",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10}, nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(dataerr.NewNotFoundError("deleted problem", nil))
+			},
+			wantErr: &serviceerr.ProblemNotFoundError{},
+		},
+		{
+			name: "duplicate conflict on update",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10}, nil)
+				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(dataerr.NewRowConflictError("problem exists", nil))
+			},
+			wantErr: &serviceerr.DuplicateProblemError{},
+		},
+		{
+			name: "update error",
+			setupMock: func(m *mock_data.MockDataStore) {
+				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10}, nil)
 				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(errors.New("db fail"))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.IsType(t, &serviceerr.InternalError{}, err)
-			},
+			wantErr: &serviceerr.InternalError{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockStore := mock_data.NewMockDataStore(ctrl)
+			mockStore := mock_data.NewMockDataStore(gomock.NewController(t))
 			tt.setupMock(mockStore)
+			err := NewProblemService(mockStore).UpdateProblemByProblemID(service_model.UpdateProblemParams{
+				ProblemID: 1, ClassID: 10, Name: " New Name ", URL: " https://example.com/problem ",
+				Difficulty: helpers.PtrStr(" HARD "), Topic: helpers.PtrStr(" Binary search "), Priority: helpers.PtrStr(" RECOMMENDED "),
+			})
+			if tt.wantErr == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.IsType(t, tt.wantErr, err)
+			}
+		})
+	}
+}
 
-			svc := NewProblemService(mockStore)
-			err := svc.UpdateProblemByProblemID(tt.problemID, tt.problem)
-			tt.assertFunc(t, err)
+func TestUpdateProblemRejectsInvalidValuesBeforeAccessingDatastore(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name   string
+		mutate func(*service_model.UpdateProblemParams)
+		reason string
+	}{
+		{"zero problem ID", func(p *service_model.UpdateProblemParams) { p.ProblemID = 0 }, "problem ID must be positive"},
+		{"negative problem ID", func(p *service_model.UpdateProblemParams) { p.ProblemID = -1 }, "problem ID must be positive"},
+		{"zero destination class ID", func(p *service_model.UpdateProblemParams) { p.ClassID = 0 }, "destination class ID must be positive"},
+		{"negative destination class ID", func(p *service_model.UpdateProblemParams) { p.ClassID = -1 }, "destination class ID must be positive"},
+		{"blank name", func(p *service_model.UpdateProblemParams) { p.Name = " " }, "problem name is required"},
+		{"relative URL", func(p *service_model.UpdateProblemParams) { p.URL = "/problem" }, "URL must be an absolute HTTP or HTTPS URL"},
+		{"unsupported URL", func(p *service_model.UpdateProblemParams) { p.URL = "ftp://example.com/problem" }, "URL must be an absolute HTTP or HTTPS URL"},
+		{"invalid difficulty", func(p *service_model.UpdateProblemParams) { p.Difficulty = helpers.PtrStr("extreme") }, "invalid difficulty"},
+		{"invalid priority", func(p *service_model.UpdateProblemParams) { p.Priority = helpers.PtrStr("urgent") }, "invalid priority"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			params := service_model.UpdateProblemParams{ProblemID: 1, ClassID: 10, Name: "Two Sum", URL: "https://example.com/problem"}
+			tt.mutate(&params)
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			err := NewProblemService(store).UpdateProblemByProblemID(params)
+			assert.IsType(t, &serviceerr.ValidationError{}, err)
+			assert.ErrorContains(t, err, tt.reason)
 		})
 	}
 }
