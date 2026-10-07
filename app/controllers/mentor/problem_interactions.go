@@ -152,6 +152,9 @@ func (ctrl *ProblemInteractionController) resolveInteractionClass(event *discord
 
 	selectedClass, err := ctrl.services.Class.GetClassByClassCode(classCode)
 	if err != nil {
+		if _, invalid := errors.AsType[*serviceerr.ValidationError](err); invalid {
+			return service_model.Class{}, errors.New(adapters.MapError(err, adapters.ActionMentorAddProblem))
+		}
 		logger.Log.Warnf("Failed to load selected problem class: %v", err)
 		return service_model.Class{}, fmt.Errorf("Could not load the selected class. Please check the class code and try %s again.", commandName)
 	}

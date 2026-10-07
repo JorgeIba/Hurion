@@ -42,6 +42,7 @@ func TestUpsertProblemSlashCommandCreatesGuildScopedProblemCommand(t *testing.T)
 	assert.Equal(t, "class", class.Name)
 	assert.Equal(t, discordgo.ApplicationCommandOptionString, class.Type)
 	assert.False(t, class.Required, "the channel can supply the class")
+	assert.Zero(t, class.MaxLength, "class length is validated by the service")
 }
 
 func TestUpsertProblemSlashCommandRejectsMissingIDsBeforeCallingDiscord(t *testing.T) {
