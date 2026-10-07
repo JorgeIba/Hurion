@@ -1,30 +1,6 @@
-// Domain Models & Types
-export * from './types';
-
-// Configuration & UI Labels
-export * from './constants';
-
-// Problem Catalog Domain Calculations
-export {
-  formatTopicTitle,
-  groupProblemsByTopic,
-  parseDifficulty,
-  getProblemDifficultyMetadata,
-  filterProblems,
-  compareProblems,
-  PRIORITY_ORDER,
-} from './problems';
-
-// Scoreboard & Standings Domain Calculations
-export {
-  sanitizeClassCode,
-  sanitizeTab,
-  getSolvedCount,
-  sortUsersBySolved,
-  computeAllProblemSolveStats,
-  getNextSortState,
-  sortTopicGroupsByStudent,
-} from './scoreboard';
-
-// API Client
-export { classApi, apiClient } from './api';
+export * from '@/domain/class/types';
+export * from '@/domain/class/constants';
+export * from '@/domain/class/problems';
+export * from '@/domain/class/scoreboard';
+export * from '@/domain/class/api';
+export * from '@/domain/class/filters';
