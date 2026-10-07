@@ -100,15 +100,15 @@ func (mr *MockProblemServiceMockRecorder) RemoveProblemFromClass(problemID any) 
 }
 
 // UpdateProblemByProblemID mocks base method.
-func (m *MockProblemService) UpdateProblemByProblemID(problemID int64, problem service_model.Problem) error {
+func (m *MockProblemService) UpdateProblemByProblemID(params service_model.UpdateProblemParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateProblemByProblemID", problemID, problem)
+	ret := m.ctrl.Call(m, "UpdateProblemByProblemID", params)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateProblemByProblemID indicates an expected call of UpdateProblemByProblemID.
-func (mr *MockProblemServiceMockRecorder) UpdateProblemByProblemID(problemID, problem any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) UpdateProblemByProblemID(params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProblemByProblemID", reflect.TypeOf((*MockProblemService)(nil).UpdateProblemByProblemID), problemID, problem)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProblemByProblemID", reflect.TypeOf((*MockProblemService)(nil).UpdateProblemByProblemID), params)
 }

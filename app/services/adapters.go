@@ -144,22 +144,34 @@ func mapServicePendingConfirmationToDataPendingConfirmation(pc service_model.Pen
 // Service to Data Adapters
 // ============================================================================
 
+// mapCreateProblemParamsToDataProblem uses the class ID resolved by the caller.
+func mapCreateProblemParamsToDataProblem(params service_model.CreateProblemParams, classID int64) data.Problem {
+	return data.Problem{
+		Name:       params.Name,
+		URL:        params.URL,
+		ClassID:    classID,
+		Difficulty: params.Difficulty,
+		Topic:      params.Topic,
+		Priority:   params.Priority,
+	}
+}
+
+func mapUpdateProblemParamsToDataProblem(params service_model.UpdateProblemParams) data.Problem {
+	return data.Problem{
+		ID:         params.ProblemID,
+		Name:       params.Name,
+		URL:        params.URL,
+		ClassID:    params.ClassID,
+		Difficulty: params.Difficulty,
+		Topic:      params.Topic,
+		Priority:   params.Priority,
+	}
+}
+
 func mapServiceUserToDataUser(u service_model.User) data.User {
 	return data.User{
 		UserID:      u.UserID,
 		DisplayName: u.DisplayName,
-	}
-}
-
-func mapServiceProblemToDataProblem(p service_model.Problem) data.Problem {
-	return data.Problem{
-		ID:         p.ID,
-		Name:       p.Name,
-		ClassID:    p.ClassID,
-		URL:        p.URL,
-		Difficulty: p.Difficulty,
-		Topic:      p.Topic,
-		Priority:   p.Priority,
 	}
 }
 

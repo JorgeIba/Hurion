@@ -7,7 +7,9 @@ import (
 	"github.com/JorgeIba/Hurion/app/common"
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
+	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/services/helpers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 )
@@ -157,39 +159,83 @@ func TestIntegration_Mentor_RemoveProblem(t *testing.T) {
 func TestIntegration_Mentor_UpdateProblem(t *testing.T) {
 	t.Parallel()
 
-	// 1. SETUP
-	env := setupIntegrationEnv(t)
-	classID := env.SeedClass(t, "class_1", "Class One")
-	class2ID := env.SeedClass(t, "class_2", "Class Two")
-	problemID := env.SeedProblem(t, "Old Name", "old_url", classID, "Easy", "Arrays")
-	originalProblem, err := env.DB.GetProblemByID(problemID)
-	if !assert.NoError(t, err) {
-		return
+	for _, tt := range []struct {
+		name       string
+		values     []string
+		wantReason string
+		clear      bool
+	}{
+		{name: "normalizes and moves while preserving identity and solved records", values: []string{" https://example.com/updated ", " HARD ", " Graphs ", " RECOMMENDED ", " New Name "}},
+		{name: "clears optional values while moving", values: []string{"https://example.com/updated", "-", "-", "-", "New Name"}, clear: true},
+		{name: "rejects an unsupported URL without moving or changing data", values: []string{"ftp://example.com/updated", "Hard", "Graphs", "recommended", "New Name"}, wantReason: "URL must be an absolute HTTP or HTTPS URL"},
+		{name: "rejects a blank name without changing data", values: []string{"https://example.com/updated", "Hard", "Graphs", "recommended", " "}, wantReason: "problem name is required"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupIntegrationEnv(t)
+			classID := env.SeedClass(t, "class_1", "Class One")
+			class2ID := env.SeedClass(t, "class_2", "Class Two")
+			difficulty, topic, priority := "easy", "Arrays", "essential"
+			problemID, err := env.DB.AddProblem(data.Problem{
+				Name: "Old Name", URL: "https://example.com/original", ClassID: classID,
+				Difficulty: &difficulty, Topic: &topic, Priority: &priority,
+			})
+			if !assert.NoError(t, err) {
+				return
+			}
+			env.SeedUser(t, "student_1", "Student")
+			env.SeedAC(t, "student_1", problemID)
+			originalProblem, err := env.DB.GetProblemByID(problemID)
+			if !assert.NoError(t, err) {
+				return
+			}
+			originalSolved, err := env.DB.GetAllSolvedProblemsByClass(classID)
+			if !assert.NoError(t, err) {
+				return
+			}
+			env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) { return true, nil }
+			args := append([]string{"!update_problem", fmt.Sprintf("%d", problemID), "class_2"}, tt.values...)
+
+			mentor.HandleUpdateProblem(env.NewContext("mentor_1", "Mentor", "guild_1", args))
+
+			updated, err := env.DB.GetProblemByID(problemID)
+			if !assert.NoError(t, err) {
+				return
+			}
+			messages := env.Dispatcher.GetSentMessages()
+			if !assert.NotEmpty(t, messages) {
+				return
+			}
+			if tt.wantReason != "" {
+				assert.Equal(t, originalProblem, updated)
+				assert.Contains(t, messages[len(messages)-1].Content, tt.wantReason)
+			} else {
+				assert.Equal(t, "New Name", updated.Name)
+				assert.Equal(t, "https://example.com/updated", updated.URL)
+				assert.Equal(t, class2ID, updated.ClassID)
+				assert.Equal(t, problemID, updated.ID)
+				assert.Equal(t, originalProblem.CreatedAt, updated.CreatedAt)
+				if tt.clear {
+					assert.Nil(t, updated.Difficulty)
+					assert.Nil(t, updated.Topic)
+					assert.Nil(t, updated.Priority)
+				} else {
+					assert.Equal(t, helpers.PtrStr("hard"), updated.Difficulty)
+					assert.Equal(t, helpers.PtrStr("Graphs"), updated.Topic)
+					assert.Equal(t, helpers.PtrStr("recommended"), updated.Priority)
+				}
+				assert.Contains(t, messages[len(messages)-1].Content, "updated successfully")
+			}
+			solved, err := env.DB.GetAllSolvedProblemsByClass(updated.ClassID)
+			assert.NoError(t, err)
+			assert.Equal(t, originalSolved, solved, "solved records and their timestamps must remain unchanged")
+			if updated.ClassID == class2ID {
+				oldSolved, err := env.DB.GetAllSolvedProblemsByClass(classID)
+				assert.NoError(t, err)
+				assert.Empty(t, oldSolved, "solved records follow the problem to its new class")
+			}
+		})
 	}
-
-	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
-
-	// !update_problem <id> <class_code> <url> <difficulty> <topic> <priority> <name...>
-	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!update_problem", fmt.Sprintf("%d", problemID), "class_2", "new_url", "Hard", "Graphs", "recommended", "New Name"})
-
-	// 2. ACT
-	mentor.HandleUpdateProblem(ctx)
-
-	// 3. ASSERT: Specific fields updated, and deterministic values checked
-	updatedProblem, err := env.DB.GetProblemByID(problemID)
-	assert.NoError(t, err)
-	assert.Equal(t, "New Name", updatedProblem.Name)
-	assert.Equal(t, class2ID, updatedProblem.ClassID)
-	assert.Equal(t, "hard", *updatedProblem.Difficulty)
-	assert.Equal(t, "Graphs", *updatedProblem.Topic)
-	assert.NotNil(t, updatedProblem.Priority)
-	assert.Equal(t, "recommended", *updatedProblem.Priority)
-	assert.Equal(t, originalProblem.CreatedAt, updatedProblem.CreatedAt, "CreatedAt must remain unchanged")
-	assert.Equal(t, "new_url", updatedProblem.URL)
-	assert.Equal(t, problemID, updatedProblem.ID, "ID must remain unchanged")
 }
 
 func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {

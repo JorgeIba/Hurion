@@ -171,9 +171,10 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while moving problem to class.",
 	},
 	ActionMentorUpdateProblem: {
-		errorKindProblemNotFound:  "Problem with ID: `%[1]d` not found.",
-		errorKindDuplicateProblem: "Problem `%[3]s` already exists in class `%[2]s`",
-		errorKindDefault:          "Unexpected error while updating problem.",
+		errorKindProblemNotFound:   "Problem with ID: `%[1]d` not found.",
+		errorKindClassCodeNotFound: "Class code `%[2]s` not found while updating problem `%[1]d`.",
+		errorKindDuplicateProblem:  "Problem `%[3]s` already exists in class `%[2]s`",
+		errorKindDefault:           "Unexpected error while updating problem.",
 	},
 	ActionEnrolledDeregisterUser: {
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`.",

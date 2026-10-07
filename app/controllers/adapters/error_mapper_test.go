@@ -22,6 +22,13 @@ func TestMapError(t *testing.T) {
 		assertFunc func(t *testing.T, got string)
 	}{
 		{
+			name:   "destination class removed before updating",
+			err:    serviceerr.NewClassCodeNotFoundError("destination class no longer exists", nil),
+			action: ActionMentorUpdateProblem,
+			args:   []any{int64(42), "avanzados", "Two Sum"},
+			want:   "Class code `avanzados` not found while updating problem `42`.",
+		},
+		{
 			name:   "validation reasons are shown without technical error metadata",
 			err:    serviceerr.NewValidationError("invalid problem values", errors.Join(errors.New("problem name is required"), errors.New("class code is required"))),
 			action: ActionMentorAddProblem,

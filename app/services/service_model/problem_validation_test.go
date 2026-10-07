@@ -80,3 +80,51 @@ func TestNormalizeAndValidateCreateProblemParamsReportsAllInvalidFields(t *testi
 	assert.ErrorContains(t, err, "class code is required")
 	assert.ErrorContains(t, err, "URL must be")
 }
+
+func TestNormalizeAndValidateUpdateProblemParamsPreservesIdentityAndInput(t *testing.T) {
+	difficulty, topic, priority := " HARD ", " Graphs ", " ESSENTIAL "
+	input := UpdateProblemParams{
+		ProblemID: 42, ClassID: 9, Name: " Two Sum ", URL: " https://example.com/problem ",
+		Difficulty: &difficulty, Topic: &topic, Priority: &priority,
+	}
+	result, err := NormalizeAndValidateUpdateProblemParams(input)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, int64(42), result.ProblemID)
+	assert.Equal(t, int64(9), result.ClassID)
+	assert.Equal(t, "Two Sum", result.Name)
+	assert.Equal(t, "https://example.com/problem", result.URL)
+	assert.Equal(t, "hard", *result.Difficulty)
+	assert.Equal(t, "Graphs", *result.Topic)
+	assert.Equal(t, "essential", *result.Priority)
+	assert.Equal(t, " Two Sum ", input.Name)
+	assert.Equal(t, " https://example.com/problem ", input.URL)
+	assert.Equal(t, " HARD ", difficulty)
+	assert.Equal(t, " Graphs ", topic)
+	assert.Equal(t, " ESSENTIAL ", priority)
+}
+
+func TestNormalizeAndValidateUpdateProblemParamsNormalizesClearedValues(t *testing.T) {
+	empty, whitespace := "", " \t"
+	for _, tt := range []struct {
+		name  string
+		value *string
+	}{
+		{name: "nil", value: nil},
+		{name: "empty", value: &empty},
+		{name: "whitespace", value: &whitespace},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			params := UpdateProblemParams{
+				ProblemID: 42, ClassID: 9, Name: "Two Sum", URL: "https://example.com/problem",
+				Difficulty: tt.value, Topic: tt.value, Priority: tt.value,
+			}
+			result, err := NormalizeAndValidateUpdateProblemParams(params)
+			assert.NoError(t, err)
+			assert.Nil(t, result.Difficulty)
+			assert.Nil(t, result.Topic)
+			assert.Nil(t, result.Priority)
+		})
+	}
+}

@@ -72,15 +72,20 @@ type PendingConfirmation struct {
 // Request Parameters
 // ============================================================================
 
-// CreateProblemParams represents the parameters needed to create a new problem.
-// CreatedAt is intentionally absent; the database assigns it on insertion.
-type CreateProblemParams struct {
+// ProblemFields contains the editable values shared by creation and updates.
+type ProblemFields struct {
 	Name       string
 	URL        string
-	ClassCode  string
 	Difficulty *string
 	Topic      *string
 	Priority   *string
+}
+
+// CreateProblemParams represents the parameters needed to create a new problem.
+// CreatedAt is intentionally absent; the database assigns it on insertion.
+type CreateProblemParams struct {
+	ProblemFields
+	ClassCode string
 }
 
 // UpdateProblemParams identifies the target and supplies all replacement values,
@@ -88,13 +93,9 @@ type CreateProblemParams struct {
 // value; omitted fields do not mean "leave unchanged". CreatedAt is immutable.
 // This type does not validate input.
 type UpdateProblemParams struct {
-	ProblemID  int64
-	Name       string
-	URL        string
-	ClassID    int64
-	Difficulty *string
-	Topic      *string
-	Priority   *string
+	ProblemFields
+	ProblemID int64
+	ClassID   int64
 }
 
 // ============================================================================
