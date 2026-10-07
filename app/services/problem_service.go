@@ -109,11 +109,15 @@ func (service *problemService) UpdateProblemByProblemID(params service_model.Upd
 		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
-	if _, err := service.Datastore.GetClassByClassID(params.ClassID); err != nil {
+	targetClass, err := service.Datastore.GetClassByClassID(params.ClassID)
+	if err != nil {
 		if dataerr.IsNotFound(err) {
 			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %d doesn't exist", params.ClassID), err)
 		}
 		return serviceerr.MakeGeneralError(err)
+	}
+	if err := service_model.ValidateClassCodeLength(targetClass.ClassCode); err != nil {
+		return serviceerr.NewValidationError("invalid class code", err)
 	}
 
 	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params)); err != nil {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
@@ -10,8 +11,61 @@ import (
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+func TestClassServiceEnforcesClassCodeLimitForCreationAndSelection(t *testing.T) {
+	t.Parallel()
+	operations := []struct {
+		name string
+		call func(*ClassService, string) (int64, error)
+	}{
+		{name: "create", call: func(s *ClassService, code string) (int64, error) { return s.CreateClass(code, "Algorithms") }},
+		{name: "select class", call: func(s *ClassService, code string) (int64, error) {
+			class, err := s.GetClassByClassCode(code)
+			return class.ID, err
+		}},
+		{name: "select class ID", call: (*ClassService).GetClassIDByClassCode},
+	}
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			t.Parallel()
+			for _, test := range []struct {
+				name  string
+				code  string
+				valid bool
+			}{
+				{name: "ASCII at limit", code: strings.Repeat("a", 50), valid: true},
+				{name: "Unicode at limit", code: strings.Repeat("🚀", 50), valid: true},
+				{name: "ASCII above limit", code: strings.Repeat("a", 51)},
+				{name: "Unicode above limit", code: strings.Repeat("🚀", 51)},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					t.Parallel()
+					store := mock_data.NewMockDataStore(gomock.NewController(t))
+					if test.valid {
+						if operation.name == "create" {
+							store.EXPECT().CreateClass(data.Class{ClassCode: test.code, Name: "Algorithms"}).Return(int64(7), nil)
+						} else {
+							store.EXPECT().GetClassByClassCode(test.code).Return(data.Class{ID: 7, ClassCode: test.code}, nil)
+						}
+					}
+					id, err := operation.call(NewClassService(store), test.code)
+					if test.valid {
+						require.NoError(t, err)
+						assert.Equal(t, int64(7), id)
+					} else {
+						require.Error(t, err)
+						assert.IsType(t, &serviceerr.ValidationError{}, err)
+						assert.ErrorContains(t, err, "class code must be at most 50 characters")
+						assert.Zero(t, id)
+					}
+				})
+			}
+		})
+	}
+}
 
 func TestClassService_CreateClass(t *testing.T) {
 	t.Parallel()

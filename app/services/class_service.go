@@ -21,6 +21,9 @@ func NewClassService(ds data.DataStore) *ClassService {
 
 // CreateClass creates a new class
 func (service *ClassService) CreateClass(classCode, className string) (int64, error) {
+	if err := service_model.ValidateClassCodeLength(classCode); err != nil {
+		return 0, serviceerr.NewValidationError("invalid class code", err)
+	}
 	classID, err := service.Datastore.CreateClass(data.Class{ClassCode: classCode, Name: className})
 
 	if err != nil {
@@ -82,6 +85,9 @@ func (service *ClassService) GetAllClasses() ([]service_model.Class, error) {
 
 // GetClassByClassCode returns a class entity by its unique class code.
 func (service *ClassService) GetClassByClassCode(classCode string) (service_model.Class, error) {
+	if err := service_model.ValidateClassCodeLength(classCode); err != nil {
+		return service_model.Class{}, serviceerr.NewValidationError("invalid class code", err)
+	}
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 
 	if err != nil {
@@ -98,6 +104,9 @@ func (service *ClassService) GetClassByClassCode(classCode string) (service_mode
 
 // GetClassIDByClassCode retrieves the class ID for a given class code
 func (service *ClassService) GetClassIDByClassCode(classCode string) (int64, error) {
+	if err := service_model.ValidateClassCodeLength(classCode); err != nil {
+		return 0, serviceerr.NewValidationError("invalid class code", err)
+	}
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 
 	if err != nil {

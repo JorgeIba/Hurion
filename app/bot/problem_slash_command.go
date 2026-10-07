@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -59,7 +60,7 @@ func problemSlashCommand() *discordgo.ApplicationCommand {
 					{
 						Type:        discordgo.ApplicationCommandOptionString,
 						Name:        "class",
-						Description: "Class code; defaults to the class linked to this channel",
+						Description: fmt.Sprintf("Class code (up to %d characters); defaults to the class linked to this channel", service_model.ClassCodeMaxLength),
 					},
 				},
 			},

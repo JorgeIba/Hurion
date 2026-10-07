@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/services/helpers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -178,6 +180,26 @@ func TestCreateProblemIntoClassRejectsInvalidValuesBeforeAccessingDatastore(t *t
 			mutate: func(p *service_model.CreateProblemParams) { p.Priority = helpers.PtrStr("urgent") },
 			reason: "priority",
 		},
+		{
+			name:   "name above the limit",
+			mutate: func(p *service_model.CreateProblemParams) { p.Name = strings.Repeat("a", 201) },
+			reason: "problem name must be at most 200 characters",
+		},
+		{
+			name:   "URL above the limit",
+			mutate: func(p *service_model.CreateProblemParams) { p.URL = "https://example.com/" + strings.Repeat("a", 2000) },
+			reason: "URL must be at most 2000 characters",
+		},
+		{
+			name:   "topic above the limit",
+			mutate: func(p *service_model.CreateProblemParams) { p.Topic = helpers.PtrStr(strings.Repeat("a", 101)) },
+			reason: "topic must be at most 100 characters",
+		},
+		{
+			name:   "class code above the limit",
+			mutate: func(p *service_model.CreateProblemParams) { p.ClassCode = strings.Repeat("a", 51) },
+			reason: "class code must be at most 50 characters",
+		},
 	}
 
 	for _, tt := range tests {
@@ -194,6 +216,84 @@ func TestCreateProblemIntoClassRejectsInvalidValuesBeforeAccessingDatastore(t *t
 			assert.IsType(t, &serviceerr.ValidationError{}, err)
 			assert.ErrorContains(t, err, tt.reason)
 			assert.True(t, serviceerr.IsServiceError(err))
+		})
+	}
+}
+
+func TestUpdateProblemByProblemIDRejectsOversizedFieldsBeforeAccessingDatastore(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		mutate func(*service_model.UpdateProblemParams)
+		want   string
+	}{
+		{name: "name", mutate: func(p *service_model.UpdateProblemParams) { p.Name = " " + strings.Repeat("🚀", 201) + " " }, want: "problem name must be at most 200 characters"},
+		{name: "URL", mutate: func(p *service_model.UpdateProblemParams) {
+			p.URL = " https://example.com/" + strings.Repeat("a", 2000) + " "
+		}, want: "URL must be at most 2000 characters"},
+		{name: "topic", mutate: func(p *service_model.UpdateProblemParams) {
+			p.Topic = helpers.PtrStr(" " + strings.Repeat("é", 101) + " ")
+		}, want: "topic must be at most 100 characters"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			params := service_model.UpdateProblemParams{ProblemID: 42, ClassID: 7, Name: "Two Sum", URL: "https://example.com/problem"}
+			test.mutate(&params)
+			err := NewProblemService(store).UpdateProblemByProblemID(params)
+			require.Error(t, err)
+			assert.IsType(t, &serviceerr.ValidationError{}, err)
+			assert.ErrorContains(t, err, test.want)
+		})
+	}
+}
+
+func TestUpdateProblemByProblemIDPreservesValuesAtTextLimits(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name  string
+		topic *string
+	}{
+		{name: "unset topic"},
+		{name: "topic at the limit", topic: helpers.PtrStr(strings.Repeat("é", 100))},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			prefix := "https://example.com/"
+			params := service_model.UpdateProblemParams{ProblemID: 42, ClassID: 7, Name: " " + strings.Repeat("🚀", 200) + " ", URL: " " + prefix + strings.Repeat("a", 2000-len(prefix)) + " ", Topic: test.topic}
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
+			store.EXPECT().GetClassByClassID(int64(7)).Return(data.Class{ID: 7, ClassCode: strings.Repeat("🚀", 50)}, nil)
+			store.EXPECT().UpdateProblemByProblemID(int64(42), data.Problem{ID: 42, ClassID: 7, Name: strings.Repeat("🚀", 200), URL: prefix + strings.Repeat("a", 2000-len(prefix)), Topic: test.topic}).Return(nil)
+			require.NoError(t, NewProblemService(store).UpdateProblemByProblemID(params))
+		})
+	}
+}
+
+func TestUpdateProblemByProblemIDRejectsInvalidTargetClassesBeforeWriting(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name        string
+		class       data.Class
+		lookupErr   error
+		wantErr     any
+		wantMessage string
+	}{
+		{name: "class code above limit", class: data.Class{ID: 7, ClassCode: strings.Repeat("🚀", 51)}, wantErr: &serviceerr.ValidationError{}, wantMessage: "class code must be at most 50 characters"},
+		{name: "missing class", lookupErr: &dataerr.NotFoundError{}, wantErr: &serviceerr.ClassCodeNotFoundError{}},
+		{name: "class lookup fails", lookupErr: errors.New("db error"), wantErr: &serviceerr.InternalError{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
+			store.EXPECT().GetClassByClassID(int64(7)).Return(test.class, test.lookupErr)
+			err := NewProblemService(store).UpdateProblemByProblemID(service_model.UpdateProblemParams{ProblemID: 42, ClassID: 7, Name: "Two Sum", URL: "https://example.com/problem"})
+			require.Error(t, err)
+			assert.IsType(t, test.wantErr, err)
+			if test.wantMessage != "" {
+				assert.ErrorContains(t, err, test.wantMessage)
+			}
 		})
 	}
 }

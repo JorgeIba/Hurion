@@ -36,6 +36,16 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 				},
 			},
 		},
+		{
+			name: "oversized draft values are preserved for correction",
+			modal: discord.CreateProblemModal{
+				ClassCode: "basicos_1",
+				ProblemModalFields: discord.ProblemModalFields{
+					Name: strings.Repeat("🚀", 201), URL: "https://example.com/" + strings.Repeat("a", 2000),
+					Topic: strings.Repeat("é", 101),
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -54,14 +64,16 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 					CustomID   string `json:"custom_id"`
 					Title      string `json:"title"`
 					Components []struct {
-						Type      discordgo.ComponentType `json:"type"`
-						Label     string                  `json:"label"`
-						Component struct {
-							Type     discordgo.ComponentType `json:"type"`
-							CustomID string                  `json:"custom_id"`
-							Label    string                  `json:"label"`
-							Value    string                  `json:"value"`
-							Required *bool                   `json:"required"`
+						Type        discordgo.ComponentType `json:"type"`
+						Label       string                  `json:"label"`
+						Description string                  `json:"description"`
+						Component   struct {
+							Type      discordgo.ComponentType `json:"type"`
+							CustomID  string                  `json:"custom_id"`
+							Label     string                  `json:"label"`
+							Value     string                  `json:"value"`
+							Required  *bool                   `json:"required"`
+							MaxLength *int                    `json:"max_length"`
 						} `json:"component"`
 					} `json:"components"`
 				} `json:"data"`
@@ -88,8 +100,17 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 			}
 			for i, want := range expected {
 				label := wire.Data.Components[i]
+				assert.Nil(t, label.Component.MaxLength, "custom input limits must be omitted from the payload")
 				assert.Equal(t, discordgo.LabelComponent, label.Type)
 				assert.Equal(t, want.label, label.Label)
+				switch want.id {
+				case "name":
+					assert.Equal(t, "Up to 200 characters", label.Description)
+				case "url":
+					assert.Equal(t, "HTTP or HTTPS; up to 2000 characters", label.Description)
+				case "topic":
+					assert.Equal(t, "Optional; up to 100 characters", label.Description)
+				}
 				assert.Equal(t, discordgo.TextInputComponent, label.Component.Type)
 				assert.Equal(t, want.id, label.Component.CustomID)
 				assert.Equal(t, want.value, label.Component.Value)
