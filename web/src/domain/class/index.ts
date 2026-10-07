@@ -4,3 +4,4 @@ export * from '@/domain/class/problems';
 export * from '@/domain/class/scoreboard';
 export * from '@/domain/class/api';
 export * from '@/domain/class/filters';
+export * from '@/domain/class/parser';
