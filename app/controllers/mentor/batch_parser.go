@@ -1,142 +1,140 @@
 package mentor
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
-	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
-const (
-	maxBatchOperations = 100
-	maxBatchInputBytes = 256 * 1024
-)
+const maxBatchOperations = 100
 
 type problemBatchEntry struct {
-	line   int
-	params service_model.CreateProblemParams
+	entry int
+	input problemBatchInput
 }
 
 type acBatchEntry struct {
-	line      int
-	userID    string
-	problemID int64
+	entry int
+	input acBatchInput
 }
 
-// A zero line identifies an error concerning the whole input.
-type batchLineError struct {
+// Entry numbers are one-based. Zero identifies an input-wide error; line and
+// column locate JSON syntax errors independently of entry formatting.
+type batchInputError struct {
+	entry   int
 	line    int
+	column  int
 	message string
 }
 
-type batchTextLine struct {
-	number int
-	fields []string
+type problemBatchInput struct {
+	Class      string  `json:"class"`
+	Name       string  `json:"name"`
+	URL        string  `json:"url"`
+	Difficulty *string `json:"difficulty"`
+	Topic      *string `json:"topic"`
+	Priority   *string `json:"priority"`
 }
 
-// parseProblemBatch checks text and problem values without looking up classes,
-// checking permissions, or writing. Any error prevents returning a usable batch.
-func parseProblemBatch(input string) ([]problemBatchEntry, []batchLineError) {
-	lines, issues := splitBatchLines(input)
+type acBatchInput struct {
+	UserID    string `json:"user_id"`
+	ProblemID int64  `json:"problem_id"`
+}
+
+// parseProblemBatch decodes JSON without normalizing or validating field values.
+// Successful entries still require preparation before preview or execution.
+func parseProblemBatch(input string) ([]problemBatchEntry, []batchInputError) {
+	items, issues := parseBatchItems(input)
 	if len(issues) > 0 {
 		return nil, issues
 	}
 
 	var entries []problemBatchEntry
-	for _, line := range lines {
-		fields := line.fields
-		if len(fields) < 7 || fields[0] != "!add_problem" {
-			issues = append(issues, batchLineError{line.number, "expected !add_problem <class> <url> <difficulty or -> <topic or -> <priority or -> <name>"})
+	for index, item := range items {
+		var value problemBatchInput
+
+		if err := decodeBatchItem(item, &value); err != nil {
+			issues = append(issues, batchInputError{entry: index + 1, message: err.Error()})
 			continue
 		}
 
-		params, err := service_model.NormalizeAndValidateCreateProblemParams(service_model.CreateProblemParams{
-			ClassCode: fields[1],
-			ProblemFields: service_model.ProblemFields{
-				URL:        fields[2],
-				Difficulty: optionalBatchField(fields[3]),
-				Topic:      optionalBatchField(fields[4]),
-				Priority:   optionalBatchField(fields[5]),
-				Name:       strings.Join(fields[6:], " "),
-			},
-		})
-		if err != nil {
-			issues = append(issues, batchLineError{line.number, err.Error()})
-			continue
-		}
-		entries = append(entries, problemBatchEntry{line.number, params})
+		entries = append(entries, problemBatchEntry{entry: index + 1, input: value})
 	}
+
 	if len(issues) > 0 {
 		return nil, issues
 	}
 	return entries, nil
 }
 
-// parseACBatch reads explicit student ACs. Enrollment, problem existence, and
-// duplicate checks belong to the later read-only preparation operation.
-func parseACBatch(input string) ([]acBatchEntry, []batchLineError) {
-	lines, issues := splitBatchLines(input)
+// parseACBatch preserves supplied targets, including missing or invalid values.
+// ID validity, enrollment, existence, and duplicates are checked by preparation.
+func parseACBatch(input string) ([]acBatchEntry, []batchInputError) {
+	items, issues := parseBatchItems(input)
 	if len(issues) > 0 {
 		return nil, issues
 	}
 
 	var entries []acBatchEntry
-	for _, line := range lines {
-		fields := line.fields
-		if len(fields) != 3 || fields[0] != "!ac" {
-			issues = append(issues, batchLineError{line.number, "expected !ac <user mention or ID> <problem ID>"})
+	for index, item := range items {
+		var value acBatchInput
+
+		if err := decodeBatchItem(item, &value); err != nil {
+			issues = append(issues, batchInputError{entry: index + 1, message: err.Error()})
 			continue
 		}
 
-		userID, validUser := controllers_common.ParseUserID(fields[1])
-		problemID, err := strconv.ParseInt(fields[2], 10, 64)
-		if !validUser {
-			issues = append(issues, batchLineError{line.number, "user must be a Discord user mention or numeric ID"})
-		}
-		if err != nil || problemID <= 0 {
-			issues = append(issues, batchLineError{line.number, "problem ID must be a positive 64-bit integer"})
-		}
-		if validUser && err == nil && problemID > 0 {
-			entries = append(entries, acBatchEntry{line.number, userID, problemID})
-		}
+		entries = append(entries, acBatchEntry{entry: index + 1, input: value})
 	}
+
 	if len(issues) > 0 {
 		return nil, issues
 	}
 	return entries, nil
 }
 
-func splitBatchLines(input string) ([]batchTextLine, []batchLineError) {
-	if len(input) > maxBatchInputBytes {
-		return nil, []batchLineError{{message: fmt.Sprintf("batch input must be at most %d bytes", maxBatchInputBytes)}}
-	}
+func parseBatchItems(input string) ([]json.RawMessage, []batchInputError) {
+	// encoding/json replaces invalid UTF-8 in strings; reject it before decoding
+	// so imported files cannot silently change supplied names or other values.
 	if !utf8.ValidString(input) {
-		return nil, []batchLineError{{message: "batch input must be valid UTF-8 text"}}
+		return nil, []batchInputError{{message: "batch input must be valid UTF-8 text"}}
 	}
 
-	var lines []batchTextLine
-	for index, text := range strings.Split(input, "\n") {
-		fields := strings.Fields(text)
-		if len(fields) == 0 {
-			continue
+	var items []json.RawMessage
+	if err := json.Unmarshal([]byte(input), &items); err != nil {
+
+		issue := batchInputError{message: "expected one JSON array: " + err.Error()}
+		if syntax, ok := errors.AsType[*json.SyntaxError](err); ok {
+			offset := max(0, min(len(input), int(syntax.Offset)-1))
+			before := input[:offset]
+			issue.line = strings.Count(before, "\n") + 1
+			issue.column = utf8.RuneCountInString(before[strings.LastIndex(before, "\n")+1:]) + 1
 		}
-		if len(lines) == maxBatchOperations {
-			return nil, []batchLineError{{line: index + 1, message: fmt.Sprintf("batch must contain at most %d operations", maxBatchOperations)}}
-		}
-		lines = append(lines, batchTextLine{index + 1, fields})
+
+		return nil, []batchInputError{issue}
 	}
-	if len(lines) == 0 {
-		return nil, []batchLineError{{message: "batch must contain at least one operation"}}
+
+	if items == nil {
+		return nil, []batchInputError{{message: "expected one JSON array, not null"}}
 	}
-	return lines, nil
+
+	if len(items) == 0 {
+		return nil, []batchInputError{{message: "batch must contain at least one operation"}}
+	}
+
+	if len(items) > maxBatchOperations {
+		return nil, []batchInputError{{message: fmt.Sprintf("batch must contain at most %d operations", maxBatchOperations)}}
+	}
+	return items, nil
 }
 
-func optionalBatchField(value string) *string {
-	if value == "-" {
-		return nil
+func decodeBatchItem(item json.RawMessage, value any) error {
+	if strings.TrimSpace(string(item)) == "null" {
+		return errors.New("entry must be a JSON object, not null")
 	}
-	return &value
+	decoder := json.NewDecoder(strings.NewReader(string(item)))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(value)
 }

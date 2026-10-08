@@ -3,7 +3,6 @@
 * **Status**: Accepted
 * **Date**: 2026-09-29
 * **Implementation plan**: [Slash problem management](../plans/slash-problem-management.md)
-* **Phase-2 implementation plan**: [Mentor command batches](../plans/mentor-command-batches.md)
 
 ## 1. Context
 
@@ -16,7 +15,7 @@ Discord provides an existing place for interactive work. Batches and an API can 
 Introduce the interfaces in phases, sharing typed problem operations, authorization, and validation:
 
 1. **Slash commands and forms** for interactive mentor editing.
-2. **Explicit text batches** for preparing several changes together.
+2. **Explicit JSON batches** for preparing several changes together.
 3. **An authenticated HTTP API** for integrations and direct automation.
 
 An MCP adapter may expose the same application operations when there is demand from AI clients.
@@ -53,11 +52,13 @@ Prefer a reviewed compatible tag when available. Dependency upgrades must preser
 
 ### Phase 2: Explicit command batches
 
-Support `/problem add_batch` for lines of `!add_problem` and `/ac batch` for explicit student `!ac` lines. Each batch accepts only its own operation; updates, removals, mixed batches, general scripts, and HTTP API access are outside this phase. Start with multiline forms and add `.txt` attachments as a separate increment using the same parsers.
+Support `/problem add_batch` for JSON arrays of problem objects and `/ac batch` for JSON arrays of explicit student AC objects. Each batch accepts only its own operation; updates, removals, mixed batches, general scripts, and HTTP API access are outside this phase. Both commands open a form with multiline JSON input and a native File Upload component for one `.json` file. Require exactly one source on submission; both paths share parsing and preparation. Problem entries require `class`, `url`, and `name`; optional metadata can be omitted, null, or blank. AC entries require a numeric string `user_id` and a positive integer `problem_id`.
 
-Prepare without mutations: parse every line, retain original line numbers, validate values and current permissions, resolve targets, and show a private preview before confirmation. Report all detected AC duplicates, both within the input and against existing records, so the mentor can correct and resubmit. Do not check or remove duplicate problems, including identical entries. Preserve existing role policies: mentors or admins manage problems; mentor ACs require the mentor role and the student's access to the problem's class.
+Separate parsing from preparation. Parsing decodes typed input, rejects unknown fields and invalid JSON types, and preserves supplied values and entry order. Preparation checks required fields and valid values, reuses shared problem normalization, and resolves targets. Parsed input alone is not ready for confirmation or execution. Bound file downloads and honor Discord form limits; reject invalid UTF-8 and oversized input without truncation.
 
-Store the prepared batch in a bounded in-process Otter cache, bound to an opaque batch ID, submitting actor, and guild. Pending batches expire five minutes after insertion; reads do not renew this deadline. Initial bounds are 100 operations per batch, 100 cached batches, and 256 KiB of UTF-8 input. Capacity eviction may remove a batch earlier, and restart loses pending batches.
+Prepare without mutations: parse the document, retain one-based entry numbers and syntax error locations, validate values and current permissions, resolve targets, and show a private preview before confirmation. Report all detected AC duplicates, both within the input and against existing records, so the mentor can correct and resubmit. Do not check or remove duplicate problems, including identical entries. Preserve existing role policies: mentors or admins manage problems; mentor ACs require the mentor role and the student's access to the problem's class.
+
+Cache only successfully prepared batches in a bounded in-process Otter cache, bound to an opaque batch ID, submitting actor, and guild. Pending batches expire five minutes after insertion, after submission, any download, and preparation; reads do not renew this deadline. Initial bounds are 100 operations per batch and 100 cached batches. Capacity eviction may remove a batch earlier, and restart loses pending batches.
 
 Confirmation and cancellation claim and remove a matching, unexpired batch atomically. Only the successful claimant may execute, outside the cache lock. Recheck current authority and student roles before writing; perform database target and conflict checks in the same transaction as all mutations, including necessary user records. Discord lookups run outside the database transaction. All operations commit together or roll back together, replacing the earlier partial-execution decision. Preserve insertion order and return created problem IDs only after commit. Verify that scoreboard export reflects the committed result.
 
@@ -77,7 +78,7 @@ Reuse the application's problem operations and storage. Review hosting and netwo
 | --- | --- | --- |
 | Improve prefix commands only | Small change to an existing interface | Positional editing remains cumbersome |
 | Slash forms first | Native workflow where mentors already work | Interaction timing, registration, and temporary state |
-| Text batches | Several prepared changes without API credentials | Grammar, preview, atomic execution, and confirmation lifetime |
+| JSON batches | Several prepared changes without API credentials | Grammar, preview, atomic execution, and confirmation lifetime |
 | API first | Flexible integrations | Authentication, hosting, and retry guarantees |
 | MCP first | Direct access from AI clients | Requires a stable operation and authentication contract |
 | Web administration UI | Rich browsing and editing | Separate interface and authenticated write backend |
