@@ -1,10 +1,10 @@
 package workflow
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
-	"unicode/utf16"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
@@ -57,7 +57,7 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 			failed := form.CreateProblemModal{
 				ClassCode: "basicos_1",
 				ProblemModalFields: form.ProblemModalFields{
-					Name: " Two Sum 🚀 ", URL: "ftp://example.com/problem", Difficulty: " HARD ", Priority: " Recommended ", Topic: " Binary search ",
+					Name: " Two Sum 🚀 ", URL: "ftp://example.com/problem", Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Binary search "),
 				},
 			}
 			env.submitProblemForm(t, "mentor_1", failed)
@@ -67,12 +67,12 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 
 			// A corrected submission that still fails replaces the original input.
 			failed.URL = "https://example.com/problem"
-			failed.Difficulty = "extreme"
+			failed.Name = ""
 			env.submitProblemForm(t, "mentor_1", failed)
-			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "invalid difficulty")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "problem name is required")
 			assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", ""), "the latest failed values are recovered")
 			if test.validRetry {
-				failed.Difficulty = "Hard"
+				failed.Name = " Two Sum 🚀 "
 				env.submitProblemForm(t, "mentor_1", failed)
 				assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "was added to class")
 			}
@@ -80,7 +80,9 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 			next := env.openProblemForm(t, "mentor_1", "")
 			assert.Empty(t, next.Name)
 			assert.Empty(t, next.URL)
-			assert.Empty(t, next.Topic)
+			assert.Nil(t, next.Difficulty)
+			assert.Nil(t, next.Priority)
+			assert.Nil(t, next.Topic)
 			problems, err := env.DB.GetProblemsByClass(classID)
 			require.NoError(t, err)
 			if test.validRetry {
@@ -158,47 +160,53 @@ func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testin
 	}
 }
 
-func TestWorkflow_LongInvalidProblemMetadataReturnsCorrectionInstructionsAndPreservesDraft(t *testing.T) {
+func TestWorkflow_UnknownProblemSelectionsAreIgnoredWithoutDiscardingOtherFields(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name       string
 		difficulty string
 		priority   string
-		wantReason string
 	}{
-		{name: "long difficulty", difficulty: strings.Repeat("a", 2500), wantReason: "invalid difficulty. Valid options: easy, medium, hard"},
-		{name: "long unicode priority", priority: strings.Repeat("🚀", 1500), wantReason: "invalid priority. Valid options: essential, recommended, supplementary, not_required, discouraged"},
-		{name: "both metadata fields invalid", difficulty: strings.Repeat("a", 2500), priority: strings.Repeat("🚀", 1500), wantReason: "invalid difficulty. Valid options: easy, medium, hard\ninvalid priority. Valid options: essential, recommended, supplementary, not_required, discouraged"},
+		{name: "unknown difficulty", difficulty: "extreme", priority: "recommended"},
+		{name: "long unknown priority", difficulty: "hard", priority: strings.Repeat("🚀", 1500)},
+		{name: "both selections unknown", difficulty: strings.Repeat("a", 2500), priority: "urgent"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
 			classID := env.seedClass(t, "basicos_2", "Basicos 2")
-			failed := env.openProblemForm(t, "mentor_1", "basicos_2")
-			failed.Name, failed.URL = "Two Sum", "https://example.com/problem"
-			failed.Difficulty, failed.Priority = test.difficulty, test.priority
-			env.submitProblemForm(t, "mentor_1", failed)
+			env.handleInteractionEvent(addProblemCommand("mentor_1", "basicos_2"))
+			response := env.Responder.responses[0].response
+			data := submittedProblemFormDataWithValues(t, response, map[string]string{
+				"name": "Two Sum", "url": "https://example.com/problem", "topic": "Arrays",
+				"difficulty": test.difficulty, "priority": test.priority,
+			})
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				GuildID: testGuildID, ChannelID: testChannelID, Member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}},
+				Type: discordgo.InteractionModalSubmit, Data: data,
+			}})
 			require.Len(t, env.Responder.edits, 1)
-			content := *env.Responder.edits[0].response.Content
-			assert.Equal(t, "Please correct the values: "+test.wantReason+". Try /problem add class:basicos_2 again.", content)
-			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
 			problems, err := env.DB.GetProblemsByClass(classID)
-			require.NoError(t, err)
-			assert.Empty(t, problems)
-			recovered := env.openProblemForm(t, "mentor_1", "basicos_2")
-			assert.Equal(t, failed, recovered, "shortening the error must not change the cached input")
-			recovered.Difficulty, recovered.Priority = "Hard", "Recommended"
-			env.submitProblemForm(t, "mentor_1", recovered)
-			problems, err = env.DB.GetProblemsByClass(classID)
 			require.NoError(t, err)
 			require.Len(t, problems, 1)
 			assert.Equal(t, "Two Sum", problems[0].Name)
 			assert.Equal(t, "https://example.com/problem", problems[0].URL)
-			require.NotNil(t, problems[0].Difficulty)
-			require.NotNil(t, problems[0].Priority)
-			assert.Equal(t, "hard", *problems[0].Difficulty)
-			assert.Equal(t, "recommended", *problems[0].Priority)
+			require.NotNil(t, problems[0].Topic)
+			assert.Equal(t, "Arrays", *problems[0].Topic)
+			if test.difficulty == "hard" {
+				require.NotNil(t, problems[0].Difficulty)
+				assert.Equal(t, "hard", *problems[0].Difficulty)
+			} else {
+				assert.Nil(t, problems[0].Difficulty)
+			}
+			if test.priority == "recommended" {
+				require.NotNil(t, problems[0].Priority)
+				assert.Equal(t, "recommended", *problems[0].Priority)
+			} else {
+				assert.Nil(t, problems[0].Priority)
+			}
+			assert.Equal(t, fmt.Sprintf("Problem `%d` was added to class \"basicos_2\".\nName: \"Two Sum\"", problems[0].ID), *env.Responder.edits[0].response.Content)
 		})
 	}
 }
@@ -212,7 +220,7 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 	}{
 		{name: "name", mutate: func(m *form.CreateProblemModal) { m.Name = strings.Repeat("🚀", 201) }, want: "problem name must be at most 200 characters"},
 		{name: "URL", mutate: func(m *form.CreateProblemModal) { m.URL = "https://example.com/" + strings.Repeat("a", 2000) }, want: "URL must be at most 2000 characters"},
-		{name: "topic", mutate: func(m *form.CreateProblemModal) { m.Topic = strings.Repeat("é", 101) }, want: "topic must be at most 100 characters"},
+		{name: "topic", mutate: func(m *form.CreateProblemModal) { m.Topic = new(strings.Repeat("é", 101)) }, want: "topic must be at most 100 characters"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -221,7 +229,7 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 			classCode := strings.Repeat("a", 50)
 			classID := env.seedClass(t, classCode, "Class at the code limit")
 			failed := env.openProblemForm(t, "mentor_1", classCode)
-			failed.Name, failed.URL, failed.Topic = "Two Sum", "https://example.com/problem", "Arrays"
+			failed.Name, failed.URL, failed.Topic = "Two Sum", "https://example.com/problem", new("Arrays")
 			test.mutate(&failed)
 			env.submitProblemForm(t, "mentor_1", failed)
 			require.Len(t, env.Responder.edits, 1)
@@ -234,13 +242,15 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 			assert.Equal(t, failed, recovered)
 			response := env.Responder.responses[len(env.Responder.responses)-1].response
 			for _, component := range response.Data.Components {
-				input := component.(discordgo.Label).Component.(discordgo.TextInput)
-				assert.Zero(t, input.MaxLength, "recovered drafts must not be constrained by custom input limits")
+				input, ok := component.(discordgo.Label).Component.(discordgo.TextInput)
+				if ok {
+					assert.Zero(t, input.MaxLength, "recovered drafts must not be constrained by custom input limits")
+				}
 			}
 			recovered.Name = strings.Repeat("🚀", 200)
 			prefix := "https://example.com/"
 			recovered.URL = prefix + strings.Repeat("a", 2000-len(prefix))
-			recovered.Topic = strings.Repeat("é", 100)
+			recovered.Topic = new(strings.Repeat("é", 100))
 			env.submitProblemForm(t, "mentor_1", recovered)
 			problems, err = env.DB.GetProblemsByClass(classID)
 			require.NoError(t, err)
@@ -249,7 +259,7 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 			assert.Equal(t, recovered.Name, problems[0].Name)
 			assert.Equal(t, recovered.URL, problems[0].URL)
 			require.NotNil(t, problems[0].Topic)
-			assert.Equal(t, recovered.Topic, *problems[0].Topic)
+			assert.Equal(t, recovered.Topic, problems[0].Topic)
 			assert.Empty(t, env.openProblemForm(t, "mentor_1", classCode).Name)
 		})
 	}
@@ -363,13 +373,79 @@ func (env *workflowEnv) submitProblemForm(t *testing.T, userID string, modal for
 
 func submittedProblemFormData(t *testing.T, response *discordgo.InteractionResponse) discordgo.ModalSubmitInteractionData {
 	t.Helper()
+	return submittedProblemFormDataWithValues(t, response, nil)
+}
+
+func TestSubmittedProblemFormOverridesPreserveOtherSelectionsAndAllowClearing(t *testing.T) {
+	t.Parallel()
+	response, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{
+		ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{
+			Name: "Original name", Difficulty: new("hard"), Priority: new("recommended"),
+		},
+	})
+	require.NoError(t, err)
+	for _, test := range []struct {
+		name           string
+		values         map[string]string
+		wantDifficulty *string
+	}{
+		{name: "changing text preserves both selections", values: map[string]string{"name": "Two Sum"}, wantDifficulty: new("hard")},
+		{name: "clearing one selection preserves the other", values: map[string]string{"name": "Two Sum", "difficulty": ""}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			modal, err := form.ParseCreateProblemModal(submittedProblemFormDataWithValues(t, response, test.values))
+			require.NoError(t, err)
+			assert.Equal(t, form.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{
+				Name: "Two Sum", Difficulty: test.wantDifficulty, Priority: new("recommended"),
+			}}, modal)
+		})
+	}
+}
+
+func submittedProblemFormDataWithValues(t *testing.T, response *discordgo.InteractionResponse, values map[string]string) discordgo.ModalSubmitInteractionData {
+	t.Helper()
+	encoded, err := json.Marshal(response.Data.Components)
+	require.NoError(t, err)
+	var components []json.RawMessage
+	require.NoError(t, json.Unmarshal(encoded, &components))
 	data := discordgo.ModalSubmitInteractionData{CustomID: response.Data.CustomID}
-	for _, component := range response.Data.Components {
-		label, ok := component.(discordgo.Label)
-		require.True(t, ok)
-		input, ok := label.Component.(discordgo.TextInput)
-		require.True(t, ok)
-		data.Components = append(data.Components, &discordgo.Label{Component: &input})
+	for _, raw := range components {
+		component, err := discordgo.MessageComponentFromJSON(raw)
+		require.NoError(t, err)
+		label := component.(*discordgo.Label)
+		switch field := label.Component.(type) {
+		case *discordgo.TextInput:
+			if value, supplied := values[field.CustomID]; supplied {
+				field.Value = value
+			}
+			label.Component = &discordgo.TextInput{CustomID: field.CustomID, Value: field.Value}
+		case *discordgo.SelectMenu:
+			value := ""
+			for _, option := range field.Options {
+				if option.Default {
+					value = option.Value
+					break
+				}
+			}
+			if supplied, ok := values[field.CustomID]; ok {
+				value = supplied
+			}
+			selectMenu := &discordgo.SelectMenu{CustomID: field.CustomID}
+			if value != "" {
+				selectMenu.Values = []string{value}
+			}
+			label.Component = selectMenu
+		default:
+			t.Fatalf("unexpected form component %T", field)
+		}
+		data.Components = append(data.Components, label)
 	}
 	return data
+}
+
+func optionalProblemFormText(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

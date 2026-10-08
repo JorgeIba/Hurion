@@ -6,7 +6,6 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -14,27 +13,53 @@ import (
 
 func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t *testing.T) {
 	t.Parallel()
+	type wireOption struct {
+		Label   string `json:"label"`
+		Value   string `json:"value"`
+		Default bool   `json:"default"`
+	}
+	type wireComponent struct {
+		Type      discordgo.ComponentType `json:"type"`
+		CustomID  string                  `json:"custom_id"`
+		Value     string                  `json:"value"`
+		Required  *bool                   `json:"required"`
+		MaxLength *int                    `json:"max_length"`
+		Disabled  *bool                   `json:"disabled"`
+		Options   []wireOption            `json:"options"`
+	}
+	type wireLabel struct {
+		Type        discordgo.ComponentType `json:"type"`
+		Label       string                  `json:"label"`
+		Description string                  `json:"description"`
+		Component   wireComponent           `json:"component"`
+	}
 
 	tests := []struct {
-		name  string
-		modal discord.CreateProblemModal
+		name               string
+		modal              discord.CreateProblemModal
+		selectedDifficulty string
+		selectedPriority   string
 	}{
 		{
 			name: "unassigned metadata is prefilled",
 			modal: discord.CreateProblemModal{
 				ClassCode:          "basicos_1",
-				ProblemModalFields: discord.ProblemModalFields{Difficulty: presentation.DifficultyUnspecifiedLabel, Priority: presentation.PriorityUnspecifiedLabel},
+				ProblemModalFields: discord.ProblemModalFields{},
 			},
+			selectedDifficulty: "unset",
+			selectedPriority:   "unset",
 		},
 		{
-			name: "all supplied text is preserved for prefilling",
+			name: "text is preserved and metadata codes preselect options",
 			modal: discord.CreateProblemModal{
 				ClassCode: "basicos_1",
 				ProblemModalFields: discord.ProblemModalFields{
 					Name: "Two Sum 🚀", URL: "https://example.com/problem?id=2",
-					Difficulty: " Medium ", Priority: " Recommended ", Topic: "Binary search and two pointers",
+					Difficulty: new(" Medium "), Priority: new("recommended"), Topic: new("Binary search and two pointers"),
 				},
 			},
+			selectedDifficulty: "medium",
+			selectedPriority:   "recommended",
 		},
 		{
 			name: "oversized draft values are preserved for correction",
@@ -42,9 +67,25 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 				ClassCode: "basicos_1",
 				ProblemModalFields: discord.ProblemModalFields{
 					Name: strings.Repeat("🚀", 201), URL: "https://example.com/" + strings.Repeat("a", 2000),
-					Topic: strings.Repeat("é", 101),
+					Topic: new(strings.Repeat("é", 101)),
 				},
 			},
+			selectedDifficulty: "unset",
+			selectedPriority:   "unset",
+		},
+		{
+			name: "unknown metadata does not add options or select a default",
+			modal: discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: discord.ProblemModalFields{
+				Difficulty: new("extreme"), Priority: new(strings.Repeat("🚀", 1500)),
+			}},
+		},
+		{
+			name: "canonical codes preselect options",
+			modal: discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: discord.ProblemModalFields{
+				Difficulty: new("hard"), Priority: new("not_required"),
+			}},
+			selectedDifficulty: "hard",
+			selectedPriority:   "not_required",
 		},
 	}
 	for _, tt := range tests {
@@ -61,21 +102,9 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 			var wire struct {
 				Type discordgo.InteractionResponseType `json:"type"`
 				Data struct {
-					CustomID   string `json:"custom_id"`
-					Title      string `json:"title"`
-					Components []struct {
-						Type        discordgo.ComponentType `json:"type"`
-						Label       string                  `json:"label"`
-						Description string                  `json:"description"`
-						Component   struct {
-							Type      discordgo.ComponentType `json:"type"`
-							CustomID  string                  `json:"custom_id"`
-							Label     string                  `json:"label"`
-							Value     string                  `json:"value"`
-							Required  *bool                   `json:"required"`
-							MaxLength *int                    `json:"max_length"`
-						} `json:"component"`
-					} `json:"components"`
+					CustomID   string      `json:"custom_id"`
+					Title      string      `json:"title"`
+					Components []wireLabel `json:"components"`
 				} `json:"data"`
 			}
 			if !assert.NoError(t, json.Unmarshal(encoded, &wire)) {
@@ -94,13 +123,34 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 			}{
 				{"name", "Name", tt.modal.Name, true},
 				{"url", "URL", tt.modal.URL, true},
-				{"difficulty", "Difficulty", tt.modal.Difficulty, false},
-				{"priority", "Priority", tt.modal.Priority, false},
-				{"topic", "Topic", tt.modal.Topic, false},
+				{"difficulty", "Difficulty", "", false},
+				{"priority", "Priority", "", false},
+				{"topic", "Topic", optionalProblemFormText(tt.modal.Topic), false},
+			}
+			difficultyOptions := []wireOption{
+				{Label: "Easy", Value: "easy"},
+				{Label: "Medium", Value: "medium"},
+				{Label: "Hard", Value: "hard"},
+				{Label: "Not specified", Value: "unset"},
+			}
+			for i := range difficultyOptions {
+				difficultyOptions[i].Default = difficultyOptions[i].Value == tt.selectedDifficulty
+			}
+			priorityOptions := []wireOption{
+				{Label: "Essential", Value: "essential"},
+				{Label: "Recommended", Value: "recommended"},
+				{Label: "Supplementary", Value: "supplementary"},
+				{Label: "Not required", Value: "not_required"},
+				{Label: "Discouraged", Value: "discouraged"},
+				{Label: "No priority assigned", Value: "unset"},
+			}
+			for i := range priorityOptions {
+				priorityOptions[i].Default = priorityOptions[i].Value == tt.selectedPriority
 			}
 			for i, want := range expected {
 				label := wire.Data.Components[i]
 				assert.Nil(t, label.Component.MaxLength, "custom input limits must be omitted from the payload")
+				assert.Nil(t, label.Component.Disabled, "modal selects must omit Discord's unsupported disabled field")
 				assert.Equal(t, discordgo.LabelComponent, label.Type)
 				assert.Equal(t, want.label, label.Label)
 				switch want.id {
@@ -111,12 +161,23 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 				case "topic":
 					assert.Equal(t, "Optional; up to 100 characters", label.Description)
 				}
-				assert.Equal(t, discordgo.TextInputComponent, label.Component.Type)
 				assert.Equal(t, want.id, label.Component.CustomID)
-				assert.Equal(t, want.value, label.Component.Value)
-				assert.Empty(t, label.Component.Label, "the label belongs to its wrapper")
 				if assert.NotNil(t, label.Component.Required, "required=false must reach Discord explicitly") {
 					assert.Equal(t, want.required, *label.Component.Required)
+				}
+				switch want.id {
+				case "name", "url", "topic":
+					assert.Equal(t, discordgo.TextInputComponent, label.Component.Type)
+					assert.Equal(t, want.value, label.Component.Value)
+					assert.Empty(t, label.Component.Options)
+				case "difficulty":
+					assert.Equal(t, discordgo.SelectMenuComponent, label.Component.Type)
+					assert.Empty(t, label.Component.Value)
+					assert.Equal(t, difficultyOptions, label.Component.Options)
+				case "priority":
+					assert.Equal(t, discordgo.SelectMenuComponent, label.Component.Type)
+					assert.Empty(t, label.Component.Value)
+					assert.Equal(t, priorityOptions, label.Component.Options)
 				}
 			}
 		})
@@ -170,8 +231,8 @@ const createProblemModalSubmission = `{
 		"components": [
 			{"type":18,"id":3,"component":{"type":4,"id":4,"custom_id":"name","value":"  Two Sum 🚀  "}},
 			{"type":18,"id":5,"component":{"type":4,"id":6,"custom_id":"url","value":" https://example.com/problem?id=2 "}},
-			{"type":18,"id":7,"component":{"type":4,"id":8,"custom_id":"difficulty","value":" mEDium "}},
-			{"type":18,"id":11,"component":{"type":4,"id":12,"custom_id":"priority","value":" Recommended "}},
+			{"type":18,"id":7,"component":{"type":3,"id":8,"custom_id":"difficulty","values":["medium"]}},
+			{"type":18,"id":11,"component":{"type":3,"id":12,"custom_id":"priority","values":["recommended"]}},
 			{"type":18,"id":9,"component":{"type":4,"id":10,"custom_id":"topic","value":"Binary search\nTwo pointers"}}
 		]
 	}
@@ -184,13 +245,15 @@ func TestParseCreateProblemModalReadsSDKSubmissionsByFieldIDAndPreservesRawText(
 		ClassCode: "basicos_1",
 		ProblemModalFields: discord.ProblemModalFields{
 			Name: "  Two Sum 🚀  ", URL: " https://example.com/problem?id=2 ",
-			Difficulty: " mEDium ", Priority: " Recommended ", Topic: "Binary search\nTwo pointers",
+			Difficulty: new("medium"), Priority: new("recommended"), Topic: new("Binary search\nTwo pointers"),
 		},
 	}
 	blankOptional := expected
-	blankOptional.Difficulty, blankOptional.Priority, blankOptional.Topic = "", "", ""
+	blankOptional.Difficulty, blankOptional.Priority, blankOptional.Topic = nil, nil, nil
+	blankMetadata := expected
+	blankMetadata.Difficulty, blankMetadata.Priority = nil, nil
 	invalidValues := expected
-	invalidValues.Name, invalidValues.Difficulty, invalidValues.Priority = "", "Insane", "Urgent"
+	invalidValues.Name, invalidValues.Difficulty, invalidValues.Priority = "", nil, nil
 
 	tests := []struct {
 		name   string
@@ -207,17 +270,24 @@ func TestParseCreateProblemModalReadsSDKSubmissionsByFieldIDAndPreservesRawText(
 		{
 			name: "empty optional inputs stay empty", want: blankOptional,
 			change: func(data *discordgo.ModalSubmitInteractionData) {
-				data.Components[2].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
-				data.Components[3].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
+				data.Components[2].(*discordgo.Label).Component.(*discordgo.SelectMenu).Values = nil
+				data.Components[3].(*discordgo.Label).Component.(*discordgo.SelectMenu).Values = nil
 				data.Components[4].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
 			},
 		},
 		{
-			name: "domain-invalid values remain available for later validation", want: invalidValues,
+			name: "unassigned selections become nil metadata", want: blankMetadata,
+			change: func(data *discordgo.ModalSubmitInteractionData) {
+				data.Components[2].(*discordgo.Label).Component.(*discordgo.SelectMenu).Values = []string{"unset"}
+				data.Components[3].(*discordgo.Label).Component.(*discordgo.SelectMenu).Values = []string{"unset"}
+			},
+		},
+		{
+			name: "unknown selections are ignored while raw text reaches service validation", want: invalidValues,
 			change: func(data *discordgo.ModalSubmitInteractionData) {
 				data.Components[0].(*discordgo.Label).Component.(*discordgo.TextInput).Value = ""
-				data.Components[2].(*discordgo.Label).Component.(*discordgo.TextInput).Value = "Insane"
-				data.Components[3].(*discordgo.Label).Component.(*discordgo.TextInput).Value = "Urgent"
+				data.Components[2].(*discordgo.Label).Component.(*discordgo.SelectMenu).Values = []string{"Insane"}
+				data.Components[3].(*discordgo.Label).Component.(*discordgo.SelectMenu).Values = []string{"Urgent"}
 			},
 		},
 	}
@@ -266,6 +336,12 @@ func TestParseCreateProblemModalRejectsIncompleteAmbiguousAndUnexpectedComponent
 		}},
 		{"unexpected input type", func(data *discordgo.ModalSubmitInteractionData) {
 			data.Components[0].(*discordgo.Label).Component = &discordgo.SelectMenu{}
+		}},
+		{"multiple select values", func(data *discordgo.ModalSubmitInteractionData) {
+			data.Components[2].(*discordgo.Label).Component.(*discordgo.SelectMenu).Values = []string{"easy", "hard"}
+		}},
+		{"non-string select type", func(data *discordgo.ModalSubmitInteractionData) {
+			data.Components[2].(*discordgo.Label).Component.(*discordgo.SelectMenu).MenuType = discordgo.UserSelectMenu
 		}},
 	}
 	for _, tt := range tests {
@@ -360,4 +436,11 @@ func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t
 			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
 		})
 	}
+}
+
+func optionalProblemFormText(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
