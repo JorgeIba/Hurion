@@ -18,12 +18,23 @@ export function ScoreboardSearchBar({
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const expanded = isOpen || query.length > 0;
   useEffect(() => {
     if (isOpen) inputRef.current?.focus({ preventScroll: true });
   }, [isOpen]);
+  useEffect(() => {
+    if (!showHelp) return;
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !helpRef.current?.contains(event.target)) {
+        setShowHelp(false);
+      }
+    };
+    document.addEventListener('pointerdown', dismissOutside, true);
+    return () => document.removeEventListener('pointerdown', dismissOutside, true);
+  }, [showHelp]);
   const labels = CLASS_LABELS.SCOREBOARD_SEARCH;
   const clear = () => {
     onQueryChange('');
@@ -127,6 +138,7 @@ export function ScoreboardSearchBar({
           )}
         </div>
         <div
+          ref={helpRef}
           className="scoreboard-search-help-anchor"
           onMouseEnter={() => setShowHelp(true)}
           onMouseLeave={(event) => {

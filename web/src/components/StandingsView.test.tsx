@@ -175,6 +175,22 @@ describe('scoreboard search interaction', () => {
     expect(help.hidden).toBe(true);
   });
 
+  it('dismisses a tooltip opened without button focus when pressing outside', () => {
+    const help = container.querySelector<HTMLParagraphElement>('[role="tooltip"]')!;
+    const button = container.querySelector<HTMLButtonElement>(
+      '.scoreboard-search-help-trigger'
+    )!;
+    act(() => button.click());
+    expect(document.activeElement).not.toBe(button);
+    expect(help.hidden).toBe(false);
+    act(() => help.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })));
+    expect(help.hidden).toBe(false);
+    act(() => button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })));
+    expect(help.hidden).toBe(false);
+    act(() => container.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })));
+    expect(help.hidden).toBe(true);
+  });
+
   it('keeps the tooltip open when moving the pointer from its trigger to its text', () => {
     const anchor = container.querySelector('.scoreboard-search-help-anchor')!;
     const help = container.querySelector<HTMLParagraphElement>('[role="tooltip"]')!;
