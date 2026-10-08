@@ -35,6 +35,11 @@ describe('domain/class/scoreboard', () => {
   });
 
   describe('sanitizeTab', () => {
+    it('uses the supplied fallback only for missing or invalid tabs', () => {
+      expect(sanitizeTab(null, 'problems')).toBe('problems');
+      expect(sanitizeTab('invalid', 'problems')).toBe('problems');
+      expect(sanitizeTab('standings', 'problems')).toBe('standings');
+    });
     it('accepts valid tab names', () => {
       expect(sanitizeTab('standings')).toBe('standings');
       expect(sanitizeTab('problems')).toBe('problems');
