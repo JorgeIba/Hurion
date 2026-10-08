@@ -23,8 +23,8 @@ const problems: Problem[] = [
 ];
 const users: UserScore[] = [
   { userId: 'jorgeiba', displayName: 'Jorge Ibarra', solved: [1, 104] },
-  { userId: 'carlos', displayName: 'Martín Gómez', solved: [257, 257], solvedCount: 99 },
-  { userId: 'mariana', solvedCount: 99 },
+  { userId: 'usuario', displayName: 'Luis Gómez', solved: [257, 257], solvedCount: 99 },
+  { userId: 'luis_dev', solvedCount: 99 },
 ];
 
 function evaluate(filters?: ScoreboardFilter) {
@@ -81,20 +81,20 @@ describe('evaluateScoreboardFilter', () => {
     const result = evaluate({
       students: {
         anyOf: [
-          { condition: { by: 'displayName', value: 'martin' } },
+          { condition: { by: 'displayName', value: 'gomez' } },
           { condition: { by: 'userId', value: 'jorgeiba' } },
-          { condition: { by: 'userId', value: 'carlos' } },
+          { condition: { by: 'userId', value: 'usuario' } },
         ],
       },
     });
-    expect([...result.userIds]).toEqual(['jorgeiba', 'carlos']);
+    expect([...result.userIds]).toEqual(['jorgeiba', 'usuario']);
     expect(result.problemIds.size).toBe(problems.length);
   });
 
   it('matches a handle without a display name', () => {
     expect([
-      ...evaluate({ students: { condition: { by: 'userId', value: 'mar' } } }).userIds,
-    ]).toEqual(['mariana']);
+      ...evaluate({ students: { condition: { by: 'userId', value: 'lu' } } }).userIds,
+    ]).toEqual(['luis_dev']);
   });
 
   it('does not treat unmatched student filters as absent', () => {
@@ -170,7 +170,7 @@ describe('evaluateScoreboardFilter', () => {
       students: { condition: { by: 'solvedProblem', value: 257 } },
       rows: { condition: { by: 'id', value: 1 } },
     });
-    expect([...result.userIds]).toEqual(['carlos']);
+    expect([...result.userIds]).toEqual(['usuario']);
     expect([...result.problemIds]).toEqual([1]);
   });
 

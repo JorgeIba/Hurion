@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -63,6 +64,8 @@ func buildProblemModalResponse(fields ProblemModalFields, customID, title string
 	}
 	required, optional := true, false
 
+	// Length limits are enforced by the service. Omit custom input limits so
+	// oversized drafts can be prefilled for correction without truncation.
 	return &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
@@ -70,14 +73,16 @@ func buildProblemModalResponse(fields ProblemModalFields, customID, title string
 			Title:    title,
 			Components: []discordgo.MessageComponent{
 				discordgo.Label{
-					Label: "Name",
+					Label:       "Name",
+					Description: fmt.Sprintf("Up to %d characters", service_model.ProblemNameMaxLength),
 					Component: discordgo.TextInput{
 						CustomID: problemNameFieldID, Style: discordgo.TextInputShort,
 						Value: fields.Name, Required: &required, Placeholder: "Two Sum",
 					},
 				},
 				discordgo.Label{
-					Label: "URL",
+					Label:       "URL",
+					Description: fmt.Sprintf("HTTP or HTTPS; up to %d characters", service_model.ProblemURLMaxLength),
 					Component: discordgo.TextInput{
 						CustomID: problemURLFieldID, Style: discordgo.TextInputShort,
 						Value: fields.URL, Required: &required, Placeholder: "https://example.com/problem",
@@ -100,7 +105,8 @@ func buildProblemModalResponse(fields ProblemModalFields, customID, title string
 					},
 				},
 				discordgo.Label{
-					Label: "Topic",
+					Label:       "Topic",
+					Description: fmt.Sprintf("Optional; up to %d characters", service_model.ProblemTopicMaxLength),
 					Component: discordgo.TextInput{
 						CustomID: problemTopicFieldID, Style: discordgo.TextInputShort,
 						Value: fields.Topic, Required: &optional, Placeholder: "Binary search",

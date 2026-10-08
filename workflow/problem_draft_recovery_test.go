@@ -203,6 +203,58 @@ func TestWorkflow_LongInvalidProblemMetadataReturnsCorrectionInstructionsAndPres
 	}
 }
 
+func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLimits(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		mutate func(*form.CreateProblemModal)
+		want   string
+	}{
+		{name: "name", mutate: func(m *form.CreateProblemModal) { m.Name = strings.Repeat("🚀", 201) }, want: "problem name must be at most 200 characters"},
+		{name: "URL", mutate: func(m *form.CreateProblemModal) { m.URL = "https://example.com/" + strings.Repeat("a", 2000) }, want: "URL must be at most 2000 characters"},
+		{name: "topic", mutate: func(m *form.CreateProblemModal) { m.Topic = strings.Repeat("é", 101) }, want: "topic must be at most 100 characters"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			classCode := strings.Repeat("a", 50)
+			classID := env.seedClass(t, classCode, "Class at the code limit")
+			failed := env.openProblemForm(t, "mentor_1", classCode)
+			failed.Name, failed.URL, failed.Topic = "Two Sum", "https://example.com/problem", "Arrays"
+			test.mutate(&failed)
+			env.submitProblemForm(t, "mentor_1", failed)
+			require.Len(t, env.Responder.edits, 1)
+			assert.Equal(t, "Please correct the values: "+test.want+". Try /problem add class:"+classCode+" again.", *env.Responder.edits[0].response.Content)
+			problems, err := env.DB.GetProblemsByClass(classID)
+			require.NoError(t, err)
+			assert.Empty(t, problems)
+
+			recovered := env.openProblemForm(t, "mentor_1", classCode)
+			assert.Equal(t, failed, recovered)
+			response := env.Responder.responses[len(env.Responder.responses)-1].response
+			for _, component := range response.Data.Components {
+				input := component.(discordgo.Label).Component.(discordgo.TextInput)
+				assert.Zero(t, input.MaxLength, "recovered drafts must not be constrained by custom input limits")
+			}
+			recovered.Name = strings.Repeat("🚀", 200)
+			prefix := "https://example.com/"
+			recovered.URL = prefix + strings.Repeat("a", 2000-len(prefix))
+			recovered.Topic = strings.Repeat("é", 100)
+			env.submitProblemForm(t, "mentor_1", recovered)
+			problems, err = env.DB.GetProblemsByClass(classID)
+			require.NoError(t, err)
+			require.Len(t, problems, 1)
+			assert.Equal(t, classID, problems[0].ClassID)
+			assert.Equal(t, recovered.Name, problems[0].Name)
+			assert.Equal(t, recovered.URL, problems[0].URL)
+			require.NotNil(t, problems[0].Topic)
+			assert.Equal(t, recovered.Topic, *problems[0].Topic)
+			assert.Empty(t, env.openProblemForm(t, "mentor_1", classCode).Name)
+		})
+	}
+}
+
 func TestWorkflow_ProblemDraftCannotBeRecoveredByAnotherUserOrClassOrAfterPermissionRevocation(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})

@@ -251,19 +251,18 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 	t.Parallel()
 
 	for _, test := range []struct {
-		name              string
-		channelClass      string
-		optionClass       string
-		wantClass         string
-		adminOnly         bool
-		problemName       string
-		omitNameInReceipt bool
+		name         string
+		channelClass string
+		optionClass  string
+		wantClass    string
+		adminOnly    bool
+		problemName  string
 	}{
 		{name: "mapped channel supplies its class", channelClass: "basicos_1", wantClass: "basicos_1"},
 		{name: "unmapped channel accepts an explicit class", optionClass: "basicos_2", wantClass: "basicos_2"},
 		{name: "explicit class overrides the mapped channel", channelClass: "basicos_1", optionClass: "basicos_2", wantClass: "basicos_2"},
 		{name: "admin without mentor role opens and submits", channelClass: "basicos_1", wantClass: "basicos_1", adminOnly: true},
-		{name: "long name is saved completely even when the receipt omits it", channelClass: "basicos_1", wantClass: "basicos_1", problemName: strings.Repeat("🚀", 1000), omitNameInReceipt: true},
+		{name: "Unicode name at the limit is saved completely", channelClass: "basicos_1", wantClass: "basicos_1", problemName: strings.Repeat("🚀", 200)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -370,11 +369,7 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 			assert.Equal(t, "medium", *problem.Difficulty)
 			assert.Equal(t, "recommended", *problem.Priority)
 			assert.Contains(t, *receipt.response.Content, fmt.Sprintf("Problem `%d`", problem.ID))
-			if test.omitNameInReceipt {
-				assert.NotContains(t, *receipt.response.Content, "Name:")
-			} else {
-				assert.Contains(t, *receipt.response.Content, problemName)
-			}
+			assert.Contains(t, *receipt.response.Content, problemName)
 			if test.adminOnly {
 				assert.Equal(t, 2, adminChecks, "admin authority is checked both on open and submit")
 			} else {
@@ -525,7 +520,8 @@ func TestWorkflow_ProblemAdd_ReportsClassErrorsBeforeOpeningForm(t *testing.T) {
 	}{
 		{name: "unmapped channel requires class option", content: "Please use /problem add class:"},
 		{name: "unknown explicit class is rejected", classCode: "missing_class", content: "Please check the class code"},
-		{name: "class that exceeds the form identifier limit receives a private error", classCode: strings.Repeat("a", 100), seedClass: true, content: "custom ID exceeds"},
+		{name: "class code above the domain limit receives a correction error", classCode: strings.Repeat("a", 51), seedClass: true, content: "class code must be at most 50 characters"},
+		{name: "class within the domain limit can exceed the encoded modal identifier", classCode: strings.Repeat("🚀", 10), seedClass: true, content: "custom ID exceeds"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

@@ -1,20 +1,20 @@
-import React, { useMemo, useState, useCallback, startTransition } from 'react';
+import React, { startTransition, useCallback, useMemo, useState } from 'react';
 import {
-  Problem,
-  UserScore,
-  SortState,
-  getSolvedCount,
-  getProblemDifficultyMetadata,
-  getNextSortState,
-  sortTopicGroupsByStudent,
-  CLASS_LABELS,
   CLASS_CONFIG,
+  CLASS_LABELS,
+  getNextSortState,
+  getProblemDifficultyMetadata,
+  getSolvedCount,
+  Problem,
+  SortState,
+  sortTopicGroupsByStudent,
+  UserScore,
 } from '@/domain/class';
 import { useColumnResize } from '@/hooks/useColumnResize';
 import { useTopicCollapse } from '@/hooks/useTopicCollapse';
-import { PriorityLabel } from './problems/PriorityLabel';
 import { getPriorityPresentation } from '@/presentation/priority';
 import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
+import { PriorityLabel } from './problems/PriorityLabel';
 
 interface ScoreboardTableProps {
   priorityPresentation: PriorityPresentationTable;
@@ -33,7 +33,7 @@ interface ScoreboardTableProps {
  * - Tri-State Adaptive Sorting: Via React 19 `startTransition` non-blocking re-ordering.
  * - Collapsible Topics: Via `useTopicCollapse` hook and `ScoreboardTopicRow` component.
  */
-export function ScoreboardTable({
+export const ScoreboardTable = React.memo(function ScoreboardTable({
   priorityPresentation,
   problems,
   users,
@@ -348,7 +348,7 @@ export function ScoreboardTable({
       </div>
     </section>
   );
-}
+});
 
 interface ScoreboardTopicRowProps {
   topicName: string;

@@ -116,6 +116,9 @@ func (service *problemService) UpdateProblemByProblemID(params service_model.Upd
 		}
 		return serviceerr.MakeGeneralError(err)
 	}
+	if err := service_model.ValidateClassCodeLength(class.ClassCode); err != nil {
+		return serviceerr.NewValidationError("invalid class code", err)
+	}
 
 	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params, class.ID)); err != nil {
 		switch {

@@ -2,8 +2,18 @@ package service_model
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
+	"unicode/utf8"
+)
+
+// Text limits count Unicode code points, not UTF-8 bytes.
+const (
+	ProblemNameMaxLength  = 200
+	ProblemURLMaxLength   = 2000
+	ProblemTopicMaxLength = 100
+	ClassCodeMaxLength    = 50
 )
 
 // NormalizeAndValidateCreateProblemParams checks problem values without looking up
@@ -15,7 +25,7 @@ func NormalizeAndValidateCreateProblemParams(params CreateProblemParams) (Create
 	if params.ClassCode == "" {
 		err = errors.Join(err, errors.New("class code is required"))
 	}
-	return params, err
+	return params, errors.Join(err, ValidateClassCodeLength(params.ClassCode))
 }
 
 // NormalizeAndValidateUpdateProblemParams checks replacement values and identity
@@ -30,7 +40,7 @@ func NormalizeAndValidateUpdateProblemParams(params UpdateProblemParams) (Update
 	if params.ClassCode == "" {
 		err = errors.Join(err, errors.New("class code is required"))
 	}
-	return params, err
+	return params, errors.Join(err, ValidateClassCodeLength(params.ClassCode))
 }
 
 func normalizeAndValidateProblemFields(fields ProblemFields) (ProblemFields, error) {
@@ -48,6 +58,7 @@ func normalizeAndValidateProblemFields(fields ProblemFields) (ProblemFields, err
 	}
 
 	fields.Topic = normalizeOptionalProblemText(fields.Topic)
+	problems = append(problems, ValidateProblemTextLengths(fields.Name, fields.URL, fields.Topic))
 	fields.Difficulty = normalizeOptionalProblemText(fields.Difficulty)
 	if fields.Difficulty != nil {
 		code, err := ParseDifficulty(*fields.Difficulty)
@@ -68,6 +79,33 @@ func normalizeAndValidateProblemFields(fields ProblemFields) (ProblemFields, err
 		}
 	}
 	return fields, errors.Join(problems...)
+}
+
+// ValidateProblemTextLengths checks creation and replacement values without
+// normalization, lookups, or required-field checks.
+func ValidateProblemTextLengths(name, problemURL string, topic *string) error {
+	topicValue := ""
+	if topic != nil {
+		topicValue = *topic
+	}
+	return errors.Join(
+		validateTextLength("problem name", name, ProblemNameMaxLength),
+		validateTextLength("URL", problemURL, ProblemURLMaxLength),
+		validateTextLength("topic", topicValue, ProblemTopicMaxLength),
+	)
+}
+
+// ValidateClassCodeLength applies the same limit to class creation and selection.
+func ValidateClassCodeLength(classCode string) error {
+	return validateTextLength("class code", classCode, ClassCodeMaxLength)
+}
+
+// validateTextLength counts Unicode code points rather than UTF-8 bytes.
+func validateTextLength(field, value string, limit int) error {
+	if utf8.RuneCountInString(value) > limit {
+		return fmt.Errorf("%s must be at most %d characters", field, limit)
+	}
+	return nil
 }
 
 func normalizeOptionalProblemText(value *string) *string {

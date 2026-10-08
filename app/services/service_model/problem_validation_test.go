@@ -1,11 +1,74 @@
 package service_model
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNormalizeAndValidateCreateProblemParamsEnforcesTextLimitsAfterTrimming(t *testing.T) {
+	t.Parallel()
+	for _, field := range []struct {
+		name   string
+		limit  int
+		mutate func(*CreateProblemParams, string)
+	}{
+		{name: "problem name", limit: 200, mutate: func(p *CreateProblemParams, value string) { p.Name = value }},
+		{name: "URL", limit: 2000, mutate: func(p *CreateProblemParams, value string) {
+			p.URL = "https://example.com/" + value[len("https://example.com/"):]
+		}},
+		{name: "topic", limit: 100, mutate: func(p *CreateProblemParams, value string) { p.Topic = &value }},
+		{name: "class code", limit: 50, mutate: func(p *CreateProblemParams, value string) { p.ClassCode = value }},
+	} {
+		for _, length := range []int{field.limit - 1, field.limit, field.limit + 1} {
+			t.Run(fmt.Sprintf("%s/%d characters", field.name, length), func(t *testing.T) {
+				t.Parallel()
+				params := CreateProblemParams{Name: "Two Sum", URL: "https://example.com/problem", ClassCode: "basicos_1"}
+				field.mutate(&params, strings.Repeat("a", length))
+				params.Name, params.URL, params.ClassCode = " "+params.Name+" ", " "+params.URL+" ", " "+params.ClassCode+" "
+				if params.Topic != nil {
+					value := " " + *params.Topic + " "
+					params.Topic = &value
+				}
+				_, err := NormalizeAndValidateCreateProblemParams(params)
+				if length > field.limit {
+					require.EqualError(t, err, fmt.Sprintf("%s must be at most %d characters", field.name, field.limit))
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
+	}
+}
+
+func TestNormalizeAndValidateCreateProblemParamsCountsUnicodeCharactersRatherThanBytes(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		length int
+		valid  bool
+	}{
+		{name: "200 Unicode characters fit", length: 200, valid: true},
+		{name: "201 Unicode characters exceed the limit", length: 201},
+	} {
+		for _, character := range []string{"é", "🚀"} {
+			t.Run(test.name+"/"+character, func(t *testing.T) {
+				t.Parallel()
+				params := CreateProblemParams{Name: strings.Repeat(character, test.length), URL: "https://example.com/problem", ClassCode: "basicos_1"}
+				result, err := NormalizeAndValidateCreateProblemParams(params)
+				if test.valid {
+					require.NoError(t, err)
+					assert.Equal(t, params.Name, result.Name)
+				} else {
+					require.EqualError(t, err, "problem name must be at most 200 characters")
+				}
+			})
+		}
+	}
+}
 
 func TestNormalizeAndValidateCreateProblemParamsNormalizesCopyWithoutChangingInput(t *testing.T) {
 	difficulty, priority, topic := " MEDIUM ", " RECOMMENDED ", " Binary search "

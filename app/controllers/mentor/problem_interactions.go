@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
@@ -227,6 +228,9 @@ func (ctrl *ProblemInteractionController) resolveCreateProblemClass(channelID, c
 
 	selectedClass, err := ctrl.services.Class.GetClassByClassCode(classCode)
 	if err != nil {
+		if _, invalid := errors.AsType[*serviceerr.ValidationError](err); invalid {
+			return service_model.Class{}, errors.New(adapters.MapError(err, adapters.ActionMentorAddProblem))
+		}
 		logger.Log.Warnf("Failed to load selected problem class: %v", err)
 		return service_model.Class{}, errors.New("Could not load the selected class. Please check the class code and try /problem add again.")
 	}
