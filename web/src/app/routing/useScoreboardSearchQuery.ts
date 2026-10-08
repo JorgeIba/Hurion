@@ -23,12 +23,18 @@ export function useScoreboardSearchQuery() {
   const [query, setQuery] = useState(appliedQuery);
   const navigationVersion = useRef(0);
   const ownWrite = useRef<string | null>(null);
+  const pendingClear = useRef(false);
   const ownerId = useId();
   const writeCount = useRef(0);
 
   const commitQuery = (request: PendingSearch) => {
     // Never let work scheduled on an earlier page overwrite a navigation.
     if (request.navigationVersion !== navigationVersion.current) return;
+    // The rendered URL may still be stale; retry clearing after our write is confirmed.
+    if (request.value === '' && ownWrite.current !== null) {
+      pendingClear.current = true;
+      return;
+    }
     const params = new URLSearchParams(location.search);
     const raw = params.get(URL_PARAMS.QUERY);
     if (request.value === (raw ?? '') && !(request.value === '' && raw !== null)) return;
@@ -55,10 +61,16 @@ export function useScoreboardSearchQuery() {
       confirmation === location.state?.scoreboardSearchWrite
     ) {
       // Our own update preserves the draft and any newer scheduled search.
+      if (pendingClear.current) {
+        pendingClear.current = false;
+        applyQuery({ value: '', navigationVersion: navigationVersion.current });
+        applyQuery.flush();
+      }
       return;
     }
     // External navigation invalidates all work from the previous page, even if q is equal.
     navigationVersion.current += 1;
+    pendingClear.current = false;
     applyQuery.cancel();
     setQuery(appliedQuery);
   }, [location, navigationType, appliedQuery, applyQuery]);
@@ -68,6 +80,7 @@ export function useScoreboardSearchQuery() {
   const changeQuery = (value: string, isComposing = false) => {
     setQuery(value);
     applyQuery.cancel();
+    pendingClear.current = false;
     if (isComposing) return;
     const request = { value, navigationVersion: navigationVersion.current };
     if (value === '') commitQuery(request);

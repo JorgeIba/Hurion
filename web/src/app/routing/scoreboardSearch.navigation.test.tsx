@@ -116,6 +116,84 @@ afterEach(() => {
 });
 
 describe('scoreboard URL navigation', () => {
+  it.each(['delete', 'button', 'Escape'])(
+    'preserves a clear made with %s while a URL replacement is in flight',
+    async (method) => {
+      mount();
+      type('solved:12');
+      const element = input();
+      await act(async () => {
+        vi.advanceTimersByTime(CLASS_CONFIG.SCOREBOARD_SEARCH.DEBOUNCE_MS);
+        if (method === 'delete') {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+            element,
+            ''
+          );
+          element.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        } else if (method === 'button') {
+          container.querySelector<HTMLButtonElement>('.scoreboard-search-clear')!.click();
+        } else {
+          element.dispatchEvent(
+            new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' })
+          );
+        }
+      });
+      expect(element.value).toBe('');
+      expect(params().has('q')).toBe(false);
+      expect(students()).toEqual(['Jorge', 'Luis']);
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(params().has('q')).toBe(false);
+    }
+  );
+
+  it('discards a queued clear when the user types a newer search', async () => {
+    mount();
+    type('solved:12');
+    const element = input();
+    await act(async () => {
+      vi.advanceTimersByTime(CLASS_CONFIG.SCOREBOARD_SEARCH.DEBOUNCE_MS);
+      const setValue = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )!.set!;
+      setValue.call(element, '');
+      element.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      setValue.call(element, 'solved:120');
+      element.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    });
+    expect(element.value).toBe('solved:120');
+    expect(params().get('q')).toBe('solved:12');
+    await act(async () => {
+      vi.advanceTimersByTime(CLASS_CONFIG.SCOREBOARD_SEARCH.DEBOUNCE_MS);
+    });
+    expect(params().get('q')).toBe('solved:120');
+    expect(students()).toEqual(['Luis']);
+  });
+
+  it('discards a queued clear when the user navigates elsewhere', async () => {
+    mount();
+    type('solved:12');
+    const element = input();
+    await act(async () => {
+      vi.advanceTimersByTime(CLASS_CONFIG.SCOREBOARD_SEARCH.DEBOUNCE_MS);
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+        element,
+        ''
+      );
+      element.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      await navigate('/?q=solved%3A120&extra=destination');
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(element.value).toBe('solved:120');
+    expect(params().get('q')).toBe('solved:120');
+    expect(params().get('extra')).toBe('destination');
+    expect(students()).toEqual(['Luis']);
+  });
+
   it('applies Enter immediately and restores applied queries through history', async () => {
     mount(['/?q=solved%3A12']);
     type('solved:120');
