@@ -14,6 +14,9 @@ type InteractionRouter func(*context.InteractionContext)
 
 var interactionCommandMap = map[string]map[string]InteractionRouter{
 	problemCommandName: {
+		problemEditCommandName: func(c *context.InteractionContext) {
+			c.ProblemController.HandleEditProblemInteraction(c.Interaction)
+		},
 		problemAddCommandName: func(c *context.InteractionContext) {
 			c.ProblemController.HandleAddProblemInteraction(c.Interaction)
 		},
@@ -21,6 +24,9 @@ var interactionCommandMap = map[string]map[string]InteractionRouter{
 }
 
 var interactionModalMap = map[string]InteractionRouter{
+	discord.EditProblemModalCustomID: func(c *context.InteractionContext) {
+		c.ProblemController.HandleEditProblemModalSubmitInteraction(c.Interaction)
+	},
 	discord.CreateProblemModalCustomID: func(c *context.InteractionContext) {
 		c.ProblemController.HandleCreateProblemModalSubmitInteraction(c.Interaction)
 	},

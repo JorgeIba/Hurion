@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	createProblemDraftCapacity = 100
-	createProblemDraftTTL      = 10 * time.Minute
+	problemDraftCapacity = 100
+	problemDraftTTL      = 10 * time.Minute
 )
 
 type createProblemDraftCacheKey struct {
@@ -18,42 +18,47 @@ type createProblemDraftCacheKey struct {
 	classCode string
 }
 
-type createProblemDraftCacheValue = discord.CreateProblemModal
-
-type createProblemDraftCache struct {
-	cache *otter.Cache[createProblemDraftCacheKey, createProblemDraftCacheValue]
+type editProblemDraftCacheKey struct {
+	guildID   string
+	userID    string
+	problemID int64
+	classCode string
 }
 
-func newCreateProblemDraftCache(clock otter.Clock) *createProblemDraftCache {
-	return &createProblemDraftCache{cache: otter.Must(&otter.Options[createProblemDraftCacheKey, createProblemDraftCacheValue]{
-		MaximumSize:      createProblemDraftCapacity,
-		ExpiryCalculator: createProblemDraftExpiry{},
+type createProblemDraftCache = problemDraftCache[createProblemDraftCacheKey, discord.CreateProblemModal]
+type editProblemDraftCache = problemDraftCache[editProblemDraftCacheKey, discord.EditProblemModal]
+
+type problemDraftCache[K comparable, V any] struct {
+	cache *otter.Cache[K, V]
+}
+
+func newProblemDraftCache[K comparable, V any](clock otter.Clock) *problemDraftCache[K, V] {
+	return &problemDraftCache[K, V]{cache: otter.Must(&otter.Options[K, V]{
+		MaximumSize:      problemDraftCapacity,
+		ExpiryCalculator: otter.ExpiryWriting[K, V](problemDraftTTL),
 		Clock:            clock,
 	})}
 }
 
-func (c *createProblemDraftCache) saveFailedDraft(key createProblemDraftCacheKey, modal createProblemDraftCacheValue) {
-	c.cache.Set(key, modal)
+func newCreateProblemDraftCache(clock otter.Clock) *createProblemDraftCache {
+	return newProblemDraftCache[createProblemDraftCacheKey, discord.CreateProblemModal](clock)
 }
 
-func (c *createProblemDraftCache) loadFailedDraft(key createProblemDraftCacheKey) (createProblemDraftCacheValue, bool) {
+func newEditProblemDraftCache(clock otter.Clock) *editProblemDraftCache {
+	return newProblemDraftCache[editProblemDraftCacheKey, discord.EditProblemModal](clock)
+}
+
+// saveFailedDraft reports availability immediately after writing, not future retention.
+func (c *problemDraftCache[K, V]) saveFailedDraft(key K, modal V) bool {
+	c.cache.Set(key, modal)
+	_, available := c.cache.GetIfPresent(key)
+	return available
+}
+
+func (c *problemDraftCache[K, V]) loadFailedDraft(key K) (V, bool) {
 	return c.cache.GetIfPresent(key)
 }
 
-func (c *createProblemDraftCache) consumeDraft(key createProblemDraftCacheKey) {
+func (c *problemDraftCache[K, V]) consumeDraft(key K) {
 	c.cache.Invalidate(key)
-}
-
-type createProblemDraftExpiry struct{}
-
-func (createProblemDraftExpiry) ExpireAfterCreate(otter.Entry[createProblemDraftCacheKey, createProblemDraftCacheValue]) time.Duration {
-	return createProblemDraftTTL
-}
-
-func (createProblemDraftExpiry) ExpireAfterUpdate(otter.Entry[createProblemDraftCacheKey, createProblemDraftCacheValue], createProblemDraftCacheValue) time.Duration {
-	return createProblemDraftTTL
-}
-
-func (createProblemDraftExpiry) ExpireAfterRead(entry otter.Entry[createProblemDraftCacheKey, createProblemDraftCacheValue]) time.Duration {
-	return entry.ExpiresAfter()
 }

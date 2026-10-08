@@ -205,6 +205,24 @@ func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
 	assert.Empty(t, problems)
 }
 
+func TestWorkflow_ProblemAddRetainsDraftForDuplicateFailure(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.seedClass(t, "basicos_2", "Basicos 2")
+	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
+	modal.ProblemModalFields = form.ProblemModalFields{
+		Name: " Duplicate problem ", URL: " https://example.com/duplicate ",
+		Difficulty: " Hard ", Priority: " Recommended ", Topic: " Binary search ",
+	}
+	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
+	problemService.EXPECT().CreateProblemIntoClass(form.MapCreateProblemModalToCreateProblemParams(modal)).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
+	env.Services.Problem = problemService
+	env.submitProblemForm(t, "mentor_1", modal)
+	reopened := env.openProblemForm(t, "mentor_1", "basicos_2")
+	assert.Equal(t, modal, reopened)
+}
+
 type recordingDiscordInteractionClient struct {
 	t           *testing.T
 	responses   []interactionResponseCall
@@ -507,7 +525,7 @@ func TestWorkflow_ProblemAdd_ReportsClassErrorsBeforeOpeningForm(t *testing.T) {
 	}{
 		{name: "unmapped channel requires class option", content: "Please use /problem add class:"},
 		{name: "unknown explicit class is rejected", classCode: "missing_class", content: "Please check the class code"},
-		{name: "class that exceeds the form identifier limit receives a private error", classCode: strings.Repeat("a", 100), seedClass: true, content: "class code cannot fit"},
+		{name: "class that exceeds the form identifier limit receives a private error", classCode: strings.Repeat("a", 100), seedClass: true, content: "custom ID exceeds"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

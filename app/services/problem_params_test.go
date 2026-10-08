@@ -22,7 +22,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				Difficulty: text("Easy"), Topic: text("Arrays"),
 			},
 			want: service_model.UpdateProblemParams{
-				ProblemID: 42, ClassID: 7, Name: "Two Sum", URL: "https://example.com/two-sum",
+				ProblemID: 42, ClassCode: "basicos", Name: "Two Sum", URL: "https://example.com/two-sum",
 				Difficulty: text("Easy"), Topic: text("Arrays"),
 			},
 		},
@@ -32,7 +32,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				ID: 93, ClassID: 12, Name: "Reverse Linked List", URL: "https://example.com/reverse-list",
 			},
 			want: service_model.UpdateProblemParams{
-				ProblemID: 93, ClassID: 12, Name: "Reverse Linked List", URL: "https://example.com/reverse-list",
+				ProblemID: 93, ClassCode: "basicos", Name: "Reverse Linked List", URL: "https://example.com/reverse-list",
 			},
 		},
 		{
@@ -42,7 +42,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				Topic: text("Binary search"),
 			},
 			want: service_model.UpdateProblemParams{
-				ProblemID: 58, ClassID: 4, Name: "Search Insert Position", URL: "https://example.com/search-insert",
+				ProblemID: 58, ClassCode: "basicos", Name: "Search Insert Position", URL: "https://example.com/search-insert",
 				Topic: text("Binary search"),
 			},
 		},
@@ -53,7 +53,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				Difficulty: text(" medium "),
 			},
 			want: service_model.UpdateProblemParams{
-				ProblemID: 81, ClassID: 9, Name: "Two Sum con números", URL: "https://example.com/two-sum-numeros",
+				ProblemID: 81, ClassCode: "basicos", Name: "Two Sum con números", URL: "https://example.com/two-sum-numeros",
 				Difficulty: text(" medium "),
 			},
 		},
@@ -64,14 +64,14 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				Difficulty: text(""), Topic: text(""),
 			},
 			want: service_model.UpdateProblemParams{
-				ProblemID: 106, ClassID: 3, Name: "Valid Parentheses", URL: "https://example.com/parentheses",
+				ProblemID: 106, ClassCode: "basicos", Name: "Valid Parentheses", URL: "https://example.com/parentheses",
 				Difficulty: text(""), Topic: text(""),
 			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, test.want, MapProblemToUpdateProblemParams(test.problem))
+			assert.Equal(t, test.want, MapProblemToUpdateProblemParams(test.problem, "basicos"))
 		})
 	}
 }

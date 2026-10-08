@@ -36,11 +36,11 @@ func TestCreateProblemDraftExpiresTenMinutesAfterLastFailure(t *testing.T) {
 			cache := newCreateProblemDraftCache(clock)
 			key := createProblemDraftCacheKey{guildID: "guild", userID: "mentor", classCode: "basicos_1"}
 			modal := discord.CreateProblemModal{ClassCode: key.classCode, ProblemModalFields: discord.ProblemModalFields{Name: "Original", URL: "invalid"}}
-			cache.saveFailedDraft(key, modal)
+			assert.True(t, cache.saveFailedDraft(key, modal), "a new draft is available after writing")
 			if test.failAgain {
 				clock.now.Add(int64(9 * time.Minute))
 				modal.Name = "Corrected name"
-				cache.saveFailedDraft(key, modal)
+				assert.True(t, cache.saveFailedDraft(key, modal), "replacing a draft also reports availability")
 			}
 			clock.now.Add(int64(test.after))
 			got, found := cache.loadFailedDraft(key)

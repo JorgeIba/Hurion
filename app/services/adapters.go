@@ -10,12 +10,12 @@ import (
 // ============================================================================
 
 // MapProblemToUpdateProblemParams prepares a pending update from saved values.
-func MapProblemToUpdateProblemParams(problem service_model.Problem) service_model.UpdateProblemParams {
+func MapProblemToUpdateProblemParams(problem service_model.Problem, classCode string) service_model.UpdateProblemParams {
 	return service_model.UpdateProblemParams{
 		ProblemID:  problem.ID,
 		Name:       problem.Name,
 		URL:        problem.URL,
-		ClassID:    problem.ClassID,
+		ClassCode:  classCode,
 		Difficulty: problem.Difficulty,
 		Topic:      problem.Topic,
 		Priority:   problem.Priority,
@@ -156,12 +156,12 @@ func mapCreateProblemParamsToDataProblem(params service_model.CreateProblemParam
 	}
 }
 
-func mapUpdateProblemParamsToDataProblem(params service_model.UpdateProblemParams) data.Problem {
+func mapUpdateProblemParamsToDataProblem(params service_model.UpdateProblemParams, classID int64) data.Problem {
 	return data.Problem{
 		ID:         params.ProblemID,
 		Name:       params.Name,
 		URL:        params.URL,
-		ClassID:    params.ClassID,
+		ClassID:    classID,
 		Difficulty: params.Difficulty,
 		Topic:      params.Topic,
 		Priority:   params.Priority,
