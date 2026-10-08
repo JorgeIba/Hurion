@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { MemoryRouter } from 'react-router';
 import { createRoot, type Root } from 'react-dom/client';
 import {
   afterEach,
@@ -10,7 +11,7 @@ import {
   type MockInstance,
   vi,
 } from 'vitest';
-import { StandingsView } from '@/components/StandingsView';
+import { StandingsRoute } from '@/app/routing/routes';
 import * as search from '@/hooks/useScoreboardSearch';
 import { priorityPresentationConfig } from '@/presentation/priorityConfig';
 
@@ -59,11 +60,13 @@ beforeEach(() => {
   root = createRoot(container);
   act(() =>
     root.render(
-      <StandingsView
-        priorityPresentation={priorityPresentationConfig.defaults}
-        problems={[]}
-        users={[]}
-      />
+      <MemoryRouter>
+        <StandingsRoute
+          priorityPresentation={priorityPresentationConfig.defaults}
+          problems={[]}
+          users={[]}
+        />
+      </MemoryRouter>
     )
   );
   act(() =>

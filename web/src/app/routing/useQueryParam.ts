@@ -1,4 +1,9 @@
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import {
+  useLocation,
+  useNavigate,
+  useSearchParams,
+  type NavigateOptions,
+} from 'react-router';
 import { ActiveTab, sanitizeTab, sanitizeClassCode, CLASS_CONFIG } from '@/domain/class';
 import { URL_PARAMS } from '@/app/routing/navigation';
 
@@ -7,20 +12,23 @@ export function useQueryParam<T>(
   key: string,
   parse: (raw: string | null) => T,
   defaultValue: T
-): [T, (newValue: T) => void] {
+): [T, (newValue: T, options?: NavigateOptions) => void] {
   const [params] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const setValue = (newValue: T) => {
+  const setValue = (newValue: T, options?: NavigateOptions) => {
     const next = new URLSearchParams(params);
     if (newValue === defaultValue) next.delete(key);
     else next.set(key, String(newValue));
     if (next.toString() !== params.toString()) {
-      navigate({
-        pathname: location.pathname,
-        search: next.toString(),
-        hash: location.hash,
-      });
+      navigate(
+        {
+          pathname: location.pathname,
+          search: next.toString(),
+          hash: location.hash,
+        },
+        options
+      );
     }
   };
   return [parse(params.get(key)), setValue];
