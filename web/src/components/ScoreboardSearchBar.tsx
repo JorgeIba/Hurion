@@ -36,6 +36,10 @@ export function ScoreboardSearchBar({
     return () => document.removeEventListener('pointerdown', dismissOutside, true);
   }, [showHelp]);
   const labels = CLASS_LABELS.SCOREBOARD_SEARCH;
+  const issueGroups = [
+    { code: 'invalidProblemId', hint: labels.ID_HINT },
+    { code: 'invalidSolvedProblemId', hint: labels.SOLVED_ID_HINT },
+  ] as const;
   const clear = () => {
     onQueryChange('');
     inputRef.current?.focus({ preventScroll: true });
@@ -183,12 +187,14 @@ export function ScoreboardSearchBar({
           </p>
         </div>
         <div id={`${id}-issues`} className="scoreboard-search-issues" role="status">
-          {issues.length > 0 && (
-            <p>
-              {labels.INVALID_ID} {issues.map(({ token }) => token).join(', ')}.{' '}
-              {labels.ID_HINT}
-            </p>
-          )}
+          {issueGroups.map(({ code, hint }) => {
+            const tokens = issues.filter((issue) => issue.code === code);
+            return tokens.length > 0 ? (
+              <p key={code}>
+                {labels.INVALID_ID} {tokens.map(({ token }) => token).join(', ')}. {hint}
+              </p>
+            ) : null;
+          })}
         </div>
       </div>
     </div>

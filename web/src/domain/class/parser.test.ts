@@ -12,8 +12,8 @@ const problems: Problem[] = [
   { id: 500, name: 'Sum of Two Numbers', createdAt: '2026-01-01' },
 ];
 const users: UserScore[] = [
-  { userId: 'jorgeiba', displayName: 'Jorge Ibarra' },
-  { userId: 'usuario', displayName: 'Luis Gómez' },
+  { userId: 'jorgeiba', displayName: 'Jorge Ibarra', solved: [104, 257] },
+  { userId: 'usuario', displayName: 'Luis Gómez', solved: [257] },
   { userId: 'luis_dev' },
 ];
 
@@ -32,12 +32,21 @@ function search(query: string, problemCatalog: Problem[] = problems) {
 }
 
 describe('parseScoreboardSearch', () => {
-  it.each(['', '   ', '+', ' + + ', '@', 't:', 'topic:', '#', '? ! / :::', 't:___'])(
-    'omits restrictions for empty or incomplete input %j',
-    (query) => {
-      expect(parseScoreboardSearch(query)).toEqual({ filters: {}, issues: [] });
-    }
-  );
+  it.each([
+    '',
+    '   ',
+    '+',
+    ' + + ',
+    '@',
+    't:',
+    'topic:',
+    '#',
+    'solved:',
+    '? ! / :::',
+    't:___',
+  ])('omits restrictions for empty or incomplete input %j', (query) => {
+    expect(parseScoreboardSearch(query)).toEqual({ filters: {}, issues: [] });
+  });
 
   it('produces a single condition for a title phrase', () => {
     expect(parseScoreboardSearch('  Two   Sum  ')).toEqual({
@@ -184,5 +193,78 @@ describe('parseScoreboardSearch', () => {
       { code: 'invalidProblemId', token: '#1.5' },
       { code: 'invalidProblemId', token: '#-1' },
     ]);
+  });
+});
+
+describe('solved problem search', () => {
+  it.each([
+    ['solved:104', ['jorgeiba']],
+    ['SOLVED:0104', ['jorgeiba']],
+    ['solved:257', ['jorgeiba', 'usuario']],
+    ['solved:104 + solved:257', ['jorgeiba', 'usuario']],
+    ['solved:104 solved:257', ['jorgeiba']],
+    ['solved:104 + solved:104', ['jorgeiba']],
+    ['solved:999', []],
+    ['@usuario solved:104', []],
+    ['@jorge solved:104 + solved:257', ['jorgeiba']],
+    ['@jorge + @usuario solved:257', ['jorgeiba', 'usuario']],
+    ['solved:104 + @usuario', []],
+    ['solved:104 solved:', ['jorgeiba']],
+  ])('selects students without restricting rows for %s', (query, expected) => {
+    const result = search(query);
+    expect(result.userIds).toEqual(expected);
+    expect(result.problemIds).toEqual(problems.map(({ id }) => id));
+    expect(result.issues).toEqual([]);
+  });
+
+  it.each(['solved:257 t:grafos', 'solved:257 + t:grafos'])(
+    'evaluates solved history independently of visible rows: %s',
+    (query) => {
+      expect(search(query)).toEqual({
+        userIds: ['jorgeiba', 'usuario'],
+        problemIds: [104],
+        issues: [],
+      });
+    }
+  );
+
+  it.each(['abc', '!!!', '___', '1.5', '-1', '1e2', '9007199254740992', 'Infinity'])(
+    'rejects malformed solved ID %s without hiding matching rows',
+    (value) => {
+      const token = `solved:${value}`;
+      expect(search(`${token} t:grafos`)).toEqual({
+        userIds: [],
+        problemIds: [104],
+        issues: [{ code: 'invalidSolvedProblemId', token }],
+      });
+    }
+  );
+
+  it('retains valid solved alternatives without broadening from a row-only branch', () => {
+    expect(search('solved:wrong solved:257 + solved:104 + #257')).toEqual({
+      userIds: ['jorgeiba'],
+      problemIds: [257],
+      issues: [{ code: 'invalidSolvedProblemId', token: 'solved:wrong' }],
+    });
+  });
+
+  it('retains a valid student condition in an invalid row branch', () => {
+    expect(search('solved:104 #wrong')).toEqual({
+      userIds: ['jorgeiba'],
+      problemIds: [],
+      issues: [{ code: 'invalidProblemId', token: '#wrong' }],
+    });
+  });
+
+  it('reports errors from both axes in token order', () => {
+    expect(search('solved:wrong #wrong solved:-1')).toEqual({
+      userIds: [],
+      problemIds: [],
+      issues: [
+        { code: 'invalidSolvedProblemId', token: 'solved:wrong' },
+        { code: 'invalidProblemId', token: '#wrong' },
+        { code: 'invalidSolvedProblemId', token: 'solved:-1' },
+      ],
+    });
   });
 });
