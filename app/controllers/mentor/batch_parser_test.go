@@ -74,7 +74,7 @@ func TestParseProblemBatchReportsInvalidEntriesWithoutPartialResults(t *testing.
 		{
 			name:    "optional metadata must be text",
 			input:   `[{"class":"basicos","url":"https://example.com/one","name":"Invalid","topic":42}]`,
-			entries: []int{1}, messages: []string{"cannot unmarshal JSON number"},
+			entries: []int{1}, messages: []string{"JSON number into Go string"},
 		},
 		{
 			name:    "duplicate fields and mismatched casing",
@@ -143,7 +143,7 @@ func TestParseACBatchReportsInvalidEntriesWithoutPartialResults(t *testing.T) {
 		{
 			name:    "numeric user IDs and malformed problem ID types are collected",
 			input:   `[{"user_id":123,"problem_id":42},{"user_id":"123","problem_id":1.5},{"user_id":"123","problem_id":"42"},{"user_id":"123","problem_id":9223372036854775808}]`,
-			entries: []int{1, 2, 3, 4}, messages: []string{"cannot unmarshal JSON number", "cannot unmarshal", "cannot unmarshal", "cannot unmarshal"},
+			entries: []int{1, 2, 3, 4}, messages: []string{"JSON number into Go string", "into Go int64", "into Go int64", "into Go int64"},
 		},
 		{
 			name:    "duplicate fields and mismatched casing",
@@ -192,8 +192,8 @@ func TestBatchJSONContractAppliesToBothParsers(t *testing.T) {
 				{name: "object document", input: parser.valid, message: "expected one JSON array"},
 				{name: "invalid UTF-8 inside string", input: "[" + strings.Replace(parser.valid, `":"`, "\":\"\xff", 1) + "]", entry: 1, message: "invalid UTF-8"},
 				{name: "null entry", input: "[" + parser.valid + ",null]", entry: 2, message: "entry must be a JSON object"},
-				{name: "array entry", input: "[" + parser.valid + ",[]]", entry: 2, message: "cannot unmarshal JSON array"},
-				{name: "string entry", input: "[" + parser.valid + `,"text"]`, entry: 2, message: "cannot unmarshal JSON string"},
+				{name: "array entry", input: "[" + parser.valid + ",[]]", entry: 2, message: "JSON array into Go"},
+				{name: "string entry", input: "[" + parser.valid + `,"text"]`, entry: 2, message: "JSON string into Go"},
 				{name: "second document", input: "[" + parser.valid + "] []", message: "expected one JSON array"},
 				{name: "markdown fences", input: "```json\n[" + parser.valid + "]\n```", message: "expected one JSON array"},
 				{name: "comments", input: "[/*comment*/" + parser.valid + "]", message: "expected one JSON array"},
