@@ -100,6 +100,48 @@ describe('search applied to scoreboard rows and columns', () => {
     expect(container.querySelector('.scoreboard-selection-summary')).toBeNull();
   });
 
+  it('selects students by solved history while keeping all problems and class totals', () => {
+    apply('solved:12');
+    expect(studentNames()).toEqual(['Jorge']);
+    expect(names()).toHaveLength(3);
+    expect(container.querySelector('.total-ac-count-cell')?.textContent).toBe('2');
+    apply('solved:12 + solved:120');
+    expect(studentNames()).toEqual(['Jorge', 'Luis']);
+    expect(names()).toHaveLength(3);
+    apply('solved:12 solved:3');
+    expect(studentNames()).toEqual(['Jorge']);
+    apply('solved:12 solved:120');
+    expect(container.querySelector('.state-row')?.textContent).toBe(
+      CLASS_LABELS.SCOREBOARD_VIEW.NO_MATCHING_STUDENTS
+    );
+    type('');
+    expect(studentNames()).toHaveLength(3);
+  });
+
+  it('combines solved history with name and topic restrictions independently', () => {
+    apply('@luis solved:120 t:grafos');
+    expect(studentNames()).toEqual(['Luis']);
+    expect(names()).toEqual(['BFS']);
+    expect(container.querySelector('.status-ac-pill')).toBeNull();
+  });
+
+  it('explains malformed solved IDs and recovers through a valid alternative', () => {
+    apply('solved:wrong');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(container.querySelector('.scoreboard-search-issues')?.textContent).toContain(
+      CLASS_LABELS.SCOREBOARD_SEARCH.SOLVED_ID_HINT
+    );
+    expect(
+      container.querySelector('.scoreboard-search-issues')?.textContent
+    ).not.toContain(CLASS_LABELS.SCOREBOARD_SEARCH.ID_HINT);
+    apply('solved:wrong + solved:120');
+    expect(studentNames()).toEqual(['Luis']);
+    expect(names()).toHaveLength(3);
+    apply('solved:120');
+    expect(input.getAttribute('aria-invalid')).toBe('false');
+    expect(container.querySelector('.scoreboard-search-issues')?.textContent).toBe('');
+  });
+
   it('combines the student restriction with topics OR text from another topic', () => {
     apply('@luis t:grafos + grafo');
     expect(studentNames()).toEqual(['Luis']);

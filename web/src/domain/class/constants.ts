@@ -43,8 +43,10 @@ export const CLASS_LABELS = {
     PLACEHOLDER: '@jorge t:grafos + #12',
     CLEAR: 'Clear search',
     HELP_LABEL: 'Search syntax help',
-    HELP: 'Use @name for students, t:topic for topics, #12 for an exact problem ID, or a problem name. Add + for another alternative.',
+    HELP: 'Use @name for students, t:topic for topics, #12 for an exact problem ID, or a problem name. Use solved:12 for students who solved that problem. Repeated solved: terms require all; + allows either. @name applies to every solved: alternative. Student and problem filters apply independently.',
     INVALID_ID: 'Invalid problem ID:',
+    SOLVED_ID_HINT:
+      'Use solved: followed by digits, for example solved:12. This alternative matches no students until corrected.',
     ID_HINT:
       'Use # followed by digits, for example #12. This alternative matches no problems until corrected.',
   },
