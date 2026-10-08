@@ -14,16 +14,32 @@ func editSubmission(t *testing.T, response *discordgo.InteractionResponse) disco
 	t.Helper()
 	data := discordgo.ModalSubmitInteractionData{CustomID: response.Data.CustomID}
 	for _, component := range response.Data.Components {
-		label := component.(discordgo.Label)
-		input := label.Component.(discordgo.TextInput)
-		data.Components = append(data.Components, &discordgo.Label{Component: &input})
+		label, ok := component.(discordgo.Label)
+		require.True(t, ok, "expected an outgoing label, got %T", component)
+		submittedLabel := &discordgo.Label{}
+		switch field := label.Component.(type) {
+		case discordgo.TextInput:
+			submittedLabel.Component = &discordgo.TextInput{CustomID: field.CustomID, Value: field.Value}
+		case modalStringSelect:
+			selection := &discordgo.SelectMenu{CustomID: field.CustomID}
+			for _, option := range field.Options {
+				if option.Default {
+					selection.Values = []string{option.Value}
+					break
+				}
+			}
+			submittedLabel.Component = selection
+		default:
+			t.Fatalf("unexpected form component %T", field)
+		}
+		data.Components = append(data.Components, submittedLabel)
 	}
 	return data
 }
 
 func TestProblemModalBuildersEnforceSharedFieldLimit(t *testing.T) {
 	t.Parallel()
-	for _, field := range []string{"name", "url", "difficulty", "priority", "topic"} {
+	for _, field := range []string{"name", "url", "topic"} {
 		for _, value := range []string{strings.Repeat("🚀", 2000), strings.Repeat("🚀", 2000) + "a"} {
 			t.Run(field+"/"+strconv.Itoa(utf16Count(value)), func(t *testing.T) {
 				fields := ProblemModalFields{}
@@ -32,12 +48,8 @@ func TestProblemModalBuildersEnforceSharedFieldLimit(t *testing.T) {
 					fields.Name = value
 				case "url":
 					fields.URL = value
-				case "difficulty":
-					fields.Difficulty = value
-				case "priority":
-					fields.Priority = value
 				case "topic":
-					fields.Topic = value
+					fields.Topic = &value
 				}
 				for _, build := range []func() (*discordgo.InteractionResponse, error){
 					func() (*discordgo.InteractionResponse, error) {
@@ -63,7 +75,7 @@ func TestProblemModalBuildersEnforceSharedFieldLimit(t *testing.T) {
 
 func TestEditProblemModalRoundTripAndDisplayLimits(t *testing.T) {
 	t.Parallel()
-	raw := ProblemModalFields{Name: " Raw 🚀 ", URL: " invalid ", Difficulty: " HARD ", Priority: " Recommended ", Topic: " Graphs "}
+	raw := ProblemModalFields{Name: " Raw 🚀 ", URL: " invalid ", Difficulty: new(" HARD "), Priority: new("recommended"), Topic: new(" Graphs ")}
 	response, err := BuildEditProblemModalResponse(EditProblemModal{ProblemID: 123, ClassCode: "basicos|á%", ProblemModalFields: raw})
 	require.NoError(t, err)
 	assert.LessOrEqual(t, utf16Count(response.Data.Title), 45)
@@ -73,7 +85,9 @@ func TestEditProblemModalRoundTripAndDisplayLimits(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 123, modal.ProblemID)
 	assert.Equal(t, "basicos|á%", modal.ClassCode)
-	assert.Equal(t, raw, modal.ProblemModalFields, "transport preserves invalid input without normalization")
+	expected := raw
+	expected.Difficulty, expected.Priority = new("hard"), new("recommended")
+	assert.Equal(t, expected, modal.ProblemModalFields, "text is preserved and selections return canonical codes")
 	receipt := FormatUpdatedProblemReceipt(123, strings.Repeat("🚀", 2000), raw.Name)
 	assert.LessOrEqual(t, utf16Count(receipt), 2000)
 	assert.Contains(t, receipt, "123")
@@ -166,7 +180,7 @@ func TestEditProblemModalCustomIDLimits(t *testing.T) {
 
 func TestEditProblemModalLegacyValuesHaveRepairPath(t *testing.T) {
 	t.Parallel()
-	for _, test := range []struct{ field string }{{"name"}, {"url"}, {"difficulty"}, {"priority"}, {"topic"}} {
+	for _, test := range []struct{ field string }{{"name"}, {"url"}, {"topic"}} {
 		t.Run(test.field, func(t *testing.T) {
 			t.Parallel()
 			modal := EditProblemModal{ProblemID: 123, ClassCode: "basicos"}
@@ -176,12 +190,8 @@ func TestEditProblemModalLegacyValuesHaveRepairPath(t *testing.T) {
 				modal.Name = value
 			case "url":
 				modal.URL = value
-			case "difficulty":
-				modal.Difficulty = value
-			case "priority":
-				modal.Priority = value
 			case "topic":
-				modal.Topic = value
+				modal.Topic = &value
 			}
 			response, err := BuildEditProblemModalResponse(modal)
 			require.ErrorContains(t, err, "!update_problem")

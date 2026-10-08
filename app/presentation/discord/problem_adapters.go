@@ -1,14 +1,8 @@
 package discord
 
-import (
-	"strings"
-
-	"github.com/JorgeIba/Hurion/app/presentation"
-	"github.com/JorgeIba/Hurion/app/services/service_model"
-)
+import "github.com/JorgeIba/Hurion/app/services/service_model"
 
 // MapCreateProblemParamsToCreateProblemModal prefills the creation form from supplied values.
-// Missing difficulty and priority use their display defaults; missing topic is blank.
 func MapCreateProblemParamsToCreateProblemModal(params service_model.CreateProblemParams) CreateProblemModal {
 	return CreateProblemModal{
 		ClassCode:          params.ClassCode,
@@ -25,71 +19,36 @@ func MapUpdateProblemParamsToEditProblemModal(params service_model.UpdateProblem
 	}
 }
 
-// MapCreateProblemModalToCreateProblemParams converts form text into a pending create request.
-// Blank optional text and unassigned metadata markers become nil. The multiword
-// priority label maps to its code; other text remains raw for application validation.
+// MapCreateProblemModalToCreateProblemParams maps parsed form values into a create request.
+// Values remain unchanged for service normalization and validation.
 func MapCreateProblemModalToCreateProblemParams(modal CreateProblemModal) service_model.CreateProblemParams {
 	return service_model.CreateProblemParams{
 		Name:       modal.Name,
 		URL:        modal.URL,
 		ClassCode:  modal.ClassCode,
-		Difficulty: mapModalDifficultyToOptionalValue(modal.Difficulty),
-		Topic:      mapModalTextToOptionalValue(modal.Topic),
-		Priority:   mapModalPriorityToOptionalValue(modal.Priority),
+		Difficulty: modal.Difficulty,
+		Topic:      modal.Topic,
+		Priority:   modal.Priority,
 	}
 }
 
-// MapEditProblemModalToUpdateProblemParams converts form text into a pending update request.
-// The modal carries the target and destination class code.
-// Values still require application
-// normalization and validation before writing, as in MapCreateProblemModalToCreateProblemParams.
+// MapEditProblemModalToUpdateProblemParams maps parsed form values into an update
+// request, including the target and destination class code. Values still require
+// service normalization and validation before writing.
 func MapEditProblemModalToUpdateProblemParams(modal EditProblemModal) service_model.UpdateProblemParams {
 	return service_model.UpdateProblemParams{
 		ProblemID:  modal.ProblemID,
 		Name:       modal.Name,
 		URL:        modal.URL,
 		ClassCode:  modal.ClassCode,
-		Difficulty: mapModalDifficultyToOptionalValue(modal.Difficulty),
-		Topic:      mapModalTextToOptionalValue(modal.Topic),
-		Priority:   mapModalPriorityToOptionalValue(modal.Priority),
+		Difficulty: modal.Difficulty,
+		Topic:      modal.Topic,
+		Priority:   modal.Priority,
 	}
 }
 
-// mapProblemValuesToModalFields formats canonical metadata codes for display
-// while preserving other supplied text for prefill or correction.
 func mapProblemValuesToModalFields(name, url string, difficulty, topic, priority *string) ProblemModalFields {
-	fields := ProblemModalFields{
-		Name: name, URL: url, Difficulty: presentation.DifficultyLabel(difficulty),
-		Priority: presentation.PriorityLabel(priority),
+	return ProblemModalFields{
+		Name: name, URL: url, Difficulty: difficulty, Topic: topic, Priority: priority,
 	}
-	if topic != nil {
-		fields.Topic = *topic
-	}
-	return fields
-}
-
-func mapModalDifficultyToOptionalValue(value string) *string {
-	if strings.EqualFold(strings.TrimSpace(value), presentation.DifficultyUnspecifiedLabel) {
-		return nil
-	}
-	return mapModalTextToOptionalValue(value)
-}
-
-func mapModalTextToOptionalValue(value string) *string {
-	if strings.TrimSpace(value) == "" {
-		return nil
-	}
-	return &value
-}
-
-func mapModalPriorityToOptionalValue(value string) *string {
-	code := service_model.PriorityNotRequired
-	if strings.EqualFold(strings.TrimSpace(value), presentation.PriorityLabel(&code)) {
-		return &code
-	}
-
-	if strings.EqualFold(strings.TrimSpace(value), presentation.PriorityUnspecifiedLabel) {
-		return nil
-	}
-	return mapModalTextToOptionalValue(value)
 }

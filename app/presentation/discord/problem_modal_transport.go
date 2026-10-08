@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
@@ -16,17 +17,18 @@ const CreateProblemModalCustomID = "huron:problem:create"
 const EditProblemModalCustomID = "huron:problem:edit"
 
 const (
-	maxMessageContentLength  = 2000
-	modalCustomIDSeparator   = "|"
-	modalCustomIDMaxLength   = 100
-	problemNameFieldID       = "name"
-	problemURLFieldID        = "url"
-	problemDifficultyFieldID = "difficulty"
-	problemPriorityFieldID   = "priority"
-	problemTopicFieldID      = "topic"
+	maxMessageContentLength       = 2000
+	modalCustomIDSeparator        = "|"
+	modalCustomIDMaxLength        = 100
+	problemNameFieldID            = "name"
+	problemURLFieldID             = "url"
+	problemDifficultyFieldID      = "difficulty"
+	problemPriorityFieldID        = "priority"
+	problemTopicFieldID           = "topic"
+	unassignedMetadataSelectValue = "unset"
 )
 
-// BuildCreateProblemModalResponse presents raw values using native Discord labels.
+// BuildCreateProblemModalResponse presents text and fixed metadata choices using Discord labels.
 // Required inputs guide entry; application validation belongs to the write flow.
 func BuildCreateProblemModalResponse(modal CreateProblemModal) (*discordgo.InteractionResponse, error) {
 	customID, err := buildCreateProblemModalCustomID(modal.ClassCode)
@@ -57,7 +59,7 @@ func BuildEditProblemModalResponse(modal EditProblemModal) (*discordgo.Interacti
 }
 
 func buildProblemModalResponse(fields ProblemModalFields, customID, title string) (*discordgo.InteractionResponse, error) {
-	for _, value := range []string{fields.Name, fields.URL, fields.Difficulty, fields.Priority, fields.Topic} {
+	for _, value := range []string{fields.Name, fields.URL, problemModalTextValue(fields.Topic)} {
 		if utf16Count(value) > 4000 {
 			return nil, fmt.Errorf("a field exceeds Discord's form limit")
 		}
@@ -91,30 +93,76 @@ func buildProblemModalResponse(fields ProblemModalFields, customID, title string
 				discordgo.Label{
 					Label:       "Difficulty",
 					Description: "Optional: Easy, Medium, Hard, or Not specified",
-					Component: discordgo.TextInput{
-						CustomID: problemDifficultyFieldID, Style: discordgo.TextInputShort,
-						Value: fields.Difficulty, Required: &optional,
-					},
+					Component:   problemDifficultySelect(fields.Difficulty),
 				},
 				discordgo.Label{
 					Label:       "Priority",
 					Description: "Optional: Essential, Recommended, Supplementary, Not required, or Discouraged",
-					Component: discordgo.TextInput{
-						CustomID: problemPriorityFieldID, Style: discordgo.TextInputShort,
-						Value: fields.Priority, Required: &optional,
-					},
+					Component:   problemPrioritySelect(fields.Priority),
 				},
 				discordgo.Label{
 					Label:       "Topic",
 					Description: fmt.Sprintf("Optional; up to %d characters", service_model.ProblemTopicMaxLength),
 					Component: discordgo.TextInput{
 						CustomID: problemTopicFieldID, Style: discordgo.TextInputShort,
-						Value: fields.Topic, Required: &optional, Placeholder: "Binary search",
+						Value: problemModalTextValue(fields.Topic), Required: &optional, Placeholder: "Binary search",
 					},
 				},
 			},
 		},
 	}, nil
+}
+
+func problemModalTextValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func problemDifficultySelect(current *string) modalStringSelect {
+	return problemMetadataSelect(problemDifficultyFieldID, "Choose a difficulty", current, problemDifficultyOptions())
+}
+
+func problemDifficultyOptions() []modalStringSelectOption {
+	return []modalStringSelectOption{
+		{Label: "Easy", Value: service_model.DifficultyEasy},
+		{Label: "Medium", Value: service_model.DifficultyMedium},
+		{Label: "Hard", Value: service_model.DifficultyHard},
+		{Label: presentation.DifficultyUnspecifiedLabel, Value: unassignedMetadataSelectValue},
+	}
+}
+
+func problemPrioritySelect(current *string) modalStringSelect {
+	return problemMetadataSelect(problemPriorityFieldID, "Choose a priority", current, problemPriorityOptions())
+}
+
+func problemPriorityOptions() []modalStringSelectOption {
+	return []modalStringSelectOption{
+		{Label: "Essential", Value: service_model.PriorityEssential},
+		{Label: "Recommended", Value: service_model.PriorityRecommended},
+		{Label: "Supplementary", Value: service_model.PrioritySupplementary},
+		{Label: "Not required", Value: service_model.PriorityNotRequired},
+		{Label: "Discouraged", Value: service_model.PriorityDiscouraged},
+		{Label: presentation.PriorityUnspecifiedLabel, Value: unassignedMetadataSelectValue},
+	}
+}
+
+func problemMetadataSelect(customID, placeholder string, current *string, options []modalStringSelectOption) modalStringSelect {
+	currentValue := unassignedMetadataSelectValue
+	if current != nil {
+		currentValue = strings.TrimSpace(*current)
+	}
+	for i := range options {
+		options[i].Default = strings.EqualFold(currentValue, options[i].Value)
+	}
+	required := false
+	return modalStringSelect{
+		CustomID:    customID,
+		Placeholder: placeholder,
+		Options:     options,
+		Required:    &required,
+	}
 }
 
 // ModalRouteFromCustomID recognizes a route even when its context is malformed,
@@ -182,9 +230,9 @@ func parseEditProblemModalCustomID(customID string) (string, int64, error) {
 	return classCode, problemID, nil
 }
 
-// ParseCreateProblemModal reads the SDK-decoded label inputs by their identity,
+// ParseCreateProblemModal reads SDK-decoded label components by their identity,
 // preserving text exactly and recovering the selected class code from its context.
-// Shape checks do not validate problem domain rules.
+// Unknown selections are ignored; application validation belongs to the service.
 func ParseCreateProblemModal(data discordgo.ModalSubmitInteractionData) (CreateProblemModal, error) {
 	classCode, err := parseCreateProblemModalCustomID(data.CustomID)
 	if err != nil {
@@ -213,12 +261,12 @@ func ParseEditProblemModal(data discordgo.ModalSubmitInteractionData) (EditProbl
 
 func parseProblemModalFields(data discordgo.ModalSubmitInteractionData) (ProblemModalFields, error) {
 	var result ProblemModalFields
-	fields := map[string]*string{
-		problemNameFieldID:       &result.Name,
-		problemURLFieldID:        &result.URL,
-		problemDifficultyFieldID: &result.Difficulty,
-		problemPriorityFieldID:   &result.Priority,
-		problemTopicFieldID:      &result.Topic,
+	pendingFields := map[string]bool{
+		problemNameFieldID:       true,
+		problemURLFieldID:        true,
+		problemDifficultyFieldID: true,
+		problemPriorityFieldID:   true,
+		problemTopicFieldID:      true,
 	}
 
 	for _, component := range data.Components {
@@ -226,22 +274,79 @@ func parseProblemModalFields(data discordgo.ModalSubmitInteractionData) (Problem
 		if !ok || label == nil {
 			return ProblemModalFields{}, fmt.Errorf("expected a problem form label")
 		}
-		input, ok := label.Component.(*discordgo.TextInput)
-		if !ok || input == nil {
-			return ProblemModalFields{}, fmt.Errorf("expected a problem form text input")
+		customID, value, err := parseProblemModalField(label.Component)
+		if err != nil {
+			return ProblemModalFields{}, err
 		}
-		field, ok := fields[input.CustomID]
-		if !ok {
-			return ProblemModalFields{}, fmt.Errorf("unknown or repeated problem field %q", input.CustomID)
+		if !pendingFields[customID] {
+			return ProblemModalFields{}, fmt.Errorf("unknown or repeated problem field %q", customID)
 		}
-		*field = input.Value
-		delete(fields, input.CustomID)
+		switch customID {
+		case problemNameFieldID:
+			result.Name = *value
+		case problemURLFieldID:
+			result.URL = *value
+		case problemDifficultyFieldID:
+			result.Difficulty = value
+		case problemPriorityFieldID:
+			result.Priority = value
+		case problemTopicFieldID:
+			result.Topic = value
+		}
+		delete(pendingFields, customID)
 	}
-	if len(fields) != 0 {
+	if len(pendingFields) != 0 {
 		return ProblemModalFields{}, fmt.Errorf("incomplete problem form")
 	}
 
 	return result, nil
+}
+
+func parseProblemModalField(component discordgo.MessageComponent) (string, *string, error) {
+	switch field := component.(type) {
+	case *discordgo.TextInput:
+		if field == nil {
+			return "", nil, fmt.Errorf("expected a problem form component")
+		}
+		if field.CustomID == problemDifficultyFieldID || field.CustomID == problemPriorityFieldID {
+			return "", nil, fmt.Errorf("expected a select for problem field %q", field.CustomID)
+		}
+		if field.CustomID == problemTopicFieldID && strings.TrimSpace(field.Value) == "" {
+			return field.CustomID, nil, nil
+		}
+		return field.CustomID, &field.Value, nil
+	case *discordgo.SelectMenu:
+		if field == nil {
+			return "", nil, fmt.Errorf("expected a problem form component")
+		}
+		if field.Type() != discordgo.SelectMenuComponent {
+			return "", nil, fmt.Errorf("expected a string select for problem field %q", field.CustomID)
+		}
+		if len(field.Values) > 1 {
+			return "", nil, fmt.Errorf("expected one value for problem select %q", field.CustomID)
+		}
+
+		var options []modalStringSelectOption
+		switch field.CustomID {
+		case problemDifficultyFieldID:
+			options = problemDifficultyOptions()
+		case problemPriorityFieldID:
+			options = problemPriorityOptions()
+		default:
+			return "", nil, fmt.Errorf("unexpected select field %q", field.CustomID)
+		}
+		if len(field.Values) == 0 || field.Values[0] == unassignedMetadataSelectValue {
+			return field.CustomID, nil, nil
+		}
+		for _, option := range options {
+			if field.Values[0] == option.Value {
+				return field.CustomID, &option.Value, nil
+			}
+		}
+		return field.CustomID, nil, nil
+	default:
+		return "", nil, fmt.Errorf("expected a problem form text input or select")
+	}
 }
 
 // FormatCreateProblemError keeps mapped errors within Discord's message limit.

@@ -8,7 +8,6 @@ import (
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
-	"github.com/JorgeIba/Hurion/app/presentation"
 	form "github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/bwmarrin/discordgo"
@@ -134,12 +133,12 @@ func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *t
 		want   string
 		saved  bool
 	}{
-		{name: "normalized values", fields: form.ProblemModalFields{Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: " HARD ", Priority: " Not required ", Topic: " Binary search "}, want: "was added to class", saved: true},
+		{name: "normalized values", fields: form.ProblemModalFields{Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: new("hard"), Priority: new("not_required"), Topic: new(" Binary search ")}, want: "was added to class", saved: true},
 		{name: "blank optional fields", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"}, want: "was added to class", saved: true},
 		{name: "blank required name", fields: form.ProblemModalFields{Name: " ", URL: "https://example.com/problem"}, want: "problem name is required"},
 		{name: "invalid URL", fields: form.ProblemModalFields{Name: "Two Sum", URL: "javascript:alert(1)"}, want: "URL must be"},
-		{name: "invalid difficulty", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Difficulty: "extreme"}, want: "invalid difficulty"},
-		{name: "invalid priority", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Priority: "urgent"}, want: "invalid priority"},
+		{name: "unknown difficulty is ignored", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Difficulty: new("extreme")}, want: "was added to class", saved: true},
+		{name: "unknown priority is ignored", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Priority: new("urgent")}, want: "was added to class", saved: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
@@ -147,11 +146,13 @@ func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *t
 			classID := env.seedClass(t, "basicos_1", "Basicos")
 			response, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: test.fields})
 			require.NoError(t, err)
-			data := discordgo.ModalSubmitInteractionData{CustomID: response.Data.CustomID}
-			for _, component := range response.Data.Components {
-				input := component.(discordgo.Label).Component.(discordgo.TextInput)
-				data.Components = append(data.Components, &discordgo.Label{Component: &input})
-			}
+			data := submittedProblemFormDataWithValues(t, response, map[string]string{
+				"name":       test.fields.Name,
+				"url":        test.fields.URL,
+				"difficulty": optionalProblemFormText(test.fields.Difficulty),
+				"priority":   optionalProblemFormText(test.fields.Priority),
+				"topic":      optionalProblemFormText(test.fields.Topic),
+			})
 			event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				GuildID: testGuildID, ChannelID: testChannelID, Member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}, Type: discordgo.InteractionModalSubmit, Data: data,
 			}}
@@ -213,7 +214,7 @@ func TestWorkflow_ProblemAddRetainsDraftForDuplicateFailure(t *testing.T) {
 	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
 	modal.ProblemModalFields = form.ProblemModalFields{
 		Name: " Duplicate problem ", URL: " https://example.com/duplicate ",
-		Difficulty: " Hard ", Priority: " Recommended ", Topic: " Binary search ",
+		Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Binary search "),
 	}
 	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
 	problemService.EXPECT().CreateProblemIntoClass(form.MapCreateProblemModalToCreateProblemParams(modal)).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
@@ -308,27 +309,9 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 			}
 			values := map[string]string{
 				"name": problemName, "url": "https://example.com/two-sum",
-				"difficulty": "Medium", "priority": "Recommended", "topic": "Binary search and two pointers",
+				"difficulty": "medium", "priority": "recommended", "topic": "Binary search and two pointers",
 			}
-			data := discordgo.ModalSubmitInteractionData{CustomID: form.Data.CustomID}
-			for _, component := range form.Data.Components {
-				label := component.(discordgo.Label)
-				input := label.Component.(discordgo.TextInput)
-				assert.NotEqual(t, "class", input.CustomID, "class is selected before the form opens")
-				if input.CustomID == "difficulty" {
-					assert.Equal(t, presentation.DifficultyUnspecifiedLabel, input.Value)
-				}
-				if input.CustomID == "priority" {
-					assert.Equal(t, presentation.PriorityUnspecifiedLabel, input.Value)
-					require.NotNil(t, input.Required)
-					assert.False(t, *input.Required)
-				}
-				value, ok := values[input.CustomID]
-				require.True(t, ok, "unexpected form field %q", input.CustomID)
-				data.Components = append(data.Components, &discordgo.Label{
-					Component: &discordgo.TextInput{CustomID: input.CustomID, Value: value},
-				})
-			}
+			data := submittedProblemFormDataWithValues(t, form, values)
 			submit := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				ID: "submit_1", Token: "submit_token", GuildID: testGuildID, ChannelID: testChannelID,
 				Type: discordgo.InteractionModalSubmit, Data: data, Member: command.Member,
