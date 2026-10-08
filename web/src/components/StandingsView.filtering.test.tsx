@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { MemoryRouter } from 'react-router';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { StandingsView } from '@/components/StandingsView';
+import { StandingsRoute } from '@/app/routing/routes';
 import { CLASS_CONFIG, CLASS_LABELS } from '@/domain/class/constants';
 import type { Problem, UserScore } from '@/domain/class/types';
 import { priorityPresentationConfig } from '@/presentation/priorityConfig';
@@ -24,12 +25,14 @@ let input: HTMLInputElement;
 function mount(classProblems = problems, classUsers = users, classCode = 'basicos') {
   act(() =>
     root.render(
-      <StandingsView
-        key={classCode}
-        priorityPresentation={priorityPresentationConfig.defaults}
-        problems={classProblems}
-        users={classUsers}
-      />
+      <MemoryRouter>
+        <StandingsRoute
+          key={classCode}
+          priorityPresentation={priorityPresentationConfig.defaults}
+          problems={classProblems}
+          users={classUsers}
+        />
+      </MemoryRouter>
     )
   );
   act(() =>
@@ -273,16 +276,16 @@ describe('search applied to scoreboard rows and columns', () => {
     expect(container.querySelector('.scoreboard-sort-summary')).toBeNull();
   });
 
-  it('evaluates consecutive queries against the full class and resets for another class', () => {
+  it('evaluates consecutive queries against the full class and restores URL search on remount', () => {
     const before = JSON.stringify({ problems, users });
     apply('@jorge #12');
     apply('@luis #120');
     expect(names()).toEqual(['Grafo implícito']);
     expect(studentNames()).toEqual(['Luis']);
     mount(problems, users, 'avanzados');
-    expect(input.value).toBe('');
-    expect(names()).toHaveLength(3);
-    expect(studentNames()).toHaveLength(3);
+    expect(input.value).toBe('@luis #120');
+    expect(names()).toEqual(['Grafo implícito']);
+    expect(studentNames()).toEqual(['Luis']);
     expect(JSON.stringify({ problems, users })).toBe(before);
   });
 });
