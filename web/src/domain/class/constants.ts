@@ -1,3 +1,7 @@
+import type { ActiveTab } from '@/domain/class/types';
+
+export const ACTIVE_TABS = ['standings', 'problems'] as const;
+
 /**
  * Single Source of Truth for Class Configuration & UI Constants.
  * Centralizes UI string constants, dimensions, API fallbacks, and labels
@@ -6,7 +10,7 @@
 
 export const CLASS_CONFIG = {
   DEFAULT_CLASS_CODE: 'basicos',
-  DEFAULT_TAB: 'standings',
+  DEFAULT_TAB: 'standings' satisfies ActiveTab,
   DEFAULT_TOPIC_NAME: 'General',
   DEFAULT_PROBLEM_NAME: 'Problem',
   DEFAULT_LEADER_NAME: '--',

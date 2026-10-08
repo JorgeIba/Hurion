@@ -1,5 +1,5 @@
 import { Problem, UserScore, ActiveTab, ProblemSolveStats, SortState } from './types';
-import { CLASS_CONFIG } from './constants';
+import { ACTIVE_TABS, CLASS_CONFIG } from './constants';
 import { groupProblemsByTopic } from './problems';
 
 /**
@@ -12,14 +12,18 @@ export function sanitizeClassCode(rawCode: string | null | undefined): string {
   return rawCode.trim().replace(/[^a-zA-Z0-9_-]/g, '');
 }
 
-/**
- * Sanitizes a raw tab query parameter string against canonical ActiveTab identifiers.
- */
-export function sanitizeTab(rawTab: string | null | undefined): ActiveTab {
-  if (!rawTab || typeof rawTab !== 'string') return CLASS_CONFIG.DEFAULT_TAB;
-  return rawTab.trim().toLowerCase() === 'problems'
-    ? 'problems'
-    : CLASS_CONFIG.DEFAULT_TAB;
+function isActiveTab(value: string): value is ActiveTab {
+  return ACTIVE_TABS.some((tab) => tab === value);
+}
+
+/** Sanitizes a URL tab against the same values that define ActiveTab. */
+export function sanitizeTab(
+  rawTab: string | null | undefined,
+  fallback: ActiveTab = CLASS_CONFIG.DEFAULT_TAB
+): ActiveTab {
+  if (!rawTab || typeof rawTab !== 'string') return fallback;
+  const tab = rawTab.trim().toLowerCase();
+  return isActiveTab(tab) ? tab : fallback;
 }
 
 /**

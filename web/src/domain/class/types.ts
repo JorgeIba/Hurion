@@ -1,3 +1,5 @@
+import type { ACTIVE_TABS } from '@/domain/class/constants';
+
 // 'unspecified' is a UI/filter fallback, not a stored difficulty code.
 export type ProblemDifficulty = 'easy' | 'medium' | 'hard' | 'unspecified';
 export type DifficultyFilter = 'all' | ProblemDifficulty;
@@ -13,7 +15,7 @@ export type ProblemSort =
   | 'difficulty-hard-first'
   | 'priority-essential-first'
   | 'priority-discouraged-first';
-export type ActiveTab = 'standings' | 'problems';
+export type ActiveTab = (typeof ACTIVE_TABS)[number];
 
 export interface Problem {
   id: number;
