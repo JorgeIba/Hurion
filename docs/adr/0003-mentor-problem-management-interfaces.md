@@ -3,6 +3,7 @@
 * **Status**: Accepted
 * **Date**: 2026-09-29
 * **Implementation plan**: [Slash problem management](../plans/slash-problem-management.md)
+* **Phase-2 implementation plan**: [Mentor command batches](../plans/mentor-command-batches.md)
 
 ## 1. Context
 
@@ -52,9 +53,15 @@ Prefer a reviewed compatible tag when available. Dependency upgrades must preser
 
 ### Phase 2: Explicit command batches
 
-Accept structured multiline input or a text attachment through a dedicated batch workflow. Define and review the grammar, preview the proposed changes, and bind approval to the submitting actor and guild. Recheck authority before execution.
+Support `/problem add_batch` for lines of `!add_problem` and `/ac batch` for explicit student `!ac` lines. Each batch accepts only its own operation; updates, removals, mixed batches, general scripts, and HTTP API access are outside this phase. Start with multiline forms and add `.txt` attachments as a separate increment using the same parsers.
 
-Execute operations in order and report completed, failed, and unexecuted work. Earlier successful changes remain applied when a later operation fails. Resume and durable retry guarantees require explicit design.
+Prepare without mutations: parse every line, retain original line numbers, validate values and current permissions, resolve targets, and show a private preview before confirmation. Report all detected AC duplicates, both within the input and against existing records, so the mentor can correct and resubmit. Do not check or remove duplicate problems, including identical entries. Preserve existing role policies: mentors or admins manage problems; mentor ACs require the mentor role and the student's access to the problem's class.
+
+Store the prepared batch in a bounded in-process Otter cache, bound to an opaque batch ID, submitting actor, and guild. Pending batches expire five minutes after insertion; reads do not renew this deadline. Initial bounds are 100 operations per batch, 100 cached batches, and 256 KiB of UTF-8 input. Capacity eviction may remove a batch earlier, and restart loses pending batches.
+
+Confirmation and cancellation claim and remove a matching, unexpired batch atomically. Only the successful claimant may execute, outside the cache lock. Recheck current authority and student roles before writing; perform database target and conflict checks in the same transaction as all mutations, including necessary user records. Discord lookups run outside the database transaction. All operations commit together or roll back together, replacing the earlier partial-execution decision. Preserve insertion order and return created problem IDs only after commit. Verify that scoreboard export reflects the committed result.
+
+This is single-process confirmation consumption, not durable exactly-once execution. Do not reinsert consumed batches or automatically retry writes. Known failures with confirmed rollback require fresh validation and confirmation. Separate confirmed rollback, uncertain outcomes, and receipt-delivery failures. An absent cache entry does not establish that nothing was written: it may have been consumed and be executing or already committed. Log execution outcomes by batch ID; a failed Discord receipt never repeats the mutation. Durable recovery and persistent idempotency are outside this phase.
 
 ### Phase 3: Authenticated API
 
@@ -70,7 +77,7 @@ Reuse the application's problem operations and storage. Review hosting and netwo
 | --- | --- | --- |
 | Improve prefix commands only | Small change to an existing interface | Positional editing remains cumbersome |
 | Slash forms first | Native workflow where mentors already work | Interaction timing, registration, and temporary state |
-| Text batches | Several prepared changes without API credentials | Grammar, preview, and partial failure handling |
+| Text batches | Several prepared changes without API credentials | Grammar, preview, atomic execution, and confirmation lifetime |
 | API first | Flexible integrations | Authentication, hosting, and retry guarantees |
 | MCP first | Direct access from AI clients | Requires a stable operation and authentication contract |
 | Web administration UI | Rich browsing and editing | Separate interface and authenticated write backend |
