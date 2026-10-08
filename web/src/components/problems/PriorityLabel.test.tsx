@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
@@ -68,11 +69,13 @@ describe('priority presentation', () => {
     };
     const priorityPresentation = resolvePriorityPresentation();
     const catalog = renderToStaticMarkup(
-      <ProblemRow
-        priorityPresentation={priorityPresentation}
-        problem={problem}
-        totalStudents={1}
-      />
+      <MemoryRouter>
+        <ProblemRow
+          priorityPresentation={priorityPresentation}
+          problem={problem}
+          totalStudents={1}
+        />
+      </MemoryRouter>
     );
     const scoreboard = renderToStaticMarkup(
       <ScoreboardTable
@@ -128,11 +131,13 @@ describe('priority presentation', () => {
     const users = [{ userId: 'student', displayName: 'Student', solved: [1] }];
     const priorityPresentation = resolvePriorityPresentation('avanzados');
     const catalog = renderToStaticMarkup(
-      <ProblemsView
-        priorityPresentation={priorityPresentation}
-        problems={problems}
-        users={users}
-      />
+      <MemoryRouter>
+        <ProblemsView
+          priorityPresentation={priorityPresentation}
+          problems={problems}
+          users={users}
+        />
+      </MemoryRouter>
     );
     const scoreboard = renderToStaticMarkup(
       <ScoreboardTable

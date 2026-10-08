@@ -1,4 +1,6 @@
 import { memo } from 'react';
+import { Link, useLocation } from 'react-router';
+import { getSolvedStudentsLocation } from '@/app/routing/navigation';
 import {
   Problem,
   ProblemSolveStats,
@@ -30,6 +32,7 @@ export const ProblemRow = memo(function ProblemRow({
   stats,
   totalStudents,
 }: ProblemRowProps) {
+  const location = useLocation();
   const { badgeClassName, label: diffLabel } = getProblemDifficultyMetadata(
     problem.difficulty
   );
@@ -81,24 +84,32 @@ export const ProblemRow = memo(function ProblemRow({
       </div>
 
       {/* Col 3: Class Solves Micro-Progress Pill */}
-      <div
-        className="problem-list-solves-badge"
-        role="meter"
-        aria-valuenow={solvedCount}
-        aria-valuemin={0}
-        aria-valuemax={effectiveTotalStudents}
-        aria-label={`${solvedCount} of ${effectiveTotalStudents} students solved`}
-        title={`${solvedCount} of ${effectiveTotalStudents} students solved (${solvePercent}%)`}
+      <Link
+        to={getSolvedStudentsLocation(location, problem.id)}
+        state={{ focusStandings: true }}
+        className="problem-list-solves-link"
+        aria-label={`View students who solved ${problemTitle}: ${solvedCount} of ${effectiveTotalStudents}`}
+        title={`View students who solved ${problemTitle}`}
       >
         <div
-          className="solves-progress-fill"
-          style={{ transform: `scaleX(${solveRate})` }}
-        />
-        <span className="solves-badge-text">
-          <strong>{solvedCount}</strong>/{effectiveTotalStudents}
-          <span className="solves-badge-percent"> ({solvePercent}%)</span>
-        </span>
-      </div>
+          className="problem-list-solves-badge"
+          role="meter"
+          aria-valuenow={solvedCount}
+          aria-valuemin={0}
+          aria-valuemax={effectiveTotalStudents}
+          aria-label={`${solvedCount} of ${effectiveTotalStudents} students solved`}
+          title={`${solvedCount} of ${effectiveTotalStudents} students solved (${solvePercent}%)`}
+        >
+          <div
+            className="solves-progress-fill"
+            style={{ transform: `scaleX(${solveRate})` }}
+          />
+          <span className="solves-badge-text">
+            <strong>{solvedCount}</strong>/{effectiveTotalStudents}
+            <span className="solves-badge-percent"> ({solvePercent}%)</span>
+          </span>
+        </div>
+      </Link>
     </div>
   );
 });
