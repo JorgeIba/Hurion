@@ -24,7 +24,7 @@ export function StandingsView({
     setAppliedQuery,
     CLASS_CONFIG.SCOREBOARD_SEARCH.DEBOUNCE_MS
   );
-  const { issues } = useScoreboardSearch(appliedQuery, problems, users);
+  const { issues, selection } = useScoreboardSearch(appliedQuery, problems, users);
 
   const changeQuery = (value: string, isComposing = false) => {
     setQuery(value);
@@ -52,6 +52,7 @@ export function StandingsView({
         priorityPresentation={priorityPresentation}
         problems={problems}
         users={users}
+        selection={selection}
       />
     </div>
   );

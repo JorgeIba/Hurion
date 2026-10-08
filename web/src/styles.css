@@ -182,6 +182,27 @@ body {
   max-height: none;
 }
 
+.scoreboard-selection-summary,
+.scoreboard-sort-summary {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--text-secondary);
+  border-bottom: var(--border-hairline);
+  font-size: 0.875rem;
+}
+.scoreboard-sort-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.scoreboard-sort-summary span {
+  overflow-wrap: anywhere;
+}
+.topic-header-btn:disabled {
+  cursor: default;
+}
+
 .scoreboard-table {
   width: max-content;
   table-layout: fixed;
@@ -246,7 +267,9 @@ body {
   opacity: 0.8;
 }
 
-.col-student-header {
+.scoreboard-table th.col-student-header {
+  padding: 0;
+  height: 1px;
   text-align: center;
   min-width: 140px;
   border-right: 1px solid rgba(255, 255, 255, 0.028);
@@ -303,6 +326,20 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
+}
+
+.student-sort-button {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+  border: 0;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-shadow: inherit;
+  cursor: pointer;
 }
 
 .student-crown {
@@ -1218,7 +1255,7 @@ body {
 }
 
 /* --- Keyboard Accessibility: Focus Visible Rings --- */
-.col-student-header:focus-visible,
+.student-sort-button:focus-visible,
 .btn-toggle-all-topics:focus-visible,
 .btn-reset-filters:focus-visible,
 .problem-topic-header-btn:focus-visible,
