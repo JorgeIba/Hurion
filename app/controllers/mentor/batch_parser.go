@@ -1,7 +1,7 @@
 package mentor
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
@@ -96,14 +96,14 @@ func parseACBatch(input string) ([]acBatchEntry, []batchInputError) {
 	return entries, nil
 }
 
-func parseBatchItems(input string) ([]json.RawMessage, []batchInputError) {
-	// Keep entries raw in this first pass. Strict v2 decoding below checks Unicode
-	// and duplicate fields per entry so both parsers can collect multiple errors.
-	var items []json.RawMessage
-	if err := json.Unmarshal([]byte(input), &items); err != nil {
+func parseBatchItems(input string) ([]jsontext.Value, []batchInputError) {
+	// Defer Unicode and duplicate-field checks to strict entry decoding so both
+	// parsers can collect errors for multiple entries.
+	var items []jsontext.Value
+	if err := jsonv2.Unmarshal([]byte(input), &items, jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true)); err != nil {
 		issue := batchInputError{message: "expected one JSON array: " + err.Error()}
-		if syntax, ok := errors.AsType[*json.SyntaxError](err); ok {
-			offset := max(0, min(len(input), int(syntax.Offset)-1))
+		if syntax, ok := errors.AsType[*jsontext.SyntacticError](err); ok {
+			offset := max(0, min(len(input), int(syntax.ByteOffset)))
 			before := input[:offset]
 			issue.line = strings.Count(before, "\n") + 1
 			issue.column = utf8.RuneCountInString(before[strings.LastIndex(before, "\n")+1:]) + 1
@@ -126,7 +126,7 @@ func parseBatchItems(input string) ([]json.RawMessage, []batchInputError) {
 	return items, nil
 }
 
-func decodeBatchItem(item json.RawMessage, value any) error {
+func decodeBatchItem(item jsontext.Value, value any) error {
 	if string(item) == "null" {
 		return errors.New("entry must be a JSON object, not null")
 	}

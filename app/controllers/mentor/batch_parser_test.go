@@ -224,8 +224,12 @@ func TestBatchSyntaxErrorLocation(t *testing.T) {
 		column int
 	}{
 		{name: "CRLF and Unicode column", input: "[\r\n  {\"name\":\"á\",?}\r\n]", line: 2, column: 15},
-		{name: "trailing comma", input: "[\n{},\n]", line: 3, column: 1},
+		{name: "trailing comma", input: "[\n{},\n]", line: 2, column: 3},
 		{name: "empty input", line: 1, column: 1},
+		{name: "missing array closing bracket", input: "[{}", line: 1, column: 4},
+		{name: "EOF after newline", input: "[{}\n", line: 2, column: 1},
+		{name: "EOF after CRLF", input: "[{}\r\n", line: 2, column: 1},
+		{name: "EOF after Unicode", input: "[\"á\"", line: 1, column: 5},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
