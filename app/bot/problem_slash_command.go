@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	problemCommandName    = "problem"
-	problemAddCommandName = "add"
+	problemCommandName     = "problem"
+	problemAddCommandName  = "add"
+	problemEditCommandName = "edit"
 )
 
 type applicationCommandCreator interface {
@@ -61,6 +62,24 @@ func problemSlashCommand() *discordgo.ApplicationCommand {
 						Type:        discordgo.ApplicationCommandOptionString,
 						Name:        "class",
 						Description: fmt.Sprintf("Class code (up to %d characters); defaults to the class linked to this channel", service_model.ClassCodeMaxLength),
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        problemEditCommandName,
+				Description: "Edit an existing problem",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "problem",
+						Description: "Problem ID",
+						Required:    true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "class",
+						Description: "Destination class; defaults to the problem's current class",
 					},
 				},
 			},

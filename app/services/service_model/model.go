@@ -95,7 +95,7 @@ type CreateProblemParams struct {
 type UpdateProblemParams struct {
 	ProblemFields
 	ProblemID int64
-	ClassID   int64
+	ClassCode string
 }
 
 // ============================================================================

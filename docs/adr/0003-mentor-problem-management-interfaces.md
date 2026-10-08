@@ -30,17 +30,17 @@ Build the responsibilities required by the active phase. Review concrete types, 
 
 ### Phase 1: Slash commands
 
-Support problem creation and editing through Discord forms, with autocomplete for selecting an edit target and private results. Existing Discord and web lists provide browsing. Destructive slash operations are outside this phase.
+Support problem creation and editing through Discord forms, with selection by problem ID and private results. Autocomplete is deferred. Existing Discord and web lists provide browsing. Destructive slash operations are outside this phase.
 
-Class is a required, editable form field. Creation defaults it from the current channel when possible; editing defaults it from the saved problem. Mentors can correct the class, and the destination must exist. Editing preserves the problem ID and solved records. Display the target identity without making it editable; the owned editor session determines the target when saving.
+Class is selected through the optional `class` slash option before opening a form. Creation defaults it from the current channel when possible; editing defaults it from the saved problem. `/problem edit problem:<ID> [class:<code>]` opens five fields: Name, URL, Difficulty, Priority, and Topic. A destination class must exist. A failed edit draft is keyed by guild, author, problem ID, and destination class code. Editing preserves the problem ID and solved records; the modal context carries the target ID and destination class code and the service resolves the destination class code before saving.
 
 The configured mentor or admin role permits problem management. Check the actor and guild at runtime and verify current authority before a write. Student access roles do not imply restrictions on which classes a mentor can manage. The same role policy applies to prefix problem creation and updates.
 
 Keep command definitions aligned with the application during normal bot startup, limited to the configured guild and owned commands. Route incoming interactions to the appropriate application operation and respond within Discord's protocol constraints.
 
-Forms preserve supplied values during correction. Optional difficulty is text; blank or unspecified difficulty and blank topic clear their optional values. Shared validation applies consistently across interfaces, including an explicit repair path for legacy values that cannot be saved or displayed under the agreed rules.
+Forms preserve supplied values during correction. Optional difficulty and priority are text; blank or unspecified difficulty and blank priority or topic clear their optional values. Shared validation applies consistently across interfaces, including an explicit repair path for legacy values that cannot be saved or displayed under the agreed rules.
 
-Use bounded, expiring editor sessions in memory, backed by Otter v2. Bind them to the actor and guild, prevent duplicate execution of a submission, and reject new editors when full rather than evict active work. A save already in progress remains protected until completion. Expired sessions and process restarts require a new invocation.
+Use the same bounded, expiring Otter draft cache as problem creation. Failed edit forms expire after ten minutes and are capped at 100 entries. Successful form delivery consumes a recovered draft; failed delivery leaves it available. Duplicate-delivery suppression and in-flight session state are outside this increment.
 
 Concurrent editors use **last successful write wins**, including unchanged prefilled fields and class membership. This accepted tradeoff permits an older form to overwrite a newer edit. Deleted targets remain deleted. Automatic replay of uncertain writes and durable editor recovery are outside phase 1.
 

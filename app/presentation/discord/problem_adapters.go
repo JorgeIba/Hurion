@@ -16,12 +16,11 @@ func MapCreateProblemParamsToCreateProblemModal(params service_model.CreateProbl
 	}
 }
 
-// MapUpdateProblemParamsToEditProblemModal prefills the editor using a class code resolved
-// by the caller from params.ClassID. ProblemID is copied only for display.
-func MapUpdateProblemParamsToEditProblemModal(params service_model.UpdateProblemParams, classCode string) EditProblemModal {
+// MapUpdateProblemParamsToEditProblemModal prefills the editor from supplied values.
+func MapUpdateProblemParamsToEditProblemModal(params service_model.UpdateProblemParams) EditProblemModal {
 	return EditProblemModal{
 		ProblemID:          params.ProblemID,
-		ClassCode:          classCode,
+		ClassCode:          params.ClassCode,
 		ProblemModalFields: mapProblemValuesToModalFields(params.Name, params.URL, params.Difficulty, params.Topic, params.Priority),
 	}
 }
@@ -41,15 +40,15 @@ func MapCreateProblemModalToCreateProblemParams(modal CreateProblemModal) servic
 }
 
 // MapEditProblemModalToUpdateProblemParams converts form text into a pending update request.
-// The caller supplies the session's target ID and the class ID resolved from the
-// submitted ClassCode. Display metadata is ignored. Values still require application
+// The modal carries the target and destination class code.
+// Values still require application
 // normalization and validation before writing, as in MapCreateProblemModalToCreateProblemParams.
-func MapEditProblemModalToUpdateProblemParams(modal EditProblemModal, problemID, destinationClassID int64) service_model.UpdateProblemParams {
+func MapEditProblemModalToUpdateProblemParams(modal EditProblemModal) service_model.UpdateProblemParams {
 	return service_model.UpdateProblemParams{
-		ProblemID:  problemID,
+		ProblemID:  modal.ProblemID,
 		Name:       modal.Name,
 		URL:        modal.URL,
-		ClassID:    destinationClassID,
+		ClassCode:  modal.ClassCode,
 		Difficulty: mapModalDifficultyToOptionalValue(modal.Difficulty),
 		Topic:      mapModalTextToOptionalValue(modal.Topic),
 		Priority:   mapModalPriorityToOptionalValue(modal.Priority),

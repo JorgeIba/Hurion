@@ -17,8 +17,7 @@ type CreateProblemModal struct {
 }
 
 // EditProblemModal holds editable values and the destination class selected before opening the form.
-// ProblemID is display metadata for the title, not an editable input. Saving
-// must use the target ID from the controller's owned session.
+// ProblemID identifies the problem being edited and is encoded in the modal custom ID.
 type EditProblemModal struct {
 	ProblemID int64
 	ClassCode string

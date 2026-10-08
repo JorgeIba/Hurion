@@ -31,15 +31,16 @@ func NormalizeAndValidateCreateProblemParams(params CreateProblemParams) (Create
 // NormalizeAndValidateUpdateProblemParams checks replacement values and identity
 // without accessing storage. Nil optional values clear their stored values.
 func NormalizeAndValidateUpdateProblemParams(params UpdateProblemParams) (UpdateProblemParams, error) {
+	params.ClassCode = strings.TrimSpace(params.ClassCode)
 	var err error
 	params.ProblemFields, err = normalizeAndValidateProblemFields(params.ProblemFields)
 	if params.ProblemID <= 0 {
 		err = errors.Join(err, errors.New("problem ID must be positive"))
 	}
-	if params.ClassID <= 0 {
-		err = errors.Join(err, errors.New("destination class ID must be positive"))
+	if params.ClassCode == "" {
+		err = errors.Join(err, errors.New("class code is required"))
 	}
-	return params, err
+	return params, errors.Join(err, ValidateClassCodeLength(params.ClassCode))
 }
 
 func normalizeAndValidateProblemFields(fields ProblemFields) (ProblemFields, error) {

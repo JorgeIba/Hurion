@@ -286,21 +286,25 @@ func TestParseCreateProblemModalRejectsIncompleteAmbiguousAndUnexpectedComponent
 
 func TestFormatCreateProblemErrorPreservesDetailsWithinLimitAndFallsBackAboveIt(t *testing.T) {
 	t.Parallel()
-	fallback := "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."
+	fallback := "Could not add the problem. Please try /problem add again."
 	for _, test := range []struct {
-		name    string
-		content string
-		want    string
+		name         string
+		content      string
+		want         string
+		recoverDraft bool
 	}{
 		{name: "short error keeps correction details", content: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again.", want: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again."},
 		{name: "exactly 2000 ASCII units are preserved", content: strings.Repeat("a", 2000), want: strings.Repeat("a", 2000)},
 		{name: "2001 ASCII units use the selected class in the fallback", content: strings.Repeat("a", 2001), want: fallback},
 		{name: "exactly 2000 UTF-16 units are preserved despite larger UTF-8 length", content: strings.Repeat("🚀", 1000), want: strings.Repeat("🚀", 1000)},
 		{name: "2001 UTF-16 units use the fallback", content: strings.Repeat("🚀", 1000) + "a", want: fallback},
+		{name: "recoverable error gets retry instruction", content: "Invalid URL", recoverDraft: true, want: "Invalid URL. Try /problem add class:basicos_2 again."},
+		{name: "long recoverable error keeps selected class", content: strings.Repeat("a", 2001), recoverDraft: true, want: "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."},
+		{name: "retry instruction counts toward limit", content: strings.Repeat("a", 2000), recoverDraft: true, want: "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			content := discord.FormatCreateProblemError(test.content, "basicos_2")
+			content := discord.FormatCreateProblemError(test.content, "basicos_2", test.recoverDraft)
 			assert.Equal(t, test.want, content)
 			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
 		})

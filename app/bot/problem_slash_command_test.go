@@ -34,7 +34,7 @@ func TestUpsertProblemSlashCommandCreatesGuildScopedProblemCommand(t *testing.T)
 	assert.Equal(t, "guild-456", api.guildID)
 	assert.Equal(t, "problem", api.commands[0].Name)
 	assert.Equal(t, discordgo.ChatApplicationCommand, api.commands[0].Type)
-	require.Len(t, api.commands[0].Options, 1)
+	require.Len(t, api.commands[0].Options, 2)
 	assert.Equal(t, "add", api.commands[0].Options[0].Name)
 	assert.Equal(t, discordgo.ApplicationCommandOptionSubCommand, api.commands[0].Options[0].Type)
 	require.Len(t, api.commands[0].Options[0].Options, 1)
@@ -43,6 +43,15 @@ func TestUpsertProblemSlashCommandCreatesGuildScopedProblemCommand(t *testing.T)
 	assert.Equal(t, discordgo.ApplicationCommandOptionString, class.Type)
 	assert.False(t, class.Required, "the channel can supply the class")
 	assert.Zero(t, class.MaxLength, "class length is validated by the service")
+	edit := api.commands[0].Options[1]
+	assert.Equal(t, "edit", edit.Name)
+	require.Len(t, edit.Options, 2)
+	assert.Equal(t, "problem", edit.Options[0].Name)
+	assert.True(t, edit.Options[0].Required)
+	assert.False(t, edit.Options[0].Autocomplete)
+	assert.Equal(t, "class", edit.Options[1].Name)
+	assert.False(t, edit.Options[1].Required)
+
 }
 
 func TestUpsertProblemSlashCommandRejectsMissingIDsBeforeCallingDiscord(t *testing.T) {

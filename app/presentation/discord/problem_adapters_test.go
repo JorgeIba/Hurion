@@ -48,10 +48,10 @@ func TestProblemParamsToModalsPreserveRawValuesAndPrefillMissingOptionalValues(t
 			})
 			t.Run("update request prefills edit form and display ID", func(t *testing.T) {
 				params := service_model.UpdateProblemParams{
-					ProblemID: 42, ClassID: 7, Name: want.Name, URL: want.URL,
+					ProblemID: 42, ClassCode: "basicos_1", Name: want.Name, URL: want.URL,
 					Difficulty: test.difficulty, Topic: test.topic, Priority: test.priority,
 				}
-				assert.Equal(t, discord.EditProblemModal{ProblemID: 42, ClassCode: "basicos_1", ProblemModalFields: want}, discord.MapUpdateProblemParamsToEditProblemModal(params, "basicos_1"))
+				assert.Equal(t, discord.EditProblemModal{ProblemID: 42, ClassCode: "basicos_1", ProblemModalFields: want}, discord.MapUpdateProblemParamsToEditProblemModal(params))
 			})
 		})
 	}
@@ -99,13 +99,13 @@ func TestProblemModalsToParamsClearOptionalValuesAndPreserveOtherRawText(t *test
 				}, discord.MapCreateProblemModalToCreateProblemParams(modal))
 				assert.Equal(t, fields, modal.ProblemModalFields, "mapping leaves correction text unchanged")
 			})
-			t.Run("edit form uses session target and resolved destination class", func(t *testing.T) {
+			t.Run("edit form carries target and resolved destination class", func(t *testing.T) {
 				modal := discord.EditProblemModal{ProblemID: 999, ClassCode: " basicos_2 ", ProblemModalFields: fields}
 				assert.Equal(t, service_model.UpdateProblemParams{
-					ProblemID: 42, ClassID: 9, Name: fields.Name, URL: fields.URL,
+					ProblemID: 999, ClassCode: " basicos_2 ", Name: fields.Name, URL: fields.URL,
 					Difficulty: test.wantDifficulty, Topic: test.wantTopic, Priority: test.wantPriority,
-				}, discord.MapEditProblemModalToUpdateProblemParams(modal, 42, 9))
-				assert.Equal(t, int64(999), modal.ProblemID, "display metadata is neither trusted nor modified")
+				}, discord.MapEditProblemModalToUpdateProblemParams(modal))
+				assert.Equal(t, int64(999), modal.ProblemID, "the target ID is carried into modal context")
 				assert.Equal(t, fields, modal.ProblemModalFields, "mapping leaves correction text unchanged")
 			})
 		})

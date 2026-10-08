@@ -147,7 +147,7 @@ func TestNormalizeAndValidateCreateProblemParamsReportsAllInvalidFields(t *testi
 func TestNormalizeAndValidateUpdateProblemParamsPreservesIdentityAndInput(t *testing.T) {
 	difficulty, topic, priority := " HARD ", " Graphs ", " ESSENTIAL "
 	input := UpdateProblemParams{
-		ProblemID: 42, ClassID: 9, Name: " Two Sum ", URL: " https://example.com/problem ",
+		ProblemID: 42, ClassCode: " basicos ", Name: " Two Sum ", URL: " https://example.com/problem ",
 		Difficulty: &difficulty, Topic: &topic, Priority: &priority,
 	}
 	result, err := NormalizeAndValidateUpdateProblemParams(input)
@@ -155,7 +155,8 @@ func TestNormalizeAndValidateUpdateProblemParamsPreservesIdentityAndInput(t *tes
 		return
 	}
 	assert.Equal(t, int64(42), result.ProblemID)
-	assert.Equal(t, int64(9), result.ClassID)
+	assert.Equal(t, "basicos", result.ClassCode)
+	assert.Equal(t, " basicos ", input.ClassCode)
 	assert.Equal(t, "Two Sum", result.Name)
 	assert.Equal(t, "https://example.com/problem", result.URL)
 	assert.Equal(t, "hard", *result.Difficulty)
@@ -180,7 +181,7 @@ func TestNormalizeAndValidateUpdateProblemParamsNormalizesClearedValues(t *testi
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			params := UpdateProblemParams{
-				ProblemID: 42, ClassID: 9, Name: "Two Sum", URL: "https://example.com/problem",
+				ProblemID: 42, ClassCode: "basicos", Name: "Two Sum", URL: "https://example.com/problem",
 				Difficulty: tt.value, Topic: tt.value, Priority: tt.value,
 			}
 			result, err := NormalizeAndValidateUpdateProblemParams(params)

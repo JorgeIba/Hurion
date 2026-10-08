@@ -109,25 +109,25 @@ func (service *problemService) UpdateProblemByProblemID(params service_model.Upd
 		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
-	targetClass, err := service.Datastore.GetClassByClassID(params.ClassID)
+	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
 	if err != nil {
 		if dataerr.IsNotFound(err) {
-			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %d doesn't exist", params.ClassID), err)
+			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %s doesn't exist", params.ClassCode), err)
 		}
 		return serviceerr.MakeGeneralError(err)
 	}
-	if err := service_model.ValidateClassCodeLength(targetClass.ClassCode); err != nil {
+	if err := service_model.ValidateClassCodeLength(class.ClassCode); err != nil {
 		return serviceerr.NewValidationError("invalid class code", err)
 	}
 
-	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params)); err != nil {
+	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params, class.ID)); err != nil {
 		switch {
 		case dataerr.IsNotFound(err):
 			// Defensive mapping in case the row disappears between pre-check and update.
 			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
 		case dataerr.IsRowConflict(err):
 			return serviceerr.NewDuplicateProblemError(
-				fmt.Sprintf("duplicate problem detected while updating problemID=%d (name=%q, classID=%d)", problemID, params.Name, params.ClassID),
+				fmt.Sprintf("duplicate problem detected while updating problemID=%d (name=%q, classCode=%s)", problemID, params.Name, params.ClassCode),
 				err,
 			)
 		default:

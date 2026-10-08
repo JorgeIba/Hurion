@@ -384,15 +384,6 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 		return
 	}
 
-	classID, err := c.Services.Class.GetClassIDByClassCode(classCode)
-	if err != nil {
-		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUpdateProblemClass, classCode)),
-		)
-		return
-	}
-
 	// Parse difficulty (case-insensitive)
 	difficulty, err := parseDifficulty(difficultyStr)
 	if err != nil {
@@ -409,7 +400,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	if err = c.Services.Problem.UpdateProblemByProblemID(service_model.UpdateProblemParams{
 		ProblemID:  problemID,
 		Name:       problemName,
-		ClassID:    classID,
+		ClassCode:  classCode,
 		URL:        url,
 		Difficulty: difficulty,
 		Topic:      topic,
