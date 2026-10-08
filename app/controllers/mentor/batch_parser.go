@@ -2,6 +2,7 @@ package mentor
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"strings"
@@ -96,15 +97,10 @@ func parseACBatch(input string) ([]acBatchEntry, []batchInputError) {
 }
 
 func parseBatchItems(input string) ([]json.RawMessage, []batchInputError) {
-	// encoding/json replaces invalid UTF-8 in strings; reject it before decoding
-	// so imported files cannot silently change supplied names or other values.
-	if !utf8.ValidString(input) {
-		return nil, []batchInputError{{message: "batch input must be valid UTF-8 text"}}
-	}
-
+	// Keep entries raw in this first pass. Strict v2 decoding below checks Unicode
+	// and duplicate fields per entry so both parsers can collect multiple errors.
 	var items []json.RawMessage
 	if err := json.Unmarshal([]byte(input), &items); err != nil {
-
 		issue := batchInputError{message: "expected one JSON array: " + err.Error()}
 		if syntax, ok := errors.AsType[*json.SyntaxError](err); ok {
 			offset := max(0, min(len(input), int(syntax.Offset)-1))
@@ -131,10 +127,8 @@ func parseBatchItems(input string) ([]json.RawMessage, []batchInputError) {
 }
 
 func decodeBatchItem(item json.RawMessage, value any) error {
-	if strings.TrimSpace(string(item)) == "null" {
+	if string(item) == "null" {
 		return errors.New("entry must be a JSON object, not null")
 	}
-	decoder := json.NewDecoder(strings.NewReader(string(item)))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(value)
+	return jsonv2.Unmarshal(item, value, jsonv2.RejectUnknownMembers(true))
 }

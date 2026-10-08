@@ -69,12 +69,17 @@ func TestParseProblemBatchReportsInvalidEntriesWithoutPartialResults(t *testing.
 		{
 			name:    "mixed operations and unknown fields",
 			input:   `[{"class":"basicos","url":"https://example.com/one","name":"Valid"},{"user_id":"123","problem_id":42},{"class":"basicos","url":"https://example.com/one","name":"Typo","dificulty":"easy"}]`,
-			entries: []int{2, 3}, messages: []string{"unknown field", "unknown field"},
+			entries: []int{2, 3}, messages: []string{"unknown object member name", "unknown object member name"},
 		},
 		{
 			name:    "optional metadata must be text",
 			input:   `[{"class":"basicos","url":"https://example.com/one","name":"Invalid","topic":42}]`,
-			entries: []int{1}, messages: []string{"cannot unmarshal number"},
+			entries: []int{1}, messages: []string{"cannot unmarshal JSON number"},
+		},
+		{
+			name:    "duplicate fields and mismatched casing",
+			input:   `[{"name":"Valid"},{"name":"First","name":"Second"},{"Name":"Typo"}]`,
+			entries: []int{2, 3}, messages: []string{"duplicate object member name", "unknown object member name"},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -133,12 +138,17 @@ func TestParseACBatchReportsInvalidEntriesWithoutPartialResults(t *testing.T) {
 		{
 			name:    "unknown fields cannot return a valid subset",
 			input:   `[{"user_id":"123","problem_id":42},{"user_id":"123","problem_id":42,"command":"ac"}]`,
-			entries: []int{2}, messages: []string{"unknown field"},
+			entries: []int{2}, messages: []string{"unknown object member name"},
 		},
 		{
 			name:    "numeric user IDs and malformed problem ID types are collected",
 			input:   `[{"user_id":123,"problem_id":42},{"user_id":"123","problem_id":1.5},{"user_id":"123","problem_id":"42"},{"user_id":"123","problem_id":9223372036854775808}]`,
-			entries: []int{1, 2, 3, 4}, messages: []string{"cannot unmarshal number", "cannot unmarshal", "cannot unmarshal", "cannot unmarshal"},
+			entries: []int{1, 2, 3, 4}, messages: []string{"cannot unmarshal JSON number", "cannot unmarshal", "cannot unmarshal", "cannot unmarshal"},
+		},
+		{
+			name:    "duplicate fields and mismatched casing",
+			input:   `[{"user_id":"123","problem_id":42},{"user_id":"123","user_id":"456"},{"User_id":"123"}]`,
+			entries: []int{2, 3}, messages: []string{"duplicate object member name", "unknown object member name"},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -180,10 +190,10 @@ func TestBatchJSONContractAppliesToBothParsers(t *testing.T) {
 				{name: "empty array", input: "[]", message: "at least one operation"},
 				{name: "null document", input: "null", message: "not null"},
 				{name: "object document", input: parser.valid, message: "expected one JSON array"},
-				{name: "invalid UTF-8 inside string", input: `[{"name":"` + "\xff" + `"}]`, message: "valid UTF-8"},
+				{name: "invalid UTF-8 inside string", input: "[" + strings.Replace(parser.valid, `":"`, "\":\"\xff", 1) + "]", entry: 1, message: "invalid UTF-8"},
 				{name: "null entry", input: "[" + parser.valid + ",null]", entry: 2, message: "entry must be a JSON object"},
-				{name: "array entry", input: "[" + parser.valid + ",[]]", entry: 2, message: "cannot unmarshal array"},
-				{name: "string entry", input: "[" + parser.valid + `,"text"]`, entry: 2, message: "cannot unmarshal string"},
+				{name: "array entry", input: "[" + parser.valid + ",[]]", entry: 2, message: "cannot unmarshal JSON array"},
+				{name: "string entry", input: "[" + parser.valid + `,"text"]`, entry: 2, message: "cannot unmarshal JSON string"},
 				{name: "second document", input: "[" + parser.valid + "] []", message: "expected one JSON array"},
 				{name: "markdown fences", input: "```json\n[" + parser.valid + "]\n```", message: "expected one JSON array"},
 				{name: "comments", input: "[/*comment*/" + parser.valid + "]", message: "expected one JSON array"},
@@ -225,6 +235,82 @@ func TestBatchSyntaxErrorLocation(t *testing.T) {
 				assert.Zero(t, issues[0].entry)
 				assert.Equal(t, test.line, issues[0].line)
 				assert.Equal(t, test.column, issues[0].column)
+			}
+		})
+	}
+}
+
+func TestBatchParsersRejectUnpairedUnicodeEscapes(t *testing.T) {
+	t.Parallel()
+	for _, parser := range []struct {
+		name  string
+		field string
+		parse func(string) (int, []batchInputError)
+	}{
+		{name: "problems", field: "name", parse: func(input string) (int, []batchInputError) {
+			entries, issues := parseProblemBatch(input)
+			return len(entries), issues
+		}},
+		{name: "ACs", field: "user_id", parse: func(input string) (int, []batchInputError) {
+			entries, issues := parseACBatch(input)
+			return len(entries), issues
+		}},
+	} {
+		t.Run(parser.name, func(t *testing.T) {
+			t.Parallel()
+			for _, test := range []struct {
+				name  string
+				value string
+			}{
+				{name: "isolated high surrogate", value: `\ud800`},
+				{name: "isolated low surrogate", value: `\udc00`},
+				{name: "high surrogate before ordinary character", value: `\ud800A`},
+				{name: "high surrogate before BMP escape", value: `\ud800\u0041`},
+				{name: "two high surrogates", value: `\ud800\ud800`},
+				{name: "reversed pair", value: `\udc00\ud800`},
+				{name: "nonadjacent pair", value: `\ud800 \udc00`},
+				{name: "escaped quote before surrogate", value: `\"\uD800`},
+				{name: "literal backslash before actual surrogate", value: `\\\uD800`},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					t.Parallel()
+					input := `[{}, {"` + parser.field + `":"` + test.value + `"}, {"` + parser.field + `":"\udc00"}]`
+					count, issues := parser.parse(input)
+					assert.Zero(t, count)
+					assertBatchIssues(t, issues, []int{2, 3}, []string{"invalid surrogate pair", "invalid surrogate pair"})
+				})
+			}
+			// Names also contain JSON strings and must not be silently repaired.
+			count, issues := parser.parse(`[{"\ud800":"value"}]`)
+			assert.Zero(t, count)
+			assertBatchIssues(t, issues, []int{1}, []string{"invalid surrogate pair"})
+		})
+	}
+}
+
+func TestParseProblemBatchPreservesValidUnicodeEscapes(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "valid emoji pair", value: `\ud83d\ude00`, want: "😀"},
+		{name: "mixed case and multiple pairs", value: `\uD83D\uDe00\ud83d\ude80`, want: "😀🚀"},
+		{name: "surrogate range boundaries", value: `\ud800\udc00\udbff\udfff`, want: "\U00010000\U0010FFFF"},
+		{name: "literal replacement character", value: "�", want: "�"},
+		{name: "escaped replacement character", value: `\ufffd`, want: "�"},
+		{name: "BMP range boundaries", value: `\ud7ff\ue000`, want: "\uD7FF\uE000"},
+		{name: "literal Unicode escape text", value: `\\ud800`, want: `\ud800`},
+		{name: "escaped backslashes and quotes", value: `\\\"\\ud800`, want: `\"\ud800`},
+		{name: "ordinary escapes", value: `\u00e1\n\t\/`, want: "á\n\t/"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			entries, issues := parseProblemBatch(`[{"name":"` + test.value + `"}]`)
+			assert.Empty(t, issues)
+			if assert.Len(t, entries, 1) {
+				assert.Equal(t, test.want, entries[0].input.Name)
 			}
 		})
 	}
