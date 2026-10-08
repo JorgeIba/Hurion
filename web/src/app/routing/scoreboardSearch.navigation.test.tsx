@@ -24,10 +24,13 @@ vi.mock('@/hooks/useScoreboardData', () => ({
         },
         { id: 120, name: 'DP', topic: 'dp', createdAt: '2026-01-01' },
       ],
-      users: [
-        { userId: 'jorge', displayName: 'Jorge', solved: [12], solvedCount: 1 },
-        { userId: 'luis', displayName: 'Luis', solved: [120], solvedCount: 1 },
-      ],
+      users:
+        classCode === 'no-solves'
+          ? [{ userId: 'jorge', displayName: 'Jorge', solved: [], solvedCount: 0 }]
+          : [
+              { userId: 'jorge', displayName: 'Jorge', solved: [12], solvedCount: 1 },
+              { userId: 'luis', displayName: 'Luis', solved: [120], solvedCount: 1 },
+            ],
     },
   }),
 }));
@@ -116,6 +119,71 @@ afterEach(() => {
 });
 
 describe('scoreboard URL navigation', () => {
+  it('opens solved students from progress and restores Problems through history', async () => {
+    mount(['/?class=basicos&tab=problems&q=%40luis&extra=keep#anchor']);
+    const title = container.querySelector<HTMLAnchorElement>('.problem-list-title-link')!;
+    expect(title.href).toBe('https://example.com/bfs');
+    expect(title.target).toBe('_blank');
+    const progress = container.querySelector<HTMLAnchorElement>(
+      '.problem-list-solves-link'
+    )!;
+    const destination = new URL(progress.href);
+    expect(destination.searchParams.get('tab')).toBe('standings');
+    expect(destination.searchParams.get('q')).toBe('solved:12');
+    expect(destination.searchParams.get('class')).toBe('basicos');
+    expect(destination.searchParams.get('extra')).toBe('keep');
+    expect(destination.hash).toBe('#anchor');
+    expect(progress.getAttribute('aria-label')).toContain('BFS');
+    expect(progress.querySelector('[role="meter"]')?.getAttribute('aria-valuenow')).toBe(
+      '1'
+    );
+    await act(async () => {
+      progress.click();
+    });
+    expect(params().get('tab')).toBe('standings');
+    expect(input().value).toBe('solved:12');
+    expect(students()).toEqual(['Jorge']);
+    expect(container.querySelectorAll('.problem-name-text')).toHaveLength(2);
+    expect(document.activeElement?.id).toBe('tab-standings');
+    await act(async () => {
+      await navigate(-1);
+    });
+    expect(params().get('tab')).toBe('problems');
+    expect(params().get('q')).toBe('@luis');
+    expect(container.querySelector('#tab-problems')?.getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    await act(async () => {
+      await navigate(1);
+    });
+    expect(input().value).toBe('solved:12');
+    expect(students()).toEqual(['Jorge']);
+  });
+
+  it('opens an empty result when no students have solved the problem', async () => {
+    mount(['/?class=no-solves&tab=problems']);
+    const progress = container.querySelector<HTMLAnchorElement>(
+      '.problem-list-solves-link'
+    )!;
+    expect(progress.querySelector('[role="meter"]')?.getAttribute('aria-valuenow')).toBe(
+      '0'
+    );
+    expect(progress.querySelector('[role="meter"]')?.getAttribute('aria-valuemax')).toBe(
+      '1'
+    );
+    await act(async () => {
+      progress.click();
+    });
+    expect(input().value).toBe('solved:12');
+    expect(students()).toEqual([]);
+    expect(
+      container.querySelector('.scoreboard-selection-summary')?.textContent
+    ).toContain('2 of 2 problems');
+    expect(container.querySelector('#tabpanel-standings .state-row')?.textContent).toBe(
+      CLASS_LABELS.SCOREBOARD_VIEW.NO_MATCHING_STUDENTS
+    );
+  });
+
   it.each(['delete', 'button', 'Escape'])(
     'preserves a clear made with %s while a URL replacement is in flight',
     async (method) => {
