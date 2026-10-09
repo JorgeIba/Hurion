@@ -24,6 +24,7 @@ type batchInteractionClient struct {
 	mu        sync.Mutex
 	responses []*discordgo.InteractionResponse
 	edits     []*discordgo.WebhookEdit
+	followups []*discordgo.WebhookParams
 	ackErr    error
 }
 
@@ -37,6 +38,13 @@ func (client *batchInteractionClient) InteractionResponseEdit(_ *discordgo.Inter
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	client.edits = append(client.edits, response)
+	return nil, nil
+}
+
+func (client *batchInteractionClient) FollowupMessageCreate(_ *discordgo.Interaction, _ bool, response *discordgo.WebhookParams, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	client.followups = append(client.followups, response)
 	return nil, nil
 }
 

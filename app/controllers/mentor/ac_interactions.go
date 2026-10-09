@@ -122,7 +122,7 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 	}
 
 	if err := ctrl.authorizeACInteraction(event); err != nil {
-		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
 

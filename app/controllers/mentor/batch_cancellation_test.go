@@ -32,7 +32,7 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 				name                                                                                                                               string
 				otherActor, otherGuild, otherKind, missingMember, malformed, expired, expireDuringCheck, denied, permissionFails, ackFails, repeat bool
 				wantPending                                                                                                                        bool
-				wantEdits                                                                                                                          int
+				wantEdits, wantFollowups                                                                                                           int
 				wantContent                                                                                                                        string
 			}{
 				{name: "owner cancels", wantEdits: 1, wantContent: "Batch cancelled"},
@@ -43,8 +43,8 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 				{name: "malformed button", malformed: true, wantPending: true, wantContent: "invalid batch cancellation button"},
 				{name: "expired", expired: true, wantContent: discord.BatchUnavailableMessage},
 				{name: "expires during role check", expireDuringCheck: true},
-				{name: "permissions revoked", denied: true, wantPending: true, wantEdits: 1, wantContent: "mentor or admin"},
-				{name: "permission lookup failed", permissionFails: true, wantPending: true, wantEdits: 1, wantContent: "verifying permissions"},
+				{name: "permissions revoked", denied: true, wantPending: true, wantFollowups: 1, wantContent: "mentor or admin"},
+				{name: "permission lookup failed", permissionFails: true, wantPending: true, wantFollowups: 1, wantContent: "verifying permissions"},
 				{name: "failed acknowledgement", ackFails: true, wantPending: true},
 				{name: "repeated cancellation", repeat: true, wantEdits: 1, wantContent: "Batch cancelled"},
 			} {
@@ -134,11 +134,18 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 							assert.NotNil(t, client.edits[0].Components)
 							assert.Empty(t, *client.edits[0].Components)
 						}
-					} else if test.wantContent != "" && test.wantEdits == 0 {
+					} else if test.wantContent != "" && test.wantEdits == 0 && test.wantFollowups == 0 {
 						if assert.Len(t, client.responses, 1) {
 							assert.Contains(t, client.responses[0].Data.Content, test.wantContent)
 							assert.Equal(t, discordgo.MessageFlagsEphemeral, client.responses[0].Data.Flags)
 						}
+					}
+					if assert.Len(t, client.followups, test.wantFollowups) && test.wantFollowups > 0 {
+						assert.Contains(t, client.followups[0].Content, test.wantContent)
+						assert.Equal(t, discordgo.MessageFlagsEphemeral, client.followups[0].Flags)
+						assert.Empty(t, client.followups[0].AllowedMentions.Parse)
+						require.Len(t, client.responses, 1)
+						assert.Equal(t, discordgo.InteractionResponseDeferredMessageUpdate, client.responses[0].Type)
 					}
 					assert.Equal(t, test.wantPending, present())
 					if test.expireDuringCheck {
@@ -215,6 +222,90 @@ func TestConcurrentBatchCancellationOnlyWinnerUpdatesPreview(t *testing.T) {
 			assert.Equal(t, "Batch cancelled. No changes were applied.", *client.edits[0].Content)
 			require.NotNil(t, client.edits[0].Components)
 			assert.Empty(t, *client.edits[0].Components)
+		})
+	}
+}
+
+func TestDelayedCancellationAuthorizationFailurePreservesWinningReceipt(t *testing.T) {
+	t.Parallel()
+	for _, family := range []struct {
+		name    string
+		problem bool
+		route   string
+	}{
+		{name: "problem", problem: true, route: discord.ProblemBatchCancelCustomID},
+		{name: "AC", route: discord.ACBatchCancelCustomID},
+	} {
+		t.Run(family.name, func(t *testing.T) {
+			t.Parallel()
+			for _, lookupFails := range []bool{true, false} {
+				name := "permissions revoked"
+				if lookupFails {
+					name = "permission lookup fails"
+				}
+				t.Run(name, func(t *testing.T) {
+					t.Parallel()
+					validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
+					slowCheckStarted := make(chan struct{})
+					winningClickDone := make(chan struct{})
+					// Start the slow request first and hold its permission result until the
+					// second request has cancelled and delivered the original receipt.
+					slowCheck := validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
+						close(slowCheckStarted)
+						<-winningClickDone
+						if lookupFails {
+							return false, errors.New("Discord lookup unavailable")
+						}
+						return false, nil
+					})
+					validator.EXPECT().IsMentor("guild", "mentor").Return(true, nil).After(slowCheck)
+					if !lookupFails {
+						validator.EXPECT().IsAdmin("guild", "mentor").Return(false, nil)
+					}
+					client := &batchInteractionClient{}
+					responder := dispatcher.NewDiscordInteractionResponder(client)
+					key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
+					var handle func(*discordgo.InteractionCreate)
+					if family.problem {
+						controller := NewProblemInteractionController(nil, validator, responder)
+						require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
+						handle = controller.HandleCancelProblemBatchInteraction
+					} else {
+						controller := NewACInteractionController(nil, validator, nil, responder)
+						require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1}}))
+						handle = controller.HandleCancelACBatchInteraction
+					}
+					event := func(id string) *discordgo.InteractionCreate {
+						return &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+							ID: id, Type: discordgo.InteractionMessageComponent, GuildID: "guild",
+							Member: &discordgo.Member{User: &discordgo.User{ID: "mentor"}},
+							Data:   discordgo.MessageComponentInteractionData{CustomID: family.route + "|batch", ComponentType: discordgo.ButtonComponent},
+						}}
+					}
+					slowClickDone := make(chan struct{})
+					go func() { defer close(slowClickDone); handle(event("slow")) }()
+					<-slowCheckStarted
+					handle(event("winner"))
+					close(winningClickDone)
+					<-slowClickDone
+					require.Len(t, client.responses, 2)
+					for _, response := range client.responses {
+						assert.Equal(t, discordgo.InteractionResponseDeferredMessageUpdate, response.Type)
+					}
+					require.Len(t, client.edits, 1, "authorization errors must not edit the shared preview")
+					assert.Equal(t, "Batch cancelled. No changes were applied.", *client.edits[0].Content)
+					require.NotNil(t, client.edits[0].Components)
+					assert.Empty(t, *client.edits[0].Components)
+					require.Len(t, client.followups, 1)
+					assert.Equal(t, discordgo.MessageFlagsEphemeral, client.followups[0].Flags)
+					assert.Empty(t, client.followups[0].AllowedMentions.Parse)
+					expected := "mentor or admin"
+					if lookupFails {
+						expected = "verifying permissions"
+					}
+					assert.Contains(t, client.followups[0].Content, expected)
+				})
+			}
 		})
 	}
 }

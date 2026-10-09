@@ -286,7 +286,7 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 	}
 
 	if err := ctrl.authorizeProblemInteraction(event); err != nil {
-		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
 
