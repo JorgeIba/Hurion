@@ -125,6 +125,7 @@ func main() {
 		GuildID:          cfg.GuildID,
 	}
 	problemInteractionController := mentor.NewProblemInteractionController(svcs, provider, responder)
+	acInteractionController := mentor.NewACInteractionController(provider, responder)
 	appBot := bot.NewBot(svcs, provider, sender, responder, botCfg)
 
 	// 8. Execute Application Behavior
@@ -154,15 +155,18 @@ func main() {
 		if applicationUser == nil || strings.TrimSpace(applicationUser.ID) == "" {
 			log.Fatalf("Failed to identify Discord application before command registration: bot user ID is empty")
 		}
-		// Register the /problem slash command for the guild
+		// Register the owned slash commands for the guild
 		// It needs the associated application user ID to register the command correctly in the guild
 		if err := bot.UpsertProblemSlashCommand(session, applicationUser.ID, guildID); err != nil {
 			log.Fatalf("Failed to register guild slash commands: %v", err)
 		}
-		logger.Log.Infof("Upserted guild slash command /problem in server %s", guildID)
+		if err := bot.UpsertACSlashCommand(session, applicationUser.ID, guildID); err != nil {
+			log.Fatalf("Failed to register guild slash commands: %v", err)
+		}
+		logger.Log.Infof("Upserted guild slash commands /problem and /ac in server %s", guildID)
 
 		appBot.ConfigureSession(session)
-		appBot.RegisterHandlers(session, problemInteractionController)
+		appBot.RegisterHandlers(session, problemInteractionController, acInteractionController)
 
 		if err := session.Open(); err != nil {
 			log.Fatalf("Error opening Discord session: %v", err)

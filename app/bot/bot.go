@@ -88,7 +88,7 @@ func (bot *Bot) ConfigureSession(s *discordgo.Session) {
 	s.StateEnabled = true
 }
 
-func (bot *Bot) RegisterHandlers(s *discordgo.Session, problemInteractionController context.ProblemInteractionController) {
+func (bot *Bot) RegisterHandlers(s *discordgo.Session, problemInteractionController context.ProblemInteractionController, acInteractionController context.ACInteractionController) {
 	if s == nil {
 		return
 	}
@@ -100,7 +100,7 @@ func (bot *Bot) RegisterHandlers(s *discordgo.Session, problemInteractionControl
 		bot.HandleReactionEvent(r)
 	})
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		bot.HandleInteractionEvent(s, i, problemInteractionController)
+		bot.HandleInteractionEvent(s, i, problemInteractionController, acInteractionController)
 	})
 }
 
@@ -213,7 +213,7 @@ func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
 	}
 }
 
-func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.InteractionCreate, problemInteractionController context.ProblemInteractionController) {
+func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.InteractionCreate, problemInteractionController context.ProblemInteractionController, acInteractionController context.ACInteractionController) {
 	defer recoverHandlerPanic("interaction event")
 
 	if event == nil || event.Interaction == nil {
@@ -239,10 +239,10 @@ func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.In
 		}
 	}
 
-	bot.interactionHandler(event, problemInteractionController)
+	bot.interactionHandler(event, problemInteractionController, acInteractionController)
 }
 
-func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate, problemInteractionController context.ProblemInteractionController) {
+func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate, problemInteractionController context.ProblemInteractionController, acInteractionController context.ACInteractionController) {
 	if event.GuildID != bot.guildID {
 		bot.interactionResponder.RespondPrivately(event.Interaction, "This interaction is only available in the configured server.")
 		return
@@ -252,6 +252,7 @@ func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate, problemIn
 		Interaction:       event,
 		Dispatcher:        bot.interactionResponder,
 		ProblemController: problemInteractionController,
+		ACController:      acInteractionController,
 	}
 	switch event.Type {
 	case discordgo.InteractionApplicationCommand:

@@ -26,6 +26,7 @@ const (
 
 type workflowEnv struct {
 	ProblemController *mentor.ProblemInteractionController
+	ACController      *mentor.ACInteractionController
 	Bot               *appbot.Bot
 	DB                *data.DB
 	Services          *services.Services
@@ -69,6 +70,7 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 
 	return &workflowEnv{
 		ProblemController: problemInteractionController,
+		ACController:      mentor.NewACInteractionController(discord, responder),
 		Bot:               appbot.NewBot(svcs, discord, sender, responder, cfg),
 		DB:                db,
 		Services:          svcs,
@@ -80,7 +82,7 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 }
 
 func (env *workflowEnv) handleInteractionEvent(event *discordgo.InteractionCreate) {
-	env.Bot.HandleInteractionEvent(nil, event, env.ProblemController)
+	env.Bot.HandleInteractionEvent(nil, event, env.ProblemController, env.ACController)
 }
 
 func (env *workflowEnv) sendMessage(t *testing.T, userID, displayName, content string) {
