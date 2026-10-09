@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
@@ -12,7 +13,7 @@ import (
 
 // batchPreparer bridges parsed inputs and live Discord credentials to read-only
 // service preparation. Returned errors belong to the controller; indexed issues
-// come from batch validation. Command registration and confirmation are separate steps.
+// describe invalid batch input. Command registration and confirmation are separate steps.
 type batchPreparer struct {
 	batch     *services.BatchService
 	validator providers.DiscordValidator
@@ -23,8 +24,12 @@ func (preparer *batchPreparer) prepareProblemSubmission(guildID, actorID string,
 	if err := preparer.authorizeProblemBatch(guildID, actorID); err != nil {
 		return nil, nil, err
 	}
+	if err := services.ValidateBatchSize(len(entries)); err != nil {
+		return nil, []service_model.BatchEntryError{{Err: err}}, nil
+	}
 
 	inputs := make([]service_model.CreateProblemParams, len(entries))
+	var inputIssues []service_model.BatchEntryError
 	for index, entry := range entries {
 		value := entry.input
 		inputs[index] = service_model.CreateProblemParams{
@@ -35,6 +40,14 @@ func (preparer *batchPreparer) prepareProblemSubmission(guildID, actorID string,
 			Topic:      value.Topic,
 			Priority:   value.Priority,
 		}
+		normalized, err := service_model.NormalizeAndValidateCreateProblemParams(inputs[index])
+		if err != nil {
+			inputIssues = append(inputIssues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid problem values", err)})
+		}
+		inputs[index] = normalized
+	}
+	if len(inputIssues) > 0 {
+		return nil, inputIssues, nil
 	}
 
 	prepared, issues := preparer.batch.PrepareProblemBatch(inputs)
@@ -45,22 +58,30 @@ func (preparer *batchPreparer) prepareACSubmission(guildID, actorID string, entr
 	if err := preparer.authorizeACBatch(guildID, actorID); err != nil {
 		return nil, nil, err
 	}
+	if err := services.ValidateBatchSize(len(entries)); err != nil {
+		return nil, []service_model.BatchEntryError{{Err: err}}, nil
+	}
 
 	inputs := make([]service_model.CreateACParams, len(entries))
+	var inputIssues []service_model.BatchEntryError
 	for index, entry := range entries {
 		inputs[index] = service_model.CreateACParams{
 			UserID:    entry.input.UserID,
 			ProblemID: entry.input.ProblemID,
 		}
+		normalized, err := service_model.NormalizeAndValidateCreateACParams(inputs[index])
+		if err != nil {
+			inputIssues = append(inputIssues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid AC values", err)})
+		}
+		inputs[index] = normalized
+	}
+	if len(inputIssues) > 0 {
+		return nil, inputIssues, nil
 	}
 
 	studentsByID := make(map[string]service_model.Principal)
 	for index, input := range inputs {
-		userID := service_model.NormalizeACUserID(input.UserID)
-		// Missing references are passed to batch for required-field validation.
-		if userID == "" {
-			continue
-		}
+		userID := input.UserID
 
 		if _, resolved := studentsByID[userID]; resolved {
 			continue

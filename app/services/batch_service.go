@@ -15,7 +15,8 @@ type BatchService struct {
 	Solution *SolutionService
 }
 
-func validateBatchSize(size int) error {
+// ValidateBatchSize checks the shared operation limit before preparing a batch.
+func ValidateBatchSize(size int) error {
 	if size < 1 || size > service_model.MaxBatchOperations {
 		return serviceerr.NewValidationError(fmt.Sprintf("batch must contain between 1 and %d operations", service_model.MaxBatchOperations), nil)
 	}
@@ -25,7 +26,7 @@ func validateBatchSize(size int) error {
 // PrepareProblemBatch returns the complete prepared batch or indexed errors,
 // never partial results. Entry numbers are one-based; zero denotes a batch-wide error.
 func (service *BatchService) PrepareProblemBatch(inputs []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError) {
-	if err := validateBatchSize(len(inputs)); err != nil {
+	if err := ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}
 	}
 	var prepared []service_model.PreparedProblem
@@ -50,7 +51,7 @@ func (service *BatchService) PrepareProblemBatch(inputs []service_model.CreatePr
 // studentsByID contains the identities and role snapshots supplied by the controller.
 // Already recorded ACs are marked for preview; they do not invalidate the batch.
 func (service *BatchService) PrepareACBatch(inputs []service_model.CreateACParams, studentsByID map[string]service_model.Principal) ([]service_model.PreparedAC, []service_model.BatchEntryError) {
-	if err := validateBatchSize(len(inputs)); err != nil {
+	if err := ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}
 	}
 	var prepared []service_model.PreparedAC

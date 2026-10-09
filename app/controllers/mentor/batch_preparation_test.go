@@ -2,6 +2,7 @@ package mentor
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -245,7 +246,7 @@ func TestACPreparationResolvesEachStudentOnce(t *testing.T) {
 	}
 }
 
-func TestBatchPreparationDefersDomainValidationToBatch(t *testing.T) {
+func TestBatchPreparationRejectsInvalidInputBeforeLookups(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name      string
@@ -290,9 +291,6 @@ func TestBatchPreparationDefersDomainValidationToBatch(t *testing.T) {
 				entries, parseIssues := parseACBatch(input)
 				assert.Empty(t, parseIssues)
 				assert.Len(t, entries, test.size)
-				if test.size > 0 {
-					fetcher.EXPECT().GetCachedMember("guild", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"student"}}, nil)
-				}
 				prepared, resultIssues, resultErr := preparer.prepareACSubmission("guild", "mentor", entries)
 				assert.Nil(t, prepared)
 				issues, err = resultIssues, resultErr
@@ -303,5 +301,58 @@ func TestBatchPreparationDefersDomainValidationToBatch(t *testing.T) {
 				assert.IsType(t, &serviceerr.ValidationError{}, issues[0].Err)
 			}
 		})
+	}
+}
+
+func TestACPreparationRejectsMalformedTargetsBeforeDiscord(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name        string
+		input       string
+		wantEntries []int
+	}{
+		{name: "non-numeric student", input: `[{"user_id":"Ana","problem_id":42}]`, wantEntries: []int{1}},
+		{name: "overflowing student ID", input: `[{"user_id":"18446744073709551616","problem_id":42}]`, wantEntries: []int{1}},
+		{name: "negative problem", input: `[{"user_id":"123","problem_id":-1}]`, wantEntries: []int{1}},
+		{name: "valid target followed by invalid target", input: `[{"user_id":"123","problem_id":42},{"user_id":"Ana","problem_id":42}]`, wantEntries: []int{2}},
+		{name: "all invalid entries are reported", input: `[{"user_id":"Ana","problem_id":42},{"user_id":"123","problem_id":0}]`, wantEntries: []int{1, 2}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			validator := mock_providers.NewMockDiscordValidator(ctrl)
+			validator.EXPECT().IsMentor("guild", "mentor").Return(true, nil)
+			preparer := batchPreparer{validator: validator, fetcher: mock_providers.NewMockDiscordFetcher(ctrl)}
+			entries, parseIssues := parseACBatch(test.input)
+			assert.Empty(t, parseIssues)
+			prepared, issues, err := preparer.prepareACSubmission("guild", "mentor", entries)
+			assert.NoError(t, err)
+			assert.Nil(t, prepared)
+			if assert.Len(t, issues, len(test.wantEntries)) {
+				for index, issue := range issues {
+					assert.Equal(t, test.wantEntries[index], issue.Entry)
+					assert.IsType(t, &serviceerr.ValidationError{}, issue.Err)
+				}
+			}
+		})
+	}
+}
+
+func TestACPreparationRejectsOversizedDistinctStudentsBeforeDiscord(t *testing.T) {
+	t.Parallel()
+	ctrl := gomock.NewController(t)
+	validator := mock_providers.NewMockDiscordValidator(ctrl)
+	validator.EXPECT().IsMentor("guild", "mentor").Return(true, nil)
+	preparer := batchPreparer{validator: validator, fetcher: mock_providers.NewMockDiscordFetcher(ctrl)}
+	entries := make([]acBatchEntry, service_model.MaxBatchOperations+1)
+	for index := range entries {
+		entries[index] = acBatchEntry{entry: index + 1, input: acBatchInput{UserID: strconv.Itoa(index + 1), ProblemID: 42}}
+	}
+	prepared, issues, err := preparer.prepareACSubmission("guild", "mentor", entries)
+	assert.NoError(t, err)
+	assert.Nil(t, prepared)
+	if assert.Len(t, issues, 1) {
+		assert.Zero(t, issues[0].Entry)
+		assert.IsType(t, &serviceerr.ValidationError{}, issues[0].Err)
 	}
 }
