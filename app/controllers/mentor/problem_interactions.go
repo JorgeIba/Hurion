@@ -21,6 +21,7 @@ type ProblemInteractionController struct {
 	services          *services.Services
 	validator         providers.DiscordValidator
 	responder         dispatcher.InteractionResponder
+	attachments       *jsonFileTransport
 	problemDrafts     *createProblemDraftCache
 	editProblemDrafts *editProblemDraftCache
 }
@@ -30,6 +31,7 @@ func NewProblemInteractionController(svcs *services.Services, validator provider
 		services:          svcs,
 		validator:         validator,
 		responder:         responder,
+		attachments:       newJSONFileTransport(nil),
 		problemDrafts:     newCreateProblemDraftCache(nil),
 		editProblemDrafts: newEditProblemDraftCache(nil),
 	}
@@ -195,6 +197,38 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 	}
 	ctrl.editProblemDrafts.consumeDraft(key)
 	ctrl.editInteractionResponse(event.Interaction, discord.FormatUpdatedProblemReceipt(params.ProblemID, modal.ClassCode, params.Name))
+}
+
+// HandleAddProblemBatchInteraction opens the JSON intake form for problems.
+func (ctrl *ProblemInteractionController) HandleAddProblemBatchInteraction(event *discordgo.InteractionCreate) {
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+	ctrl.responder.Respond(event.Interaction, discord.BuildProblemBatchModalResponse())
+}
+
+// HandleCreateProblemBatchModalSubmitInteraction parses without preparing or writing.
+func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
+	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
+		return
+	}
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
+	source, err := discord.ParseProblemBatchModalSource(event.ModalSubmitData())
+	if err != nil {
+		ctrl.editInteractionResponse(event.Interaction, "Could not read the batch form: "+err.Error())
+		return
+	}
+	input, err := ctrl.attachments.read(source)
+	if err != nil {
+		ctrl.editInteractionResponse(event.Interaction, "Could not read the batch form: "+err.Error())
+		return
+	}
+	entries, issues := parseProblemBatch(input)
+	ctrl.editInteractionResponse(event.Interaction, batchParseReceipt(len(entries), issues))
 }
 
 func (ctrl *ProblemInteractionController) deferProblemInteractionResponse(interaction *discordgo.Interaction) error {

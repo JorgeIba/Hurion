@@ -16,6 +16,8 @@ const CreateProblemModalCustomID = "huron:problem:create"
 
 const EditProblemModalCustomID = "huron:problem:edit"
 
+const ProblemBatchModalCustomID = "huron:problem:batch"
+
 const (
 	maxMessageContentLength       = 2000
 	modalCustomIDSeparator        = "|"
@@ -401,4 +403,12 @@ func FormatUpdatedProblemReceipt(problemID int64, classCode, name string) string
 		return fmt.Sprintf("Problem `%d` was updated.", problemID)
 	}
 	return content
+}
+
+func BuildProblemBatchModalResponse() *discordgo.InteractionResponse {
+	return buildJSONModalResponse(ProblemBatchModalCustomID, "Problem batch", `[{"class":"basicos","name":"Two Sum","url":"https://example.com/problem"}]`)
+}
+
+func ParseProblemBatchModalSource(data discordgo.ModalSubmitInteractionData) (JSONModalSource, error) {
+	return parseJSONModalSource(data, ProblemBatchModalCustomID)
 }

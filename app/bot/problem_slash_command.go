@@ -13,6 +13,7 @@ const (
 	problemCommandName     = "problem"
 	problemAddCommandName  = "add"
 	problemEditCommandName = "edit"
+	batchAddCommandName    = "add_batch"
 )
 
 type applicationCommandCreator interface {
@@ -31,6 +32,10 @@ func UpsertProblemSlashCommand(session *discordgo.Session, applicationID, guildI
 }
 
 func upsertProblemSlashCommand(api applicationCommandCreator, applicationID, guildID string) error {
+	return upsertSlashCommand(api, applicationID, guildID, problemSlashCommand())
+}
+
+func upsertSlashCommand(api applicationCommandCreator, applicationID, guildID string, command *discordgo.ApplicationCommand) error {
 	applicationID = strings.TrimSpace(applicationID)
 	if applicationID == "" {
 		return errors.New("Discord application ID is required")
@@ -39,9 +44,9 @@ func upsertProblemSlashCommand(api applicationCommandCreator, applicationID, gui
 		return errors.New("Discord guild ID is required")
 	}
 
-	_, err := api.ApplicationCommandCreate(applicationID, guildID, problemSlashCommand())
+	_, err := api.ApplicationCommandCreate(applicationID, guildID, command)
 	if err != nil {
-		return fmt.Errorf("upsert guild slash command /problem: %w", err)
+		return fmt.Errorf("upsert guild slash command /%s: %w", command.Name, err)
 	}
 
 	return nil
@@ -82,6 +87,11 @@ func problemSlashCommand() *discordgo.ApplicationCommand {
 						Description: "Destination class; defaults to the problem's current class",
 					},
 				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        batchAddCommandName,
+				Description: "Read a problem batch from JSON",
 			},
 		},
 	}

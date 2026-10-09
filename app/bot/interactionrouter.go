@@ -13,7 +13,15 @@ import (
 type InteractionRouter func(*context.InteractionContext)
 
 var interactionCommandMap = map[string]map[string]InteractionRouter{
+	acCommandName: {
+		batchAddCommandName: func(c *context.InteractionContext) {
+			c.ACController.HandleAddACBatchInteraction(c.Interaction)
+		},
+	},
 	problemCommandName: {
+		batchAddCommandName: func(c *context.InteractionContext) {
+			c.ProblemController.HandleAddProblemBatchInteraction(c.Interaction)
+		},
 		problemEditCommandName: func(c *context.InteractionContext) {
 			c.ProblemController.HandleEditProblemInteraction(c.Interaction)
 		},
@@ -24,6 +32,12 @@ var interactionCommandMap = map[string]map[string]InteractionRouter{
 }
 
 var interactionModalMap = map[string]InteractionRouter{
+	discord.ProblemBatchModalCustomID: func(c *context.InteractionContext) {
+		c.ProblemController.HandleCreateProblemBatchModalSubmitInteraction(c.Interaction)
+	},
+	discord.ACBatchModalCustomID: func(c *context.InteractionContext) {
+		c.ACController.HandleCreateACBatchModalSubmitInteraction(c.Interaction)
+	},
 	discord.EditProblemModalCustomID: func(c *context.InteractionContext) {
 		c.ProblemController.HandleEditProblemModalSubmitInteraction(c.Interaction)
 	},

@@ -43,12 +43,16 @@ Available to users with the Mentor Discord role.
 | Command | Usage | Description | Confirmation |
 |---|---|---|:---:|
 | `!ac` | `!ac <@user> <problem_id>` | Directly mark a problem as solved for a user. | No |
+| `/problem add_batch` | `/problem add_batch` | Open a form to read a problem batch from JSON. Currently checks format only; applies no changes. | No writes yet |
+| `/ac add_batch` | `/ac add_batch` | Open a form to read explicit student ACs from JSON. Currently checks format only; applies no changes. | No writes yet |
 | `!undo_ac` | `!undo_ac <@user> <problem_id>` | Remove a solved problem from another user's list. | No |
 | `!add_problem` | `!add_problem <class_code> <url> <difficulty or -> <topic or -> <priority or -> <Name>` | Add a new problem to a class. | No |
 | `!update_problem` | `!update_problem <problem_id> <class_code> <url> <difficulty or -> <topic or -> <priority or -> <Name>` | Update a problem's details (preserves ID). | No |
 | `!remove_problem` | `!remove_problem <problem_id>` | Remove a problem and its ACs. | Yes 👍/👎 |
 
 ---
+
+Batch forms are available to mentors and admins. Paste one JSON array (up to Discord's 4,000-character form limit) or upload one `.json` file (up to 5 MiB), The file takes precedence when both sources are supplied. Problem objects use `class`, `name`, `url`, and optional `difficulty`, `topic`, and `priority`; AC objects use a string `user_id` and integer `problem_id`. Format errors identify the entry or JSON syntax location. Domain validation, confirmation, and execution will follow in later increments.
 
 ## ⚙️ Admin Commands
 
