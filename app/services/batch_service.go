@@ -8,8 +8,8 @@ import (
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
-// BatchService prepares previews using queries only. Actor authorization belongs
-// to the caller; preparation neither creates users nor changes their solves.
+// BatchService prepares and executes batches through the problem and solution
+// services. Actor authorization belongs to the caller; preparation is read-only.
 type BatchService struct {
 	Problem  ProblemService
 	Solution *SolutionService

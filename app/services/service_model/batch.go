@@ -36,6 +36,17 @@ type PreparedAC struct {
 	AlreadyRecorded bool
 }
 
+// Execution results contain only acknowledged writes. When execution returns
+// an error, the failed write's outcome may be uncertain; these are not rollback results.
+type ProblemBatchResult struct {
+	CreatedProblemIDs []int64
+}
+
+type ACBatchResult struct {
+	Recorded        int
+	AlreadyRecorded int
+}
+
 // NormalizeACUserID adapts textual IDs without validating whether an AC is valid.
 func NormalizeACUserID(userID string) string {
 	userID = strings.TrimSpace(userID)
