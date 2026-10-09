@@ -26,7 +26,7 @@ Presentation adapts transport-specific input to application requests and formats
 
 Mappings preserve identity and optional-value semantics. Controllers coordinate contextual lookups, temporary editor state, and response delivery. Existing prefix problem commands use the same application policies while retaining their text interface.
 
-Build the responsibilities required by the active phase. Review concrete types, function names, file placement, and test arrangements with each implementation increment.
+Build the responsibilities required by the active phase. This ADR records scope, behavioral guarantees, and architectural boundaries. Concrete types, function names, helper placement, dependency wiring, and lookup mechanisms belong to implementation reviews; changes to those details do not require updating this ADR unless they alter its guarantees.
 
 ### Phase 1: Slash commands
 
@@ -56,7 +56,7 @@ Support `/problem add_batch` for JSON arrays of problem objects and `/ac batch` 
 
 Separate parsing from preparation. Parsing decodes typed input, requires exact field names, rejects unknown or repeated fields and invalid JSON types or Unicode, and preserves supplied values and entry order. Repeated fields inside one JSON object are distinct from repeated problem entries, which remain allowed. Preparation checks required fields and valid values, reuses shared problem normalization, and resolves targets. Parsed input alone is not ready for confirmation or execution. Bound file downloads and honor Discord form limits; reject invalid UTF-8 and oversized input without truncation.
 
-Prepare without mutations: parse the document, retain one-based entry numbers and syntax error locations, validate values and current permissions, resolve targets, and show a private preview before confirmation. Report all detected AC duplicates, both within the input and against existing records, so the mentor can correct and resubmit. Do not check or remove duplicate problems, including identical entries. Preserve existing role policies: mentors or admins manage problems; mentor ACs require the mentor role and the student's access to the problem's class.
+Prepare without mutations: parse the document, retain one-based entry numbers and syntax error locations, validate values and current permissions, resolve targets, and show a private preview before confirmation. Student identity and role snapshots are resolved outside domain services. Preparation is provisional; current authority and access must be verified again before execution. Repeated AC entries are allowed. In batches, an AC already recorded is omitted from writes and reported as a warning rather than blocking the batch; other validation errors still block it. Individual AC commands continue to reject existing solves. Do not check or remove duplicate problems, including identical entries. Mentors or admins may manage problems and add or approve ACs. Granting an AC requires the student's access to the problem's class; the actor's admin role does not bypass that requirement.
 
 Cache only successfully prepared batches in a bounded in-process Otter cache, bound to an opaque batch ID, submitting actor, and guild. Pending batches expire five minutes after insertion, after submission, any download, and preparation; reads do not renew this deadline. Initial bounds are 100 operations per batch and 100 cached batches. Capacity eviction may remove a batch earlier, and restart loses pending batches.
 

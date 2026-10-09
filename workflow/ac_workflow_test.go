@@ -32,6 +32,39 @@ func TestWorkflow_ACProposal_CreatesPendingConfirmationAndRequestsMentorDecision
 	assert.Empty(t, last.ClearSpecificReactions, "proposal should request a mentor decision, not clear reactions yet")
 }
 
+func TestWorkflow_AdminCanGrantAndDecideACs(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ name, reaction, receipt string }{
+		{name: "direct AC", receipt: common.REACTION_ACCEPTED},
+		{name: "approve proposal", reaction: common.REACTION_YES, receipt: common.REACTION_ACCEPTED},
+		{name: "reject proposal", reaction: common.REACTION_NO, receipt: common.REACTION_REJECTED},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t)
+			classID := env.seedClass(t, "basicos_1", "Basicos 2026")
+			problemID := env.seedProblem(t, "Two Sum", "https://example.com/two-sum", classID, "Easy", "Arrays")
+			env.seedClassAccessRole(t, "basicos_1", "role_enrolled")
+			env.setRoles("111222333444555666", []string{"role_enrolled"})
+			env.Discord.isAdminFunc = func(guildID, userID string) (bool, error) { return userID == "admin_1", nil }
+			if test.reaction == "" {
+				env.sendMessage(t, "admin_1", "Admin One", "!ac <@111222333444555666> "+strconv.FormatInt(problemID, 10))
+			} else {
+				env.sendMessage(t, "111222333444555666", "Student One", "!ac "+strconv.FormatInt(problemID, 10))
+				env.assertPendingConfirmation(t, "msg_111222333444555666", "111222333444555666", problemID)
+				env.sendReaction(t, "admin_1", "Admin One", "msg_111222333444555666", test.reaction)
+				env.assertPendingConfirmationRemoved(t, "msg_111222333444555666")
+			}
+			if test.reaction == common.REACTION_NO {
+				env.assertProblemNotSolved(t, "111222333444555666", problemID)
+			} else {
+				env.assertProblemSolved(t, "111222333444555666", problemID)
+			}
+			assert.Equal(t, []string{test.receipt}, env.Dispatcher.LastMessage(t).Reactions)
+		})
+	}
+}
+
 func TestWorkflow_ACProposal_MentorApproval_GrantsProblemAndMarksProposalAccepted(t *testing.T) {
 	t.Parallel()
 

@@ -145,6 +145,13 @@ func TestMapError(t *testing.T) {
 			want:   "Problem id `77` not found for user `<@123>`",
 		},
 		{
+			name:   "specific existing AC preserves the individual command message",
+			err:    serviceerr.NewACAlreadyExistsError("already recorded", nil),
+			action: ActionMentorAddAC,
+			args:   []any{"<@123>", int64(77)},
+			want:   "User `<@123>` has already solved problem `77`",
+		},
+		{
 			name:   "semantic conflict for mentor undo AC",
 			err:    serviceerr.NewConflictError("any", nil),
 			action: ActionMentorUndoAC,

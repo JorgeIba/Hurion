@@ -248,7 +248,8 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 		permissionMessage string
 	}{
 		{
-			name: "AddAC unauthorized",
+			name:              "AddAC unauthorized",
+			permissionMessage: "mentor or admin",
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleAddAC(c)
 			},

@@ -46,7 +46,7 @@ func TestSolutionService_AddACToUserID(t *testing.T) {
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.Error(t, err)
-				assert.IsType(t, &serviceerr.ConflictError{}, err)
+				assert.IsType(t, &serviceerr.ACAlreadyExistsError{}, err)
 			},
 		},
 		{
@@ -76,6 +76,80 @@ func TestSolutionService_AddACToUserID(t *testing.T) {
 			svc := &SolutionService{Datastore: mockStore}
 			err := svc.AddACToUserID(tt.userID, tt.problemID)
 			tt.assertFunc(t, err)
+		})
+	}
+}
+
+func TestSolutionService_AddACByPrincipal(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		roles   []string
+		allowed bool
+	}{
+		{name: "records AC after validating access", roles: []string{"student"}, allowed: true},
+		{name: "denies access without writing", roles: []string{"other"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42, ClassID: 10}, nil)
+			store.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+			store.EXPECT().GetClassAccessRolesByClassCode("basicos").Return([]data.ClassAccessRole{{RoleID: "student"}}, nil)
+			if test.allowed {
+				gomock.InOrder(
+					store.EXPECT().EnsureUser(data.User{UserID: "123", DisplayName: "Unknown"}).Return(nil),
+					store.EXPECT().HasUserSolvedProblem("123", int64(42)).Return(false, nil),
+					store.EXPECT().AddAC("123", int64(42)).Return(nil),
+				)
+			}
+			err := (&SolutionService{Datastore: store}).AddACByPrincipal(service_model.Principal{UserID: "123", Roles: test.roles}, 42)
+			if test.allowed {
+				assert.NoError(t, err)
+			} else {
+				assert.IsType(t, &serviceerr.UserNotEnrolledError{}, err)
+			}
+		})
+	}
+}
+
+func TestValidateACDoesNotWrite(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42, ClassID: 10}, nil)
+	store.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+	store.EXPECT().HasUserSolvedProblem("123", int64(42)).Return(false, nil)
+	store.EXPECT().GetClassAccessRolesByClassCode("basicos").Return([]data.ClassAccessRole{{RoleID: "student"}}, nil)
+	student := service_model.Principal{UserID: "123", DisplayName: "Ana", Roles: []string{"student"}}
+	prepared, err := NewServices(store).Solution.ValidateAC(service_model.CreateACParams{UserID: " 00123 ", ProblemID: 42}, student)
+	if assert.NoError(t, err) {
+		assert.Equal(t, student.User, prepared.User)
+		assert.Equal(t, int64(42), prepared.Problem.ID)
+		assert.Equal(t, "basicos", prepared.Class.ClassCode)
+		assert.Zero(t, prepared.Entry)
+	}
+}
+
+func TestValidateACRejectsInvalidTargetsWithoutQueries(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		params service_model.CreateACParams
+	}{
+		{name: "missing user", params: service_model.CreateACParams{ProblemID: 42}},
+		{name: "non-numeric user", params: service_model.CreateACParams{UserID: "abc", ProblemID: 42}},
+		{name: "zero user", params: service_model.CreateACParams{UserID: "0", ProblemID: 42}},
+		{name: "signed user", params: service_model.CreateACParams{UserID: "+123", ProblemID: 42}},
+		{name: "missing problem", params: service_model.CreateACParams{UserID: "123"}},
+		{name: "negative problem", params: service_model.CreateACParams{UserID: "123", ProblemID: -1}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			prepared, err := NewServices(store).Solution.ValidateAC(test.params, service_model.Principal{UserID: "123"})
+			assert.IsType(t, &serviceerr.ValidationError{}, err)
+			assert.Equal(t, service_model.PreparedAC{}, prepared)
 		})
 	}
 }
@@ -177,15 +251,12 @@ func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil)
 				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "CS101"}, nil)
-				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{
-					{ClassCode: "CS101", RoleID: "role_student"},
-				}, nil)
-				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
+				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{{RoleID: "role_student"}}, nil)
 				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.Error(t, err)
-				assert.IsType(t, &serviceerr.ConflictError{}, err)
+				assert.IsType(t, &serviceerr.ACAlreadyExistsError{}, err)
 			},
 		},
 		{
@@ -244,7 +315,7 @@ func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &SolutionService{Datastore: mockStore}
+			svc := NewServices(mockStore).Solution
 			err := svc.AddPendingACByPrincipal(tt.messageID, tt.principal, tt.problemID)
 			tt.assertFunc(t, err)
 		})

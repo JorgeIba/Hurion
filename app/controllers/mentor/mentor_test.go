@@ -123,7 +123,7 @@ func TestHandleAddAC(t *testing.T) {
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
 
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil).AnyTimes()
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil)
@@ -159,7 +159,7 @@ func TestHandleAddAC(t *testing.T) {
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil).AnyTimes()
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 
 				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{}, fmt.Errorf("db error"))
@@ -225,7 +225,7 @@ func TestHandleUndoAC(t *testing.T) {
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil).AnyTimes()
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(true, nil)
@@ -243,7 +243,7 @@ func TestHandleUndoAC(t *testing.T) {
 			guildID:    "guild_123",
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_student"}}, nil).AnyTimes()
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, fmt.Errorf("db error"))
@@ -324,7 +324,7 @@ func TestHandleAddProblem(t *testing.T) {
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
 				f.EXPECT().GetCachedMember(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
 				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil).Times(2)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().AddProblem(gomock.Any()).DoAndReturn(func(p data.Problem) (int64, error) {
 					assert.Equal(t, "Two Sum", p.Name)
 					if assert.NotNil(t, p.Difficulty) {

@@ -37,7 +37,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 				Priority:   helpers.PtrStr(" RECOMMENDED "),
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
+				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().AddProblem(data.Problem{
 					Name:       "Two Sum",
 					URL:        "https://leetcode.com/problems/two-sum/",
@@ -68,7 +68,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			},
 		},
 		{
-			name: "generic error in IsClassCodeValid",
+			name: "class lookup fails",
 			params: service_model.CreateProblemParams{
 				Name:      "Two Sum",
 				URL:       "https://example.com/problem",
@@ -90,28 +90,12 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 				URL:       "https://example.com/problem",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
+				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().AddProblem(gomock.Any()).Return(int64(0), &dataerr.RowConflictError{})
 			},
 			assertFunc: func(t *testing.T, id int64, err error) {
 				assert.Error(t, err)
 				assert.IsType(t, &serviceerr.DuplicateProblemError{}, err)
-			},
-		},
-		{
-			name: "generic error in GetClassByClassCode",
-			params: service_model.CreateProblemParams{
-				Name:      "Two Sum",
-				URL:       "https://example.com/problem",
-				ClassCode: "CS101",
-			},
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{}, errors.New("db fail"))
-			},
-			assertFunc: func(t *testing.T, id int64, err error) {
-				assert.Error(t, err)
-				assert.IsType(t, &serviceerr.InternalError{}, err)
 			},
 		},
 		{
@@ -122,7 +106,7 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 				URL:       "https://example.com/problem",
 			},
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil).Times(2)
+				m.EXPECT().GetClassByClassCode("CS101").Return(data.Class{ID: 10}, nil)
 				m.EXPECT().AddProblem(gomock.Any()).Return(int64(0), errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, id int64, err error) {
@@ -144,6 +128,19 @@ func TestProblemService_CreateProblemIntoClass(t *testing.T) {
 			id, err := svc.CreateProblemIntoClass(tt.params)
 			tt.assertFunc(t, id, err)
 		})
+	}
+}
+
+func TestPrepareCreationDoesNotWrite(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+	prepared, err := NewProblemService(store).PrepareCreation(service_model.CreateProblemParams{ClassCode: " basicos ", Name: " Two Sum ", URL: " https://example.com/problem "})
+	if assert.NoError(t, err) {
+		assert.Equal(t, "Two Sum", prepared.Params.Name)
+		assert.Equal(t, "basicos", prepared.Params.ClassCode)
+		assert.Equal(t, int64(10), prepared.Class.ID)
+		assert.Zero(t, prepared.Entry)
 	}
 }
 

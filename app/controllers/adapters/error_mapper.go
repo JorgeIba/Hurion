@@ -243,7 +243,7 @@ func getErrorKindFromError(err error) ErrorKind {
 		return errorKindProblemNotFound
 	case hasErrorType[*serviceerr.DuplicateProblemError](err):
 		return errorKindDuplicateProblem
-	case hasErrorType[*serviceerr.ConflictError](err):
+	case hasErrorType[*serviceerr.ACAlreadyExistsError](err), hasErrorType[*serviceerr.ConflictError](err):
 		return errorKindConflict
 	case hasErrorType[*serviceerr.NotFoundInfoError](err):
 		return errorKindNotFound

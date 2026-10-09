@@ -14,6 +14,7 @@ import (
 //
 //go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 type ProblemService interface {
+	PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error)
 	CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error)
 	RemoveProblemFromClass(problemID int64) error
 	UpdateProblemByProblemID(params service_model.UpdateProblemParams) error
@@ -47,28 +48,11 @@ func (service *problemService) GetProblemByID(problemID int64) (service_model.Pr
 
 // CreateProblemIntoClass creates a new problem in a class
 func (service *problemService) CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error) {
-	params, err := service_model.NormalizeAndValidateCreateProblemParams(params)
+	prepared, err := service.PrepareCreation(params)
 	if err != nil {
-		return 0, serviceerr.NewValidationError("invalid problem values", err)
-	}
-
-	if isClassCodeValid, err := helpers.IsClassCodeValid(service.Datastore, params.ClassCode); err != nil {
 		return 0, err
-	} else if !isClassCodeValid {
-		return 0, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("no info of class code %s", params.ClassCode), nil)
 	}
-
-	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
-	if err != nil {
-		switch {
-		case dataerr.IsNotFound(err):
-			return 0, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", params.ClassCode), err)
-		default:
-			return 0, serviceerr.MakeGeneralError(err)
-		}
-	}
-
-	problemID, err := service.Datastore.AddProblem(mapCreateProblemParamsToDataProblem(params, class.ID))
+	problemID, err := service.Datastore.AddProblem(mapCreateProblemParamsToDataProblem(prepared.Params, prepared.Class.ID))
 	if err != nil {
 		switch {
 		case dataerr.IsRowConflict(err):
@@ -77,8 +61,29 @@ func (service *problemService) CreateProblemIntoClass(params service_model.Creat
 			return 0, serviceerr.MakeGeneralError(err)
 		}
 	}
-
 	return problemID, nil
+}
+
+// PrepareCreation normalizes values and resolves the destination without writing.
+// The snapshot must be revalidated before deferred execution.
+func (service *problemService) PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error) {
+	var prepared service_model.PreparedProblem
+	params, err := service_model.NormalizeAndValidateCreateProblemParams(params)
+	if err != nil {
+		return prepared, serviceerr.NewValidationError("invalid problem values", err)
+	}
+
+	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
+	if err != nil {
+		switch {
+		case dataerr.IsNotFound(err):
+			return prepared, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", params.ClassCode), err)
+		default:
+			return prepared, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	return service_model.PreparedProblem{Params: params, Class: mapDataClassToServiceClass(class)}, nil
 }
 
 // RemoveProblemFromClass removes a problem from a class

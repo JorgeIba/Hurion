@@ -85,6 +85,21 @@ func (mr *MockProblemServiceMockRecorder) GetProblemsGroupedByTopic(classCode an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProblemsGroupedByTopic", reflect.TypeOf((*MockProblemService)(nil).GetProblemsGroupedByTopic), classCode)
 }
 
+// PrepareCreation mocks base method.
+func (m *MockProblemService) PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareCreation", params)
+	ret0, _ := ret[0].(service_model.PreparedProblem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareCreation indicates an expected call of PrepareCreation.
+func (mr *MockProblemServiceMockRecorder) PrepareCreation(params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCreation", reflect.TypeOf((*MockProblemService)(nil).PrepareCreation), params)
+}
+
 // RemoveProblemFromClass mocks base method.
 func (m *MockProblemService) RemoveProblemFromClass(problemID int64) error {
 	m.ctrl.T.Helper()

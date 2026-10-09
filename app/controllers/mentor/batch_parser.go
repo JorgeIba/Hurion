@@ -4,12 +4,9 @@ import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
-	"fmt"
 	"strings"
 	"unicode/utf8"
 )
-
-const maxBatchOperations = 100
 
 type problemBatchEntry struct {
 	entry int
@@ -116,13 +113,6 @@ func parseBatchItems(input string) ([]jsontext.Value, []batchInputError) {
 		return nil, []batchInputError{{message: "expected one JSON array, not null"}}
 	}
 
-	if len(items) == 0 {
-		return nil, []batchInputError{{message: "batch must contain at least one operation"}}
-	}
-
-	if len(items) > maxBatchOperations {
-		return nil, []batchInputError{{message: fmt.Sprintf("batch must contain at most %d operations", maxBatchOperations)}}
-	}
 	return items, nil
 }
 
