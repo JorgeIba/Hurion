@@ -259,5 +259,7 @@ func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate, problemIn
 		routeInteractionCommand(c)
 	case discordgo.InteractionModalSubmit:
 		routeInteractionModalSubmit(c)
+	case discordgo.InteractionMessageComponent:
+		routeInteractionComponent(c)
 	}
 }

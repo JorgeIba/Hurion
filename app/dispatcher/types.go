@@ -2,10 +2,12 @@ package dispatcher
 
 import "github.com/bwmarrin/discordgo"
 
-// InteractionResponder sends initial responses directly and edits their original result.
+// InteractionResponder sends initial responses, edits their original result,
+// and delivers private followups after acknowledgement.
 type InteractionResponder interface {
 	Respond(*discordgo.Interaction, *discordgo.InteractionResponse) error
 	RespondPrivately(*discordgo.Interaction, string) error
+	FollowupPrivately(*discordgo.Interaction, string) error
 	EditResponse(*discordgo.Interaction, *discordgo.WebhookEdit) (*discordgo.Message, error)
 }
 

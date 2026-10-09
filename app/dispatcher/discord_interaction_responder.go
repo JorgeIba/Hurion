@@ -8,6 +8,7 @@ import (
 type discordInteractionClient interface {
 	InteractionRespond(*discordgo.Interaction, *discordgo.InteractionResponse, ...discordgo.RequestOption) error
 	InteractionResponseEdit(*discordgo.Interaction, *discordgo.WebhookEdit, ...discordgo.RequestOption) (*discordgo.Message, error)
+	FollowupMessageCreate(*discordgo.Interaction, bool, *discordgo.WebhookParams, ...discordgo.RequestOption) (*discordgo.Message, error)
 }
 
 // DiscordInteractionResponder delivers responses synchronously to avoid waiting behind
@@ -45,4 +46,18 @@ func (r *DiscordInteractionResponder) EditResponse(interaction *discordgo.Intera
 		logger.Log.Errorf("Failed to edit interaction response: %v", err)
 	}
 	return message, err
+}
+
+// FollowupPrivately sends a private message after acknowledgement without editing the
+// shared original message of a component interaction.
+func (r *DiscordInteractionResponder) FollowupPrivately(interaction *discordgo.Interaction, content string) error {
+	_, err := r.client.FollowupMessageCreate(interaction, true, &discordgo.WebhookParams{
+		Content:         content,
+		Flags:           discordgo.MessageFlagsEphemeral,
+		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
+	})
+	if err != nil {
+		logger.Log.Errorf("Failed to send private interaction followup: %v", err)
+	}
+	return err
 }

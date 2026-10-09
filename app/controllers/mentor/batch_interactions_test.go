@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/JorgeIba/Hurion/app/data"
@@ -20,17 +21,30 @@ import (
 
 // Record actual dispatcher delivery, including the initial acknowledgement.
 type batchInteractionClient struct {
+	mu        sync.Mutex
 	responses []*discordgo.InteractionResponse
 	edits     []*discordgo.WebhookEdit
+	followups []*discordgo.WebhookParams
 	ackErr    error
 }
 
 func (client *batchInteractionClient) InteractionRespond(_ *discordgo.Interaction, response *discordgo.InteractionResponse, _ ...discordgo.RequestOption) error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	client.responses = append(client.responses, response)
 	return client.ackErr
 }
 func (client *batchInteractionClient) InteractionResponseEdit(_ *discordgo.Interaction, response *discordgo.WebhookEdit, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 	client.edits = append(client.edits, response)
+	return nil, nil
+}
+
+func (client *batchInteractionClient) FollowupMessageCreate(_ *discordgo.Interaction, _ bool, response *discordgo.WebhookParams, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	client.followups = append(client.followups, response)
 	return nil, nil
 }
 

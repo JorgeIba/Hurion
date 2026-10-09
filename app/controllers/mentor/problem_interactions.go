@@ -1,6 +1,7 @@
 package mentor
 
 import (
+	"crypto/rand"
 	"errors"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ type ProblemInteractionController struct {
 	validator         providers.DiscordValidator
 	responder         dispatcher.InteractionResponder
 	attachments       *jsonFileTransport
+	validatedBatches  *validatedProblemBatchCache
 	problemDrafts     *createProblemDraftCache
 	editProblemDrafts *editProblemDraftCache
 }
@@ -32,6 +34,7 @@ func NewProblemInteractionController(svcs *services.Services, validator provider
 		validator:         validator,
 		responder:         responder,
 		attachments:       newJSONFileTransport(nil),
+		validatedBatches:  newValidatedProblemBatchCache(nil),
 		problemDrafts:     newCreateProblemDraftCache(nil),
 		editProblemDrafts: newEditProblemDraftCache(nil),
 	}
@@ -245,7 +248,53 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 		ctrl.editInteractionResponse(event.Interaction, problemBatchValidationReceipt(entries, validationIssues))
 		return
 	}
-	ctrl.editInteractionResponse(event.Interaction, discord.FormatProblemBatchValidationResult(prepared))
+
+	key := validatedBatchCacheKey{batchID: rand.Text(), guildID: event.GuildID, userID: event.Member.User.ID}
+	available := ctrl.validatedBatches.saveValidatedBatch(key, prepared)
+	if !available {
+		ctrl.editInteractionResponse(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	preview := discord.BuildValidatedBatchPreview(discord.FormatProblemBatchValidationResult(prepared), discord.ProblemBatchCancelCustomID, key.batchID)
+	if _, err := ctrl.responder.EditResponse(event.Interaction, preview); err != nil {
+		ctrl.validatedBatches.consumeBatch(key)
+	}
+}
+
+func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(event *discordgo.InteractionCreate) {
+	batchID, err := discord.ParseBatchCancelID(event.MessageComponentData(), discord.ProblemBatchCancelCustomID)
+	if err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
+		ctrl.responder.RespondPrivately(event.Interaction, "Batch commands require an identified server member.")
+		return
+	}
+
+	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
+	// A forged or stale button must not update another actor's preview.
+	if _, available := ctrl.validatedBatches.loadValidatedBatch(key); !available {
+		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
+		return
+	}
+
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	_, cancelled := ctrl.validatedBatches.consumeBatch(key)
+	if !cancelled {
+		return
+	}
+	ctrl.responder.EditResponse(event.Interaction, discord.BuildBatchCancellationResult(cancelled))
 }
 
 func (ctrl *ProblemInteractionController) deferProblemInteractionResponse(interaction *discordgo.Interaction) error {

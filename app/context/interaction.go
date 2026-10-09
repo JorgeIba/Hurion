@@ -12,11 +12,13 @@ type ProblemInteractionController interface {
 	HandleCreateProblemModalSubmitInteraction(*discordgo.InteractionCreate)
 	HandleAddProblemBatchInteraction(*discordgo.InteractionCreate)
 	HandleCreateProblemBatchModalSubmitInteraction(*discordgo.InteractionCreate)
+	HandleCancelProblemBatchInteraction(*discordgo.InteractionCreate)
 }
 
 type ACInteractionController interface {
 	HandleAddACBatchInteraction(*discordgo.InteractionCreate)
 	HandleCreateACBatchModalSubmitInteraction(*discordgo.InteractionCreate)
+	HandleCancelACBatchInteraction(*discordgo.InteractionCreate)
 }
 
 type InteractionContext struct {

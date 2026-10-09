@@ -24,6 +24,10 @@ func (client failingDiscordInteractionClient) InteractionResponseEdit(*discordgo
 	return nil, client.err
 }
 
+func (client failingDiscordInteractionClient) FollowupMessageCreate(*discordgo.Interaction, bool, *discordgo.WebhookParams, ...discordgo.RequestOption) (*discordgo.Message, error) {
+	return nil, client.err
+}
+
 func TestDiscordInteractionResponderReturnsAndLogsEachDeliveryFailureOnce(t *testing.T) {
 	logger.Init()
 	previousHooks := logger.Log.ReplaceHooks(make(logrus.LevelHooks))
@@ -48,6 +52,10 @@ func TestDiscordInteractionResponderReturnsAndLogsEachDeliveryFailureOnce(t *tes
 			send: func() error { return responder.RespondPrivately(interaction, "Could not load the form.") },
 		},
 		{
+			name: "private followup",
+			send: func() error { return responder.FollowupPrivately(interaction, "Could not verify permissions.") },
+		},
+		{
 			name: "edit original response",
 			send: func() error {
 				_, err := responder.EditResponse(interaction, &discordgo.WebhookEdit{})
@@ -67,4 +75,31 @@ func TestDiscordInteractionResponderReturnsAndLogsEachDeliveryFailureOnce(t *tes
 			assert.Contains(t, entries[0].Message, failure.Error())
 		})
 	}
+}
+
+type recordingFollowupClient struct {
+	failingDiscordInteractionClient
+	interaction *discordgo.Interaction
+	wait        bool
+	response    *discordgo.WebhookParams
+}
+
+func (client *recordingFollowupClient) FollowupMessageCreate(interaction *discordgo.Interaction, wait bool, response *discordgo.WebhookParams, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
+	client.interaction, client.wait, client.response = interaction, wait, response
+	return &discordgo.Message{Content: response.Content}, nil
+}
+
+func TestPrivateFollowupUsesEphemeralMessageWithoutMentions(t *testing.T) {
+	t.Parallel()
+	client := &recordingFollowupClient{}
+	responder := NewDiscordInteractionResponder(client)
+	interaction := &discordgo.Interaction{ID: "acknowledged-component"}
+	require.NoError(t, responder.FollowupPrivately(interaction, "Could not verify permissions."))
+	assert.Same(t, interaction, client.interaction)
+	assert.True(t, client.wait)
+	require.NotNil(t, client.response)
+	assert.Equal(t, "Could not verify permissions.", client.response.Content)
+	assert.Equal(t, discordgo.MessageFlagsEphemeral, client.response.Flags)
+	require.NotNil(t, client.response.AllowedMentions)
+	assert.Empty(t, client.response.AllowedMentions.Parse)
 }

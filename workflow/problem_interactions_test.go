@@ -228,6 +228,7 @@ type recordingDiscordInteractionClient struct {
 	t           *testing.T
 	responses   []interactionResponseCall
 	edits       []interactionResponseEditCall
+	followups   []*discordgo.WebhookParams
 	respondFunc func(*discordgo.InteractionResponse) error
 	editFunc    func(*discordgo.WebhookEdit) error
 }
@@ -246,6 +247,11 @@ func (r *recordingDiscordInteractionClient) InteractionResponseEdit(interaction 
 		return nil, r.editFunc(response)
 	}
 	return &discordgo.Message{Content: *response.Content}, nil
+}
+
+func (r *recordingDiscordInteractionClient) FollowupMessageCreate(_ *discordgo.Interaction, _ bool, response *discordgo.WebhookParams, _ ...discordgo.RequestOption) (*discordgo.Message, error) {
+	r.followups = append(r.followups, response)
+	return &discordgo.Message{Content: response.Content}, nil
 }
 
 func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSavedReceipt(t *testing.T) {

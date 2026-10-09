@@ -304,3 +304,134 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 		})
 	}
 }
+
+func TestWorkflow_BatchPreviewAndCancellationApplyNoWrites(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, command string
+		deliveryFails bool
+	}{
+		{name: "problem cancellation", command: "problem"},
+		{name: "AC cancellation", command: "ac"},
+		{name: "problem preview delivery failure", command: "problem", deliveryFails: true},
+		{name: "AC preview delivery failure", command: "ac", deliveryFails: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos", "Basicos")
+			input := `[{"class":"basicos","name":"New","url":"https://example.com/new"}]`
+			var problemID int64
+			if test.command == "ac" {
+				problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+				env.seedClassAccessRole(t, "basicos", "student")
+				env.setRoles("123", []string{"student"})
+				input = fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, problemID)
+			}
+			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionApplicationCommand, GuildID: testGuildID, Member: member,
+				Data: discordgo.ApplicationCommandInteractionData{Name: test.command, Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: "add_batch", Type: discordgo.ApplicationCommandOptionSubCommand}}},
+			}})
+			if !assert.Len(t, env.Responder.responses, 1) {
+				return
+			}
+			route := env.Responder.responses[0].response.Data.CustomID
+			if test.deliveryFails {
+				env.Responder.editFunc = func(*discordgo.WebhookEdit) error { return errors.New("receipt delivery failure") }
+			}
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionModalSubmit, GuildID: testGuildID, Member: member,
+				Data: discordgo.ModalSubmitInteractionData{CustomID: route, Components: []discordgo.MessageComponent{
+					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: input}},
+					&discordgo.Label{Component: &discordgo.FileUpload{CustomID: "file"}},
+				}},
+			}})
+			if !assert.Len(t, env.Responder.edits, 1) {
+				return
+			}
+			preview := env.Responder.edits[0].response
+			assert.Contains(t, *preview.Content, "batch validated")
+			if !assert.NotNil(t, preview.Components) || !assert.Len(t, *preview.Components, 1) {
+				return
+			}
+			row := (*preview.Components)[0].(discordgo.ActionsRow)
+			if !assert.Len(t, row.Components, 1) {
+				return
+			}
+			button := row.Components[0].(discordgo.Button)
+			assert.Equal(t, "Cancel", button.Label)
+			assert.LessOrEqual(t, len(button.CustomID), 100)
+			env.Responder.editFunc = nil
+			cancel := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionMessageComponent, GuildID: testGuildID, Member: member,
+				Data: discordgo.MessageComponentInteractionData{CustomID: button.CustomID, ComponentType: discordgo.ButtonComponent},
+			}}
+			env.handleInteractionEvent(cancel)
+			if test.deliveryFails {
+				assert.Len(t, env.Responder.edits, 1, "a failed preview delivery must discard the pending batch")
+				if assert.Len(t, env.Responder.responses, 3) {
+					assert.Equal(t, discord.BatchUnavailableMessage, env.Responder.responses[2].response.Data.Content)
+				}
+			} else {
+				if assert.Len(t, env.Responder.responses, 3) {
+					assert.Equal(t, discordgo.InteractionResponseDeferredMessageUpdate, env.Responder.responses[2].response.Type)
+				}
+				if assert.Len(t, env.Responder.edits, 2) {
+					assert.Equal(t, "Batch cancelled. No changes were applied.", *env.Responder.edits[1].response.Content)
+					assert.NotNil(t, env.Responder.edits[1].response.Components)
+					assert.Empty(t, *env.Responder.edits[1].response.Components)
+				}
+				env.handleInteractionEvent(cancel)
+				assert.Len(t, env.Responder.edits, 2, "repeated cancellation must not update the preview again")
+				if assert.Len(t, env.Responder.responses, 4) {
+					assert.Equal(t, discord.BatchUnavailableMessage, env.Responder.responses[3].response.Data.Content)
+				}
+			}
+			problems, err := env.DB.GetProblemsByClass(classID)
+			assert.NoError(t, err)
+			if test.command == "problem" {
+				assert.Empty(t, problems)
+			} else {
+				assert.Len(t, problems, 1)
+			}
+			_, err = env.DB.GetUserByUserID("123")
+			assert.Error(t, err, "preview and cancellation must not create the student")
+			if problemID != 0 {
+				env.assertProblemNotSolved(t, "123", problemID)
+			}
+		})
+	}
+}
+
+func TestWorkflow_BatchCancelButtonsHonorBotGates(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, guild, customID, want string
+		testMode                    bool
+	}{
+		{name: "wrong server", guild: "other", customID: discord.ProblemBatchCancelCustomID + "|id", want: "configured server"},
+		{name: "development whitelist", guild: testGuildID, customID: discord.ACBatchCancelCustomID + "|id", testMode: true, want: "not enabled"},
+		{name: "unrelated button ignored", guild: testGuildID, customID: "unrelated|id"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID, TestMode: test.testMode})
+			checks := 0
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return true, nil }
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionMessageComponent, GuildID: test.guild, Member: &discordgo.Member{User: &discordgo.User{ID: "mentor"}},
+				Data: discordgo.MessageComponentInteractionData{CustomID: test.customID, ComponentType: discordgo.ButtonComponent},
+			}})
+			assert.Zero(t, checks, "bot gates must run before management authorization")
+			assert.Empty(t, env.Responder.edits)
+			if test.want == "" {
+				assert.Empty(t, env.Responder.responses)
+			} else if assert.Len(t, env.Responder.responses, 1) {
+				assert.Contains(t, env.Responder.responses[0].response.Data.Content, test.want)
+				assert.Equal(t, discordgo.MessageFlagsEphemeral, env.Responder.responses[0].response.Data.Flags)
+			}
+		})
+	}
+}
