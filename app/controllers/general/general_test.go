@@ -638,7 +638,7 @@ func TestHandleGetClassesOfUser(t *testing.T) {
 			name: "successful get classes (mention)",
 			args: []string{"!classes_of", "<@123>"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_1"}}, nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_1"}}, nil)
 				m.EXPECT().GetClassesByAccessRoles([]string{"role_1"}).Return([]data.Class{{ClassCode: "basicos_1"}}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -652,7 +652,7 @@ func TestHandleGetClassesOfUser(t *testing.T) {
 			name: "successful get classes (raw ID)",
 			args: []string{"!classes_of", "123"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_1"}}, nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_1"}}, nil)
 				m.EXPECT().GetClassesByAccessRoles([]string{"role_1"}).Return([]data.Class{{ClassCode: "basicos_1"}}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -666,7 +666,7 @@ func TestHandleGetClassesOfUser(t *testing.T) {
 			name: "service error",
 			args: []string{"!classes_of", "<@123>"},
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_1"}}, nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_1"}}, nil)
 				m.EXPECT().GetClassesByAccessRoles([]string{"role_1"}).Return(nil, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -780,7 +780,7 @@ func TestHandleGetMyClasses(t *testing.T) {
 			name:     "successful get my classes",
 			authorID: "123",
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_1"}}, nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_1"}}, nil)
 				m.EXPECT().GetClassesByAccessRoles([]string{"role_1"}).Return([]data.Class{{ClassCode: "basicos_1"}}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -794,7 +794,7 @@ func TestHandleGetMyClasses(t *testing.T) {
 			name:     "service error",
 			authorID: "123",
 			setupMock: func(m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{Roles: []string{"role_1"}}, nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_1"}}, nil)
 				m.EXPECT().GetClassesByAccessRoles([]string{"role_1"}).Return(nil, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {

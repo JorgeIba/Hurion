@@ -19,6 +19,7 @@ const (
 	messageErrVerifying          = "There was a problem verifying permissions."
 	messageErrNotPermissions     = "Bro has not enough permissions (is not mentor)."
 	messageErrProblemPermissions = "Problem management requires the mentor or admin role."
+	messageErrACPermissions      = "Adding or approving ACs requires the mentor or admin role."
 	messageErrUnexpected         = "Unexpected error."
 )
 
@@ -35,12 +36,12 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		return
 	}
 
-	// Second check: Is user a mentor?
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
+	// Check whether the actor can decide AC proposals.
+	if allowed, err := checkIfUserCanManageACs(c); err != nil {
+		logger.Log.Errorf("Error checking AC permissions: %v", err)
 		return
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
+	} else if !allowed {
+		logger.Log.Errorln(messageErrACPermissions)
 		return
 	}
 
@@ -101,16 +102,16 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 }
 
 func HandleAddAC(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
+	if allowed, err := checkIfUserCanManageACs(c); err != nil {
+		logger.Log.Errorf("Error checking AC permissions: %v", err)
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
 		)
 		return
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
+	} else if !allowed {
+		logger.Log.Errorln(messageErrACPermissions)
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrACPermissions),
 		)
 		return
 	}
@@ -471,6 +472,26 @@ func checkIfUserCanManageProblems(c *context.ContextMessage) (bool, error) {
 		return false, fmt.Errorf("problem commands can only be used in a server, not in DMs")
 	}
 	return canManageProblems(c.DiscordValidator, c.ExecutorGuildID, c.Executor.UserID)
+}
+
+func checkIfUserCanManageACs(c *context.ContextMessage) (bool, error) {
+	if c.Executor.UserID == "" {
+		return false, fmt.Errorf("no executor user ID available")
+	}
+	if c.ExecutorGuildID == "" {
+		return false, fmt.Errorf("AC commands can only be used in a server, not in DMs")
+	}
+	return canManageACs(c.DiscordValidator, c.ExecutorGuildID, c.Executor.UserID)
+}
+
+// canManageACs permits mentors and admins to grant or decide ACs.
+// A failed role lookup stops authorization.
+func canManageACs(validator providers.DiscordValidator, guildID, userID string) (bool, error) {
+	isMentor, err := validator.IsMentor(guildID, userID)
+	if err != nil || isMentor {
+		return isMentor, err
+	}
+	return validator.IsAdmin(guildID, userID)
 }
 
 // canManageProblems permits either configured role. A failed role lookup stops

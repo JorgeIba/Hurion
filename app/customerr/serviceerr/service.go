@@ -49,6 +49,11 @@ type ConflictError struct {
 	ServiceError
 }
 
+// ACAlreadyExistsError identifies a solve that is already recorded.
+type ACAlreadyExistsError struct {
+	ServiceError
+}
+
 type NotFoundInfoError struct {
 	ServiceError
 }
@@ -95,6 +100,14 @@ func NewInternalError(message string, original error) *InternalError {
 
 func NewConflictError(message string, original error) *ConflictError {
 	return &ConflictError{
+		Code:         409,
+		Message:      message,
+		WrappedError: original,
+	}
+}
+
+func NewACAlreadyExistsError(message string, original error) *ACAlreadyExistsError {
+	return &ACAlreadyExistsError{
 		Code:         409,
 		Message:      message,
 		WrappedError: original,

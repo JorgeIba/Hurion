@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/customerr/controllerserr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
@@ -66,38 +67,32 @@ func ResolveClassCodeArg(c *context.ContextMessage, argIndex int) any {
 
 // GetMemberSafe attempts to get a member from cache first, then falls back to live fetch.
 func GetMemberSafe(c *context.ContextMessage, userID string) (*service_model.Principal, error) {
-	if c.ExecutorGuildID == "" {
+	return GetMemberPrincipal(c.DiscordFetcher, c.ExecutorGuildID, userID)
+}
+
+// GetMemberPrincipal resolves a member from the SDK cache, falling back to the
+// Discord API. It returns a role snapshot usable by message and interaction controllers.
+func GetMemberPrincipal(fetcher providers.DiscordFetcher, guildID, userID string) (*service_model.Principal, error) {
+	if guildID == "" {
 		return nil, controllerserr.NewInternalError("this command can only be used in a server", fmt.Errorf("missing guild context"))
 	}
 
 	// 1. Try cache
-	member, err := c.DiscordFetcher.GetCachedMember(c.ExecutorGuildID, userID)
-	if err == nil && member != nil {
-		return &service_model.Principal{
-			User: service_model.User{
-				UserID:      userID,
-				DisplayName: GetDisplayNameFromMember(member),
-			},
-			Roles: member.Roles,
-		}, nil
+	member, err := fetcher.GetCachedMember(guildID, userID)
+	if err != nil || member == nil {
+		member, err = fetcher.FetchMember(guildID, userID)
+		if err != nil {
+			return nil, controllerserr.NewInternalError("could not fetch user roles from Discord API", err)
+		}
 	}
-
-	// 2. Fallback to live fetch
-	member, err = c.DiscordFetcher.FetchMember(c.ExecutorGuildID, userID)
-	if err != nil {
-		return nil, controllerserr.NewInternalError("could not fetch user roles from Discord API", err)
-	}
-
-	if member == nil {
-		return nil, controllerserr.NewInternalError("Discord member is nil", fmt.Errorf("api returned nil member"))
+	if member == nil || member.User == nil || member.User.ID != userID {
+		return nil, controllerserr.NewInternalError("could not verify Discord member identity", nil)
 	}
 
 	return &service_model.Principal{
-		User: service_model.User{
-			UserID:      userID,
-			DisplayName: GetDisplayNameFromMember(member),
-		},
-		Roles: member.Roles,
+		UserID:      userID,
+		DisplayName: GetDisplayNameFromMember(member),
+		Roles:       append([]string(nil), member.Roles...),
 	}, nil
 }
 
