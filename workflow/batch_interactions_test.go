@@ -2,6 +2,8 @@ package workflow
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
@@ -12,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWorkflow_BatchCommandsOpenFormsAndParseWithoutWrites(t *testing.T) {
+func TestWorkflow_BatchCommandsOpenFormsAndValidateWithoutWrites(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, command, input, want string }{
 		{name: "problem JSON", command: "problem", input: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, want: "Entries: 1"},
@@ -29,6 +31,14 @@ func TestWorkflow_BatchCommandsOpenFormsAndParseWithoutWrites(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			classID := env.seedClass(t, "basicos", "Basicos")
+			input := test.input
+			var problemID int64
+			if test.command == "ac" {
+				problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+				env.seedClassAccessRole(t, "basicos", "student")
+				env.setRoles("123", []string{"student"})
+				input = strings.ReplaceAll(input, `"problem_id":42`, fmt.Sprintf(`"problem_id":%d`, problemID))
+			}
 			checks := 0
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return true, nil }
 			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
@@ -49,7 +59,7 @@ func TestWorkflow_BatchCommandsOpenFormsAndParseWithoutWrites(t *testing.T) {
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				Type: discordgo.InteractionModalSubmit, GuildID: testGuildID, Member: member,
 				Data: discordgo.ModalSubmitInteractionData{CustomID: response.Data.CustomID, Components: []discordgo.MessageComponent{
-					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: test.input}},
+					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: input}},
 					&discordgo.Label{Component: &discordgo.FileUpload{CustomID: "file"}},
 				}},
 			}})
@@ -64,10 +74,14 @@ func TestWorkflow_BatchCommandsOpenFormsAndParseWithoutWrites(t *testing.T) {
 			assert.Equal(t, 2, checks, "authorize at open and submit")
 			problems, err := env.DB.GetProblemsByClass(classID)
 			assert.NoError(t, err)
-			assert.Empty(t, problems, "intake must not create problems")
+			if test.command == "problem" {
+				assert.Empty(t, problems, "validation must not create problems")
+			} else {
+				assert.Len(t, problems, 1, "validation must not change existing problems")
+			}
 			_, err = env.DB.GetUserByUserID("123")
 			assert.Error(t, err, "intake must not create student records")
-			solved, err := env.DB.HasUserSolvedProblem("123", 42)
+			solved, err := env.DB.HasUserSolvedProblem("123", problemID)
 			assert.NoError(t, err)
 			assert.False(t, solved, "intake must not register ACs")
 		})
@@ -155,12 +169,20 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos", "Basicos")
+			input := test.input
+			if test.name == "ac" {
+				id := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+				env.seedClassAccessRole(t, "basicos", "student")
+				env.setRoles("123", []string{"student"})
+				input = strings.ReplaceAll(input, `"problem_id":42`, fmt.Sprintf(`"problem_id":%d`, id))
+			}
 			client := &recordingDiscordInteractionClient{t: t}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
 			if test.name == "problem" {
 				env.ProblemController = mentor.NewProblemInteractionController(env.Services, env.Discord, responder)
 			} else {
-				env.ACController = mentor.NewACInteractionController(env.Discord, responder)
+				env.ACController = mentor.NewACInteractionController(env.Services, env.Discord, env.Discord, responder)
 			}
 			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
@@ -174,7 +196,7 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				Type: discordgo.InteractionModalSubmit, GuildID: testGuildID, Member: member,
 				Data: discordgo.ModalSubmitInteractionData{CustomID: test.route, Components: []discordgo.MessageComponent{
-					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: test.input}},
+					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: input}},
 					&discordgo.Label{Component: &discordgo.FileUpload{CustomID: "file"}},
 				}},
 			}})
@@ -184,6 +206,101 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 			}
 			assert.Empty(t, env.Responder.responses)
 			assert.Empty(t, env.Responder.edits)
+		})
+	}
+}
+
+func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, command, input                     string
+		want                                     []string
+		denyAccess, lookupFails, alreadyRecorded bool
+		wantLookups                              int
+	}{
+		{name: "unknown class", command: "problem", input: `[{"class":"missing","name":"Valid","url":"https://example.com"}]`, want: []string{"Batch validation failed", "Entry 1", "Class code `missing` not found"}},
+		{name: "invalid problem values", command: "problem", input: `[{}]`, want: []string{"Entry 1", "Please correct the values"}},
+		{name: "valid problem followed by unknown class", command: "problem", input: `[{"class":"basicos","name":"Valid","url":"https://example.com"},{"class":"missing","name":"Other","url":"https://example.com"}]`, want: []string{"Batch validation failed", "Entry 2"}},
+		{name: "empty problem batch", command: "problem", input: `[]`, want: []string{"between 1 and 100 operations"}},
+		{name: "oversized problem batch", command: "problem", input: `[` + strings.Repeat(`{},`, 100) + `{}]`, want: []string{"between 1 and 100 operations"}},
+		{name: "empty AC batch", command: "ac", input: `[]`, want: []string{"between 1 and 100 operations"}},
+		{name: "oversized AC batch", command: "ac", input: `[` + strings.Repeat(`{},`, 100) + `{}]`, want: []string{"between 1 and 100 operations"}},
+		{name: "invalid student", command: "ac", input: `[{"user_id":"Ana","problem_id":1}]`, want: []string{"Entry 1", "positive numeric Discord ID"}},
+		{name: "invalid problem ID", command: "ac", input: `[{"user_id":"123","problem_id":0}]`, want: []string{"Entry 1", "problem_id must be positive"}},
+		{name: "unknown problem", command: "ac", input: `[{"user_id":"123","problem_id":9999}]`, want: []string{"Entry 1", "Problem id `9999` not found"}, wantLookups: 1},
+		{name: "no class access", command: "ac", input: `[{"user_id":"123","problem_id":1}]`, denyAccess: true, want: []string{"Entry 1", "doesn't have access"}, wantLookups: 1},
+		{name: "Discord lookup failure", command: "ac", input: `[{"user_id":"123","problem_id":1}]`, lookupFails: true, want: []string{"Could not resolve a batch student from Discord"}, wantLookups: 1},
+		{name: "valid AC followed by unknown problem", command: "ac", input: `[{"user_id":"123","problem_id":1},{"user_id":"123","problem_id":9999}]`, want: []string{"Batch validation failed", "Entry 2"}, wantLookups: 1},
+		{name: "existing AC remains valid", command: "ac", input: `[{"user_id":"123","problem_id":1}]`, alreadyRecorded: true, want: []string{"AC batch validated", "Entries: 1", "Already recorded entries: 1"}, wantLookups: 1},
+		{name: "repeated existing ACs preserved", command: "ac", input: `[{"user_id":"123","problem_id":1},{"user_id":"123","problem_id":1}]`, alreadyRecorded: true, want: []string{"AC batch validated", "Entries: 2", "Students: 1", "Already recorded entries: 2"}, wantLookups: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos", "Basicos")
+			problemID := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+			input := strings.ReplaceAll(test.input, `"problem_id":1}`, fmt.Sprintf(`"problem_id":%d}`, problemID))
+			env.seedClassAccessRole(t, "basicos", "student")
+			lookups := 0
+			env.Discord.getCachedMemberFunc = func(_, userID string) (*discordgo.Member, error) {
+				lookups++
+				if test.lookupFails {
+					return nil, errors.New("private Discord cache failure")
+				}
+				roles := []string{"student"}
+				if test.denyAccess {
+					roles = nil
+				}
+				return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: roles}, nil
+			}
+			env.Discord.fetchMemberFunc = func(_, _ string) (*discordgo.Member, error) { return nil, errors.New("private Discord HTTP failure") }
+			if test.alreadyRecorded {
+				env.seedUser(t, "123", "Student")
+				assert.NoError(t, env.Services.Solution.AddACToUserID("123", problemID))
+			}
+			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionApplicationCommand, GuildID: testGuildID, Member: member,
+				Data: discordgo.ApplicationCommandInteractionData{Name: test.command, Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: "add_batch", Type: discordgo.ApplicationCommandOptionSubCommand}}},
+			}})
+			if !assert.Len(t, env.Responder.responses, 1) {
+				return
+			}
+			route := env.Responder.responses[0].response.Data.CustomID
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionModalSubmit, GuildID: testGuildID, Member: member,
+				Data: discordgo.ModalSubmitInteractionData{CustomID: route, Components: []discordgo.MessageComponent{
+					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: input}},
+					&discordgo.Label{Component: &discordgo.FileUpload{CustomID: "file"}},
+				}},
+			}})
+			if assert.Len(t, env.Responder.edits, 1) {
+				content := *env.Responder.edits[0].response.Content
+				for _, want := range test.want {
+					assert.Contains(t, content, want)
+				}
+				assert.Contains(t, content, "No changes were applied")
+				assert.NotContains(t, content, "private Discord")
+				assert.NotContains(t, content, "Service Error")
+				if !test.alreadyRecorded {
+					assert.NotContains(t, content, "batch validated")
+				}
+			}
+			assert.Equal(t, test.wantLookups, lookups)
+			problems, err := env.DB.GetProblemsByClass(classID)
+			assert.NoError(t, err)
+			assert.Len(t, problems, 1)
+			solved, err := env.DB.HasUserSolvedProblem("123", problemID)
+			assert.NoError(t, err)
+			assert.Equal(t, test.alreadyRecorded, solved)
+			user, err := env.DB.GetUserByUserID("123")
+			if test.alreadyRecorded {
+				assert.NoError(t, err)
+				assert.Equal(t, "Student", user.DisplayName)
+			} else {
+				assert.Error(t, err)
+			}
 		})
 	}
 }

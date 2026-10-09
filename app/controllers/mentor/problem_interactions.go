@@ -208,7 +208,7 @@ func (ctrl *ProblemInteractionController) HandleAddProblemBatchInteraction(event
 	ctrl.responder.Respond(event.Interaction, discord.BuildProblemBatchModalResponse())
 }
 
-// HandleCreateProblemBatchModalSubmitInteraction parses without preparing or writing.
+// HandleCreateProblemBatchModalSubmitInteraction validates without writing.
 func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
 	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
 		return
@@ -228,7 +228,24 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 		return
 	}
 	entries, issues := parseProblemBatch(input)
-	ctrl.editInteractionResponse(event.Interaction, batchParseReceipt(len(entries), issues))
+	if len(issues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, batchParseReceipt(len(entries), issues))
+		return
+	}
+
+	preparer := batchPreparer{batch: ctrl.services.Batch}
+	prepared, validationIssues, err := preparer.prepareProblemEntries(entries)
+	if err != nil {
+		logger.Log.Errorf("Failed to prepare problem batch: %v", err)
+		ctrl.editInteractionResponse(event.Interaction, "Could not validate the problem batch. No changes were applied. Try again.")
+		return
+	}
+
+	if len(validationIssues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, problemBatchValidationReceipt(entries, validationIssues))
+		return
+	}
+	ctrl.editInteractionResponse(event.Interaction, discord.FormatProblemBatchValidationResult(prepared))
 }
 
 func (ctrl *ProblemInteractionController) deferProblemInteractionResponse(interaction *discordgo.Interaction) error {

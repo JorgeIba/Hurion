@@ -412,3 +412,11 @@ func BuildProblemBatchModalResponse() *discordgo.InteractionResponse {
 func ParseProblemBatchModalSource(data discordgo.ModalSubmitInteractionData) (JSONModalSource, error) {
 	return parseJSONModalSource(data, ProblemBatchModalCustomID)
 }
+
+func FormatProblemBatchValidationResult(prepared []service_model.PreparedProblem) string {
+	classes := make(map[int64]struct{})
+	for _, entry := range prepared {
+		classes[entry.Class.ID] = struct{}{}
+	}
+	return fmt.Sprintf("Problem batch validated. Entries: %d. Classes: %d. No changes were applied.", len(prepared), len(classes))
+}
