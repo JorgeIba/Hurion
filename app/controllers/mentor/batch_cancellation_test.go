@@ -2,6 +2,7 @@ package mentor
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -40,7 +42,7 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 				{name: "missing member", missingMember: true, wantPending: true, wantContent: "identified server member"},
 				{name: "malformed button", malformed: true, wantPending: true, wantContent: "invalid batch cancellation button"},
 				{name: "expired", expired: true, wantContent: discord.BatchUnavailableMessage},
-				{name: "expires during role check", expireDuringCheck: true, wantEdits: 1, wantContent: discord.BatchUnavailableMessage},
+				{name: "expires during role check", expireDuringCheck: true},
 				{name: "permissions revoked", denied: true, wantPending: true, wantEdits: 1, wantContent: "mentor or admin"},
 				{name: "permission lookup failed", permissionFails: true, wantPending: true, wantEdits: 1, wantContent: "verifying permissions"},
 				{name: "failed acknowledgement", ackFails: true, wantPending: true},
@@ -139,6 +141,10 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 						}
 					}
 					assert.Equal(t, test.wantPending, present())
+					if test.expireDuringCheck {
+						require.Len(t, client.responses, 1)
+						assert.Equal(t, discordgo.InteractionResponseDeferredMessageUpdate, client.responses[0].Type)
+					}
 					if test.repeat {
 						handle(event)
 						assert.Len(t, client.edits, 1)
@@ -148,6 +154,67 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					}
 				})
 			}
+		})
+	}
+}
+
+func TestConcurrentBatchCancellationOnlyWinnerUpdatesPreview(t *testing.T) {
+	t.Parallel()
+	for _, family := range []struct {
+		name    string
+		problem bool
+		route   string
+	}{
+		{name: "problem", problem: true, route: discord.ProblemBatchCancelCustomID},
+		{name: "AC", route: discord.ACBatchCancelCustomID},
+	} {
+		t.Run(family.name, func(t *testing.T) {
+			t.Parallel()
+			validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
+			// Both requests must pass the initial cache read before either can
+			// claim the batch. This reproduces the race without timing sleeps.
+			permissionChecks := make(chan struct{}, 2)
+			releaseChecks := make(chan struct{})
+			validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
+				permissionChecks <- struct{}{}
+				<-releaseChecks
+				return true, nil
+			}).Times(2)
+			client := &batchInteractionClient{}
+			responder := dispatcher.NewDiscordInteractionResponder(client)
+			key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
+			var handle func(*discordgo.InteractionCreate)
+			if family.problem {
+				controller := NewProblemInteractionController(nil, validator, responder)
+				require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
+				handle = controller.HandleCancelProblemBatchInteraction
+			} else {
+				controller := NewACInteractionController(nil, validator, nil, responder)
+				require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1}}))
+				handle = controller.HandleCancelACBatchInteraction
+			}
+			var clicks sync.WaitGroup
+			for _, interactionID := range []string{"first", "second"} {
+				clicks.Go(func() {
+					handle(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+						ID: interactionID, Type: discordgo.InteractionMessageComponent, GuildID: "guild",
+						Member: &discordgo.Member{User: &discordgo.User{ID: "mentor"}},
+						Data:   discordgo.MessageComponentInteractionData{CustomID: family.route + "|batch", ComponentType: discordgo.ButtonComponent},
+					}})
+				})
+			}
+			<-permissionChecks
+			<-permissionChecks
+			close(releaseChecks)
+			clicks.Wait()
+			require.Len(t, client.responses, 2)
+			for _, response := range client.responses {
+				assert.Equal(t, discordgo.InteractionResponseDeferredMessageUpdate, response.Type)
+			}
+			require.Len(t, client.edits, 1, "the losing request must not overwrite the winner's receipt")
+			assert.Equal(t, "Batch cancelled. No changes were applied.", *client.edits[0].Content)
+			require.NotNil(t, client.edits[0].Components)
+			assert.Empty(t, *client.edits[0].Components)
 		})
 	}
 }

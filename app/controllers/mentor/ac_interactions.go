@@ -127,6 +127,9 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 	}
 
 	_, cancelled := ctrl.validatedBatches.consumeBatch(key)
+	if !cancelled {
+		return
+	}
 	ctrl.responder.EditResponse(event.Interaction, discord.BuildBatchCancellationResult(cancelled))
 }
 

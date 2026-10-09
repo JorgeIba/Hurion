@@ -291,6 +291,9 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 	}
 
 	_, cancelled := ctrl.validatedBatches.consumeBatch(key)
+	if !cancelled {
+		return
+	}
 	ctrl.responder.EditResponse(event.Interaction, discord.BuildBatchCancellationResult(cancelled))
 }
 
