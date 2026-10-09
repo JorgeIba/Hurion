@@ -70,7 +70,7 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 
 	return &workflowEnv{
 		ProblemController: problemInteractionController,
-		ACController:      mentor.NewACInteractionController(discord, responder),
+		ACController:      mentor.NewACInteractionController(svcs, discord, discord, responder),
 		Bot:               appbot.NewBot(svcs, discord, sender, responder, cfg),
 		DB:                db,
 		Services:          svcs,

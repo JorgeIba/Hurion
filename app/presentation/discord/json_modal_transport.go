@@ -105,7 +105,14 @@ func FormatJSONParseResult(count int, issues []JSONInputIssue) string {
 }
 
 func formatJSONInputErrors(issues []JSONInputIssue) string {
-	content := fmt.Sprintf("Could not read JSON: %d issue(s).", len(issues))
+	return formatInputIssues(fmt.Sprintf("Could not read JSON: %d issue(s).", len(issues)), issues)
+}
+
+func FormatBatchValidationErrors(issues []JSONInputIssue) string {
+	return formatInputIssues(fmt.Sprintf("Batch validation failed: %d issue(s). No changes were applied.", len(issues)), issues)
+}
+
+func formatInputIssues(content string, issues []JSONInputIssue) string {
 	for index, issue := range issues {
 		location := "Input"
 		if issue.Entry > 0 {

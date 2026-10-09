@@ -7,9 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/data"
+	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -67,6 +70,24 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 			t.Parallel()
 			mockCtrl := gomock.NewController(t)
 			validator := mock_providers.NewMockDiscordValidator(mockCtrl)
+			fetcher := mock_providers.NewMockDiscordFetcher(mockCtrl)
+			store := mock_data.NewMockDataStore(mockCtrl)
+			svcs := services.NewServices(store)
+			if strings.HasPrefix(test.want, "Entries:") {
+				if test.route == discord.ProblemBatchModalCustomID {
+					store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+				} else {
+					count := 1
+					if test.name == "AC file" {
+						count = 2
+					}
+					fetcher.EXPECT().GetCachedMember("guild", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"student"}}, nil)
+					store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42, ClassID: 10}, nil).Times(count)
+					store.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "basicos"}, nil).Times(count)
+					store.EXPECT().GetClassAccessRolesByClassCode("basicos").Return([]data.ClassAccessRole{{RoleID: "student"}}, nil).Times(count)
+					store.EXPECT().HasUserSolvedProblem("123", int64(42)).Return(false, nil).Times(count)
+				}
+			}
 			if !test.ackFails {
 				validator.EXPECT().IsMentor("guild", "mentor").Return(!test.denied, test.permissionErr)
 				if test.denied {
@@ -104,11 +125,11 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 			}}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
 			if route == discord.ProblemBatchModalCustomID {
-				controller := NewProblemInteractionController(nil, validator, responder)
+				controller := NewProblemInteractionController(svcs, validator, responder)
 				controller.attachments = reader
 				controller.HandleCreateProblemBatchModalSubmitInteraction(event)
 			} else {
-				controller := NewACInteractionController(validator, responder)
+				controller := NewACInteractionController(svcs, validator, fetcher, responder)
 				controller.attachments = reader
 				controller.HandleCreateACBatchModalSubmitInteraction(event)
 			}
@@ -122,6 +143,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 				assert.Contains(t, *client.edits[0].Content, test.want)
 				assert.Empty(t, client.edits[0].AllowedMentions.Parse)
 				if strings.HasPrefix(test.want, "Entries:") {
+					assert.Contains(t, *client.edits[0].Content, "batch validated")
 					assert.Contains(t, *client.edits[0].Content, "No changes were applied")
 				}
 			}

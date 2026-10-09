@@ -125,7 +125,7 @@ func main() {
 		GuildID:          cfg.GuildID,
 	}
 	problemInteractionController := mentor.NewProblemInteractionController(svcs, provider, responder)
-	acInteractionController := mentor.NewACInteractionController(provider, responder)
+	acInteractionController := mentor.NewACInteractionController(svcs, provider, provider, responder)
 	appBot := bot.NewBot(svcs, provider, sender, responder, botCfg)
 
 	// 8. Execute Application Behavior

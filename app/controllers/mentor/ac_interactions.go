@@ -7,18 +7,24 @@ import (
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/providers"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
 
 type ACInteractionController struct {
+	services    *services.Services
 	validator   providers.DiscordValidator
+	fetcher     providers.DiscordFetcher
 	responder   dispatcher.InteractionResponder
 	attachments *jsonFileTransport
 }
 
-func NewACInteractionController(validator providers.DiscordValidator, responder dispatcher.InteractionResponder) *ACInteractionController {
+func NewACInteractionController(svcs *services.Services, validator providers.DiscordValidator, fetcher providers.DiscordFetcher, responder dispatcher.InteractionResponder) *ACInteractionController {
 	return &ACInteractionController{
-		validator: validator, responder: responder,
+		services:    svcs,
+		validator:   validator,
+		fetcher:     fetcher,
+		responder:   responder,
 		attachments: newJSONFileTransport(nil),
 	}
 }
@@ -32,7 +38,7 @@ func (ctrl *ACInteractionController) HandleAddACBatchInteraction(event *discordg
 	ctrl.responder.Respond(event.Interaction, discord.BuildACBatchModalResponse())
 }
 
-// HandleCreateACBatchModalSubmitInteraction parses without preparing or writing.
+// HandleCreateACBatchModalSubmitInteraction validates without writing.
 func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
 	if err := ctrl.deferACInteractionResponse(event.Interaction); err != nil {
 		return
@@ -52,7 +58,25 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 		return
 	}
 	entries, issues := parseACBatch(input)
-	ctrl.editInteractionResponse(event.Interaction, batchParseReceipt(len(entries), issues))
+	if len(issues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, batchParseReceipt(len(entries), issues))
+		return
+	}
+
+	preparer := batchPreparer{batch: ctrl.services.Batch, fetcher: ctrl.fetcher}
+	prepared, validationIssues, err := preparer.prepareACEntries(event.GuildID, entries)
+	if err != nil {
+		logger.Log.Errorf("Failed to resolve AC batch students: %v", err)
+		ctrl.editInteractionResponse(event.Interaction, "Could not resolve a batch student from Discord. No changes were applied. Try again.")
+		return
+	}
+
+	if len(validationIssues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, acBatchValidationReceipt(entries, validationIssues))
+		return
+	}
+
+	ctrl.editInteractionResponse(event.Interaction, discord.FormatACBatchValidationResult(prepared))
 }
 
 func (ctrl *ACInteractionController) deferACInteractionResponse(interaction *discordgo.Interaction) error {
