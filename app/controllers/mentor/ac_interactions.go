@@ -1,6 +1,7 @@
 package mentor
 
 import (
+	"crypto/rand"
 	"errors"
 
 	"github.com/JorgeIba/Hurion/app/dispatcher"
@@ -12,20 +13,27 @@ import (
 )
 
 type ACInteractionController struct {
-	services    *services.Services
-	validator   providers.DiscordValidator
-	fetcher     providers.DiscordFetcher
-	responder   dispatcher.InteractionResponder
-	attachments *jsonFileTransport
+	services         *services.Services
+	validator        providers.DiscordValidator
+	fetcher          providers.DiscordFetcher
+	responder        dispatcher.InteractionResponder
+	attachments      *jsonFileTransport
+	validatedBatches *validatedACBatchCache
 }
 
-func NewACInteractionController(svcs *services.Services, validator providers.DiscordValidator, fetcher providers.DiscordFetcher, responder dispatcher.InteractionResponder) *ACInteractionController {
+func NewACInteractionController(
+	svcs *services.Services,
+	validator providers.DiscordValidator,
+	fetcher providers.DiscordFetcher,
+	responder dispatcher.InteractionResponder,
+) *ACInteractionController {
 	return &ACInteractionController{
-		services:    svcs,
-		validator:   validator,
-		fetcher:     fetcher,
-		responder:   responder,
-		attachments: newJSONFileTransport(nil),
+		services:         svcs,
+		validator:        validator,
+		fetcher:          fetcher,
+		responder:        responder,
+		attachments:      newJSONFileTransport(nil),
+		validatedBatches: newValidatedACBatchCache(nil),
 	}
 }
 
@@ -76,7 +84,50 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 		return
 	}
 
-	ctrl.editInteractionResponse(event.Interaction, discord.FormatACBatchValidationResult(prepared))
+	key := validatedBatchCacheKey{batchID: rand.Text(), guildID: event.GuildID, userID: event.Member.User.ID}
+	available := ctrl.validatedBatches.saveValidatedBatch(key, prepared)
+	if !available {
+		ctrl.editInteractionResponse(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	preview := discord.BuildValidatedBatchPreview(
+		discord.FormatACBatchValidationResult(prepared), discord.ACBatchCancelCustomID, key.batchID,
+	)
+	if _, err := ctrl.responder.EditResponse(event.Interaction, preview); err != nil {
+		ctrl.validatedBatches.consumeBatch(key)
+	}
+}
+
+func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *discordgo.InteractionCreate) {
+	batchID, err := discord.ParseBatchCancelID(event.MessageComponentData(), discord.ACBatchCancelCustomID)
+	if err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
+		ctrl.responder.RespondPrivately(event.Interaction, "Batch commands require an identified server member.")
+		return
+	}
+
+	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
+	if _, available := ctrl.validatedBatches.loadValidatedBatch(key); !available {
+		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
+		return
+	}
+
+	if err := ctrl.authorizeACInteraction(event); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
+
+	_, cancelled := ctrl.validatedBatches.consumeBatch(key)
+	ctrl.responder.EditResponse(event.Interaction, discord.BuildBatchCancellationResult(cancelled))
 }
 
 func (ctrl *ACInteractionController) deferACInteractionResponse(interaction *discordgo.Interaction) error {

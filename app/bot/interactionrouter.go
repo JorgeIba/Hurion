@@ -46,6 +46,15 @@ var interactionModalMap = map[string]InteractionRouter{
 	},
 }
 
+var interactionComponentMap = map[string]InteractionRouter{
+	discord.ProblemBatchCancelCustomID: func(c *context.InteractionContext) {
+		c.ProblemController.HandleCancelProblemBatchInteraction(c.Interaction)
+	},
+	discord.ACBatchCancelCustomID: func(c *context.InteractionContext) {
+		c.ACController.HandleCancelACBatchInteraction(c.Interaction)
+	},
+}
+
 func hasInteractionRoute(event *discordgo.InteractionCreate) bool {
 	switch event.Type {
 	case discordgo.InteractionApplicationCommand:
@@ -54,6 +63,10 @@ func hasInteractionRoute(event *discordgo.InteractionCreate) bool {
 	case discordgo.InteractionModalSubmit:
 		route := discord.ModalRouteFromCustomID(event.ModalSubmitData().CustomID)
 		_, ok := interactionModalMap[route]
+		return ok
+	case discordgo.InteractionMessageComponent:
+		route := discord.ComponentRouteFromCustomID(event.MessageComponentData().CustomID)
+		_, ok := interactionComponentMap[route]
 		return ok
 	default:
 		return false
@@ -81,6 +94,13 @@ func routeInteractionCommand(c *context.InteractionContext) {
 func routeInteractionModalSubmit(c *context.InteractionContext) {
 	route := discord.ModalRouteFromCustomID(c.Interaction.ModalSubmitData().CustomID)
 	if router, ok := interactionModalMap[route]; ok {
+		router(c)
+	}
+}
+
+func routeInteractionComponent(c *context.InteractionContext) {
+	route := discord.ComponentRouteFromCustomID(c.Interaction.MessageComponentData().CustomID)
+	if router, ok := interactionComponentMap[route]; ok {
 		router(c)
 	}
 }
