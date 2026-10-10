@@ -8,8 +8,9 @@ const (
 )
 
 const (
-	ACBatch       Action = "huron:ac:batch"
-	CancelACBatch Action = "huron:ac:batch:cancel"
+	ConfirmACBatch Action = "huron:ac:batch:confirm"
+	ACBatch        Action = "huron:ac:batch"
+	CancelACBatch  Action = "huron:ac:batch:cancel"
 )
 
 func ACSlashCommand() *discordgo.ApplicationCommand {

@@ -2,8 +2,10 @@ package discord
 
 import (
 	"fmt"
-	"github.com/bwmarrin/discordgo"
+	"strconv"
 	"strings"
+
+	"github.com/bwmarrin/discordgo"
 
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
@@ -149,8 +151,10 @@ func FormatACBatchValidationResult(prepared []service_model.PreparedAC) string {
 
 const BatchUnavailableMessage = "This batch is no longer available. Submit it again to validate a new batch."
 
-func BuildValidatedBatchPreview(content, cancelID string) *discordgo.WebhookEdit {
+func BuildValidatedBatchPreview(content, confirmID, cancelID string) *discordgo.WebhookEdit {
+	content += "\nConfirm to apply this batch?"
 	components := []discordgo.MessageComponent{discordgo.ActionsRow{Components: []discordgo.MessageComponent{
+		discordgo.Button{CustomID: confirmID, Label: "Confirm", Style: discordgo.SuccessButton},
 		discordgo.Button{CustomID: cancelID, Label: "Cancel", Style: discordgo.SecondaryButton},
 	}}}
 
@@ -179,4 +183,46 @@ func FormatJSONReadError(issue JSONInputIssue) string {
 		return FormatJSONParseResult(0, []JSONInputIssue{issue})
 	}
 	return "Could not read the batch form: " + issue.Message
+}
+
+func buildCompletedBatchResponse(content string) *discordgo.WebhookEdit {
+	components := []discordgo.MessageComponent{}
+	return &discordgo.WebhookEdit{Content: &content, Components: &components, AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}}
+}
+
+func BuildBatchValidationFailure(content string) *discordgo.WebhookEdit {
+	return buildCompletedBatchResponse(content + "\nSubmit the batch again.")
+}
+
+func BuildProblemBatchExecutionResult(result service_model.ProblemBatchResult, failed bool) *discordgo.WebhookEdit {
+	content := fmt.Sprintf("Batch completed. Problems created: %d.", len(result.CreatedProblemIDs))
+	if failed {
+		content = fmt.Sprintf("Batch stopped. Confirmed problem creations: %d.\nEarlier writes were not rolled back. The failed operation may also have been applied. Check the class before submitting again.", len(result.CreatedProblemIDs))
+	}
+
+	ids := make([]string, len(result.CreatedProblemIDs))
+	for index, id := range result.CreatedProblemIDs {
+		ids[index] = strconv.FormatInt(id, 10)
+	}
+
+	response := buildCompletedBatchResponse(content)
+	if len(ids) > 0 {
+		list := "\nProblem IDs (in batch order): " + strings.Join(ids, ", ")
+		if utf16Count(content+list) <= maxMessageContentLength {
+			content += list
+		} else {
+			content += "\nProblem IDs (in batch order) are attached."
+			response.Files = []*discordgo.File{{Name: "created-problem-ids.txt", ContentType: "text/plain", Reader: strings.NewReader(strings.Join(ids, "\n"))}}
+		}
+	}
+	response.Content = &content
+	return response
+}
+
+func BuildACBatchExecutionResult(result service_model.ACBatchResult, failed bool) *discordgo.WebhookEdit {
+	content := fmt.Sprintf("Batch completed. ACs recorded: %d. Already recorded: %d.", result.Recorded, result.AlreadyRecorded)
+	if failed {
+		content = fmt.Sprintf("Batch stopped. Confirmed AC registrations: %d. Already recorded: %d.\nEarlier writes were not rolled back. The failed operation may also have been applied or created a student record. Check the students' ACs before submitting again.", result.Recorded, result.AlreadyRecorded)
+	}
+	return buildCompletedBatchResponse(content)
 }

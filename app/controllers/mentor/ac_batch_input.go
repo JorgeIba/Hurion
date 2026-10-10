@@ -55,3 +55,11 @@ func mapACBatchValidationIssues(entries batchInput[acInput], issues []batchInput
 	}
 	return locations
 }
+
+func mapACBatchExecutionIssues(batch []service_model.PreparedAC, issues []service_model.BatchEntryError) []discord.JSONInputIssue {
+	entries := make(batchInput[acInput], len(batch))
+	for index, entry := range batch {
+		entries[index] = acInput{UserID: entry.User.UserID, ProblemID: entry.Problem.ID}
+	}
+	return mapACBatchValidationIssues(entries, mapBatchEntryErrors(issues))
+}

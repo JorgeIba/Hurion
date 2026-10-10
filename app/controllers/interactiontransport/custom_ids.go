@@ -33,7 +33,10 @@ func ComponentAction(customID string) discordcommands.Action {
 	route, _, _ := strings.Cut(customID, batchActionSeparator)
 
 	switch discordcommands.Action(route) {
-	case discordcommands.CancelProblemBatch, discordcommands.CancelACBatch:
+	case discordcommands.ConfirmProblemBatch,
+		discordcommands.ConfirmACBatch,
+		discordcommands.CancelProblemBatch,
+		discordcommands.CancelACBatch:
 		return discordcommands.Action(route)
 	default:
 		return ""
@@ -126,17 +129,33 @@ func ACBatchCancelID(batchID string) string {
 }
 
 func ParseProblemBatchCancelID(customID string) (string, error) {
-	return parseBatchCancelID(customID, discordcommands.CancelProblemBatch)
+	return parseBatchActionID(customID, discordcommands.CancelProblemBatch, "invalid batch cancellation button")
 }
 
 func ParseACBatchCancelID(customID string) (string, error) {
-	return parseBatchCancelID(customID, discordcommands.CancelACBatch)
+	return parseBatchActionID(customID, discordcommands.CancelACBatch, "invalid batch cancellation button")
 }
 
-func parseBatchCancelID(customID string, action discordcommands.Action) (string, error) {
+func parseBatchActionID(customID string, action discordcommands.Action, invalidMessage string) (string, error) {
 	route, batchID, found := strings.Cut(customID, batchActionSeparator)
 	if !found || route != string(action) || batchID == "" || strings.TrimSpace(batchID) != batchID || strings.Contains(batchID, batchActionSeparator) {
-		return "", fmt.Errorf("invalid batch cancellation button")
+		return "", fmt.Errorf("%s", invalidMessage)
 	}
 	return batchID, nil
+}
+
+func ProblemBatchConfirmID(batchID string) string {
+	return string(discordcommands.ConfirmProblemBatch) + batchActionSeparator + batchID
+}
+func ACBatchConfirmID(batchID string) string {
+	return string(discordcommands.ConfirmACBatch) + batchActionSeparator + batchID
+}
+func ParseProblemBatchConfirmID(customID string) (string, error) {
+	return parseBatchConfirmID(customID, discordcommands.ConfirmProblemBatch)
+}
+func ParseACBatchConfirmID(customID string) (string, error) {
+	return parseBatchConfirmID(customID, discordcommands.ConfirmACBatch)
+}
+func parseBatchConfirmID(customID string, action discordcommands.Action) (string, error) {
+	return parseBatchActionID(customID, action, "invalid batch action button")
 }

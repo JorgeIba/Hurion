@@ -14,10 +14,11 @@ const (
 )
 
 const (
-	CreateProblem      Action = "huron:problem:create"
-	EditProblem        Action = "huron:problem:edit"
-	ProblemBatch       Action = "huron:problem:batch"
-	CancelProblemBatch Action = "huron:problem:batch:cancel"
+	ConfirmProblemBatch Action = "huron:problem:batch:confirm"
+	CreateProblem       Action = "huron:problem:create"
+	EditProblem         Action = "huron:problem:edit"
+	ProblemBatch        Action = "huron:problem:batch"
+	CancelProblemBatch  Action = "huron:problem:batch:cancel"
 )
 
 func ProblemSlashCommand(classCodeMaxLength int) *discordgo.ApplicationCommand {
