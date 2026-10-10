@@ -20,24 +20,26 @@ import (
 
 // ProblemInteractionController shares problem drafts across command and submit events.
 type ProblemInteractionController struct {
-	services          *services.Services
-	validator         providers.DiscordValidator
-	responder         dispatcher.InteractionResponder
-	attachments       *jsonTransport
-	validatedBatches  *validatedProblemBatchCache
-	problemDrafts     *createProblemDraftCache
-	editProblemDrafts *editProblemDraftCache
+	services             *services.Services
+	validator            providers.DiscordValidator
+	responder            dispatcher.InteractionResponder
+	attachments          *jsonTransport
+	validatedBatches     *validatedProblemBatchCache
+	validatedEditBatches *validatedProblemEditBatchCache
+	problemDrafts        *createProblemDraftCache
+	editProblemDrafts    *editProblemDraftCache
 }
 
 func NewProblemInteractionController(svcs *services.Services, validator providers.DiscordValidator, responder dispatcher.InteractionResponder) *ProblemInteractionController {
 	return &ProblemInteractionController{
-		services:          svcs,
-		validator:         validator,
-		responder:         responder,
-		attachments:       newJSONTransport(nil),
-		validatedBatches:  newValidatedProblemBatchCache(nil),
-		problemDrafts:     newCreateProblemDraftCache(nil),
-		editProblemDrafts: newEditProblemDraftCache(nil),
+		services:             svcs,
+		validator:            validator,
+		responder:            responder,
+		attachments:          newJSONTransport(nil),
+		validatedBatches:     newValidatedProblemBatchCache(nil),
+		validatedEditBatches: newValidatedProblemEditBatchCache(nil),
+		problemDrafts:        newCreateProblemDraftCache(nil),
+		editProblemDrafts:    newEditProblemDraftCache(nil),
 	}
 }
 
@@ -371,6 +373,190 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 
 	// Consume the pending batch and remove its preview actions.
 	_, cancelled := ctrl.validatedBatches.consumeBatch(key)
+	if !cancelled {
+		return
+	}
+	ctrl.responder.EditResponse(event.Interaction, discord.BuildBatchCancellationResult(cancelled))
+}
+
+func (ctrl *ProblemInteractionController) HandleEditProblemBatchInteraction(event *discordgo.InteractionCreate) {
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	ctrl.responder.Respond(event.Interaction, interactiontransport.BuildProblemEditBatchModalResponse())
+}
+
+// HandleEditProblemBatchModalSubmitInteraction validates without writing.
+func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
+	// Acknowledge the submission and authorize the actor.
+	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
+		return
+	}
+
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
+
+	// Read the form and JSON document, then decode the batch input.
+	source, err := interactiontransport.ParseProblemEditBatchModalSource(event.ModalSubmitData())
+	if err != nil {
+		ctrl.editInteractionResponse(event.Interaction, "Could not read the batch form: "+err.Error())
+		return
+	}
+
+	input, err := ctrl.attachments.read(source)
+	if err != nil {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatJSONReadError(mapJSONReadIssue(err)))
+		return
+	}
+
+	entries, issues := parseProblemEditBatchInput(input)
+	if len(issues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatJSONParseResult(len(entries), mapBatchParseIssues(issues)))
+		return
+	}
+
+	// Validate input values before external lookups.
+	validationIssues := entries.validate(validateProblemEditInput)
+	if len(validationIssues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemEditBatchValidationIssues(entries, validationIssues)))
+		return
+	}
+
+	// Adapt the input and validate the complete batch with the service.
+	inputs := mapProblemEditBatchInputToUpdateProblemParams(entries)
+	prepared, domainIssues := ctrl.services.Batch.PrepareProblemUpdateBatch(inputs)
+	if len(domainIssues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemEditBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
+		return
+	}
+
+	// Save the validated snapshot and show its preview.
+	key := validatedBatchCacheKey{
+		batchID: rand.Text(),
+		guildID: event.GuildID,
+		userID:  event.Member.User.ID,
+	}
+	available := ctrl.validatedEditBatches.saveValidatedBatch(key, prepared)
+	if !available {
+		ctrl.editInteractionResponse(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	preview := discord.BuildValidatedBatchPreview(
+		discord.FormatProblemEditBatchValidationResult(prepared),
+		interactiontransport.ProblemEditBatchConfirmID(key.batchID),
+		interactiontransport.ProblemEditBatchCancelID(key.batchID),
+	)
+	if _, err := ctrl.responder.EditResponse(event.Interaction, preview); err != nil {
+		ctrl.validatedEditBatches.consumeBatch(key)
+	}
+}
+
+// HandleConfirmProblemEditBatchInteraction claims a validated batch before executing it.
+func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteraction(event *discordgo.InteractionCreate) {
+	// Read the button context and identify the submitting member.
+	if event.MessageComponentData().ComponentType != discordgo.ButtonComponent {
+		ctrl.responder.RespondPrivately(event.Interaction, "invalid batch action button")
+		return
+	}
+
+	batchID, err := interactiontransport.ParseProblemEditBatchConfirmID(event.MessageComponentData().CustomID)
+	if err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
+		ctrl.responder.RespondPrivately(event.Interaction, "Batch commands require an identified server member.")
+		return
+	}
+
+	// Find an unexpired batch owned by this member and guild.
+	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
+	_, available := ctrl.validatedEditBatches.loadValidatedBatch(key)
+	if !available {
+		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	// Acknowledge the click and verify current authority.
+	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
+		return
+	}
+
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	// Claim once, then revalidate and execute through the batch service.
+	batch, claimed := ctrl.validatedEditBatches.consumeBatch(key)
+	if !claimed {
+		return
+	}
+	result, issues, err := ctrl.services.Batch.ExecuteProblemUpdateBatch(batch)
+
+	// Present validation failures or the acknowledged execution outcome.
+	var response *discordgo.WebhookEdit
+	if len(issues) > 0 {
+		locations := mapProblemEditBatchExecutionIssues(batch, issues)
+		response = discord.BuildBatchValidationFailure(discord.FormatBatchValidationErrors(locations))
+	} else {
+		if err != nil {
+			logger.Log.Errorf("Failed to execute Problem edit batch %s: %v", batchID, err)
+		}
+		response = discord.BuildProblemEditBatchExecutionResult(result, err != nil)
+	}
+
+	// Log and deliver the result without retrying consumed operations.
+	logger.Log.Infof("Problem edit batch %s outcome: result=%v validationIssues=%d error=%v", batchID, result.UpdatedProblemIDs, len(issues), err)
+	if _, err := ctrl.responder.EditResponse(event.Interaction, response); err != nil {
+		logger.Log.Errorf("Failed to deliver Problem edit batch %s result: %v", batchID, err)
+	}
+}
+
+func (ctrl *ProblemInteractionController) HandleCancelProblemEditBatchInteraction(event *discordgo.InteractionCreate) {
+	// Read the button context and identify the submitting member.
+	if event.MessageComponentData().ComponentType != discordgo.ButtonComponent {
+		ctrl.responder.RespondPrivately(event.Interaction, "invalid batch cancellation button")
+		return
+	}
+
+	batchID, err := interactiontransport.ParseProblemEditBatchCancelID(event.MessageComponentData().CustomID)
+	if err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
+		ctrl.responder.RespondPrivately(event.Interaction, "Batch commands require an identified server member.")
+		return
+	}
+
+	// Find an unexpired batch owned by this member and guild.
+	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
+	// A forged or stale button must not update another actor's preview.
+	if _, available := ctrl.validatedEditBatches.loadValidatedBatch(key); !available {
+		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	// Acknowledge the click and verify current authority.
+	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
+		return
+	}
+
+	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	// Consume the pending batch and remove its preview actions.
+	_, cancelled := ctrl.validatedEditBatches.consumeBatch(key)
 	if !cancelled {
 		return
 	}

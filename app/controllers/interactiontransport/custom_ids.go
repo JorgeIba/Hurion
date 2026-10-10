@@ -22,7 +22,11 @@ func ModalAction(customID string) discordcommands.Action {
 	route, _, _ := strings.Cut(customID, problemModalSeparator)
 
 	switch discordcommands.Action(route) {
-	case discordcommands.CreateProblem, discordcommands.EditProblem, discordcommands.ProblemBatch, discordcommands.ACBatch:
+	case discordcommands.ProblemEditBatch,
+		discordcommands.CreateProblem,
+		discordcommands.EditProblem,
+		discordcommands.ProblemBatch,
+		discordcommands.ACBatch:
 		return discordcommands.Action(route)
 	default:
 		return ""
@@ -33,7 +37,7 @@ func ComponentAction(customID string) discordcommands.Action {
 	route, _, _ := strings.Cut(customID, batchActionSeparator)
 
 	switch discordcommands.Action(route) {
-	case discordcommands.ConfirmProblemBatch,
+	case discordcommands.ConfirmProblemEditBatch, discordcommands.CancelProblemEditBatch, discordcommands.ConfirmProblemBatch,
 		discordcommands.ConfirmACBatch,
 		discordcommands.CancelProblemBatch,
 		discordcommands.CancelACBatch:
@@ -158,4 +162,18 @@ func ParseACBatchConfirmID(customID string) (string, error) {
 }
 func parseBatchConfirmID(customID string, action discordcommands.Action) (string, error) {
 	return parseBatchActionID(customID, action, "invalid batch action button")
+}
+
+func ProblemEditBatchModalID() string { return string(discordcommands.ProblemEditBatch) }
+func ProblemEditBatchConfirmID(batchID string) string {
+	return string(discordcommands.ConfirmProblemEditBatch) + batchActionSeparator + batchID
+}
+func ProblemEditBatchCancelID(batchID string) string {
+	return string(discordcommands.CancelProblemEditBatch) + batchActionSeparator + batchID
+}
+func ParseProblemEditBatchConfirmID(customID string) (string, error) {
+	return parseBatchActionID(customID, discordcommands.ConfirmProblemEditBatch, "invalid batch action button")
+}
+func ParseProblemEditBatchCancelID(customID string) (string, error) {
+	return parseBatchActionID(customID, discordcommands.CancelProblemEditBatch, "invalid batch cancellation button")
 }

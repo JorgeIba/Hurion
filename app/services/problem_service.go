@@ -15,6 +15,7 @@ import (
 //go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 type ProblemService interface {
 	PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error)
+	PrepareUpdate(params service_model.UpdateProblemParams) (service_model.PreparedProblemUpdate, error)
 	CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error)
 	RemoveProblemFromClass(problemID int64) error
 	UpdateProblemByProblemID(params service_model.UpdateProblemParams) error
@@ -101,31 +102,43 @@ func (service *problemService) RemoveProblemFromClass(problemID int64) error {
 	return nil
 }
 
-// UpdateProblemByProblemID updates a problem's information
-func (service *problemService) UpdateProblemByProblemID(params service_model.UpdateProblemParams) error {
+// PrepareUpdate validates replacement values and resolves the target without writing.
+func (service *problemService) PrepareUpdate(params service_model.UpdateProblemParams) (service_model.PreparedProblemUpdate, error) {
 	params, err := service_model.NormalizeAndValidateUpdateProblemParams(params)
 	if err != nil {
-		return serviceerr.NewValidationError("invalid problem values", err)
+		return service_model.PreparedProblemUpdate{}, serviceerr.NewValidationError("invalid problem values", err)
 	}
 	problemID := params.ProblemID
 	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
-		return err
+		return service_model.PreparedProblemUpdate{}, err
 	} else if !isValidProblem {
-		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+		return service_model.PreparedProblemUpdate{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
 	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
 	if err != nil {
 		if dataerr.IsNotFound(err) {
-			return serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %s doesn't exist", params.ClassCode), err)
+			return service_model.PreparedProblemUpdate{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %s doesn't exist", params.ClassCode), err)
 		}
-		return serviceerr.MakeGeneralError(err)
+		return service_model.PreparedProblemUpdate{}, serviceerr.MakeGeneralError(err)
 	}
 	if err := service_model.ValidateClassCodeLength(class.ClassCode); err != nil {
-		return serviceerr.NewValidationError("invalid class code", err)
+		return service_model.PreparedProblemUpdate{}, serviceerr.NewValidationError("invalid class code", err)
 	}
 
-	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params, class.ID)); err != nil {
+	return service_model.PreparedProblemUpdate{Params: params, Class: mapDataClassToServiceClass(class)}, nil
+}
+
+// UpdateProblemByProblemID updates a problem's information
+func (service *problemService) UpdateProblemByProblemID(params service_model.UpdateProblemParams) error {
+	prepared, err := service.PrepareUpdate(params)
+	if err != nil {
+		return err
+	}
+	params = prepared.Params
+	problemID := params.ProblemID
+
+	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params, prepared.Class.ID)); err != nil {
 		switch {
 		case dataerr.IsNotFound(err):
 			// Defensive mapping in case the row disappears between pre-check and update.

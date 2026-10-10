@@ -93,9 +93,11 @@ func TestValidatedBatchCachesAreIndependentAndBounded(t *testing.T) {
 	t.Parallel()
 	problems := newValidatedProblemBatchCache(nil)
 	acs := newValidatedACBatchCache(nil)
+	edits := newValidatedProblemEditBatchCache(nil)
 	key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "same-id"}
 	assert.True(t, problems.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
 	assert.True(t, acs.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 2}}))
+	assert.True(t, edits.saveValidatedBatch(key, []service_model.PreparedProblemUpdate{{Entry: 3}}))
 	_, found := problems.consumeBatch(key)
 	assert.True(t, found)
 	value, found := acs.loadValidatedBatch(key)
@@ -109,6 +111,9 @@ func TestValidatedBatchCachesAreIndependentAndBounded(t *testing.T) {
 	assert.Equal(t, uint64(50), acs.cache.GetMaximum())
 	value, found = acs.consumeBatch(key)
 	assert.True(t, found, "filling the problem cache must not evict an AC batch")
+	editValue, found := edits.consumeBatch(key)
+	assert.True(t, found, "consuming a create or AC batch must not consume an edit batch")
+	assert.Equal(t, 3, editValue[0].Entry)
 	assert.Equal(t, 2, value[0].Entry)
 }
 

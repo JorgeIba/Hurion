@@ -26,9 +26,11 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 	for _, family := range []struct {
 		name    string
 		problem bool
+		edit    bool
 		route   string
 	}{
 		{name: "problem", problem: true, route: string(discordcommands.ConfirmProblemBatch)},
+		{name: "problem edit", problem: true, edit: true, route: string(discordcommands.ConfirmProblemEditBatch)},
 		{name: "AC", route: string(discordcommands.ConfirmACBatch)},
 	} {
 		t.Run(family.name, func(t *testing.T) {
@@ -56,10 +58,14 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					clock := &draftClock{}
 					clock.now.Store(time.Now().UnixNano())
 					problemCache := newValidatedProblemBatchCache(clock)
+					editCache := newValidatedProblemEditBatchCache(clock)
 					acCache := newValidatedACBatchCache(clock)
 					key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 					var present func() bool
-					if family.problem {
+					if family.edit {
+						assert.True(t, editCache.saveValidatedBatch(key, []service_model.PreparedProblemUpdate{{Entry: 1}}))
+						present = func() bool { _, found := editCache.loadValidatedBatch(key); return found }
+					} else if family.problem {
 						assert.True(t, problemCache.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
 						present = func() bool { _, found := problemCache.loadValidatedBatch(key); return found }
 					} else {
@@ -99,6 +105,10 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 						controller := NewProblemInteractionController(nil, validator, responder)
 						controller.validatedBatches = problemCache
 						handle = controller.HandleConfirmProblemBatchInteraction
+						if family.edit {
+							controller.validatedEditBatches = editCache
+							handle = controller.HandleConfirmProblemEditBatchInteraction
+						}
 					} else {
 						controller := NewACInteractionController(nil, validator, fetcher, responder)
 						controller.validatedBatches = acCache

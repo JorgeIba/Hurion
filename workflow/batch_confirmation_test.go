@@ -18,10 +18,15 @@ import (
 
 func submitBatchPreview(t *testing.T, env *workflowEnv, command, input string) *discordgo.WebhookEdit {
 	t.Helper()
+	return submitBatchCommandPreview(t, env, command, "add_batch", input)
+}
+
+func submitBatchCommandPreview(t *testing.T, env *workflowEnv, command, subcommand, input string) *discordgo.WebhookEdit {
+	t.Helper()
 	member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
 	env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 		Type: discordgo.InteractionApplicationCommand, GuildID: testGuildID, Member: member,
-		Data: discordgo.ApplicationCommandInteractionData{Name: command, Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: "add_batch", Type: discordgo.ApplicationCommandOptionSubCommand}}},
+		Data: discordgo.ApplicationCommandInteractionData{Name: command, Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: subcommand, Type: discordgo.ApplicationCommandOptionSubCommand}}},
 	}})
 	response := env.Responder.responses[len(env.Responder.responses)-1].response
 	require.Equal(t, discordgo.InteractionResponseModal, response.Type)

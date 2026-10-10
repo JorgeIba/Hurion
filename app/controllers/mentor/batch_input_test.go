@@ -324,3 +324,30 @@ func parseACTextForTest(t *testing.T, input string) (batchInput[acInput], []batc
 	}
 	return parseACBatchInput(document)
 }
+
+func TestProblemEditBatchInputPreservesFieldsAndRejectsInvalidJSONTypes(t *testing.T) {
+	t.Parallel()
+	document := documentForTest(t, `[{"problem_id":9223372036854775807,"class":" source ","name":" Updated ","url":"https://example.com/new","difficulty":"hard","topic":null}]`)
+	entries, issues := parseProblemEditBatchInput(document)
+	require.Empty(t, issues)
+	require.Len(t, entries, 1)
+	assert.EqualValues(t, 9223372036854775807, entries[0].ProblemID)
+	assert.Equal(t, " source ", entries[0].Class)
+	assert.Equal(t, " Updated ", entries[0].Name)
+	assert.Equal(t, new("hard"), entries[0].Difficulty)
+	assert.Nil(t, entries[0].Topic)
+	assert.Nil(t, entries[0].Priority)
+	assert.Empty(t, entries.validate(validateProblemEditInput))
+	for _, invalid := range []string{
+		`{"problem_id":"1"}`, `{"problem_id":1.5}`, `{"problem_id":9223372036854775808}`,
+		`{"problem_id":1,"problem_id":2}`, `{"Problem_id":1}`, `{"problem_id":1,"typo":true}`,
+	} {
+		t.Run(invalid, func(t *testing.T) {
+			t.Parallel()
+			entries, issues := parseProblemEditBatchInput(documentForTest(t, `[{},`+invalid+`]`))
+			assert.Nil(t, entries)
+			require.Len(t, issues, 1)
+			assert.Equal(t, 2, issues[0].entry)
+		})
+	}
+}

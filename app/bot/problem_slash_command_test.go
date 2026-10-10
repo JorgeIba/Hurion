@@ -22,7 +22,7 @@ func TestUpsertProblemSlashCommandCreatesGuildScopedProblemCommand(t *testing.T)
 	assert.Equal(t, "guild-456", api.guildID)
 	assert.Equal(t, "problem", api.commands[0].Name)
 	assert.Equal(t, discordgo.ChatApplicationCommand, api.commands[0].Type)
-	require.Len(t, api.commands[0].Options, 3)
+	require.Len(t, api.commands[0].Options, 4)
 	assert.Equal(t, "add", api.commands[0].Options[0].Name)
 	assert.Equal(t, discordgo.ApplicationCommandOptionSubCommand, api.commands[0].Options[0].Type)
 	require.Len(t, api.commands[0].Options[0].Options, 1)
@@ -42,6 +42,8 @@ func TestUpsertProblemSlashCommandCreatesGuildScopedProblemCommand(t *testing.T)
 
 	assert.Equal(t, "add_batch", api.commands[0].Options[2].Name)
 	assert.Equal(t, discordgo.ApplicationCommandOptionSubCommand, api.commands[0].Options[2].Type)
+	assert.Equal(t, "edit_batch", api.commands[0].Options[3].Name)
+	assert.Equal(t, discordgo.ApplicationCommandOptionSubCommand, api.commands[0].Options[3].Type)
 }
 
 func TestUpsertProblemSlashCommandRejectsMissingIDsBeforeCallingDiscord(t *testing.T) {
