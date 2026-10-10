@@ -249,7 +249,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 	}
 	// Adapt the input and validate the complete batch with the service.
 	inputs := mapProblemBatchInputToCreateProblemParams(entries)
-	prepared, domainIssues := ctrl.services.Batch.PrepareProblemBatch(inputs)
+	prepared, domainIssues := ctrl.services.Problem.PrepareCreationBatch(inputs)
 	if len(domainIssues) > 0 {
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
@@ -316,7 +316,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Batch.ExecuteProblemBatch(batch)
+	result, issues, err := ctrl.services.Problem.ExecuteCreationBatch(batch)
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit
@@ -428,7 +428,7 @@ func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInter
 
 	// Adapt the input and validate the complete batch with the service.
 	inputs := mapProblemEditBatchInputToUpdateProblemParams(entries)
-	prepared, domainIssues := ctrl.services.Batch.PrepareProblemUpdateBatch(inputs)
+	prepared, domainIssues := ctrl.services.Problem.PrepareUpdateBatch(inputs)
 	if len(domainIssues) > 0 {
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemEditBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
@@ -498,7 +498,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Batch.ExecuteProblemUpdateBatch(batch)
+	result, issues, err := ctrl.services.Problem.ExecuteUpdateBatch(batch)
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit

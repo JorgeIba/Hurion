@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/helpers"
 )
 
 type batchInput[T any] []T
@@ -50,7 +50,7 @@ func parseBatchInput[T any](document jsontext.Value) (batchInput[T], []batchInpu
 }
 
 func (input batchInput[T]) validate(validateEntry func(T) error) []batchInputIssue {
-	if err := services.ValidateBatchSize(len(input)); err != nil {
+	if err := helpers.ValidateBatchSize(len(input)); err != nil {
 		return []batchInputIssue{{err: err}}
 	}
 

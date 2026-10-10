@@ -99,6 +99,10 @@ func (service *problemService) PrepareCreation(params service_model.CreateProble
 
 // PrepareCreationBatch validates all values and resolves their distinct classes in one read.
 func (service *problemService) PrepareCreationBatch(inputs []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError) {
+	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
+		return nil, []service_model.BatchEntryError{{Err: err}}
+	}
+
 	normalized := make([]service_model.CreateProblemParams, len(inputs))
 	var issues []service_model.BatchEntryError
 	classCodes := make([]string, 0, len(inputs))
@@ -166,6 +170,10 @@ func (service *problemService) PrepareCreationBatch(inputs []service_model.Creat
 // ExecuteCreationBatch revalidates every entry before the first write.
 func (service *problemService) ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error) {
 	var result service_model.ProblemCreateBatchResult
+	if err := helpers.ValidateBatchSize(len(batch)); err != nil {
+		return result, []service_model.BatchEntryError{{Err: err}}, nil
+	}
+
 	inputs := make([]service_model.CreateProblemParams, len(batch))
 	// Extract submitted values so they can be checked against current datastore state.
 	for index, entry := range batch {
@@ -244,6 +252,10 @@ func (service *problemService) PrepareUpdate(params service_model.UpdateProblemP
 
 // PrepareUpdateBatch validates targets and destination classes using one read per set.
 func (service *problemService) PrepareUpdateBatch(inputs []service_model.UpdateProblemParams) ([]service_model.PreparedProblemUpdate, []service_model.BatchEntryError) {
+	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
+		return nil, []service_model.BatchEntryError{{Err: err}}
+	}
+
 	normalized := make([]service_model.UpdateProblemParams, len(inputs))
 	var issues []service_model.BatchEntryError
 	problemIDs := make([]int64, 0, len(inputs))
@@ -363,6 +375,10 @@ func (service *problemService) PrepareUpdateBatch(inputs []service_model.UpdateP
 // ExecuteUpdateBatch revalidates every entry before the first write.
 func (service *problemService) ExecuteUpdateBatch(batch []service_model.PreparedProblemUpdate) (service_model.ProblemUpdateBatchResult, []service_model.BatchEntryError, error) {
 	var result service_model.ProblemUpdateBatchResult
+	if err := helpers.ValidateBatchSize(len(batch)); err != nil {
+		return result, []service_model.BatchEntryError{{Err: err}}, nil
+	}
+
 	inputs := make([]service_model.UpdateProblemParams, len(batch))
 	// Extract submitted values so they can be checked against current datastore state.
 	for index, entry := range batch {

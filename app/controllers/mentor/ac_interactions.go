@@ -103,7 +103,7 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 	}
 
 	// Validate the complete batch with the service.
-	prepared, domainIssues, err := ctrl.services.Batch.PrepareACBatch(inputs, students)
+	prepared, domainIssues, err := ctrl.services.Solution.PrepareCreationBatch(inputs, students)
 	if err != nil {
 		logger.Log.Errorf("Failed to validate AC batch: %v", err)
 		ctrl.editInteractionResponse(event.Interaction, "Could not validate the AC batch. No changes were applied. Try again.")
@@ -188,7 +188,7 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Batch.ExecuteACBatch(batch, students)
+	result, issues, err := ctrl.services.Solution.ExecuteCreationBatch(batch, students)
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit

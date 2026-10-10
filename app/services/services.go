@@ -12,7 +12,6 @@ type Services struct {
 	Problem    ProblemService
 	Solution   *SolutionService
 	Score      *ScoreService
-	Batch      *BatchService
 }
 
 // NewServices creates a new Services instance with all service dependencies
@@ -38,11 +37,6 @@ func NewServices(datastore data.DataStore) *Services {
 		ProblemService: problemService,
 	}
 
-	batchService := &BatchService{
-		Problem:  problemService,
-		Solution: solutionService,
-	}
-
 	return &Services{
 		User:       userService,
 		Enrollment: enrollmentService,
@@ -50,6 +44,5 @@ func NewServices(datastore data.DataStore) *Services {
 		Problem:    problemService,
 		Solution:   solutionService,
 		Score:      scoreService,
-		Batch:      batchService,
 	}
 }
