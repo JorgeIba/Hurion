@@ -754,7 +754,7 @@ func (db *DB) GetAllClasses() ([]Class, error) {
 	return classes, nil
 }
 
-func (db *DB) UpdateProblemByProblemID(problemID int64, problem Problem) error {
+func (db *DB) ReplaceProblemByProblemID(problemID int64, problem Problem) error {
 	query := `
 		UPDATE problems
 		SET name = ?, url = ?, class_id = ?, difficulty = ?, topic = ?, priority = ?

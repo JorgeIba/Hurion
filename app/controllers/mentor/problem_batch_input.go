@@ -81,8 +81,8 @@ func parseProblemEditBatchInput(document jsontext.Value) (batchInput[problemEdit
 	return parseBatchInput[problemEditInput](document)
 }
 
-func mapProblemEditInputToUpdateProblemParams(input problemEditInput) service_model.UpdateProblemParams {
-	return service_model.UpdateProblemParams{
+func mapProblemEditInputToReplaceProblemParams(input problemEditInput) service_model.ReplaceProblemParams {
+	return service_model.ReplaceProblemParams{
 		ProblemID:  input.ProblemID,
 		ClassCode:  input.Class,
 		Name:       input.Name,
@@ -94,17 +94,17 @@ func mapProblemEditInputToUpdateProblemParams(input problemEditInput) service_mo
 }
 
 func validateProblemEditInput(input problemEditInput) error {
-	_, err := service_model.NormalizeAndValidateUpdateProblemParams(mapProblemEditInputToUpdateProblemParams(input))
+	_, err := service_model.NormalizeAndValidateReplaceProblemParams(mapProblemEditInputToReplaceProblemParams(input))
 	if err != nil {
 		return serviceerr.NewValidationError("invalid problem values", err)
 	}
 	return nil
 }
 
-func mapProblemEditBatchInputToUpdateProblemParams(entries batchInput[problemEditInput]) []service_model.UpdateProblemParams {
-	params := make([]service_model.UpdateProblemParams, len(entries))
+func mapProblemEditBatchInputToReplaceProblemParams(entries batchInput[problemEditInput]) []service_model.ReplaceProblemParams {
+	params := make([]service_model.ReplaceProblemParams, len(entries))
 	for index, entry := range entries {
-		params[index] = mapProblemEditInputToUpdateProblemParams(entry)
+		params[index] = mapProblemEditInputToReplaceProblemParams(entry)
 	}
 	return params
 }
@@ -124,7 +124,7 @@ func mapProblemEditBatchValidationIssues(entries batchInput[problemEditInput], i
 	return locations
 }
 
-func mapProblemEditBatchExecutionIssues(batch []service_model.PreparedProblemUpdate, issues []service_model.BatchEntryError) []discord.JSONInputIssue {
+func mapProblemEditBatchExecutionIssues(batch []service_model.PreparedProblemReplacement, issues []service_model.BatchEntryError) []discord.JSONInputIssue {
 	entries := make(batchInput[problemEditInput], len(batch))
 	for index, entry := range batch {
 		entries[index] = problemEditInput{ProblemID: entry.Params.ProblemID, problemInput: problemInput{Class: entry.Params.ClassCode, Name: entry.Params.Name}}

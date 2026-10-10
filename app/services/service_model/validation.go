@@ -29,9 +29,9 @@ func NormalizeAndValidateCreateProblemParams(params CreateProblemParams) (Create
 	return params, errors.Join(err, ValidateClassCodeLength(params.ClassCode))
 }
 
-// NormalizeAndValidateUpdateProblemParams checks replacement values and identity
+// NormalizeAndValidateReplaceProblemParams checks replacement values and identity
 // without accessing storage. Nil optional values clear their stored values.
-func NormalizeAndValidateUpdateProblemParams(params UpdateProblemParams) (UpdateProblemParams, error) {
+func NormalizeAndValidateReplaceProblemParams(params ReplaceProblemParams) (ReplaceProblemParams, error) {
 	params.ClassCode = strings.TrimSpace(params.ClassCode)
 	var err error
 	params.ProblemFields, err = normalizeAndValidateProblemFields(params.ProblemFields)

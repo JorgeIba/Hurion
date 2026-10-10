@@ -1941,7 +1941,7 @@ func TestGetAllClasses(t *testing.T) {
 	}
 }
 
-func TestUpdateProblemByProblemID(t *testing.T) {
+func TestReplaceProblemByProblemID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -2064,7 +2064,7 @@ func TestUpdateProblemByProblemID(t *testing.T) {
 				originalCreatedAt = original.CreatedAt
 			}
 
-			err := db.UpdateProblemByProblemID(tt.problemID, tt.problem)
+			err := db.ReplaceProblemByProblemID(tt.problemID, tt.problem)
 			tt.assertFunc(t, db, err)
 
 			if tt.checkCreatedAtUnchanged {

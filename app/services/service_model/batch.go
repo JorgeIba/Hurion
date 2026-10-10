@@ -36,14 +36,14 @@ type ACBatchResult struct {
 	AlreadyRecorded int
 }
 
-// PreparedProblemUpdate contains normalized replacement values and destination identity.
-type PreparedProblemUpdate struct {
+// PreparedProblemReplacement contains normalized replacement values and destination identity.
+type PreparedProblemReplacement struct {
 	Entry  int
-	Params UpdateProblemParams
+	Params ReplaceProblemParams
 	Class  Class
 }
 
-// ProblemUpdateBatchResult reports acknowledged updates in input order.
-type ProblemUpdateBatchResult struct {
-	UpdatedProblemIDs []int64
+// ProblemReplacementBatchResult reports acknowledged replacements in input order.
+type ProblemReplacementBatchResult struct {
+	ReplacedProblemIDs []int64
 }

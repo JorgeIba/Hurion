@@ -26,8 +26,8 @@ func mapCreateProblemParamsToCreateProblemModal(params service_model.CreateProbl
 	}
 }
 
-// mapUpdateProblemParamsToEditProblemModal prefills the editor from supplied values.
-func mapUpdateProblemParamsToEditProblemModal(params service_model.UpdateProblemParams) interactiontransport.EditProblemModal {
+// mapReplaceProblemParamsToEditProblemModal prefills the editor from supplied values.
+func mapReplaceProblemParamsToEditProblemModal(params service_model.ReplaceProblemParams) interactiontransport.EditProblemModal {
 	return interactiontransport.EditProblemModal{
 		ProblemID:          params.ProblemID,
 		ClassCode:          params.ClassCode,
@@ -48,11 +48,11 @@ func mapCreateProblemModalToCreateProblemParams(modal interactiontransport.Creat
 	}
 }
 
-// mapEditProblemModalToUpdateProblemParams maps parsed form values into an update
-// request, including the target and destination class code. Values still require
+// mapEditProblemModalToReplaceProblemParams maps parsed form values into a full
+// replacement request, including the target and destination class code. Values still require
 // service normalization and validation before writing.
-func mapEditProblemModalToUpdateProblemParams(modal interactiontransport.EditProblemModal) service_model.UpdateProblemParams {
-	return service_model.UpdateProblemParams{
+func mapEditProblemModalToReplaceProblemParams(modal interactiontransport.EditProblemModal) service_model.ReplaceProblemParams {
+	return service_model.ReplaceProblemParams{
 		ProblemID:  modal.ProblemID,
 		Name:       modal.Name,
 		URL:        modal.URL,

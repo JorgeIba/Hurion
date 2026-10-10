@@ -67,8 +67,8 @@ func (c *validatedBatchCache[T]) consumeBatch(key validatedBatchCacheKey) ([]T, 
 	return claimed, available
 }
 
-type validatedProblemEditBatchCache = validatedBatchCache[service_model.PreparedProblemUpdate]
+type validatedProblemEditBatchCache = validatedBatchCache[service_model.PreparedProblemReplacement]
 
 func newValidatedProblemEditBatchCache(clock otter.Clock) *validatedProblemEditBatchCache {
-	return newValidatedBatchCache[service_model.PreparedProblemUpdate](clock)
+	return newValidatedBatchCache[service_model.PreparedProblemReplacement](clock)
 }
