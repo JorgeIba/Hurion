@@ -14,37 +14,39 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
-type UpdateHookCallback func(op int, dbName string, tableName string, rowid int64)
+type DataChangeCallback func()
 
 var (
-	updateHookMu        sync.RWMutex
-	updateHookCallbacks []UpdateHookCallback
+	dataChangeMu        sync.RWMutex
+	dataChangeCallbacks []DataChangeCallback
 )
 
-// RegisterUpdateHookCallback adds a callback that is invoked when writes occur on SQLite.
+// RegisterDataChangeCallback adds a callback that is invoked when data changes.
 // Callbacks are run asynchronously in a separate goroutine so they do not block the active database connection.
-func RegisterUpdateHookCallback(callback UpdateHookCallback) {
-	updateHookMu.Lock()
-	defer updateHookMu.Unlock()
-	updateHookCallbacks = append(updateHookCallbacks, callback)
+func RegisterDataChangeCallback(callback DataChangeCallback) {
+	dataChangeMu.Lock()
+	defer dataChangeMu.Unlock()
+	dataChangeCallbacks = append(dataChangeCallbacks, callback)
 }
 
-func safeExecuteCallback(cb UpdateHookCallback, op int, dbName string, tableName string, rowid int64) {
+func safeExecuteDataChangeCallback(callback DataChangeCallback) {
 	defer func() {
 		if r := recover(); r != nil {
 			if logger.Log != nil {
-				logger.Log.Errorf("panic recovered in update hook callback: %v", r)
+				logger.Log.Errorf("panic recovered in data change callback: %v", r)
 			}
 		}
 	}()
-	cb(op, dbName, tableName, rowid)
+	callback()
 }
 
-func triggerUpdateHook(op int, dbName string, tableName string, rowid int64) {
-	updateHookMu.RLock()
-	defer updateHookMu.RUnlock()
-	for _, cb := range updateHookCallbacks {
-		go safeExecuteCallback(cb, op, dbName, tableName, rowid)
+// notifyDataChanged tells observers to refresh data that may have changed.
+// Transactional writes call it again after commit so observers can read the committed state.
+func notifyDataChanged() {
+	dataChangeMu.RLock()
+	defer dataChangeMu.RUnlock()
+	for _, callback := range dataChangeCallbacks {
+		go safeExecuteDataChangeCallback(callback)
 	}
 }
 
@@ -54,8 +56,8 @@ func init() {
 	registerOnce.Do(func() {
 		sql.Register("sqlite3_with_hook", &sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				conn.RegisterUpdateHook(func(op int, dbName string, tableName string, rowid int64) {
-					triggerUpdateHook(op, dbName, tableName, rowid)
+				conn.RegisterUpdateHook(func(int, string, string, int64) {
+					notifyDataChanged()
 				})
 				return nil
 			},

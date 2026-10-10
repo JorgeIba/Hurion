@@ -101,6 +101,9 @@ func (db *DB) AddProblemsBatch(problems []Problem) ([]int64, error) {
 		return nil, dataerr.NewQueryError("could not commit problem batch", err)
 	}
 
+	// The SQLite update hook runs before commit; notify again so observers read committed data.
+	notifyDataChanged()
+
 	return problemIDs, nil
 }
 
@@ -182,6 +185,9 @@ func (db *DB) AddACBatch(targets []ACKey) (int, error) {
 	if err := tx.Commit(); err != nil {
 		return 0, dataerr.NewQueryError("could not commit AC batch", err)
 	}
+	// The SQLite update hook runs before commit; notify again so observers read committed data.
+	notifyDataChanged()
+
 	return int(insertedCount), nil
 }
 
