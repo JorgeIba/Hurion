@@ -317,6 +317,21 @@ func (mr *MockDataStoreMockRecorder) GetClassesByAccessRoles(roleIDs any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesByAccessRoles", reflect.TypeOf((*MockDataStore)(nil).GetClassesByAccessRoles), roleIDs)
 }
 
+// GetClassesByClassCodes mocks base method.
+func (m *MockDataStore) GetClassesByClassCodes(classCodes []string) ([]data.Class, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassesByClassCodes", classCodes)
+	ret0, _ := ret[0].([]data.Class)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClassesByClassCodes indicates an expected call of GetClassesByClassCodes.
+func (mr *MockDataStoreMockRecorder) GetClassesByClassCodes(classCodes any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesByClassCodes", reflect.TypeOf((*MockDataStore)(nil).GetClassesByClassCodes), classCodes)
+}
+
 // GetClassesWhereUserIsActive mocks base method.
 func (m *MockDataStore) GetClassesWhereUserIsActive(userID string) ([]data.Class, error) {
 	m.ctrl.T.Helper()
@@ -391,6 +406,21 @@ func (m *MockDataStore) GetProblemsByClass(classID int64) ([]data.Problem, error
 func (mr *MockDataStoreMockRecorder) GetProblemsByClass(classID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProblemsByClass", reflect.TypeOf((*MockDataStore)(nil).GetProblemsByClass), classID)
+}
+
+// GetProblemsByIDs mocks base method.
+func (m *MockDataStore) GetProblemsByIDs(problemIDs []int64) ([]data.Problem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProblemsByIDs", problemIDs)
+	ret0, _ := ret[0].([]data.Problem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProblemsByIDs indicates an expected call of GetProblemsByIDs.
+func (mr *MockDataStoreMockRecorder) GetProblemsByIDs(problemIDs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProblemsByIDs", reflect.TypeOf((*MockDataStore)(nil).GetProblemsByIDs), problemIDs)
 }
 
 // GetUserByUserID mocks base method.

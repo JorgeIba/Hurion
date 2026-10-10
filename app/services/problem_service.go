@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -15,7 +16,11 @@ import (
 //go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 type ProblemService interface {
 	PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error)
+	PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError)
+	ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error)
 	PrepareUpdate(params service_model.UpdateProblemParams) (service_model.PreparedProblemUpdate, error)
+	PrepareUpdateBatch(params []service_model.UpdateProblemParams) ([]service_model.PreparedProblemUpdate, []service_model.BatchEntryError)
+	ExecuteUpdateBatch(batch []service_model.PreparedProblemUpdate) (service_model.ProblemUpdateBatchResult, []service_model.BatchEntryError, error)
 	CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error)
 	RemoveProblemFromClass(problemID int64) error
 	UpdateProblemByProblemID(params service_model.UpdateProblemParams) error
@@ -53,6 +58,11 @@ func (service *problemService) CreateProblemIntoClass(params service_model.Creat
 	if err != nil {
 		return 0, err
 	}
+	problemID, err := service.createPreparedProblem(prepared)
+	return problemID, err
+}
+
+func (service *problemService) createPreparedProblem(prepared service_model.PreparedProblem) (int64, error) {
 	problemID, err := service.Datastore.AddProblem(mapCreateProblemParamsToDataProblem(prepared.Params, prepared.Class.ID))
 	if err != nil {
 		switch {
@@ -85,6 +95,109 @@ func (service *problemService) PrepareCreation(params service_model.CreateProble
 	}
 
 	return service_model.PreparedProblem{Params: params, Class: mapDataClassToServiceClass(class)}, nil
+}
+
+// PrepareCreationBatch validates all values and resolves their distinct classes in one read.
+func (service *problemService) PrepareCreationBatch(inputs []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError) {
+	normalized := make([]service_model.CreateProblemParams, len(inputs))
+	var issues []service_model.BatchEntryError
+	classCodes := make([]string, 0, len(inputs))
+	seenCodes := make(map[string]struct{}, len(inputs))
+	// Normalize every entry and collect each destination class once.
+	for index, input := range inputs {
+		value, err := service_model.NormalizeAndValidateCreateProblemParams(input)
+		if err != nil {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid problem values", err)})
+			continue
+		}
+		normalized[index] = value
+		if _, found := seenCodes[value.ClassCode]; !found {
+			seenCodes[value.ClassCode] = struct{}{}
+			classCodes = append(classCodes, value.ClassCode)
+		}
+	}
+
+	var (
+		classes []data.Class
+		err     error
+	)
+	// Resolve all destination classes with one datastore read.
+	if len(classCodes) > 0 {
+		classes, err = service.Datastore.GetClassesByClassCodes(classCodes)
+		if err != nil {
+			for index, input := range normalized {
+				if input.ClassCode != "" {
+					issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.MakeGeneralError(err)})
+				}
+			}
+			sort.SliceStable(issues, func(left, right int) bool { return issues[left].Entry < issues[right].Entry })
+			return nil, issues
+		}
+	}
+
+	// Index classes by code so each result can be mapped back to its input entry.
+	classesByCode := make(map[string]data.Class, len(classes))
+	for _, class := range classes {
+		classesByCode[class.ClassCode] = class
+	}
+
+	// Build prepared entries and report missing classes using original entry numbers.
+	prepared := make([]service_model.PreparedProblem, len(inputs))
+	for index, input := range normalized {
+		if input.ClassCode == "" {
+			continue
+		}
+		class, found := classesByCode[input.ClassCode]
+		if !found {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", input.ClassCode), nil)})
+			continue
+		}
+		prepared[index] = service_model.PreparedProblem{Entry: index + 1, Params: input, Class: mapDataClassToServiceClass(class)}
+	}
+
+	// Return all issues together and never expose a partially prepared batch.
+	if len(issues) > 0 {
+		sort.SliceStable(issues, func(left, right int) bool { return issues[left].Entry < issues[right].Entry })
+		return nil, issues
+	}
+	return prepared, nil
+}
+
+// ExecuteCreationBatch revalidates every entry before the first write.
+func (service *problemService) ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error) {
+	var result service_model.ProblemCreateBatchResult
+	inputs := make([]service_model.CreateProblemParams, len(batch))
+	// Extract submitted values so they can be checked against current datastore state.
+	for index, entry := range batch {
+		inputs[index] = entry.Params
+	}
+
+	// Revalidate the inputs and resolve their current destination classes.
+	prepared, issues := service.PrepareCreationBatch(inputs)
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	// Reject destination classes that changed identity since the preview.
+	for index, entry := range prepared {
+		if entry.Class.ID != batch[index].Class.ID {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewConflictError("destination class changed; validate a new batch", nil)})
+		}
+	}
+
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	// Apply writes in input order and retain acknowledged IDs on failure.
+	for index, entry := range prepared {
+		problemID, err := service.createPreparedProblem(entry)
+		if err != nil {
+			return result, nil, fmt.Errorf("could not create problem at batch entry %d: %w", index+1, err)
+		}
+		result.CreatedProblemIDs = append(result.CreatedProblemIDs, problemID)
+	}
+	return result, nil, nil
 }
 
 // RemoveProblemFromClass removes a problem from a class
@@ -129,15 +242,170 @@ func (service *problemService) PrepareUpdate(params service_model.UpdateProblemP
 	return service_model.PreparedProblemUpdate{Params: params, Class: mapDataClassToServiceClass(class)}, nil
 }
 
+// PrepareUpdateBatch validates targets and destination classes using one read per set.
+func (service *problemService) PrepareUpdateBatch(inputs []service_model.UpdateProblemParams) ([]service_model.PreparedProblemUpdate, []service_model.BatchEntryError) {
+	normalized := make([]service_model.UpdateProblemParams, len(inputs))
+	var issues []service_model.BatchEntryError
+	problemIDs := make([]int64, 0, len(inputs))
+	seenIDs := make(map[int64]struct{}, len(inputs))
+	// Normalize each entry and collect distinct target IDs for a bulk lookup.
+	for index, input := range inputs {
+		value, err := service_model.NormalizeAndValidateUpdateProblemParams(input)
+		if err != nil {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid problem values", err)})
+			continue
+		}
+		normalized[index] = value
+		if _, found := seenIDs[value.ProblemID]; !found {
+			seenIDs[value.ProblemID] = struct{}{}
+			problemIDs = append(problemIDs, value.ProblemID)
+		}
+	}
+
+	var (
+		problems []data.Problem
+		err      error
+	)
+	// Load all target problems in one read.
+	if len(problemIDs) > 0 {
+		problems, err = service.Datastore.GetProblemsByIDs(problemIDs)
+		if err != nil {
+			for index, input := range normalized {
+				if input.ClassCode != "" {
+					issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.MakeGeneralError(err)})
+				}
+			}
+			sort.SliceStable(issues, func(left, right int) bool { return issues[left].Entry < issues[right].Entry })
+			return nil, issues
+		}
+	}
+
+	// Index returned problems to identify missing targets before class lookup.
+	problemsByID := make(map[int64]data.Problem, len(problems))
+	for _, problem := range problems {
+		problemsByID[problem.ID] = problem
+	}
+
+	// Report missing targets and collect destination codes only for existing problems.
+	classCodes := make([]string, 0, len(inputs))
+	seenCodes := make(map[string]struct{}, len(inputs))
+	for index, input := range normalized {
+		if input.ClassCode == "" {
+			continue
+		}
+		if _, found := problemsByID[input.ProblemID]; !found {
+			issues = append(issues, service_model.BatchEntryError{
+				Entry: index + 1,
+				Err: serviceerr.NewProblemNotFoundError(
+					fmt.Sprintf("problem %d doesn't exist", input.ProblemID), nil,
+				),
+			})
+			continue
+		}
+		if _, found := seenCodes[input.ClassCode]; found {
+			continue
+		}
+		seenCodes[input.ClassCode] = struct{}{}
+		classCodes = append(classCodes, input.ClassCode)
+	}
+
+	// Resolve all destination classes with one datastore read.
+	var classes []data.Class
+	if len(classCodes) > 0 {
+		classes, err = service.Datastore.GetClassesByClassCodes(classCodes)
+		if err != nil {
+			for index, input := range normalized {
+				if input.ClassCode != "" {
+					if _, exists := problemsByID[input.ProblemID]; !exists {
+						continue
+					}
+					issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.MakeGeneralError(err)})
+				}
+			}
+			sort.SliceStable(issues, func(left, right int) bool { return issues[left].Entry < issues[right].Entry })
+			return nil, issues
+		}
+	}
+	classesByCode := make(map[string]data.Class, len(classes))
+	for _, class := range classes {
+		classesByCode[class.ClassCode] = class
+	}
+
+	// Build entries in input order and report missing classes or invalid class codes.
+	prepared := make([]service_model.PreparedProblemUpdate, len(inputs))
+	for index, input := range normalized {
+		if input.ClassCode == "" {
+			continue
+		}
+		if _, found := problemsByID[input.ProblemID]; !found {
+			continue
+		}
+		class, found := classesByCode[input.ClassCode]
+		if !found {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %s doesn't exist", input.ClassCode), nil)})
+			continue
+		}
+		if err := service_model.ValidateClassCodeLength(class.ClassCode); err != nil {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid class code", err)})
+			continue
+		}
+		prepared[index] = service_model.PreparedProblemUpdate{Entry: index + 1, Params: input, Class: mapDataClassToServiceClass(class)}
+	}
+
+	// Return all indexed issues together and never expose a partial batch.
+	if len(issues) > 0 {
+		sort.SliceStable(issues, func(left, right int) bool { return issues[left].Entry < issues[right].Entry })
+		return nil, issues
+	}
+	return prepared, nil
+}
+
+// ExecuteUpdateBatch revalidates every entry before the first write.
+func (service *problemService) ExecuteUpdateBatch(batch []service_model.PreparedProblemUpdate) (service_model.ProblemUpdateBatchResult, []service_model.BatchEntryError, error) {
+	var result service_model.ProblemUpdateBatchResult
+	inputs := make([]service_model.UpdateProblemParams, len(batch))
+	// Extract submitted values so they can be checked against current datastore state.
+	for index, entry := range batch {
+		inputs[index] = entry.Params
+	}
+	// Revalidate targets and destination classes against current datastore state.
+	prepared, issues := service.PrepareUpdateBatch(inputs)
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	// Reject destination classes that changed identity since the preview.
+	for index, entry := range prepared {
+		if entry.Class.ID != batch[index].Class.ID {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewConflictError("destination class changed; validate a new batch", nil)})
+		}
+	}
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	// Apply updates in input order and retain acknowledged IDs on failure.
+	for index, entry := range prepared {
+		if err := service.updatePreparedProblem(entry); err != nil {
+			return result, nil, fmt.Errorf("could not update problem at batch entry %d: %w", index+1, err)
+		}
+		result.UpdatedProblemIDs = append(result.UpdatedProblemIDs, entry.Params.ProblemID)
+	}
+	return result, nil, nil
+}
+
 // UpdateProblemByProblemID updates a problem's information
 func (service *problemService) UpdateProblemByProblemID(params service_model.UpdateProblemParams) error {
 	prepared, err := service.PrepareUpdate(params)
 	if err != nil {
 		return err
 	}
-	params = prepared.Params
-	problemID := params.ProblemID
+	return service.updatePreparedProblem(prepared)
+}
 
+func (service *problemService) updatePreparedProblem(prepared service_model.PreparedProblemUpdate) error {
+	params := prepared.Params
+	problemID := params.ProblemID
 	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params, prepared.Class.ID)); err != nil {
 		switch {
 		case dataerr.IsNotFound(err):

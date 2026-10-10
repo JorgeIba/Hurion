@@ -459,6 +459,39 @@ func (db *DB) GetClassByClassCode(classCode string) (Class, error) {
 	return class, nil
 }
 
+func (db *DB) GetClassesByClassCodes(classCodes []string) ([]Class, error) {
+	if len(classCodes) == 0 {
+		return nil, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(classCodes)), ",")
+	args := make([]any, len(classCodes))
+	for index, classCode := range classCodes {
+		args[index] = classCode
+	}
+
+	query := "SELECT id, class_code, name FROM classes WHERE class_code IN (" + placeholders + ")"
+	rows, err := db.conn.Query(query, args...)
+	if err != nil {
+		return nil, dataerr.NewQueryError("could not get classes by class codes", err)
+	}
+	defer rows.Close()
+
+	var classes []Class
+	for rows.Next() {
+		var class Class
+		if err := rows.Scan(&class.ID, &class.ClassCode, &class.Name); err != nil {
+			return nil, dataerr.NewQueryError("could not scan class by class codes", err)
+		}
+		classes = append(classes, class)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError("could not iterate classes by class codes", err)
+	}
+	return classes, nil
+}
+
 func (db *DB) GetClassByClassID(classID int64) (Class, error) {
 	query := `SELECT id, class_code, name FROM classes WHERE id = ?`
 
@@ -555,6 +588,47 @@ func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
 
 	problem.ID = problemID
 	return problem, nil
+}
+
+func (db *DB) GetProblemsByIDs(problemIDs []int64) ([]Problem, error) {
+	if len(problemIDs) == 0 {
+		return nil, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(problemIDs)), ",")
+	args := make([]any, len(problemIDs))
+	for index, problemID := range problemIDs {
+		args[index] = problemID
+	}
+
+	query := "SELECT id, name, url, class_id, difficulty, topic, priority, created_at FROM problems WHERE id IN (" + placeholders + ")"
+	rows, err := db.conn.Query(query, args...)
+	if err != nil {
+		return nil, dataerr.NewQueryError("could not get problems by IDs", err)
+	}
+	defer rows.Close()
+
+	var problems []Problem
+	for rows.Next() {
+		var problem Problem
+		if err := rows.Scan(
+			&problem.ID,
+			&problem.Name,
+			&problem.URL,
+			&problem.ClassID,
+			&problem.Difficulty,
+			&problem.Topic,
+			&problem.Priority,
+			&problem.CreatedAt,
+		); err != nil {
+			return nil, dataerr.NewQueryError("could not scan problem by IDs", err)
+		}
+		problems = append(problems, problem)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError("could not iterate problems by IDs", err)
+	}
+	return problems, nil
 }
 
 func (db *DB) GetActiveUsersByClassID(classID int64) ([]User, error) {

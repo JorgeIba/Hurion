@@ -1,12 +1,18 @@
 package data
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
+	"fmt"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
+	"github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +29,95 @@ func setupDB(t *testing.T) *DB {
 
 func ptrStr(value string) *string {
 	return &value
+}
+
+var batchLookupQueryCount atomic.Int64
+
+type queryCountingDriver struct {
+	driver.Driver
+	queries *atomic.Int64
+}
+
+func (counting queryCountingDriver) Open(name string) (driver.Conn, error) {
+	conn, err := counting.Driver.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return queryCountingConn{Conn: conn, queries: counting.queries}, nil
+}
+
+type queryCountingConn struct {
+	driver.Conn
+	queries *atomic.Int64
+}
+
+func (counting queryCountingConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	execer, ok := counting.Conn.(driver.ExecerContext)
+	if !ok {
+		return nil, driver.ErrSkip
+	}
+	return execer.ExecContext(ctx, query, args)
+}
+
+func (counting queryCountingConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	counting.countRead(query)
+	queryer, ok := counting.Conn.(driver.QueryerContext)
+	if !ok {
+		return nil, driver.ErrSkip
+	}
+	return queryer.QueryContext(ctx, query, args)
+}
+
+func (counting queryCountingConn) countRead(query string) {
+	countBatchLookupRead(query, counting.queries)
+}
+
+func countBatchLookupRead(query string, queries *atomic.Int64) {
+	query = strings.ToUpper(strings.TrimSpace(query))
+	if strings.HasPrefix(query, "SELECT") {
+		queries.Add(1)
+	}
+}
+
+func (counting queryCountingConn) Prepare(query string) (driver.Stmt, error) {
+	return counting.Conn.Prepare(query)
+}
+
+func init() {
+	sql.Register("sqlite3_batch_lookup_count", queryCountingDriver{Driver: &sqlite3.SQLiteDriver{}, queries: &batchLookupQueryCount})
+}
+
+func TestBatchProblemLookupsUseOneSQLReadForOneAndOneHundredTargets(t *testing.T) {
+	conn, err := sql.Open("sqlite3_batch_lookup_count", ":memory:")
+	require.NoError(t, err)
+	conn.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	require.NoError(t, applySchema(conn))
+	db := &DB{conn: conn}
+
+	codes := make([]string, 100)
+	problemIDs := make([]int64, 100)
+	for index := range 100 {
+		codes[index] = fmt.Sprintf("class-%d", index)
+		classID, err := db.CreateClass(Class{ClassCode: codes[index], Name: codes[index]})
+		require.NoError(t, err)
+		problemIDs[index], err = db.AddProblem(Problem{Name: fmt.Sprintf("problem-%d", index), URL: "https://example.com", ClassID: classID})
+		require.NoError(t, err)
+	}
+
+	for _, count := range []int{1, 100} {
+		batchLookupQueryCount.Store(0)
+		classes, err := db.GetClassesByClassCodes(codes[:count])
+		require.NoError(t, err)
+		assert.Len(t, classes, count)
+		assert.EqualValues(t, 1, batchLookupQueryCount.Load())
+
+		batchLookupQueryCount.Store(0)
+		problems, err := db.GetProblemsByIDs(problemIDs[:count])
+		require.NoError(t, err)
+		assert.Len(t, problems, count)
+		assert.EqualValues(t, 1, batchLookupQueryCount.Load())
+	}
 }
 
 func TestEnsureUser(t *testing.T) {

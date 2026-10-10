@@ -11,13 +11,14 @@ import (
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
 func TestPrepareProblemBatchNormalizesAndKeepsRepeatedProblems(t *testing.T) {
 	t.Parallel()
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
-	store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos", Name: "Basics"}, nil).Times(2)
+	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos", Name: "Basics"}}, nil)
 	difficulty := " HARD "
 	input := service_model.CreateProblemParams{ClassCode: " basicos ", Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: &difficulty}
 	prepared, issues := NewServices(store).Batch.PrepareProblemBatch([]service_model.CreateProblemParams{input, input})
@@ -39,7 +40,7 @@ func TestPrepareProblemBatchNormalizesAndKeepsRepeatedProblems(t *testing.T) {
 func TestPrepareProblemBatchReportsEveryInvalidEntry(t *testing.T) {
 	t.Parallel()
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
-	store.EXPECT().GetClassByClassCode("missing").Return(data.Class{}, dataerr.NewNotFoundError("missing", nil))
+	store.EXPECT().GetClassesByClassCodes([]string{"missing"}).Return(nil, nil)
 	input := []service_model.CreateProblemParams{
 		{},
 		{ClassCode: "missing", Name: "Valid", URL: "https://example.com/problem"},
@@ -190,7 +191,7 @@ func TestPrepareBatchDoesNotReturnPartialSuccess(t *testing.T) {
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			service := NewServices(store).Batch
 			if problems {
-				store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+				store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
 				prepared, issues := service.PrepareProblemBatch([]service_model.CreateProblemParams{
 					{ClassCode: "basicos", Name: "Valid", URL: "https://example.com/problem"}, {},
 				})
@@ -262,8 +263,8 @@ func TestPrepareACBatchFailsClosedOnLookupAndAccessErrors(t *testing.T) {
 func TestPrepareProblemUpdateBatchValidatesTargetsWithoutWrites(t *testing.T) {
 	t.Parallel()
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
-	store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
-	store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+	store.EXPECT().GetProblemsByIDs([]int64{42}).Return([]data.Problem{{ID: 42}}, nil)
+	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
 	prepared, issues := NewServices(store).Batch.PrepareProblemUpdateBatch([]service_model.UpdateProblemParams{{ProblemID: 42, ClassCode: " basicos ", ProblemFields: service_model.ProblemFields{Name: " Updated ", URL: " https://example.com/new "}}})
 	assert.Empty(t, issues)
 	if assert.Len(t, prepared, 1) {
@@ -279,9 +280,8 @@ func TestPrepareProblemUpdateBatchValidatesTargetsWithoutWrites(t *testing.T) {
 func TestPrepareProblemUpdateBatchReportsIssuesWithoutPartialResults(t *testing.T) {
 	t.Parallel()
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
-	store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
-	store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
-	store.EXPECT().GetProblemByID(int64(99)).Return(data.Problem{}, dataerr.NewNotFoundError("missing", nil))
+	store.EXPECT().GetProblemsByIDs([]int64{42, 99}).Return([]data.Problem{{ID: 42}}, nil)
+	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
 	prepared, issues := NewServices(store).Batch.PrepareProblemUpdateBatch([]service_model.UpdateProblemParams{
 		{ProblemID: 42, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Valid", URL: "https://example.com/new"}},
 		{},
@@ -291,6 +291,118 @@ func TestPrepareProblemUpdateBatchReportsIssuesWithoutPartialResults(t *testing.
 	if assert.Len(t, issues, 2) {
 		assert.Equal(t, 2, issues[0].Entry)
 		assert.Equal(t, 3, issues[1].Entry)
+		assert.IsType(t, &serviceerr.ProblemNotFoundError{}, issues[1].Err)
+	}
+}
+
+func TestProblemBatchUsesBulkLookupsForPreparationAndConfirmation(t *testing.T) {
+	for _, size := range []int{1, service_model.MaxBatchOperations} {
+		t.Run(fmt.Sprintf("%d entries", size), func(t *testing.T) {
+			t.Parallel()
+
+			t.Run("create", func(t *testing.T) {
+				t.Parallel()
+				store := mock_data.NewMockDataStore(gomock.NewController(t))
+				classes := make([]data.Class, size)
+				inputs := make([]service_model.CreateProblemParams, size)
+				for index := range size {
+					classCode := fmt.Sprintf("class-%03d", index)
+					classes[index] = data.Class{ID: int64(index + 1), ClassCode: classCode}
+					inputs[index] = service_model.CreateProblemParams{
+						ClassCode: classCode,
+						ProblemFields: service_model.ProblemFields{
+							Name: fmt.Sprintf("Problem %d", index),
+							URL:  "https://example.com/problem",
+						},
+					}
+				}
+
+				store.EXPECT().GetClassesByClassCodes(gomock.Any()).DoAndReturn(
+					func(classCodes []string) ([]data.Class, error) {
+						assert.Len(t, classCodes, size)
+						return classes, nil
+					},
+				).Times(2)
+				created := 0
+				store.EXPECT().AddProblem(gomock.Any()).DoAndReturn(func(data.Problem) (int64, error) {
+					created++
+					return int64(created), nil
+				}).Times(size)
+
+				service := NewServices(store).Batch
+				prepared, issues := service.PrepareProblemBatch(inputs)
+				require.Empty(t, issues)
+				require.Len(t, prepared, size)
+				result, issues, err := service.ExecuteProblemBatch(prepared)
+				require.NoError(t, err)
+				require.Empty(t, issues)
+				assert.Len(t, result.CreatedProblemIDs, size)
+			})
+
+			t.Run("update", func(t *testing.T) {
+				t.Parallel()
+				store := mock_data.NewMockDataStore(gomock.NewController(t))
+				problems := make([]data.Problem, size)
+				classes := make([]data.Class, size)
+				inputs := make([]service_model.UpdateProblemParams, size)
+				for index := range size {
+					id := int64(index + 1)
+					classCode := fmt.Sprintf("class-%03d", index)
+					problems[index] = data.Problem{ID: id}
+					classes[index] = data.Class{ID: id, ClassCode: classCode}
+					inputs[index] = service_model.UpdateProblemParams{
+						ProblemID: id,
+						ClassCode: classCode,
+						ProblemFields: service_model.ProblemFields{
+							Name: fmt.Sprintf("Updated problem %d", index),
+							URL:  "https://example.com/problem",
+						},
+					}
+				}
+
+				store.EXPECT().GetProblemsByIDs(gomock.Any()).DoAndReturn(
+					func(problemIDs []int64) ([]data.Problem, error) {
+						assert.Len(t, problemIDs, size)
+						return problems, nil
+					},
+				).Times(2)
+				store.EXPECT().GetClassesByClassCodes(gomock.Any()).DoAndReturn(
+					func(classCodes []string) ([]data.Class, error) {
+						assert.Len(t, classCodes, size)
+						return classes, nil
+					},
+				).Times(2)
+				store.EXPECT().UpdateProblemByProblemID(gomock.Any(), gomock.Any()).Return(nil).Times(size)
+
+				service := NewServices(store).Batch
+				prepared, issues := service.PrepareProblemUpdateBatch(inputs)
+				require.Empty(t, issues)
+				require.Len(t, prepared, size)
+				result, issues, err := service.ExecuteProblemUpdateBatch(prepared)
+				require.NoError(t, err)
+				require.Empty(t, issues)
+				assert.Len(t, result.UpdatedProblemIDs, size)
+			})
+		})
+	}
+}
+
+func TestPrepareProblemUpdateBatchPreservesMissingTargetsWhenClassLookupFails(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetProblemsByIDs([]int64{42, 99}).Return([]data.Problem{{ID: 42}}, nil)
+	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return(nil, errors.New("database unavailable"))
+
+	prepared, issues := NewServices(store).Batch.PrepareProblemUpdateBatch([]service_model.UpdateProblemParams{
+		{ProblemID: 42, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Existing", URL: "https://example.com/problem"}},
+		{ProblemID: 99, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Missing", URL: "https://example.com/problem"}},
+	})
+
+	assert.Nil(t, prepared)
+	if assert.Len(t, issues, 2) {
+		assert.Equal(t, 1, issues[0].Entry)
+		assert.IsType(t, &serviceerr.InternalError{}, issues[0].Err)
+		assert.Equal(t, 2, issues[1].Entry)
 		assert.IsType(t, &serviceerr.ProblemNotFoundError{}, issues[1].Err)
 	}
 }

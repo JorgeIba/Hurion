@@ -89,7 +89,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 			svcs := services.NewServices(store)
 			if strings.HasPrefix(test.want, "Entries:") {
 				if test.route == string(discordcommands.ProblemBatch) {
-					store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+					store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
 				} else {
 					count := 1
 					if test.name == "AC file" {
