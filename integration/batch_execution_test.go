@@ -71,7 +71,8 @@ func TestIntegration_ExecuteACBatchRechecksSolvesAndCountsRepeatedEntries(t *tes
 				require.NoError(t, env.DB.AddAC("123", problemID))
 			}
 			input := service_model.CreateACParams{UserID: "123", ProblemID: problemID}
-			prepared, issues := env.Services.Batch.PrepareACBatch([]service_model.CreateACParams{input, input}, students)
+			prepared, issues, err := env.Services.Batch.PrepareACBatch([]service_model.CreateACParams{input, input}, students)
+			require.NoError(t, err)
 			require.Empty(t, issues)
 			if scenario == "solve added after preview" {
 				require.NoError(t, env.DB.EnsureUser(data.User{UserID: "123", DisplayName: "Ana"}))
@@ -108,9 +109,10 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 				"123": {UserID: "123", Roles: []string{"student"}},
 				"456": {UserID: "456", Roles: []string{"student"}},
 			}
-			prepared, issues := env.Services.Batch.PrepareACBatch([]service_model.CreateACParams{
+			prepared, issues, err := env.Services.Batch.PrepareACBatch([]service_model.CreateACParams{
 				{UserID: "123", ProblemID: firstProblem}, {UserID: "456", ProblemID: secondProblem},
 			}, students)
+			require.NoError(t, err)
 			require.Empty(t, issues)
 			switch scenario {
 			case "role revoked":
@@ -150,8 +152,7 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 	}
 }
 
-// Fail before the second write to verify that execution stops and reports the
-// first acknowledged write without pretending a rollback occurred.
+// Inject storage failures to check partial problem writes and atomic AC writes.
 type failingBatchStore struct {
 	data.DataStore
 	failure                 error
@@ -166,12 +167,13 @@ func (store *failingBatchStore) AddProblem(problem data.Problem) (int64, error) 
 	return store.DataStore.AddProblem(problem)
 }
 
-func (store *failingBatchStore) AddAC(userID string, problemID int64) error {
+func (store *failingBatchStore) AddACBatch(targets []data.ACKey) (int, error) {
 	store.acWrites++
-	if store.acWrites == 2 {
-		return store.failure
-	}
-	return store.DataStore.AddAC(userID, problemID)
+	// Force a foreign-key failure after valid pairs reach the bulk insert.
+	withInvalidTarget := append([]data.ACKey(nil), targets...)
+	withInvalidTarget = append(withInvalidTarget, data.ACKey{UserID: "456", ProblemID: -1})
+	count, err := store.DataStore.AddACBatch(withInvalidTarget)
+	return count, errors.Join(store.failure, err)
 }
 
 func TestIntegration_ExecuteBatchStopsOnStorageFailureAndReportsAcknowledgedWrites(t *testing.T) {
@@ -207,22 +209,23 @@ func TestIntegration_ExecuteBatchStopsOnStorageFailureAndReportsAcknowledgedWrit
 					students[userID] = service_model.Principal{UserID: userID, Roles: []string{"student"}}
 					inputs = append(inputs, service_model.CreateACParams{UserID: userID, ProblemID: problemID})
 				}
-				prepared, issues := batch.PrepareACBatch(inputs, students)
+				prepared, issues, err := batch.PrepareACBatch(inputs, students)
+				require.NoError(t, err)
 				require.Empty(t, issues)
 				result, issues, err := batch.ExecuteACBatch(prepared, students)
 				require.ErrorIs(t, err, failure)
-				assert.Contains(t, err.Error(), "entry 2")
+				assert.Contains(t, err.Error(), "AC batch")
 				assert.Empty(t, issues)
-				assert.Equal(t, service_model.ACBatchResult{Recorded: 1}, result)
-				assert.Equal(t, 2, store.acWrites)
+				assert.Zero(t, result)
+				assert.Equal(t, 1, store.acWrites)
 				solved, err := env.DB.HasUserSolvedProblem("123", problemID)
 				require.NoError(t, err)
-				assert.True(t, solved)
+				assert.False(t, solved, "the complete AC batch must roll back")
 				solved, err = env.DB.HasUserSolvedProblem("456", problemID)
 				require.NoError(t, err)
 				assert.False(t, solved)
 				_, err = env.DB.GetUserByUserID("456")
-				assert.NoError(t, err, "failed AC writes may already have created their user record")
+				assert.Error(t, err, "user creation must roll back with the solves")
 				_, err = env.DB.GetUserByUserID("789")
 				assert.Error(t, err, "unattempted operations must not create user records")
 			}

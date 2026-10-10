@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -36,29 +35,11 @@ func (service *BatchService) PrepareProblemBatch(inputs []service_model.CreatePr
 // partial results. Entry numbers are one-based; zero denotes a batch-wide error.
 // studentsByID contains the identities and role snapshots supplied by the controller.
 // Already recorded ACs are marked for preview; they do not invalidate the batch.
-func (service *BatchService) PrepareACBatch(inputs []service_model.CreateACParams, studentsByID map[string]service_model.Principal) ([]service_model.PreparedAC, []service_model.BatchEntryError) {
+func (service *BatchService) PrepareACBatch(inputs []service_model.CreateACParams, studentsByID map[string]service_model.Principal) ([]service_model.PreparedAC, []service_model.BatchEntryError, error) {
 	if err := ValidateBatchSize(len(inputs)); err != nil {
-		return nil, []service_model.BatchEntryError{{Err: err}}
+		return nil, []service_model.BatchEntryError{{Err: err}}, nil
 	}
-	var prepared []service_model.PreparedAC
-	var issues []service_model.BatchEntryError
-	for index, input := range inputs {
-		student := studentsByID[service_model.NormalizeACUserID(input.UserID)]
-		preparedAC, err := service.Solution.ValidateAC(input, student)
-		if err != nil {
-			if _, alreadyRecorded := errors.AsType[*serviceerr.ACAlreadyExistsError](err); !alreadyRecorded {
-				issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: err})
-				continue
-			}
-			preparedAC.AlreadyRecorded = true
-		}
-		preparedAC.Entry = index + 1
-		prepared = append(prepared, preparedAC)
-	}
-	if len(issues) > 0 {
-		return nil, issues
-	}
-	return prepared, nil
+	return service.Solution.PrepareCreationBatch(inputs, studentsByID)
 }
 
 // PrepareProblemUpdateBatch returns the complete prepared batch or indexed errors,

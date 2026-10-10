@@ -226,7 +226,7 @@ func buildProblemBatchIDResponse(content string, problemIDs []int64, filename st
 func BuildACBatchExecutionResult(result service_model.ACBatchResult, failed bool) *discordgo.WebhookEdit {
 	content := fmt.Sprintf("Batch completed. ACs recorded: %d. Already recorded: %d.", result.Recorded, result.AlreadyRecorded)
 	if failed {
-		content = fmt.Sprintf("Batch stopped. Confirmed AC registrations: %d. Already recorded: %d.\nEarlier writes were not rolled back. The failed operation may also have been applied or created a student record. Check the students' ACs before submitting again.", result.Recorded, result.AlreadyRecorded)
+		content = fmt.Sprintf("Batch stopped. Confirmed AC registrations: %d. Already recorded: %d.\nThe batch outcome could not be confirmed; it may have been applied. Check the students' ACs before submitting again.", result.Recorded, result.AlreadyRecorded)
 	}
 	return buildCompletedBatchResponse(content)
 }

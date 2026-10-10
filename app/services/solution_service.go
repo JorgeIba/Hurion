@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -35,7 +36,7 @@ func (service *SolutionService) AddACToUserID(userID string, problemID int64) er
 
 // AddACByPrincipal adds an AC for a user (Authenticated enrollment version).
 func (service *SolutionService) AddACByPrincipal(principal service_model.Principal, problemID int64) error {
-	if _, err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
+	if err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
 		return err
 	}
 	return service.AddACToUserID(principal.UserID, problemID)
@@ -57,7 +58,7 @@ func (service *SolutionService) UndoAC(userID string, problemID int64) error {
 
 // AddPendingACByPrincipal adds a pending AC confirmation
 func (service *SolutionService) AddPendingACByPrincipal(messageID string, principal service_model.Principal, problemID int64) error {
-	if _, err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
+	if err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
 		return err
 	}
 	if err := service.validateACNotSolved(principal.UserID, problemID); err != nil {
@@ -128,24 +129,6 @@ func (service *SolutionService) RejectACProposal(messageID string) error {
 	return nil
 }
 
-// ValidateAC validates a possible AC without creating users or recording solves.
-// params identifies the requested target; student supplies the resolved identity
-// and roles. The returned snapshot must be revalidated before deferred execution.
-func (service *SolutionService) ValidateAC(params service_model.CreateACParams, student service_model.Principal) (service_model.PreparedAC, error) {
-	params, err := service_model.NormalizeAndValidateCreateACParams(params)
-	if err != nil {
-		return service_model.PreparedAC{}, serviceerr.NewValidationError("invalid AC values", err)
-	}
-	prepared, err := service.validateACAccess(params, student)
-	if err != nil {
-		return service_model.PreparedAC{}, err
-	}
-	if err := service.validateACNotSolved(params.UserID, params.ProblemID); err != nil {
-		return prepared, err
-	}
-	return prepared, nil
-}
-
 func (service *SolutionService) validateACNotSolved(userID string, problemID int64) error {
 	solved, err := service.Datastore.HasUserSolvedProblem(userID, problemID)
 	if err != nil {
@@ -157,49 +140,148 @@ func (service *SolutionService) validateACNotSolved(userID string, problemID int
 	return nil
 }
 
-func (service *SolutionService) validateACAccess(params service_model.CreateACParams, student service_model.Principal) (service_model.PreparedAC, error) {
-	var result service_model.PreparedAC
+func (service *SolutionService) validateACAccess(params service_model.CreateACParams, student service_model.Principal) error {
 	if params.UserID == "" || params.ProblemID <= 0 {
-		return result, serviceerr.NewValidationError("user ID and positive problem ID are required", nil)
+		return serviceerr.NewValidationError("user ID and positive problem ID are required", nil)
 	}
-	problem, err := service.Datastore.GetProblemByID(params.ProblemID)
+
+	// Load the same validation data used by batches for this single target.
+	target := data.ACKey{UserID: params.UserID, ProblemID: params.ProblemID}
+	validationDataByAC, err := service.Datastore.GetACValidationData([]data.ACKey{target})
 	if err != nil {
-		if dataerr.IsNotFound(err) {
-			return result, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d does not exist", params.ProblemID), err)
-		}
-		return result, serviceerr.MakeGeneralError(err)
+		return serviceerr.MakeGeneralError(err)
 	}
-	class, err := service.Datastore.GetClassByClassID(problem.ClassID)
-	if err != nil {
-		if dataerr.IsNotFound(err) {
-			return result, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %d does not exist", problem.ClassID), err)
-		}
-		return result, serviceerr.MakeGeneralError(err)
+	_, err = prepareAC(params, student, validationDataByAC[target])
+	return err
+}
+
+// prepareAC validates one request using resolved validation data, without datastore reads.
+// Individual commands and batches share its target, identity and access rules.
+func prepareAC(
+	params service_model.CreateACParams,
+	student service_model.Principal,
+	validationData data.ACValidationData,
+) (service_model.PreparedAC, error) {
+	if validationData.Problem == nil {
+		return service_model.PreparedAC{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d does not exist", params.ProblemID), nil)
+	}
+	if validationData.Class == nil {
+		return service_model.PreparedAC{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %d does not exist", validationData.Problem.ClassID), nil)
 	}
 	if student.UserID == "" {
-		return result, serviceerr.NewInternalError("could not verify student "+params.UserID, nil)
+		return service_model.PreparedAC{}, serviceerr.NewInternalError("could not verify student "+params.UserID, nil)
 	}
 	if student.UserID != params.UserID {
-		return result, serviceerr.NewInternalError("verified student identity mismatch", nil)
+		return service_model.PreparedAC{}, serviceerr.NewInternalError("verified student identity mismatch", nil)
 	}
-	resolvedClass := mapDataClassToServiceClass(class)
-	accessRoles, err := service.Datastore.GetClassAccessRolesByClassCode(class.ClassCode)
-	if err != nil {
-		return result, serviceerr.MakeGeneralError(err)
-	}
-	roleSet := make(map[string]bool, len(student.Roles))
-	for _, roleID := range student.Roles {
-		roleSet[roleID] = true
-	}
-	allowed := false
-	for _, accessRole := range accessRoles {
-		if roleSet[accessRole.RoleID] {
-			allowed = true
-			break
+	for _, roleID := range validationData.AccessRoleIDs {
+		if slices.Contains(student.Roles, roleID) {
+			return service_model.PreparedAC{
+				User:            student.User,
+				Problem:         mapDataProblemToServiceProblem(*validationData.Problem),
+				Class:           mapDataClassToServiceClass(*validationData.Class),
+				AlreadyRecorded: validationData.AlreadyRecorded,
+			}, nil
 		}
 	}
-	if !allowed {
-		return result, serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s has no access to class %s", params.UserID, resolvedClass.ClassCode), nil)
+	return service_model.PreparedAC{}, serviceerr.NewUserNotEnrolledError(fmt.Sprintf("user %s has no access to class %s", params.UserID, validationData.Class.ClassCode), nil)
+}
+
+// PrepareCreationBatch validates the complete batch with grouped datastore reads.
+// Student identities and role snapshots are resolved by the caller. Existing ACs
+// are marked for preview, while repeated entries remain in their submitted order.
+func (service *SolutionService) PrepareCreationBatch(
+	inputs []service_model.CreateACParams,
+	studentsByID map[string]service_model.Principal,
+) ([]service_model.PreparedAC, []service_model.BatchEntryError, error) {
+	normalizedInputs := make([]service_model.CreateACParams, len(inputs))
+	entryErrors := make([]error, len(inputs))
+	var requestedACs []data.ACKey
+
+	// Normalize values and collect the pairs eligible for datastore reads.
+	for index, input := range inputs {
+		normalized, err := service_model.NormalizeAndValidateCreateACParams(input)
+		if err != nil {
+			entryErrors[index] = serviceerr.NewValidationError("invalid AC values", err)
+			continue
+		}
+		normalizedInputs[index] = normalized
+		requestedACs = append(requestedACs, data.ACKey{UserID: normalized.UserID, ProblemID: normalized.ProblemID})
 	}
-	return service_model.PreparedAC{User: student.User, Problem: mapDataProblemToServiceProblem(problem), Class: resolvedClass}, nil
+
+	// Fetch the validation data; a technical failure aborts preparation before writes.
+	var validationDataByAC map[data.ACKey]data.ACValidationData
+	if len(requestedACs) > 0 {
+		var err error
+		validationDataByAC, err = service.Datastore.GetACValidationData(requestedACs)
+		if err != nil {
+			return nil, nil, serviceerr.MakeGeneralError(err)
+		}
+	}
+
+	// Validate each AC in input order and report its original entry number.
+	prepared := make([]service_model.PreparedAC, len(inputs))
+	var issues []service_model.BatchEntryError
+	for index, input := range normalizedInputs {
+		if entryErrors[index] == nil {
+			key := data.ACKey{UserID: input.UserID, ProblemID: input.ProblemID}
+			prepared[index], entryErrors[index] = prepareAC(input, studentsByID[input.UserID], validationDataByAC[key])
+		}
+		if entryErrors[index] != nil {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: entryErrors[index]})
+			continue
+		}
+		prepared[index].Entry = index + 1
+	}
+	if len(issues) > 0 {
+		return nil, issues, nil
+	}
+	return prepared, nil, nil
+}
+
+// ExecuteCreationBatch revalidates all entries before one atomic datastore write.
+// No concurrent changes are assumed between validation and execution.
+func (service *SolutionService) ExecuteCreationBatch(batch []service_model.PreparedAC, studentsByID map[string]service_model.Principal) (service_model.ACBatchResult, []service_model.BatchEntryError, error) {
+	var result service_model.ACBatchResult
+
+	// Resolve current targets, permissions and recorded solves for the whole batch.
+	inputs := make([]service_model.CreateACParams, len(batch))
+	for index, entry := range batch {
+		inputs[index] = service_model.CreateACParams{UserID: entry.User.UserID, ProblemID: entry.Problem.ID}
+	}
+
+	prepared, issues, err := service.PrepareCreationBatch(inputs, studentsByID)
+	if err != nil {
+		return result, nil, serviceerr.NewBatchPreparationError("could not revalidate AC batch", err)
+	}
+
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	// Reject changed destinations before applying any operation.
+	for index, entry := range prepared {
+		if entry.Class.ID != batch[index].Class.ID {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewConflictError("problem class changed; validate a new batch", nil)})
+		}
+	}
+
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	// Persist the validated pairs together and count actual new registrations.
+	targets := make([]data.ACKey, len(prepared))
+	for index, entry := range prepared {
+		targets[index] = data.ACKey{UserID: entry.User.UserID, ProblemID: entry.Problem.ID}
+	}
+
+	insertedCount, err := service.Datastore.AddACBatch(targets)
+	if err != nil {
+		return result, nil, serviceerr.MakeGeneralError(err)
+	}
+
+	result.Recorded = insertedCount
+	result.AlreadyRecorded = len(prepared) - insertedCount
+	return result, nil, nil
 }

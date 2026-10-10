@@ -45,9 +45,10 @@ func TestBatchExecutionReceiptsPreserveIDsAndClearActions(t *testing.T) {
 	assert.Contains(t, *ac.Content, "ACs recorded: 2. Already recorded: 3.")
 	assert.Empty(t, *ac.Components)
 	assert.Empty(t, ac.AllowedMentions.Parse)
-	failedAC := BuildACBatchExecutionResult(service_model.ACBatchResult{Recorded: 1}, true)
-	assert.Contains(t, *failedAC.Content, "Confirmed AC registrations: 1")
-	assert.Contains(t, *failedAC.Content, "created a student record")
+	failedAC := BuildACBatchExecutionResult(service_model.ACBatchResult{}, true)
+	assert.Contains(t, *failedAC.Content, "Confirmed AC registrations: 0")
+	assert.Contains(t, *failedAC.Content, "batch outcome could not be confirmed")
+	assert.NotContains(t, *failedAC.Content, "Earlier writes were not rolled back")
 	assert.NotContains(t, *failedAC.Content, "No changes were applied")
 }
 

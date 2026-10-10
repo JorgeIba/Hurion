@@ -78,6 +78,64 @@ func (db *DB) AddAC(userID string, problemID int64) error {
 	return nil
 }
 
+// AddACBatch ensures users and records ACs atomically. The returned count includes
+// only inserted pairs; existing and repeated pairs leave their timestamps intact.
+func (db *DB) AddACBatch(targets []ACKey) (int, error) {
+	if len(targets) == 0 {
+		return 0, nil
+	}
+
+	// Bind submitted pairs once for the two bulk statements.
+	pairPlaceholders := strings.TrimSuffix(strings.Repeat("(?, ?),", len(targets)), ",")
+	queryArgs := make([]any, 0, 2*len(targets))
+	for _, target := range targets {
+		queryArgs = append(queryArgs, target.UserID, target.ProblemID)
+	}
+	requestedPairs := "WITH requested(user_id, problem_id) AS (VALUES " + pairPlaceholders + ") "
+
+	// Keep user creation and solve registration in the same transaction.
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return 0, dataerr.NewQueryError("could not begin AC batch", err)
+	}
+	defer tx.Rollback()
+
+	// Register new users without changing existing display names.
+	// WHERE true disambiguates SELECT from the following ON CONFLICT in SQLite.
+	ensureUsers := requestedPairs + `
+		INSERT INTO users (user_id, display_name)
+		SELECT DISTINCT user_id, 'Unknown' FROM requested WHERE true
+		ON CONFLICT(user_id) DO NOTHING
+	`
+
+	if _, err := tx.Exec(ensureUsers, queryArgs...); err != nil {
+		return 0, dataerr.NewQueryError("could not ensure AC batch users", err)
+	}
+
+	// Register solved-problem records, preserving existing ACs and their timestamps.
+	insertACs := requestedPairs + `
+		INSERT INTO solved_problems (user_id, problem_id, solved_at)
+		SELECT user_id, problem_id, CURRENT_TIMESTAMP FROM requested WHERE true
+		ON CONFLICT(user_id, problem_id) DO NOTHING
+	`
+
+	insertResult, err := tx.Exec(insertACs, queryArgs...)
+	if err != nil {
+		return 0, dataerr.NewQueryError("could not insert AC batch", err)
+	}
+
+	insertedCount, err := insertResult.RowsAffected()
+	if err != nil {
+		return 0, dataerr.NewQueryError("could not count inserted ACs", err)
+	}
+
+	// Report acknowledged registrations only after commit succeeds.
+	if err := tx.Commit(); err != nil {
+		return 0, dataerr.NewQueryError("could not commit AC batch", err)
+	}
+	return int(insertedCount), nil
+}
+
 func (db *DB) RemoveAC(userID string, problemID int64) error {
 	query := `
 		DELETE FROM solved_problems
@@ -814,4 +872,88 @@ func (db *DB) GetClassesByAccessRoles(roleIDs []string) ([]Class, error) {
 	}
 
 	return classes, nil
+}
+
+// GetACValidationData reads the validation data for every requested pair in one query.
+// Missing targets remain in the result with nil problem or class pointers.
+func (db *DB) GetACValidationData(targets []ACKey) (map[ACKey]ACValidationData, error) {
+	validationDataByAC := make(map[ACKey]ACValidationData)
+	if len(targets) == 0 {
+		return validationDataByAC, nil
+	}
+
+	pairPlaceholders := strings.TrimSuffix(strings.Repeat("(?, ?),", len(targets)), ",")
+	queryArgs := make([]any, 0, 2*len(targets))
+	for _, target := range targets {
+		queryArgs = append(queryArgs, target.UserID, target.ProblemID)
+	}
+
+	query := `
+		WITH requested(user_id, problem_id) AS (VALUES ` + pairPlaceholders + `)
+		SELECT DISTINCT
+			requested.user_id, requested.problem_id,
+			p.id, p.name, p.url, p.class_id, p.difficulty, p.topic, p.priority, p.created_at,
+			c.id, c.class_code, c.name,
+			ar.role_id, sp.problem_id IS NOT NULL
+		FROM requested
+		LEFT JOIN problems p ON p.id = requested.problem_id
+		LEFT JOIN classes c ON c.id = p.class_id
+		LEFT JOIN class_access_roles ar ON ar.class_code = c.class_code
+		LEFT JOIN solved_problems sp
+			ON sp.user_id = requested.user_id AND sp.problem_id = requested.problem_id
+	`
+
+	rows, err := db.conn.Query(query, queryArgs...)
+	if err != nil {
+		return nil, dataerr.NewQueryError("could not read AC validation data", err)
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var target ACKey
+		var problem Problem
+		var problemID, problemClassID, classID sql.NullInt64
+		var problemName, problemURL, classCode, className, roleID sql.NullString
+		var createdAt sql.NullTime
+		var alreadyRecorded bool
+
+		if err := rows.Scan(
+			&target.UserID, &target.ProblemID,
+			&problemID, &problemName, &problemURL, &problemClassID,
+			&problem.Difficulty, &problem.Topic, &problem.Priority, &createdAt,
+			&classID, &classCode, &className,
+			&roleID, &alreadyRecorded,
+		); err != nil {
+			return nil, dataerr.NewQueryError("could not scan AC validation data", err)
+		}
+
+		// Join rows repeat problem/class values for each role; assemble each pair once.
+		validationData, found := validationDataByAC[target]
+		if !found {
+			if problemID.Valid {
+				problem.ID, problem.ClassID = problemID.Int64, problemClassID.Int64
+				problem.Name, problem.URL, problem.CreatedAt = problemName.String, problemURL.String, createdAt.Time
+				validationData.Problem = &problem
+			}
+			if classID.Valid {
+				validationData.Class = &Class{
+					ID:        classID.Int64,
+					ClassCode: classCode.String,
+					Name:      className.String,
+				}
+			}
+			validationData.AlreadyRecorded = alreadyRecorded
+		}
+
+		if roleID.Valid {
+			validationData.AccessRoleIDs = append(validationData.AccessRoleIDs, roleID.String)
+		}
+
+		validationDataByAC[target] = validationData
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, dataerr.NewQueryError("could not iterate AC validation data", err)
+	}
+	return validationDataByAC, nil
 }

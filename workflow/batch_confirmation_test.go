@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
@@ -186,7 +187,7 @@ func TestWorkflow_BatchConfirmationRevalidatesBeforeAnyWrite(t *testing.T) {
 	}
 }
 
-// Fail the second write after applying it to exercise an uncertain storage outcome.
+// Lose acknowledgement after persistence to exercise uncertain storage outcomes.
 type uncertainBatchStore struct {
 	data.DataStore
 	writes int
@@ -200,13 +201,13 @@ func (store *uncertainBatchStore) AddProblem(problem data.Problem) (int64, error
 	}
 	return id, err
 }
-func (store *uncertainBatchStore) AddAC(userID string, problemID int64) error {
+func (store *uncertainBatchStore) AddACBatch(targets []data.ACKey) (int, error) {
 	store.writes++
-	err := store.DataStore.AddAC(userID, problemID)
-	if err == nil && store.writes == 2 {
-		return errors.New("lost acknowledgement")
+	count, err := store.DataStore.AddACBatch(targets)
+	if err == nil {
+		return 0, errors.New("lost acknowledgement")
 	}
-	return err
+	return count, err
 }
 
 func TestWorkflow_BatchStorageFailureReportsProgressWithoutRetrying(t *testing.T) {
@@ -238,23 +239,31 @@ func TestWorkflow_BatchStorageFailureReportsProgressWithoutRetrying(t *testing.T
 			require.Len(t, env.Responder.edits, 2)
 			receipt := env.Responder.edits[1].response
 			assert.Contains(t, *receipt.Content, "Batch stopped")
-			assert.Contains(t, *receipt.Content, "may also have been applied")
+			if command == "ac" {
+				assert.Contains(t, *receipt.Content, "it may have been applied")
+			} else {
+				assert.Contains(t, *receipt.Content, "may also have been applied")
+			}
 			assert.NotContains(t, *receipt.Content, "No changes were applied")
 			assert.Empty(t, *receipt.Components)
-			assert.Equal(t, 2, store.writes, "stop subsequent operations")
+			expectedWrites := 2
+			if command == "ac" {
+				expectedWrites = 1
+			}
+			assert.Equal(t, expectedWrites, store.writes, "do not retry writes")
 			if command == "problem" {
 				assert.Contains(t, *receipt.Content, "Confirmed problem creations: 1")
 				problems, err := env.DB.GetProblemsByClass(classID)
 				require.NoError(t, err)
 				assert.Len(t, problems, 2)
 			} else {
-				assert.Contains(t, *receipt.Content, "Confirmed AC registrations: 1")
+				assert.Contains(t, *receipt.Content, "Confirmed AC registrations: 0")
 				env.assertProblemSolved(t, "123", problemID)
 				env.assertProblemSolved(t, "456", problemID)
-				env.assertProblemNotSolved(t, "789", problemID)
+				env.assertProblemSolved(t, "789", problemID)
 			}
 			env.handleInteractionEvent(event)
-			assert.Equal(t, 2, store.writes)
+			assert.Equal(t, expectedWrites, store.writes)
 			assert.Len(t, env.Responder.edits, 2)
 		})
 	}
@@ -321,5 +330,120 @@ func TestWorkflow_ConfirmationCanRetryAfterFailureBeforeClaim(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestWorkflow_ACBatchRejectsMovedProblemBeforeAnyWrite(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	original := env.seedClass(t, "original", "Original")
+	destination := env.seedClass(t, "destination", "Destination")
+	first := env.seedProblem(t, "First", "https://example.com/first", original, "easy", "Arrays")
+	second := env.seedProblem(t, "Second", "https://example.com/second", original, "easy", "Arrays")
+	env.seedClassAccessRole(t, "original", "student")
+	env.seedClassAccessRole(t, "destination", "student")
+	env.setRoles("123", []string{"student"})
+	input := fmt.Sprintf(`[{"user_id":"123","problem_id":%d},{"user_id":"123","problem_id":%d}]`, first, second)
+	preview := submitBatchPreview(t, env, "ac", input)
+	changed, err := env.DB.GetProblemByID(second)
+	require.NoError(t, err)
+	changed.ClassID = destination
+	require.NoError(t, env.DB.UpdateProblemByProblemID(second, changed))
+	env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
+	require.Len(t, env.Responder.edits, 2)
+	assert.Contains(t, *env.Responder.edits[1].response.Content, "Entry 2")
+	assert.Contains(t, *env.Responder.edits[1].response.Content, "No changes were applied")
+	env.assertProblemNotSolved(t, "123", first)
+	env.assertProblemNotSolved(t, "123", second)
+	_, err = env.DB.GetUserByUserID("123")
+	assert.Error(t, err, "invalidated batches must not create students")
+}
+
+func TestWorkflow_ACBatchUsesCurrentRecordedStateAtConfirmation(t *testing.T) {
+	t.Parallel()
+	for _, initiallyRecorded := range []bool{false, true} {
+		t.Run(fmt.Sprintf("initially recorded=%t", initiallyRecorded), func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos", "Basicos")
+			id := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+			env.seedClassAccessRole(t, "basicos", "student")
+			env.setRoles("123", []string{"student"})
+			if initiallyRecorded {
+				require.NoError(t, env.Services.Solution.AddACToUserID("123", id))
+			}
+			preview := submitBatchPreview(t, env, "ac", fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, id))
+			recorded, already := 0, 1
+			if initiallyRecorded {
+				require.NoError(t, env.DB.RemoveAC("123", id))
+				recorded, already = 1, 0
+			} else {
+				require.NoError(t, env.Services.Solution.AddACToUserID("123", id))
+			}
+			env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
+			require.Len(t, env.Responder.edits, 2)
+			assert.Contains(t, *env.Responder.edits[1].response.Content, fmt.Sprintf("ACs recorded: %d. Already recorded: %d.", recorded, already))
+			env.assertProblemSolved(t, "123", id)
+		})
+	}
+}
+
+type failingACValidationStore struct {
+	data.DataStore
+	failReads bool
+}
+
+func (store *failingACValidationStore) GetACValidationData(targets []data.ACKey) (map[data.ACKey]data.ACValidationData, error) {
+	if store.failReads {
+		return nil, errors.New("validation read unavailable")
+	}
+	return store.DataStore.GetACValidationData(targets)
+}
+
+func TestWorkflow_ACBatchReadFailureReportsNoWrites(t *testing.T) {
+	t.Parallel()
+	for _, phase := range []string{"preview", "confirmation"} {
+		t.Run(phase, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos", "Basicos")
+			id := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+			env.seedClassAccessRole(t, "basicos", "student")
+			env.setRoles("123", []string{"student"})
+			store := &failingACValidationStore{DataStore: env.DB, failReads: phase == "preview"}
+			env.ACController = mentor.NewACInteractionController(services.NewServices(store), env.Discord, env.Discord, dispatcher.NewDiscordInteractionResponder(env.Responder))
+			input := fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, id)
+			if phase == "preview" {
+				env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+					Type: discordgo.InteractionModalSubmit, GuildID: testGuildID, Member: &discordgo.Member{User: &discordgo.User{ID: "mentor"}},
+					Data: discordgo.ModalSubmitInteractionData{CustomID: string(discordcommands.ACBatch), Components: []discordgo.MessageComponent{
+						&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: input}},
+						&discordgo.Label{Component: &discordgo.FileUpload{CustomID: "file"}},
+					}},
+				}})
+			} else {
+				preview := submitBatchPreview(t, env, "ac", input)
+				store.failReads = true
+				event := batchButtonEvent(t, preview, "Confirm")
+				env.handleInteractionEvent(event)
+				env.handleInteractionEvent(event)
+				require.Len(t, env.Responder.edits, 2, "a consumed batch is not retried after a read failure")
+			}
+			require.NotEmpty(t, env.Responder.edits)
+			receipt := env.Responder.edits[len(env.Responder.edits)-1].response
+			require.NotNil(t, receipt.Content)
+			assert.Contains(t, *receipt.Content, "Could not validate")
+			assert.Contains(t, *receipt.Content, "No changes were applied")
+			assert.NotContains(t, *receipt.Content, "may also have been applied")
+			if receipt.Components != nil {
+				assert.Empty(t, *receipt.Components)
+			}
+			env.assertProblemNotSolved(t, "123", id)
+			_, err := env.DB.GetUserByUserID("123")
+			assert.Error(t, err, "failed validation reads cannot create students")
+		})
 	}
 }
