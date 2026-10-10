@@ -1,7 +1,9 @@
 package integration
 
 import (
+	jsonv2 "encoding/json/v2"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/JorgeIba/Hurion/app/data"
@@ -54,6 +56,57 @@ func TestIntegration_ExecuteProblemBatchValidatesEveryTargetBeforeWrites(t *test
 	problems, err := env.DB.GetProblemsByClass(validClass)
 	require.NoError(t, err)
 	assert.Empty(t, problems, "a valid first entry must not be written when a later entry fails validation")
+}
+
+func TestIntegration_ExecuteProblemPatchBatchUpdatesOnlySpecifiedFields(t *testing.T) {
+	t.Parallel()
+	env := setupIntegrationEnv(t)
+	sourceClassID := env.SeedClass(t, "basicos", "Basics")
+	destinationClassID := env.SeedClass(t, "avanzados", "Advanced")
+	difficulty, topic, priority := "easy", "Arrays", "recommended"
+	problemID, err := env.DB.AddProblem(data.Problem{
+		Name: "Two Sum", URL: "https://example.com/two-sum", ClassID: sourceClassID,
+		Difficulty: &difficulty, Topic: &topic, Priority: &priority,
+	})
+	require.NoError(t, err)
+	require.NoError(t, env.DB.EnsureUser(data.User{UserID: "123", DisplayName: "Ana"}))
+	require.NoError(t, env.DB.AddAC("123", problemID))
+	original, err := env.DB.GetProblemByID(problemID)
+	require.NoError(t, err)
+
+	var inputs []service_model.PatchProblemParams
+	input := fmt.Sprintf(`[{"problem_id":%d,"class":"avanzados","difficulty":"hard","topic":null}]`, problemID)
+	require.NoError(t, jsonv2.Unmarshal([]byte(input), &inputs))
+	require.Len(t, inputs, 1)
+	assert.False(t, inputs[0].Name.Set)
+	assert.False(t, inputs[0].URL.Set)
+	assert.False(t, inputs[0].Priority.Set)
+	assert.True(t, inputs[0].Topic.Set)
+	assert.Nil(t, inputs[0].Topic.Value)
+
+	prepared, issues := env.Services.Problem.PrepareProblemPatchBatch(inputs)
+	require.Empty(t, issues)
+	require.Len(t, prepared, 1)
+	result, issues, err := env.Services.Problem.ExecuteProblemPatchBatch(prepared)
+	require.NoError(t, err)
+	require.Empty(t, issues)
+	assert.Equal(t, []int64{problemID}, result.PatchedProblemIDs)
+
+	updated, err := env.DB.GetProblemByID(problemID)
+	require.NoError(t, err)
+	assert.Equal(t, original.Name, updated.Name)
+	assert.Equal(t, original.URL, updated.URL)
+	assert.Equal(t, destinationClassID, updated.ClassID)
+	require.NotNil(t, updated.Difficulty)
+	assert.Equal(t, "hard", *updated.Difficulty)
+	assert.Nil(t, updated.Topic)
+	require.NotNil(t, updated.Priority)
+	assert.Equal(t, priority, *updated.Priority)
+	assert.Equal(t, original.CreatedAt, updated.CreatedAt)
+
+	solved, err := env.DB.HasUserSolvedProblem("123", problemID)
+	require.NoError(t, err)
+	assert.True(t, solved)
 }
 
 func TestIntegration_ExecuteACBatchRechecksSolvesAndCountsRepeatedEntries(t *testing.T) {

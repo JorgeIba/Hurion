@@ -772,6 +772,53 @@ func (db *DB) ReplaceProblemByProblemID(problemID int64, problem Problem) error 
 	return nil
 }
 
+func (db *DB) PatchProblemByProblemID(problemID int64, patch ProblemPatch) error {
+	var (
+		sets []string
+		args []any
+	)
+	if patch.Name.Set {
+		sets = append(sets, "name = ?")
+		args = append(args, patch.Name.Value)
+	}
+	if patch.URL.Set {
+		sets = append(sets, "url = ?")
+		args = append(args, patch.URL.Value)
+	}
+	if patch.ClassID.Set {
+		sets = append(sets, "class_id = ?")
+		args = append(args, patch.ClassID.Value)
+	}
+	if patch.Difficulty.Set {
+		sets = append(sets, "difficulty = ?")
+		args = append(args, patch.Difficulty.Value)
+	}
+	if patch.Topic.Set {
+		sets = append(sets, "topic = ?")
+		args = append(args, patch.Topic.Value)
+	}
+	if patch.Priority.Set {
+		sets = append(sets, "priority = ?")
+		args = append(args, patch.Priority.Value)
+	}
+	if len(sets) == 0 {
+		return dataerr.NewQueryError("could not patch problem without fields", errors.New("problem patch is empty"))
+	}
+
+	args = append(args, problemID)
+	query := "UPDATE problems SET " + strings.Join(sets, ", ") + " WHERE id = ?;"
+	result, err := db.conn.Exec(query, args...)
+	if err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not patch problem with ID %d", problemID), err)
+	}
+	if rowsAffected, err := result.RowsAffected(); err != nil {
+		return dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected when patching problem with ID %d", problemID), err)
+	} else if rowsAffected == 0 {
+		return dataerr.NewNotFoundError(fmt.Sprintf("problem with ID %d not found", problemID), nil)
+	}
+	return nil
+}
+
 func (db *DB) HasUserSolvedProblem(userID string, problemID int64) (bool, error) {
 	query := `
 		SELECT EXISTS(

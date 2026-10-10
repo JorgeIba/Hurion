@@ -1,6 +1,7 @@
 package service_model
 
 import (
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"strings"
 	"time"
@@ -101,6 +102,37 @@ type ReplaceProblemParams struct {
 	ProblemFields
 	ProblemID int64
 	ClassCode string
+}
+
+// PatchField distinguishes an omitted field from an explicitly supplied zero value.
+// For nullable fields, use PatchField[*string]: Set=true with Value=nil clears it.
+type PatchField[T any] struct {
+	Set   bool
+	Value T
+}
+
+// UnmarshalJSON records field presence while preserving JSON null as the zero value
+// of T. In particular, PatchField[*string] distinguishes omission from null.
+func (field *PatchField[T]) UnmarshalJSON(data []byte) error {
+	field.Set = true
+	return jsonv2.Unmarshal(data, &field.Value)
+}
+
+// PatchProblemFields contains only fields that may be changed by a patch.
+type PatchProblemFields struct {
+	ClassCode  PatchField[string]  `json:"class,omitempty"`
+	Name       PatchField[string]  `json:"name,omitempty"`
+	URL        PatchField[string]  `json:"url,omitempty"`
+	Difficulty PatchField[*string] `json:"difficulty,omitempty"`
+	Topic      PatchField[*string] `json:"topic,omitempty"`
+	Priority   PatchField[*string] `json:"priority,omitempty"`
+}
+
+// PatchProblemParams identifies a problem and supplies only fields to change.
+// An unset field is preserved; a set nullable field with a nil value is cleared.
+type PatchProblemParams struct {
+	PatchProblemFields
+	ProblemID int64 `json:"problem_id"`
 }
 
 // ============================================================================

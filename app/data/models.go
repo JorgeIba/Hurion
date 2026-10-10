@@ -15,6 +15,23 @@ type Problem struct {
 	CreatedAt  time.Time
 }
 
+// PatchField records whether a problem field should be changed. A set field with
+// a nil pointer value clears nullable problem columns.
+type PatchField[T any] struct {
+	Set   bool
+	Value T
+}
+
+// ProblemPatch contains only the columns supplied by a caller.
+type ProblemPatch struct {
+	Name       PatchField[string]
+	URL        PatchField[string]
+	ClassID    PatchField[int64]
+	Difficulty PatchField[*string]
+	Topic      PatchField[*string]
+	Priority   PatchField[*string]
+}
+
 // ACKey identifies an accepted solution without its recording timestamp.
 type ACKey struct {
 	UserID    string

@@ -168,6 +168,29 @@ func mapReplaceProblemParamsToDataProblem(params service_model.ReplaceProblemPar
 	}
 }
 
+func mapPatchProblemParamsToDataProblemPatch(params service_model.PatchProblemParams, classID int64) data.ProblemPatch {
+	patch := data.ProblemPatch{
+		Name: data.PatchField[string]{Set: params.Name.Set, Value: params.Name.Value},
+		URL:  data.PatchField[string]{Set: params.URL.Set, Value: params.URL.Value},
+		Difficulty: data.PatchField[*string]{
+			Set:   params.Difficulty.Set,
+			Value: params.Difficulty.Value,
+		},
+		Topic: data.PatchField[*string]{
+			Set:   params.Topic.Set,
+			Value: params.Topic.Value,
+		},
+		Priority: data.PatchField[*string]{
+			Set:   params.Priority.Set,
+			Value: params.Priority.Value,
+		},
+	}
+	if params.ClassCode.Set {
+		patch.ClassID = data.PatchField[int64]{Set: true, Value: classID}
+	}
+	return patch
+}
+
 func mapServiceUserToDataUser(u service_model.User) data.User {
 	return data.User{
 		UserID:      u.UserID,

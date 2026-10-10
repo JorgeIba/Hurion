@@ -44,6 +44,73 @@ func NormalizeAndValidateReplaceProblemParams(params ReplaceProblemParams) (Repl
 	return params, errors.Join(err, ValidateClassCodeLength(params.ClassCode))
 }
 
+// NormalizeAndValidatePatchProblemParams validates only supplied values. Unset
+// fields are left untouched; explicit nulls for nullable fields remain nil so they
+// clear the stored value when applied.
+func NormalizeAndValidatePatchProblemParams(params PatchProblemParams) (PatchProblemParams, error) {
+	var problems []error
+	if params.ProblemID <= 0 {
+		problems = append(problems, errors.New("problem ID must be positive"))
+	}
+	if !params.ClassCode.Set && !params.Name.Set && !params.URL.Set && !params.Difficulty.Set && !params.Topic.Set && !params.Priority.Set {
+		problems = append(problems, errors.New("at least one problem field must be provided"))
+	}
+
+	if params.ClassCode.Set {
+		params.ClassCode.Value = strings.TrimSpace(params.ClassCode.Value)
+		if params.ClassCode.Value == "" {
+			problems = append(problems, errors.New("class code is required"))
+		}
+		problems = append(problems, ValidateClassCodeLength(params.ClassCode.Value))
+	}
+	if params.Name.Set {
+		params.Name.Value = strings.TrimSpace(params.Name.Value)
+		if params.Name.Value == "" {
+			problems = append(problems, errors.New("problem name is required"))
+		}
+		problems = append(problems, validateTextLength("problem name", params.Name.Value, ProblemNameMaxLength))
+	}
+	if params.URL.Set {
+		params.URL.Value = strings.TrimSpace(params.URL.Value)
+		parsed, err := url.ParseRequestURI(params.URL.Value)
+		if err != nil || parsed.Hostname() == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			problems = append(problems, errors.New("URL must be an absolute HTTP or HTTPS URL"))
+		}
+		problems = append(problems, validateTextLength("URL", params.URL.Value, ProblemURLMaxLength))
+	}
+	if params.Topic.Set {
+		params.Topic.Value = normalizeOptionalProblemText(params.Topic.Value)
+		value := ""
+		if params.Topic.Value != nil {
+			value = *params.Topic.Value
+		}
+		problems = append(problems, validateTextLength("topic", value, ProblemTopicMaxLength))
+	}
+	if params.Difficulty.Set {
+		params.Difficulty.Value = normalizeOptionalProblemText(params.Difficulty.Value)
+		if params.Difficulty.Value != nil {
+			code, err := ParseDifficulty(*params.Difficulty.Value)
+			if err != nil {
+				problems = append(problems, err)
+			} else {
+				params.Difficulty.Value = &code
+			}
+		}
+	}
+	if params.Priority.Set {
+		params.Priority.Value = normalizeOptionalProblemText(params.Priority.Value)
+		if params.Priority.Value != nil {
+			code, err := ParsePriority(*params.Priority.Value)
+			if err != nil {
+				problems = append(problems, err)
+			} else {
+				params.Priority.Value = &code
+			}
+		}
+	}
+	return params, errors.Join(problems...)
+}
+
 func normalizeAndValidateProblemFields(fields ProblemFields) (ProblemFields, error) {
 	fields.Name = strings.TrimSpace(fields.Name)
 	fields.URL = strings.TrimSpace(fields.URL)
