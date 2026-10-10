@@ -326,7 +326,10 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit
-	if len(issues) > 0 {
+	if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
+		logger.Log.Errorf("Failed to revalidate problem batch %s: %v", batchID, err)
+		response = discord.BuildBatchValidationFailure("Could not validate the problem batch. No changes were applied. Submit the batch again.")
+	} else if len(issues) > 0 {
 		locations := mapProblemBatchExecutionIssues(batch, issues)
 		response = discord.BuildBatchValidationFailure(discord.FormatBatchValidationErrors(locations))
 	} else {

@@ -187,6 +187,53 @@ func TestWorkflow_BatchConfirmationRevalidatesBeforeAnyWrite(t *testing.T) {
 	}
 }
 
+type failProblemBatchRevalidationStore struct {
+	data.DataStore
+	classLookups int
+	batchWrites  int
+}
+
+func (store *failProblemBatchRevalidationStore) GetClassesByClassCodes(classCodes []string) ([]data.Class, error) {
+	store.classLookups++
+	if store.classLookups == 2 {
+		return nil, errors.New("database unavailable")
+	}
+	return store.DataStore.GetClassesByClassCodes(classCodes)
+}
+
+func (store *failProblemBatchRevalidationStore) AddProblemsBatch(problems []data.Problem) ([]int64, error) {
+	store.batchWrites++
+	return store.DataStore.AddProblemsBatch(problems)
+}
+
+func TestWorkflow_ProblemBatchRevalidationReadFailureReportsNoWrites(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	classID := env.seedClass(t, "basicos", "Basicos")
+	store := &failProblemBatchRevalidationStore{DataStore: env.DB}
+	svcs := services.NewServices(store)
+	responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
+	env.ProblemController = mentor.NewProblemInteractionController(svcs, env.Discord, responder)
+
+	preview := submitBatchPreview(t, env, "problem", `[{"class":"basicos","name":"New","url":"https://example.com/new"}]`)
+	require.Equal(t, 1, store.classLookups, "preview preparation resolves the class once")
+	event := batchButtonEvent(t, preview, "Confirm")
+	env.handleInteractionEvent(event)
+
+	require.Len(t, env.Responder.edits, 2)
+	receipt := env.Responder.edits[1].response
+	assert.Contains(t, *receipt.Content, "Could not validate the problem batch")
+	assert.Contains(t, *receipt.Content, "No changes were applied")
+	assert.NotContains(t, *receipt.Content, "outcome could not be confirmed")
+	assert.Equal(t, 2, store.classLookups, "confirmation revalidation encounters the datastore failure")
+	assert.Zero(t, store.batchWrites, "a failed revalidation must not reach the write method")
+
+	problems, err := env.DB.GetProblemsByClass(classID)
+	require.NoError(t, err)
+	assert.Empty(t, problems)
+}
+
 // Lose acknowledgement after persistence to exercise uncertain storage outcomes.
 type uncertainBatchStore struct {
 	data.DataStore
