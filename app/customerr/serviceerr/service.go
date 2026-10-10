@@ -171,3 +171,14 @@ func IsServiceError(err error) bool {
 	_, ok := errors.AsType[ServiceErrorInterface](err)
 	return ok
 }
+
+// BatchPreparationError indicates that execution stopped before any write.
+type BatchPreparationError struct{ ServiceError }
+
+func NewBatchPreparationError(message string, err error) *BatchPreparationError {
+	return &BatchPreparationError{
+		Code:         500,
+		Message:      message,
+		WrappedError: err,
+	}
+}

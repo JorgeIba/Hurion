@@ -3,6 +3,7 @@ package mentor
 import (
 	"crypto/rand"
 	"errors"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
@@ -102,7 +103,12 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 	}
 
 	// Validate the complete batch with the service.
-	prepared, domainIssues := ctrl.services.Batch.PrepareACBatch(inputs, students)
+	prepared, domainIssues, err := ctrl.services.Batch.PrepareACBatch(inputs, students)
+	if err != nil {
+		logger.Log.Errorf("Failed to validate AC batch: %v", err)
+		ctrl.editInteractionResponse(event.Interaction, "Could not validate the AC batch. No changes were applied. Try again.")
+		return
+	}
 	if len(domainIssues) > 0 {
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapACBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
@@ -186,7 +192,10 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit
-	if len(issues) > 0 {
+	if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
+		logger.Log.Errorf("Failed to revalidate AC batch %s: %v", batchID, err)
+		response = discord.BuildBatchValidationFailure("Could not validate the AC batch. No changes were applied. Submit the batch again.")
+	} else if len(issues) > 0 {
 		locations := mapACBatchExecutionIssues(batch, issues)
 		response = discord.BuildBatchValidationFailure(discord.FormatBatchValidationErrors(locations))
 	} else {

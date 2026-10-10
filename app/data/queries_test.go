@@ -32,6 +32,7 @@ func ptrStr(value string) *string {
 }
 
 var batchLookupQueryCount atomic.Int64
+var batchWriteQueryCount atomic.Int64
 
 type queryCountingDriver struct {
 	driver.Driver
@@ -52,6 +53,7 @@ type queryCountingConn struct {
 }
 
 func (counting queryCountingConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	batchWriteQueryCount.Add(1)
 	execer, ok := counting.Conn.(driver.ExecerContext)
 	if !ok {
 		return nil, driver.ErrSkip
@@ -74,7 +76,7 @@ func (counting queryCountingConn) countRead(query string) {
 
 func countBatchLookupRead(query string, queries *atomic.Int64) {
 	query = strings.ToUpper(strings.TrimSpace(query))
-	if strings.HasPrefix(query, "SELECT") {
+	if strings.HasPrefix(query, "SELECT") || strings.HasPrefix(query, "WITH") {
 		queries.Add(1)
 	}
 }
@@ -2343,6 +2345,190 @@ func TestGetClassesByAccessRoles(t *testing.T) {
 
 			classes, err := db.GetClassesByAccessRoles(tt.roles)
 			tt.assertFunc(t, db, classes, err)
+		})
+	}
+}
+
+func TestACValidationDataUsesOneReadAndPreservesRequestedPairs(t *testing.T) {
+	conn, err := sql.Open("sqlite3_batch_lookup_count", ":memory:")
+	require.NoError(t, err)
+	conn.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	require.NoError(t, applySchema(conn))
+	db := &DB{conn: conn}
+	targets := make([]ACKey, 100)
+	expectedProblems := make(map[ACKey]Problem)
+	for index := range 100 {
+		code := fmt.Sprintf("ac-class-%d", index)
+		classID, err := db.CreateClass(Class{ClassCode: code, Name: code})
+		require.NoError(t, err)
+		require.NoError(t, db.AddClassAccessRole(ClassAccessRole{ClassCode: code, RoleID: "student"}))
+		id, err := db.AddProblem(Problem{Name: code, URL: "https://example.com", ClassID: classID, Difficulty: ptrStr("easy"), Topic: ptrStr("Arrays")})
+		require.NoError(t, err)
+		userID := fmt.Sprint(index + 1)
+		require.NoError(t, db.EnsureUser(User{UserID: userID}))
+		require.NoError(t, db.AddAC(userID, id))
+		targets[index] = ACKey{UserID: userID, ProblemID: id}
+		expectedProblems[targets[index]], err = db.GetProblemByID(id)
+		require.NoError(t, err)
+	}
+	for _, size := range []int{1, 100} {
+		batchLookupQueryCount.Store(0)
+		facts, err := db.GetACValidationData(targets[:size])
+		require.NoError(t, err)
+		require.Len(t, facts, size)
+		assert.EqualValues(t, 1, batchLookupQueryCount.Load())
+		for index, target := range targets[:size] {
+			fact := facts[target]
+			require.NotNil(t, fact.Problem)
+			assert.Equal(t, expectedProblems[target], *fact.Problem)
+			require.NotNil(t, fact.Class)
+			assert.Equal(t, fmt.Sprintf("ac-class-%d", index), fact.Class.ClassCode)
+			assert.Equal(t, fact.Problem.ClassID, fact.Class.ID)
+			assert.Equal(t, []string{"student"}, fact.AccessRoleIDs)
+			assert.True(t, fact.AlreadyRecorded)
+		}
+	}
+	require.NoError(t, db.AddClassAccessRole(ClassAccessRole{ClassCode: "ac-class-0", RoleID: "second-role"}))
+	crossPair := ACKey{UserID: targets[0].UserID, ProblemID: targets[1].ProblemID}
+	missingProblem := ACKey{UserID: "absent", ProblemID: 999999}
+	facts, err := db.GetACValidationData([]ACKey{targets[0], targets[0], crossPair, missingProblem})
+	require.NoError(t, err)
+	require.Len(t, facts, 3)
+	assert.ElementsMatch(t, []string{"student", "second-role"}, facts[targets[0]].AccessRoleIDs)
+	assert.True(t, facts[targets[0]].AlreadyRecorded)
+	assert.False(t, facts[crossPair].AlreadyRecorded, "existing solves must match the exact pair")
+	assert.Equal(t, []string{"student"}, facts[crossPair].AccessRoleIDs, "roles belong to the problem's class")
+	assert.Nil(t, facts[missingProblem].Problem)
+	assert.Nil(t, facts[missingProblem].Class)
+	assert.Empty(t, facts[missingProblem].AccessRoleIDs)
+	assert.False(t, facts[missingProblem].AlreadyRecorded)
+
+	// Optional metadata and classes without access roles remain valid read results.
+	classID, err := db.CreateClass(Class{ClassCode: "no-roles", Name: "No roles"})
+	require.NoError(t, err)
+	id, err := db.AddProblem(Problem{Name: "No metadata", URL: "https://example.com", ClassID: classID})
+	require.NoError(t, err)
+	target := ACKey{UserID: "new-student", ProblemID: id}
+	facts, err = db.GetACValidationData([]ACKey{target})
+	require.NoError(t, err)
+	require.NotNil(t, facts[target].Problem)
+	assert.Nil(t, facts[target].Problem.Difficulty)
+	assert.Nil(t, facts[target].Problem.Topic)
+	assert.Nil(t, facts[target].Problem.Priority)
+	assert.Empty(t, facts[target].AccessRoleIDs)
+	assert.False(t, facts[target].AlreadyRecorded)
+
+	// This raw test connection allows an orphaned class reference for legacy-data coverage.
+	orphanID, err := db.AddProblem(Problem{Name: "Orphan", URL: "https://example.com", ClassID: 999999})
+	require.NoError(t, err)
+	orphan := ACKey{UserID: "123", ProblemID: orphanID}
+	facts, err = db.GetACValidationData([]ACKey{orphan})
+	require.NoError(t, err)
+	require.NotNil(t, facts[orphan].Problem)
+	assert.Equal(t, int64(999999), facts[orphan].Problem.ClassID)
+	assert.Nil(t, facts[orphan].Class)
+
+	batchLookupQueryCount.Store(0)
+	facts, err = db.GetACValidationData(nil)
+	require.NoError(t, err)
+	assert.Empty(t, facts)
+	assert.Zero(t, batchLookupQueryCount.Load())
+	require.NoError(t, conn.Close())
+	facts, err = db.GetACValidationData(targets[:1])
+	assert.Error(t, err)
+	assert.Nil(t, facts, "query failures must not expose partial facts")
+}
+
+func TestAddACBatchUsesTwoWritesAndPreservesExistingSolves(t *testing.T) {
+	conn, err := sql.Open("sqlite3_batch_lookup_count", ":memory:")
+	require.NoError(t, err)
+	conn.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	require.NoError(t, applySchema(conn))
+	db := &DB{conn: conn}
+	classID, err := db.CreateClass(Class{ClassCode: "batch", Name: "Batch"})
+	require.NoError(t, err)
+	problemID, err := db.AddProblem(Problem{Name: "Problem", ClassID: classID})
+	require.NoError(t, err)
+
+	for _, size := range []int{0, 1, 100} {
+		targets := make([]ACKey, size)
+		for index := range targets {
+			targets[index] = ACKey{UserID: fmt.Sprintf("size-%d-user-%d", size, index), ProblemID: problemID}
+		}
+		batchWriteQueryCount.Store(0)
+		inserted, err := db.AddACBatch(targets)
+		require.NoError(t, err)
+		assert.Equal(t, size, inserted)
+		expectedWrites := int64(2)
+		if size == 0 {
+			expectedWrites = 0
+		}
+		assert.Equal(t, expectedWrites, batchWriteQueryCount.Load())
+		for _, target := range targets {
+			solved, err := db.HasUserSolvedProblem(target.UserID, target.ProblemID)
+			require.NoError(t, err)
+			assert.True(t, solved)
+		}
+	}
+
+	// Repeats and existing solves must not overwrite student names or timestamps.
+	require.NoError(t, db.EnsureUser(User{UserID: "existing", DisplayName: "Ana"}))
+	require.NoError(t, db.AddAC("existing", problemID))
+	_, err = conn.Exec("UPDATE solved_problems SET solved_at = '2000-01-01 00:00:00' WHERE user_id = ?", "existing")
+	require.NoError(t, err)
+	newTarget := ACKey{UserID: "new'; DROP TABLE users; --", ProblemID: problemID}
+	inserted, err := db.AddACBatch([]ACKey{{UserID: "existing", ProblemID: problemID}, newTarget, newTarget})
+	require.NoError(t, err)
+	assert.Equal(t, 1, inserted)
+	user, err := db.GetUserByUserID("existing")
+	require.NoError(t, err)
+	assert.Equal(t, "Ana", user.DisplayName)
+	var solvedAt time.Time
+	require.NoError(t, conn.QueryRow("SELECT solved_at FROM solved_problems WHERE user_id = ?", "existing").Scan(&solvedAt))
+	assert.Equal(t, 2000, solvedAt.Year())
+	_, err = db.GetUserByUserID(newTarget.UserID)
+	require.NoError(t, err, "SQL-looking values must be stored literally")
+}
+
+func TestAddACBatchRollsBackUsersAndSolvesOnFailure(t *testing.T) {
+	t.Parallel()
+	for _, failure := range []string{"invalid problem", "user insert", "solve insert"} {
+		t.Run(failure, func(t *testing.T) {
+			t.Parallel()
+			db := setupDB(t)
+			t.Cleanup(db.CloseDB)
+			classID, err := db.CreateClass(Class{ClassCode: "batch", Name: "Batch"})
+			require.NoError(t, err)
+			problemID, err := db.AddProblem(Problem{Name: "Problem", ClassID: classID})
+			require.NoError(t, err)
+			require.NoError(t, db.EnsureUser(User{UserID: "existing", DisplayName: "Ana"}))
+			require.NoError(t, db.AddAC("existing", problemID))
+			targets := []ACKey{{UserID: "first", ProblemID: problemID}, {UserID: "second", ProblemID: problemID}}
+			switch failure {
+			case "invalid problem":
+				targets[1].ProblemID = -1
+			case "user insert":
+				_, err = db.conn.Exec(`CREATE TRIGGER reject_user BEFORE INSERT ON users WHEN NEW.user_id = 'second' BEGIN SELECT RAISE(ABORT, 'user failure'); END`)
+				require.NoError(t, err)
+			case "solve insert":
+				_, err = db.conn.Exec(`CREATE TRIGGER reject_solve BEFORE INSERT ON solved_problems WHEN NEW.user_id = 'second' BEGIN SELECT RAISE(ABORT, 'solve failure'); END`)
+				require.NoError(t, err)
+			}
+			inserted, err := db.AddACBatch(targets)
+			require.Error(t, err)
+			assert.Zero(t, inserted)
+			for _, userID := range []string{"first", "second"} {
+				_, err := db.GetUserByUserID(userID)
+				assert.Error(t, err, "new users must roll back")
+				solved, err := db.HasUserSolvedProblem(userID, problemID)
+				require.NoError(t, err)
+				assert.False(t, solved)
+			}
+			solved, err := db.HasUserSolvedProblem("existing", problemID)
+			require.NoError(t, err)
+			assert.True(t, solved, "existing solves must survive a failed batch")
 		})
 	}
 }

@@ -214,7 +214,8 @@ func setupConfirmationRace(t *testing.T, problem bool, validator providers.Disco
 	require.NoError(t, err)
 	require.NoError(t, db.AddClassAccessRole(data.ClassAccessRole{ClassCode: "basicos", RoleID: "student"}))
 	principal := service_model.Principal{UserID: "123", Roles: []string{"student"}}
-	prepared, issues := svcs.Batch.PrepareACBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: problemID}}, map[string]service_model.Principal{"123": principal})
+	prepared, issues, err := svcs.Batch.PrepareACBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: problemID}}, map[string]service_model.Principal{"123": principal})
+	require.NoError(t, err)
 	require.Empty(t, issues)
 	controller := NewACInteractionController(svcs, validator, fetcher, responder)
 	require.True(t, controller.validatedBatches.saveValidatedBatch(key, prepared))

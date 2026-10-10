@@ -15,6 +15,20 @@ type Problem struct {
 	CreatedAt  time.Time
 }
 
+// ACKey identifies an accepted solution without its recording timestamp.
+type ACKey struct {
+	UserID    string
+	ProblemID int64
+}
+
+// ACValidationData contains datastore facts; access decisions belong to the service.
+type ACValidationData struct {
+	Problem         *Problem
+	Class           *Class
+	AccessRoleIDs   []string
+	AlreadyRecorded bool
+}
+
 type SolvedProblem struct {
 	UserID    string
 	ProblemID int64

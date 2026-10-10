@@ -54,6 +54,21 @@ func (mr *MockDataStoreMockRecorder) AddAC(userID, problemID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAC", reflect.TypeOf((*MockDataStore)(nil).AddAC), userID, problemID)
 }
 
+// AddACBatch mocks base method.
+func (m *MockDataStore) AddACBatch(targets []data.ACKey) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddACBatch", targets)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddACBatch indicates an expected call of AddACBatch.
+func (mr *MockDataStoreMockRecorder) AddACBatch(targets any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddACBatch", reflect.TypeOf((*MockDataStore)(nil).AddACBatch), targets)
+}
+
 // AddClassAccessRole mocks base method.
 func (m *MockDataStore) AddClassAccessRole(role data.ClassAccessRole) error {
 	m.ctrl.T.Helper()
@@ -195,6 +210,21 @@ func (m *MockDataStore) ExterminateUser(userID string) error {
 func (mr *MockDataStoreMockRecorder) ExterminateUser(userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExterminateUser", reflect.TypeOf((*MockDataStore)(nil).ExterminateUser), userID)
+}
+
+// GetACValidationData mocks base method.
+func (m *MockDataStore) GetACValidationData(targets []data.ACKey) (map[data.ACKey]data.ACValidationData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetACValidationData", targets)
+	ret0, _ := ret[0].(map[data.ACKey]data.ACValidationData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetACValidationData indicates an expected call of GetACValidationData.
+func (mr *MockDataStoreMockRecorder) GetACValidationData(targets any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetACValidationData", reflect.TypeOf((*MockDataStore)(nil).GetACValidationData), targets)
 }
 
 // GetActiveUsersByClassID mocks base method.

@@ -21,6 +21,7 @@ type QueryDatastore interface {
 	GetClassesByAccessRoles(roleIDs []string) ([]Class, error)
 	GetAllClasses() ([]Class, error)
 	HasUserSolvedProblem(userID string, problemID int64) (bool, error)
+	GetACValidationData(targets []ACKey) (map[ACKey]ACValidationData, error)
 }
 
 type UpdateDataStore interface {
@@ -32,6 +33,7 @@ type UpdateDataStore interface {
 	AddProblem(problem Problem) (int64, error)
 	RemoveProblemByID(problemID int64) (int64, error)
 	AddAC(userID string, problemID int64) error
+	AddACBatch(targets []ACKey) (int, error)
 	RemoveAC(userID string, problemID int64) error
 	ClearClassContents(classID int64) error
 	DeleteClass(classID int64) error

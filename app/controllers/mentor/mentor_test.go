@@ -126,9 +126,9 @@ func TestHandleAddAC(t *testing.T) {
 				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 10}, nil)
-				m.EXPECT().GetClassByClassID(int64(10)).Return(data.Class{ID: 10, ClassCode: "CS101"}, nil)
-				m.EXPECT().GetClassAccessRolesByClassCode("CS101").Return([]data.ClassAccessRole{{ClassCode: "CS101", RoleID: "role_student"}}, nil)
+				m.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 100}}).Return(map[data.ACKey]data.ACValidationData{
+					{UserID: "123", ProblemID: 100}: {Problem: &data.Problem{ID: 100, ClassID: 10}, Class: &data.Class{ID: 10, ClassCode: "CS101"}, AccessRoleIDs: []string{"role_student"}},
+				}, nil)
 
 				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
 				m.EXPECT().HasUserSolvedProblem("123", int64(100)).Return(false, nil)
@@ -162,7 +162,7 @@ func TestHandleAddAC(t *testing.T) {
 				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
 				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
 
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{}, fmt.Errorf("db error"))
+				m.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 100}}).Return(nil, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
