@@ -2,12 +2,13 @@ package mentor
 
 import (
 	"errors"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
@@ -23,8 +24,8 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 		problem bool
 		route   string
 	}{
-		{name: "problem", problem: true, route: discord.ProblemBatchCancelCustomID},
-		{name: "AC", route: discord.ACBatchCancelCustomID},
+		{name: "problem", problem: true, route: string(discordcommands.CancelProblemBatch)},
+		{name: "AC", route: string(discordcommands.CancelACBatch)},
 	} {
 		t.Run(family.name, func(t *testing.T) {
 			t.Parallel()
@@ -106,12 +107,12 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					}
 					if test.otherKind {
 						if family.problem {
-							route = discord.ACBatchCancelCustomID
+							route = string(discordcommands.CancelACBatch)
 							controller := NewACInteractionController(nil, validator, nil, responder)
 							controller.validatedBatches = acCache
 							handle = controller.HandleCancelACBatchInteraction
 						} else {
-							route = discord.ProblemBatchCancelCustomID
+							route = string(discordcommands.CancelProblemBatch)
 							controller := NewProblemInteractionController(nil, validator, responder)
 							controller.validatedBatches = problemCache
 							handle = controller.HandleCancelProblemBatchInteraction
@@ -172,8 +173,8 @@ func TestConcurrentBatchCancellationOnlyWinnerUpdatesPreview(t *testing.T) {
 		problem bool
 		route   string
 	}{
-		{name: "problem", problem: true, route: discord.ProblemBatchCancelCustomID},
-		{name: "AC", route: discord.ACBatchCancelCustomID},
+		{name: "problem", problem: true, route: string(discordcommands.CancelProblemBatch)},
+		{name: "AC", route: string(discordcommands.CancelACBatch)},
 	} {
 		t.Run(family.name, func(t *testing.T) {
 			t.Parallel()
@@ -233,8 +234,8 @@ func TestDelayedCancellationAuthorizationFailurePreservesWinningReceipt(t *testi
 		problem bool
 		route   string
 	}{
-		{name: "problem", problem: true, route: discord.ProblemBatchCancelCustomID},
-		{name: "AC", route: discord.ACBatchCancelCustomID},
+		{name: "problem", problem: true, route: string(discordcommands.CancelProblemBatch)},
+		{name: "AC", route: string(discordcommands.CancelACBatch)},
 	} {
 		t.Run(family.name, func(t *testing.T) {
 			t.Parallel()

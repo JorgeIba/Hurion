@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -117,4 +118,29 @@ func normalizeOptionalProblemText(value *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+// NormalizeACUserID adapts textual IDs without validating whether an AC is valid.
+func NormalizeACUserID(userID string) string {
+	userID = strings.TrimSpace(userID)
+	if id, err := strconv.ParseUint(userID, 10, 64); err == nil {
+		return strconv.FormatUint(id, 10)
+	}
+	return userID
+}
+
+func NormalizeAndValidateCreateACParams(input CreateACParams) (CreateACParams, error) {
+	input.UserID = NormalizeACUserID(input.UserID)
+	id, err := strconv.ParseUint(input.UserID, 10, 64)
+
+	var issues []error
+	if err != nil || id == 0 {
+		issues = append(issues, errors.New("user_id must be a positive numeric Discord ID"))
+	}
+
+	if input.ProblemID <= 0 {
+		issues = append(issues, errors.New("problem_id must be positive"))
+	}
+
+	return input, errors.Join(issues...)
 }

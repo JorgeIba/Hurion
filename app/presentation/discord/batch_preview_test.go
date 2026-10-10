@@ -1,22 +1,24 @@
-package discord
+package discord_test
 
 import (
 	"encoding/json"
-	"testing"
-
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestBatchPreviewCancelButtonRoundTripsAndFitsDiscordIDLimit(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, route string }{
-		{name: "problem", route: ProblemBatchCancelCustomID},
-		{name: "AC", route: ACBatchCancelCustomID},
+		{name: "problem", route: string(discordcommands.CancelProblemBatch)},
+		{name: "AC", route: string(discordcommands.CancelACBatch)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			preview := BuildValidatedBatchPreview("Validated batch", test.route, "abcdefghijklmnopqrstuvwxyz")
+			preview := discord.BuildValidatedBatchPreview("Validated batch", test.route+"|abcdefghijklmnopqrstuvwxyz")
 			assert.Equal(t, "Validated batch", *preview.Content)
 			assert.Empty(t, preview.AllowedMentions.Parse)
 			if !assert.NotNil(t, preview.Components) || !assert.Len(t, *preview.Components, 1) {
@@ -29,8 +31,7 @@ func TestBatchPreviewCancelButtonRoundTripsAndFitsDiscordIDLimit(t *testing.T) {
 			button := row.Components[0].(discordgo.Button)
 			assert.Equal(t, "Cancel", button.Label)
 			assert.LessOrEqual(t, len(button.CustomID), 100)
-			assert.Equal(t, test.route, ComponentRouteFromCustomID(button.CustomID))
-			id, err := ParseBatchCancelID(discordgo.MessageComponentInteractionData{CustomID: button.CustomID, ComponentType: discordgo.ButtonComponent}, test.route)
+			id, err := parseCancelIDForTest(button.CustomID, test.route)
 			assert.NoError(t, err)
 			assert.Equal(t, "abcdefghijklmnopqrstuvwxyz", id)
 		})
@@ -43,16 +44,15 @@ func TestBatchCancelIDRejectsMalformedOrWrongComponents(t *testing.T) {
 		name, id string
 		kind     discordgo.ComponentType
 	}{
-		{name: "missing ID", id: ProblemBatchCancelCustomID, kind: discordgo.ButtonComponent},
-		{name: "empty ID", id: ProblemBatchCancelCustomID + "|", kind: discordgo.ButtonComponent},
-		{name: "extra context", id: ProblemBatchCancelCustomID + "|id|extra", kind: discordgo.ButtonComponent},
-		{name: "blank ID", id: ProblemBatchCancelCustomID + "| ", kind: discordgo.ButtonComponent},
-		{name: "other route", id: ACBatchCancelCustomID + "|id", kind: discordgo.ButtonComponent},
-		{name: "not a button", id: ProblemBatchCancelCustomID + "|id", kind: discordgo.SelectMenuComponent},
+		{name: "missing ID", id: string(discordcommands.CancelProblemBatch), kind: discordgo.ButtonComponent},
+		{name: "empty ID", id: string(discordcommands.CancelProblemBatch) + "|", kind: discordgo.ButtonComponent},
+		{name: "extra context", id: string(discordcommands.CancelProblemBatch) + "|id|extra", kind: discordgo.ButtonComponent},
+		{name: "blank ID", id: string(discordcommands.CancelProblemBatch) + "| ", kind: discordgo.ButtonComponent},
+		{name: "other route", id: string(discordcommands.CancelACBatch) + "|id", kind: discordgo.ButtonComponent},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := ParseBatchCancelID(discordgo.MessageComponentInteractionData{CustomID: test.id, ComponentType: test.kind}, ProblemBatchCancelCustomID)
+			_, err := interactiontransport.ParseProblemBatchCancelID(test.id)
 			assert.Error(t, err)
 		})
 	}
@@ -66,11 +66,11 @@ func TestBatchCancellationExplicitlyClearsButtonsInDiscordPayload(t *testing.T) 
 		want      string
 	}{
 		{name: "cancelled", cancelled: true, want: "Batch cancelled. No changes were applied."},
-		{name: "unavailable", want: BatchUnavailableMessage},
+		{name: "unavailable", want: discord.BatchUnavailableMessage},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			payload, err := json.Marshal(BuildBatchCancellationResult(test.cancelled))
+			payload, err := json.Marshal(discord.BuildBatchCancellationResult(test.cancelled))
 			assert.NoError(t, err)
 			var wire map[string]json.RawMessage
 			assert.NoError(t, json.Unmarshal(payload, &wire))
@@ -80,4 +80,11 @@ func TestBatchCancellationExplicitlyClearsButtonsInDiscordPayload(t *testing.T) 
 			assert.Equal(t, test.want, content)
 		})
 	}
+}
+
+func parseCancelIDForTest(id, route string) (string, error) {
+	if route == string(discordcommands.CancelProblemBatch) {
+		return interactiontransport.ParseProblemBatchCancelID(id)
+	}
+	return interactiontransport.ParseACBatchCancelID(id)
 }

@@ -2,13 +2,13 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
-	form "github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
@@ -32,19 +32,19 @@ func (env *workflowEnv) openProblemEditor(t *testing.T, user string, id int64, c
 	return response
 }
 
-func editorFields(t *testing.T, response *discordgo.InteractionResponse) form.ProblemModalFields {
+func editorFields(t *testing.T, response *discordgo.InteractionResponse) interactiontransport.ProblemModalFields {
 	t.Helper()
-	modal, err := form.ParseEditProblemModal(submittedProblemFormData(t, response))
+	modal, err := interactiontransport.ParseEditProblemModal(submittedProblemFormData(t, response))
 	require.NoError(t, err)
 	return modal.ProblemModalFields
 }
 
-func (env *workflowEnv) submitProblemEditor(t *testing.T, user string, response *discordgo.InteractionResponse, fields form.ProblemModalFields) {
+func (env *workflowEnv) submitProblemEditor(t *testing.T, user string, response *discordgo.InteractionResponse, fields interactiontransport.ProblemModalFields) {
 	t.Helper()
-	modal, err := form.ParseEditProblemModal(submittedProblemFormData(t, response))
+	modal, err := interactiontransport.ParseEditProblemModal(submittedProblemFormData(t, response))
 	require.NoError(t, err)
 	// Preserve IDs from the opened form while replacing only its editable values.
-	submission, err := form.BuildEditProblemModalResponse(form.EditProblemModal{ProblemID: modal.ProblemID, ClassCode: modal.ClassCode, ProblemModalFields: fields})
+	submission, err := buildEditProblemModalForTest(interactiontransport.EditProblemModal{ProblemID: modal.ProblemID, ClassCode: modal.ClassCode, ProblemModalFields: fields})
 	require.NoError(t, err)
 	env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 		GuildID: testGuildID, ChannelID: testChannelID, Member: &discordgo.Member{User: &discordgo.User{ID: user}}, Type: discordgo.InteractionModalSubmit,
@@ -68,7 +68,7 @@ func TestWorkflow_EditProblemResolvesDestinationCodeAtSubmit(t *testing.T) {
 			if reuseCode {
 				destination = env.seedClass(t, code, "Replacement")
 			}
-			env.submitProblemEditor(t, "mentor", response, form.ProblemModalFields{Name: "Changed", URL: "https://example.com/changed"})
+			env.submitProblemEditor(t, "mentor", response, interactiontransport.ProblemModalFields{Name: "Changed", URL: "https://example.com/changed"})
 			problem, err := env.DB.GetProblemByID(id)
 			require.NoError(t, err)
 			if reuseCode {
@@ -109,7 +109,7 @@ func TestWorkflow_EditProblemMovesAndClearsWithoutLosingIdentityOrSolutions(t *t
 	assert.Equal(t, new("hard"), fields.Difficulty)
 	assert.Equal(t, new("recommended"), fields.Priority)
 	response = env.openProblemEditor(t, "mentor", id, "destination")
-	env.submitProblemEditor(t, "mentor", response, form.ProblemModalFields{
+	env.submitProblemEditor(t, "mentor", response, interactiontransport.ProblemModalFields{
 		Name: " New @everyone ", URL: " https://example.com/new ",
 	})
 	after, err := env.DB.GetProblemByID(id)
@@ -172,7 +172,7 @@ func TestWorkflow_EditProblemRecoversDraftForSameProblemAndDestination(t *testin
 	destination := env.seedClass(t, "destination", "Destination")
 	id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
 	response := env.openProblemEditor(t, "mentor", id, "destination")
-	fields := form.ProblemModalFields{Name: " Raw name ", URL: " invalid ", Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Raw topic ")}
+	fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: " invalid ", Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Raw topic ")}
 	env.submitProblemEditor(t, "mentor", response, fields)
 	assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "class:destination again")
 	assert.Equal(t, "Original", editorFields(t, env.openProblemEditor(t, "mentor", id, "")).Name, "another destination has a separate draft")
@@ -223,7 +223,7 @@ func TestWorkflow_EditProblemRetryIncludesResolvedClass(t *testing.T) {
 				mock.EXPECT().UpdateProblemByProblemID(gomock.Any()).Return(serviceerr.NewValidationError(strings.Repeat("x", 2100), nil))
 				env.Services.Problem = mock
 			}
-			fields := form.ProblemModalFields{Name: " Raw name ", URL: "invalid", Topic: new(" Raw topic ")}
+			fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: "invalid", Topic: new(" Raw topic ")}
 			env.submitProblemEditor(t, "mentor", response, fields)
 			env.Services.Problem = original
 			classCode := test.class
@@ -246,7 +246,7 @@ func TestWorkflow_EditProblemRejectsRoleLoss(t *testing.T) {
 	class := env.seedClass(t, "source", "Source")
 	id := env.seedProblem(t, "Original", "https://example.com/original", class, "hard", "Trees")
 	response := env.openProblemEditor(t, "mentor", id, "")
-	fields := form.ProblemModalFields{Name: "Changed", URL: "https://example.com/new"}
+	fields := interactiontransport.ProblemModalFields{Name: "Changed", URL: "https://example.com/new"}
 	allowed = false
 	env.submitProblemEditor(t, "mentor", response, fields)
 	assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "mentor or admin")
@@ -278,7 +278,7 @@ func TestWorkflow_EditProblemReceiptFailureDoesNotUndoWrite(t *testing.T) {
 		assert.Equal(t, "Changed", current.Name, "the write completes before sending the receipt")
 		return fmt.Errorf("receipt failed")
 	}
-	fields := form.ProblemModalFields{Name: "Changed", URL: "https://example.com/new"}
+	fields := interactiontransport.ProblemModalFields{Name: "Changed", URL: "https://example.com/new"}
 	env.submitProblemEditor(t, "mentor", response, fields)
 	assert.Equal(t, 1, receiptAttempts)
 	after, err := env.DB.GetProblemByID(id)
@@ -299,7 +299,7 @@ func TestWorkflow_EditProblemFailedAcknowledgementAndDeletedTarget(t *testing.T)
 	id := env.seedProblem(t, "Original", "https://example.com/original", class, "hard", "Trees")
 	response := env.openProblemEditor(t, "mentor", id, "")
 	env.Responder.respondFunc = func(*discordgo.InteractionResponse) error { return fmt.Errorf("ack failed") }
-	fields := form.ProblemModalFields{Name: "Changed", URL: "https://example.com/new"}
+	fields := interactiontransport.ProblemModalFields{Name: "Changed", URL: "https://example.com/new"}
 	env.submitProblemEditor(t, "mentor", response, fields)
 	current, err := env.DB.GetProblemByID(id)
 	require.NoError(t, err)
@@ -322,7 +322,7 @@ func TestWorkflow_DistinctProblemEditorsUseLastSuccessfulWrite(t *testing.T) {
 	id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
 	older := env.openProblemEditor(t, "mentor1", id, "")
 	newer := env.openProblemEditor(t, "mentor2", id, "destination")
-	env.submitProblemEditor(t, "mentor2", newer, form.ProblemModalFields{Name: "Newer", URL: "https://example.com/newer"})
+	env.submitProblemEditor(t, "mentor2", newer, interactiontransport.ProblemModalFields{Name: "Newer", URL: "https://example.com/newer"})
 	moved, err := env.DB.GetProblemByID(id)
 	require.NoError(t, err)
 	assert.Equal(t, destination, moved.ClassID)
@@ -355,7 +355,7 @@ func TestWorkflow_EditProblemRetainsDraftsForEveryFailedWrite(t *testing.T) {
 			mock.EXPECT().UpdateProblemByProblemID(gomock.Any()).Return(test.err).Times(1)
 			original := env.Services.Problem
 			env.Services.Problem = mock
-			fields := form.ProblemModalFields{Name: " Raw name ", URL: "https://example.com/new"}
+			fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: "https://example.com/new"}
 			env.submitProblemEditor(t, "mentor", response, fields)
 			env.Services.Problem = original
 			reopened := env.openProblemEditor(t, "mentor", id, "destination")
@@ -402,13 +402,13 @@ func TestWorkflow_ProblemFormsPreserveOptionalAbsenceThroughPersistence(t *testi
 					"name": "Two Sum", "url": "https://example.com/problem",
 					"difficulty": test.difficulty, "priority": test.priority, "topic": test.topic,
 				})
-				var fields form.ProblemModalFields
+				var fields interactiontransport.ProblemModalFields
 				if action == "edit" {
-					modal, err := form.ParseEditProblemModal(submission)
+					modal, err := interactiontransport.ParseEditProblemModal(submission)
 					require.NoError(t, err)
 					fields = modal.ProblemModalFields
 				} else {
-					modal, err := form.ParseCreateProblemModal(submission)
+					modal, err := interactiontransport.ParseCreateProblemModal(submission)
 					require.NoError(t, err)
 					fields = modal.ProblemModalFields
 				}

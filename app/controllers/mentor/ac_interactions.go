@@ -4,11 +4,14 @@ import (
 	"crypto/rand"
 	"errors"
 
+	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -17,7 +20,7 @@ type ACInteractionController struct {
 	validator        providers.DiscordValidator
 	fetcher          providers.DiscordFetcher
 	responder        dispatcher.InteractionResponder
-	attachments      *jsonFileTransport
+	attachments      *jsonTransport
 	validatedBatches *validatedACBatchCache
 }
 
@@ -32,7 +35,7 @@ func NewACInteractionController(
 		validator:        validator,
 		fetcher:          fetcher,
 		responder:        responder,
-		attachments:      newJSONFileTransport(nil),
+		attachments:      newJSONTransport(nil),
 		validatedBatches: newValidatedACBatchCache(nil),
 	}
 }
@@ -43,48 +46,74 @@ func (ctrl *ACInteractionController) HandleAddACBatchInteraction(event *discordg
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
-	ctrl.responder.Respond(event.Interaction, discord.BuildACBatchModalResponse())
+	ctrl.responder.Respond(event.Interaction, interactiontransport.BuildACBatchModalResponse())
 }
 
 // HandleCreateACBatchModalSubmitInteraction validates without writing.
 func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
+	// Acknowledge the submission and authorize the actor.
 	if err := ctrl.deferACInteractionResponse(event.Interaction); err != nil {
 		return
 	}
+
 	if err := ctrl.authorizeACInteraction(event); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
-	source, err := discord.ParseACBatchModalSource(event.ModalSubmitData())
+
+	// Read the form and JSON document, then decode the batch input.
+	source, err := interactiontransport.ParseACBatchModalSource(event.ModalSubmitData())
 	if err != nil {
 		ctrl.editInteractionResponse(event.Interaction, "Could not read the batch form: "+err.Error())
-		return
-	}
-	input, err := ctrl.attachments.read(source)
-	if err != nil {
-		ctrl.editInteractionResponse(event.Interaction, "Could not read the batch form: "+err.Error())
-		return
-	}
-	entries, issues := parseACBatch(input)
-	if len(issues) > 0 {
-		ctrl.editInteractionResponse(event.Interaction, batchParseReceipt(len(entries), issues))
 		return
 	}
 
-	preparer := batchPreparer{batch: ctrl.services.Batch, fetcher: ctrl.fetcher}
-	prepared, validationIssues, err := preparer.prepareACEntries(event.GuildID, entries)
+	input, err := ctrl.attachments.read(source)
+	if err != nil {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatJSONReadError(mapJSONReadIssue(err)))
+		return
+	}
+
+	entries, issues := parseACBatchInput(input)
+	if len(issues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatJSONParseResult(len(entries), mapBatchParseIssues(issues)))
+		return
+	}
+
+	// Validate input values before external lookups.
+	validationIssues := entries.validate(validateACInput)
+	if len(validationIssues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapACBatchValidationIssues(entries, validationIssues)))
+		return
+	}
+
+	// Adapt the input and resolve Discord principals.
+	inputs := mapACBatchInputToCreateACParams(entries)
+	userIDs := make([]string, len(entries))
+	for index, entry := range entries {
+		userIDs[index] = service_model.NormalizeACUserID(entry.UserID)
+	}
+	students, err := controllers_common.GetMemberPrincipals(ctrl.fetcher, event.GuildID, userIDs)
+
 	if err != nil {
 		logger.Log.Errorf("Failed to resolve AC batch students: %v", err)
 		ctrl.editInteractionResponse(event.Interaction, "Could not resolve a batch student from Discord. No changes were applied. Try again.")
 		return
 	}
 
-	if len(validationIssues) > 0 {
-		ctrl.editInteractionResponse(event.Interaction, acBatchValidationReceipt(entries, validationIssues))
+	// Validate the complete batch with the service.
+	prepared, domainIssues := ctrl.services.Batch.PrepareACBatch(inputs, students)
+	if len(domainIssues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapACBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
 	}
 
-	key := validatedBatchCacheKey{batchID: rand.Text(), guildID: event.GuildID, userID: event.Member.User.ID}
+	// Save the validated snapshot and show its preview.
+	key := validatedBatchCacheKey{
+		batchID: rand.Text(),
+		guildID: event.GuildID,
+		userID:  event.Member.User.ID,
+	}
 	available := ctrl.validatedBatches.saveValidatedBatch(key, prepared)
 	if !available {
 		ctrl.editInteractionResponse(event.Interaction, discord.BatchUnavailableMessage)
@@ -92,7 +121,7 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 	}
 
 	preview := discord.BuildValidatedBatchPreview(
-		discord.FormatACBatchValidationResult(prepared), discord.ACBatchCancelCustomID, key.batchID,
+		discord.FormatACBatchValidationResult(prepared), interactiontransport.ACBatchCancelID(key.batchID),
 	)
 	if _, err := ctrl.responder.EditResponse(event.Interaction, preview); err != nil {
 		ctrl.validatedBatches.consumeBatch(key)
@@ -100,7 +129,12 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 }
 
 func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *discordgo.InteractionCreate) {
-	batchID, err := discord.ParseBatchCancelID(event.MessageComponentData(), discord.ACBatchCancelCustomID)
+	if event.MessageComponentData().ComponentType != discordgo.ButtonComponent {
+		ctrl.responder.RespondPrivately(event.Interaction, "invalid batch cancellation button")
+		return
+	}
+
+	batchID, err := interactiontransport.ParseACBatchCancelID(event.MessageComponentData().CustomID)
 	if err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return

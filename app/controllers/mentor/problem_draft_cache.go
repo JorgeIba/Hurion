@@ -1,9 +1,9 @@
 package mentor
 
 import (
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"time"
 
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/maypok86/otter/v2"
 )
 
@@ -25,8 +25,8 @@ type editProblemDraftCacheKey struct {
 	classCode string
 }
 
-type createProblemDraftCache = problemDraftCache[createProblemDraftCacheKey, discord.CreateProblemModal]
-type editProblemDraftCache = problemDraftCache[editProblemDraftCacheKey, discord.EditProblemModal]
+type createProblemDraftCache = problemDraftCache[createProblemDraftCacheKey, interactiontransport.CreateProblemModal]
+type editProblemDraftCache = problemDraftCache[editProblemDraftCacheKey, interactiontransport.EditProblemModal]
 
 type problemDraftCache[K comparable, V any] struct {
 	cache *otter.Cache[K, V]
@@ -41,11 +41,11 @@ func newProblemDraftCache[K comparable, V any](clock otter.Clock) *problemDraftC
 }
 
 func newCreateProblemDraftCache(clock otter.Clock) *createProblemDraftCache {
-	return newProblemDraftCache[createProblemDraftCacheKey, discord.CreateProblemModal](clock)
+	return newProblemDraftCache[createProblemDraftCacheKey, interactiontransport.CreateProblemModal](clock)
 }
 
 func newEditProblemDraftCache(clock otter.Clock) *editProblemDraftCache {
-	return newProblemDraftCache[editProblemDraftCacheKey, discord.EditProblemModal](clock)
+	return newProblemDraftCache[editProblemDraftCacheKey, interactiontransport.EditProblemModal](clock)
 }
 
 // saveFailedDraft reports availability immediately after writing, not future retention.

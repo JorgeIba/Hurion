@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
@@ -22,7 +23,7 @@ type ProblemInteractionController struct {
 	services          *services.Services
 	validator         providers.DiscordValidator
 	responder         dispatcher.InteractionResponder
-	attachments       *jsonFileTransport
+	attachments       *jsonTransport
 	validatedBatches  *validatedProblemBatchCache
 	problemDrafts     *createProblemDraftCache
 	editProblemDrafts *editProblemDraftCache
@@ -33,7 +34,7 @@ func NewProblemInteractionController(svcs *services.Services, validator provider
 		services:          svcs,
 		validator:         validator,
 		responder:         responder,
-		attachments:       newJSONFileTransport(nil),
+		attachments:       newJSONTransport(nil),
 		validatedBatches:  newValidatedProblemBatchCache(nil),
 		problemDrafts:     newCreateProblemDraftCache(nil),
 		editProblemDrafts: newEditProblemDraftCache(nil),
@@ -66,12 +67,12 @@ func (ctrl *ProblemInteractionController) HandleAddProblemInteraction(event *dis
 		classCode: selectedClass.ClassCode,
 	}
 	draft, available := ctrl.problemDrafts.loadFailedDraft(key)
-	modal := discord.MapCreateProblemParamsToCreateProblemModal(service_model.CreateProblemParams{ClassCode: selectedClass.ClassCode})
+	modal := mapCreateProblemParamsToCreateProblemModal(service_model.CreateProblemParams{ClassCode: selectedClass.ClassCode})
 	if available {
 		modal = draft
 	}
 
-	response, err := discord.BuildCreateProblemModalResponse(modal)
+	response, err := interactiontransport.BuildCreateProblemModalResponse(modal)
 	if err != nil {
 		logger.Log.Warnf("Failed to build problem form: %v", err)
 		ctrl.responder.RespondPrivately(event.Interaction, "Could not open the form: "+err.Error())
@@ -94,7 +95,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
-	modal, err := discord.ParseCreateProblemModal(event.ModalSubmitData())
+	modal, err := interactiontransport.ParseCreateProblemModal(event.ModalSubmitData())
 	if err != nil {
 		logger.Log.Errorf("Failed to read problem form submission: %v", err)
 		ctrl.editInteractionResponse(event.Interaction, "Could not read the complete form. Please start again with /problem add.")
@@ -106,7 +107,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		userID:    event.Member.User.ID,
 		classCode: modal.ClassCode,
 	}
-	params := discord.MapCreateProblemModalToCreateProblemParams(modal)
+	params := mapCreateProblemModalToCreateProblemParams(modal)
 	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(params)
 	if err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorAddProblem, params.ClassCode, params.URL, params.Name)
@@ -155,12 +156,12 @@ func (ctrl *ProblemInteractionController) HandleEditProblemInteraction(event *di
 		classCode: destination.ClassCode,
 	}
 	draft, available := ctrl.editProblemDrafts.loadFailedDraft(key)
-	modal := discord.MapUpdateProblemParamsToEditProblemModal(services.MapProblemToUpdateProblemParams(problem, destination.ClassCode))
+	modal := mapUpdateProblemParamsToEditProblemModal(services.MapProblemToUpdateProblemParams(problem, destination.ClassCode))
 	if available {
 		modal.ProblemModalFields = draft.ProblemModalFields
 	}
 
-	response, err := discord.BuildEditProblemModalResponse(modal)
+	response, err := interactiontransport.BuildEditProblemModalResponse(modal)
 
 	if err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, "Could not open the editor: "+err.Error())
@@ -183,14 +184,14 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 		return
 	}
 
-	modal, err := discord.ParseEditProblemModal(event.ModalSubmitData())
+	modal, err := interactiontransport.ParseEditProblemModal(event.ModalSubmitData())
 	if err != nil {
 		ctrl.editInteractionResponse(event.Interaction, "Could not read the complete editor. Please start again with /problem edit.")
 		return
 	}
 
 	key := editProblemDraftCacheKey{guildID: event.GuildID, userID: event.Member.User.ID, problemID: modal.ProblemID, classCode: modal.ClassCode}
-	params := discord.MapEditProblemModalToUpdateProblemParams(modal)
+	params := mapEditProblemModalToUpdateProblemParams(modal)
 
 	if err := ctrl.services.Problem.UpdateProblemByProblemID(params); err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorUpdateProblem, params.ProblemID, modal.ClassCode, params.Name)
@@ -208,11 +209,12 @@ func (ctrl *ProblemInteractionController) HandleAddProblemBatchInteraction(event
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
-	ctrl.responder.Respond(event.Interaction, discord.BuildProblemBatchModalResponse())
+	ctrl.responder.Respond(event.Interaction, interactiontransport.BuildProblemBatchModalResponse())
 }
 
 // HandleCreateProblemBatchModalSubmitInteraction validates without writing.
 func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
+	// Acknowledge the submission and authorize the actor.
 	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
 		return
 	}
@@ -220,50 +222,63 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
-	source, err := discord.ParseProblemBatchModalSource(event.ModalSubmitData())
+	// Read the form and JSON document, then decode the batch input.
+	source, err := interactiontransport.ParseProblemBatchModalSource(event.ModalSubmitData())
 	if err != nil {
 		ctrl.editInteractionResponse(event.Interaction, "Could not read the batch form: "+err.Error())
 		return
 	}
 	input, err := ctrl.attachments.read(source)
 	if err != nil {
-		ctrl.editInteractionResponse(event.Interaction, "Could not read the batch form: "+err.Error())
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatJSONReadError(mapJSONReadIssue(err)))
 		return
 	}
-	entries, issues := parseProblemBatch(input)
+	entries, issues := parseProblemBatchInput(input)
 	if len(issues) > 0 {
-		ctrl.editInteractionResponse(event.Interaction, batchParseReceipt(len(entries), issues))
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatJSONParseResult(len(entries), mapBatchParseIssues(issues)))
 		return
 	}
 
-	preparer := batchPreparer{batch: ctrl.services.Batch}
-	prepared, validationIssues, err := preparer.prepareProblemEntries(entries)
-	if err != nil {
-		logger.Log.Errorf("Failed to prepare problem batch: %v", err)
-		ctrl.editInteractionResponse(event.Interaction, "Could not validate the problem batch. No changes were applied. Try again.")
-		return
-	}
-
+	// Validate input values before external lookups.
+	validationIssues := entries.validate(validateProblemInput)
 	if len(validationIssues) > 0 {
-		ctrl.editInteractionResponse(event.Interaction, problemBatchValidationReceipt(entries, validationIssues))
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemBatchValidationIssues(entries, validationIssues)))
+		return
+	}
+	// Adapt the input and validate the complete batch with the service.
+	inputs := mapProblemBatchInputToCreateProblemParams(entries)
+	prepared, domainIssues := ctrl.services.Batch.PrepareProblemBatch(inputs)
+	if len(domainIssues) > 0 {
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
 	}
 
-	key := validatedBatchCacheKey{batchID: rand.Text(), guildID: event.GuildID, userID: event.Member.User.ID}
+	// Save the validated snapshot and show its preview.
+	key := validatedBatchCacheKey{
+		batchID: rand.Text(),
+		guildID: event.GuildID,
+		userID:  event.Member.User.ID,
+	}
 	available := ctrl.validatedBatches.saveValidatedBatch(key, prepared)
 	if !available {
 		ctrl.editInteractionResponse(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
 
-	preview := discord.BuildValidatedBatchPreview(discord.FormatProblemBatchValidationResult(prepared), discord.ProblemBatchCancelCustomID, key.batchID)
+	preview := discord.BuildValidatedBatchPreview(
+		discord.FormatProblemBatchValidationResult(prepared), interactiontransport.ProblemBatchCancelID(key.batchID),
+	)
 	if _, err := ctrl.responder.EditResponse(event.Interaction, preview); err != nil {
 		ctrl.validatedBatches.consumeBatch(key)
 	}
 }
 
 func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(event *discordgo.InteractionCreate) {
-	batchID, err := discord.ParseBatchCancelID(event.MessageComponentData(), discord.ProblemBatchCancelCustomID)
+	if event.MessageComponentData().ComponentType != discordgo.ButtonComponent {
+		ctrl.responder.RespondPrivately(event.Interaction, "invalid batch cancellation button")
+		return
+	}
+	batchID, err := interactiontransport.ParseProblemBatchCancelID(event.MessageComponentData().CustomID)
 	if err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return

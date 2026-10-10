@@ -1,9 +1,7 @@
-package discord
+package interactiontransport
 
 import (
 	"fmt"
-	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/JorgeIba/Hurion/app/presentation"
@@ -11,17 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// CreateProblemModalCustomID identifies the route before the encoded class context.
-const CreateProblemModalCustomID = "huron:problem:create"
-
-const EditProblemModalCustomID = "huron:problem:edit"
-
-const ProblemBatchModalCustomID = "huron:problem:batch"
-
 const (
-	maxMessageContentLength       = 2000
-	modalCustomIDSeparator        = "|"
-	modalCustomIDMaxLength        = 100
 	problemNameFieldID            = "name"
 	problemURLFieldID             = "url"
 	problemDifficultyFieldID      = "difficulty"
@@ -33,7 +21,7 @@ const (
 // BuildCreateProblemModalResponse presents text and fixed metadata choices using Discord labels.
 // Required inputs guide entry; application validation belongs to the write flow.
 func BuildCreateProblemModalResponse(modal CreateProblemModal) (*discordgo.InteractionResponse, error) {
-	customID, err := buildCreateProblemModalCustomID(modal.ClassCode)
+	customID, err := CreateProblemModalID(modal.ClassCode)
 	if err != nil {
 		return nil, err
 	}
@@ -42,11 +30,10 @@ func BuildCreateProblemModalResponse(modal CreateProblemModal) (*discordgo.Inter
 
 // BuildEditProblemModalResponse carries the problem ID and destination class code as submit context.
 func BuildEditProblemModalResponse(modal EditProblemModal) (*discordgo.InteractionResponse, error) {
-	customID, err := buildEditProblemModalCustomID(modal.ClassCode, modal.ProblemID)
+	customID, err := EditProblemModalID(modal.ClassCode, modal.ProblemID)
 	if err != nil {
 		return nil, err
 	}
-
 	title := fmt.Sprintf("Edit #%d · %s", modal.ProblemID, modal.ClassCode)
 	for utf16Count(title) > 45 {
 		runes := []rune(title)
@@ -167,100 +154,6 @@ func problemMetadataSelect(customID, placeholder string, current *string, option
 	}
 }
 
-// ModalRouteFromCustomID recognizes a route even when its context is malformed,
-// so the matching controller can respond with a form error.
-func ModalRouteFromCustomID(customID string) string {
-	route, _, _ := strings.Cut(customID, modalCustomIDSeparator)
-	return route
-}
-
-func buildCreateProblemModalCustomID(classCode string) (string, error) {
-	if strings.TrimSpace(classCode) == "" {
-		return "", fmt.Errorf("missing problem modal class code")
-	}
-
-	customID := fmt.Sprintf("%s%s%s", CreateProblemModalCustomID, modalCustomIDSeparator, url.PathEscape(classCode))
-
-	if len(customID) > modalCustomIDMaxLength {
-		return "", fmt.Errorf("problem modal custom ID exceeds Discord's %d-character limit", modalCustomIDMaxLength)
-	}
-	return customID, nil
-}
-
-func buildEditProblemModalCustomID(classCode string, problemID int64) (string, error) {
-	if strings.TrimSpace(classCode) == "" {
-		return "", fmt.Errorf("missing problem modal class code")
-	}
-	if problemID <= 0 {
-		return "", fmt.Errorf("invalid problem modal context")
-	}
-	customID := fmt.Sprintf("%s%s%s%s%d", EditProblemModalCustomID, modalCustomIDSeparator, url.PathEscape(classCode), modalCustomIDSeparator, problemID)
-	if len(customID) > modalCustomIDMaxLength {
-		return "", fmt.Errorf("problem modal custom ID exceeds Discord's %d-character limit", modalCustomIDMaxLength)
-	}
-	return customID, nil
-}
-
-func parseCreateProblemModalCustomID(customID string) (string, error) {
-	route, encodedClass, found := strings.Cut(customID, modalCustomIDSeparator)
-	if route != CreateProblemModalCustomID || !found || len(customID) > modalCustomIDMaxLength {
-		return "", fmt.Errorf("invalid problem modal ID")
-	}
-
-	classCode, err := url.PathUnescape(encodedClass)
-	if err != nil || strings.TrimSpace(classCode) == "" {
-		return "", fmt.Errorf("invalid problem modal class code")
-	}
-	return classCode, nil
-}
-
-func parseEditProblemModalCustomID(customID string) (string, int64, error) {
-	parts := strings.Split(customID, modalCustomIDSeparator)
-	if len(parts) != 3 || parts[0] != EditProblemModalCustomID || len(customID) > modalCustomIDMaxLength {
-		return "", 0, fmt.Errorf("invalid problem modal context")
-	}
-
-	classCode, err := url.PathUnescape(parts[1])
-	if err != nil || strings.TrimSpace(classCode) == "" {
-		return "", 0, fmt.Errorf("invalid problem modal class code")
-	}
-
-	problemID, err := strconv.ParseInt(parts[2], 10, 64)
-	if err != nil || problemID <= 0 {
-		return "", 0, fmt.Errorf("invalid problem modal problem ID")
-	}
-	return classCode, problemID, nil
-}
-
-// ParseCreateProblemModal reads SDK-decoded label components by their identity,
-// preserving text exactly and recovering the selected class code from its context.
-// Unknown selections are ignored; application validation belongs to the service.
-func ParseCreateProblemModal(data discordgo.ModalSubmitInteractionData) (CreateProblemModal, error) {
-	classCode, err := parseCreateProblemModalCustomID(data.CustomID)
-	if err != nil {
-		return CreateProblemModal{}, err
-	}
-
-	fields, err := parseProblemModalFields(data)
-	if err != nil {
-		return CreateProblemModal{}, err
-	}
-	return CreateProblemModal{ClassCode: classCode, ProblemModalFields: fields}, nil
-}
-
-func ParseEditProblemModal(data discordgo.ModalSubmitInteractionData) (EditProblemModal, error) {
-	classCode, problemID, err := parseEditProblemModalCustomID(data.CustomID)
-	if err != nil {
-		return EditProblemModal{}, err
-	}
-
-	fields, err := parseProblemModalFields(data)
-	if err != nil {
-		return EditProblemModal{}, err
-	}
-	return EditProblemModal{ProblemID: problemID, ClassCode: classCode, ProblemModalFields: fields}, nil
-}
-
 func parseProblemModalFields(data discordgo.ModalSubmitInteractionData) (ProblemModalFields, error) {
 	var result ProblemModalFields
 	pendingFields := map[string]bool{
@@ -351,72 +244,41 @@ func parseProblemModalField(component discordgo.MessageComponent) (string, *stri
 	}
 }
 
-// FormatCreateProblemError keeps mapped errors within Discord's message limit.
-func FormatCreateProblemError(content, classCode string, recoverDraft bool) string {
-	if recoverDraft {
-		content += ". Try /problem add class:" + classCode + " again."
-	}
-	if utf16Count(content) <= maxMessageContentLength {
-		return content
-	}
-	if !recoverDraft {
-		return "Could not add the problem. Please try /problem add again."
-	}
-	// The modal identifier already bounds the selected class code's length.
-	return "Could not add the problem. Please check the values and try /problem add class:" + classCode + " again."
-}
-
-// FormatCreatedProblemReceipt identifies the saved problem without truncating stored values.
-func FormatCreatedProblemReceipt(problemID int64, classCode, problemName string) string {
-	identity := fmt.Sprintf("Problem `%d` was added to class %q.", problemID, strings.TrimSpace(classCode))
-	content := identity + fmt.Sprintf("\nName: %q", strings.TrimSpace(problemName))
-	if utf16Count(content) > maxMessageContentLength {
-		return identity
-	}
-	return content
-}
-
-func FormatEditProblemError(content string, problemID int64, classCode string, recoverDraft bool) string {
-	if recoverDraft {
-		content += fmt.Sprintf(" Try /problem edit problem:%d class:%s again.", problemID, classCode)
-	}
-
-	if utf16Count(content) <= maxMessageContentLength {
-		return content
-	}
-
-	if !recoverDraft {
-		return fmt.Sprintf("Could not update problem `%d`. Please try /problem edit again.", problemID)
-	}
-
-	retry := fmt.Sprintf("Could not update problem `%d`. Try /problem edit problem:%d class:%s again.", problemID, problemID, classCode)
-	if utf16Count(retry) > maxMessageContentLength {
-		return fmt.Sprintf("Could not update problem `%d`. Retry /problem edit with problem:%d and the same destination class code to recover your values.", problemID, problemID)
-	}
-	return retry
-}
-
-func FormatUpdatedProblemReceipt(problemID int64, classCode, name string) string {
-	identity := fmt.Sprintf("Problem `%d` was updated in class %q.", problemID, classCode)
-	content := identity + fmt.Sprintf("\nName: %q", strings.TrimSpace(name))
-	if utf16Count(content) > maxMessageContentLength {
-		return fmt.Sprintf("Problem `%d` was updated.", problemID)
-	}
-	return content
-}
-
 func BuildProblemBatchModalResponse() *discordgo.InteractionResponse {
-	return buildJSONModalResponse(ProblemBatchModalCustomID, "Problem batch", `[{"class":"basicos","name":"Two Sum","url":"https://example.com/problem"}]`)
+	return buildJSONModalResponse(ProblemBatchModalID(), "Problem batch", `[{"class":"basicos","name":"Two Sum","url":"https://example.com/problem"}]`)
+}
+
+func ParseCreateProblemModal(data discordgo.ModalSubmitInteractionData) (CreateProblemModal, error) {
+	classCode, err := ParseCreateProblemModalID(data.CustomID)
+	if err != nil {
+		return CreateProblemModal{}, err
+	}
+	fields, err := parseProblemModalFields(data)
+	if err != nil {
+		return CreateProblemModal{}, err
+	}
+	return CreateProblemModal{ClassCode: classCode, ProblemModalFields: fields}, nil
+}
+
+func ParseEditProblemModal(data discordgo.ModalSubmitInteractionData) (EditProblemModal, error) {
+	classCode, problemID, err := ParseEditProblemModalID(data.CustomID)
+	if err != nil {
+		return EditProblemModal{}, err
+	}
+	fields, err := parseProblemModalFields(data)
+	if err != nil {
+		return EditProblemModal{}, err
+	}
+	return EditProblemModal{
+		ClassCode:          classCode,
+		ProblemID:          problemID,
+		ProblemModalFields: fields,
+	}, nil
 }
 
 func ParseProblemBatchModalSource(data discordgo.ModalSubmitInteractionData) (JSONModalSource, error) {
-	return parseJSONModalSource(data, ProblemBatchModalCustomID)
-}
-
-func FormatProblemBatchValidationResult(prepared []service_model.PreparedProblem) string {
-	classes := make(map[int64]struct{})
-	for _, entry := range prepared {
-		classes[entry.Class.ID] = struct{}{}
+	if err := ValidateProblemBatchModalID(data.CustomID); err != nil {
+		return JSONModalSource{}, err
 	}
-	return fmt.Sprintf("Problem batch validated. Entries: %d. Classes: %d. No changes were applied.", len(prepared), len(classes))
+	return parseJSONModalSource(data)
 }

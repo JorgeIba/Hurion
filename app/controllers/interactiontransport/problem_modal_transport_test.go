@@ -1,12 +1,12 @@
-package discord_test
+package interactiontransport_test
 
 import (
 	"encoding/json"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"strings"
 	"testing"
-	"unicode/utf16"
 
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,24 +36,24 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 
 	tests := []struct {
 		name               string
-		modal              discord.CreateProblemModal
+		modal              interactiontransport.CreateProblemModal
 		selectedDifficulty string
 		selectedPriority   string
 	}{
 		{
 			name: "unassigned metadata is prefilled",
-			modal: discord.CreateProblemModal{
+			modal: interactiontransport.CreateProblemModal{
 				ClassCode:          "basicos_1",
-				ProblemModalFields: discord.ProblemModalFields{},
+				ProblemModalFields: interactiontransport.ProblemModalFields{},
 			},
 			selectedDifficulty: "unset",
 			selectedPriority:   "unset",
 		},
 		{
 			name: "text is preserved and metadata codes preselect options",
-			modal: discord.CreateProblemModal{
+			modal: interactiontransport.CreateProblemModal{
 				ClassCode: "basicos_1",
-				ProblemModalFields: discord.ProblemModalFields{
+				ProblemModalFields: interactiontransport.ProblemModalFields{
 					Name: "Two Sum 🚀", URL: "https://example.com/problem?id=2",
 					Difficulty: new(" Medium "), Priority: new("recommended"), Topic: new("Binary search and two pointers"),
 				},
@@ -63,9 +63,9 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 		},
 		{
 			name: "oversized draft values are preserved for correction",
-			modal: discord.CreateProblemModal{
+			modal: interactiontransport.CreateProblemModal{
 				ClassCode: "basicos_1",
-				ProblemModalFields: discord.ProblemModalFields{
+				ProblemModalFields: interactiontransport.ProblemModalFields{
 					Name: strings.Repeat("🚀", 201), URL: "https://example.com/" + strings.Repeat("a", 2000),
 					Topic: new(strings.Repeat("é", 101)),
 				},
@@ -75,13 +75,13 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 		},
 		{
 			name: "unknown metadata does not add options or select a default",
-			modal: discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: discord.ProblemModalFields{
+			modal: interactiontransport.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: interactiontransport.ProblemModalFields{
 				Difficulty: new("extreme"), Priority: new(strings.Repeat("🚀", 1500)),
 			}},
 		},
 		{
 			name: "canonical codes preselect options",
-			modal: discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: discord.ProblemModalFields{
+			modal: interactiontransport.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: interactiontransport.ProblemModalFields{
 				Difficulty: new("hard"), Priority: new("not_required"),
 			}},
 			selectedDifficulty: "hard",
@@ -91,7 +91,7 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			response, err := discord.BuildCreateProblemModalResponse(tt.modal)
+			response, err := buildCreateProblemModalForTest(tt.modal)
 			if !assert.NoError(t, err) {
 				return
 			}
@@ -111,7 +111,7 @@ func TestBuildCreateProblemModalResponseEncodesLabelsPrefillAndRequiredInputs(t 
 				return
 			}
 			assert.Equal(t, discordgo.InteractionResponseModal, wire.Type)
-			assert.Equal(t, discord.CreateProblemModalCustomID+"|basicos_1", wire.Data.CustomID)
+			assert.Equal(t, string(discordcommands.CreateProblem)+"|basicos_1", wire.Data.CustomID)
 			assert.LessOrEqual(t, len(wire.Data.CustomID), 100)
 			assert.Equal(t, "Add problem", wire.Data.Title)
 			if !assert.Len(t, wire.Data.Components, 5) {
@@ -189,18 +189,19 @@ func TestCreateProblemModalContextPreservesClassCodesThroughSDKSubmission(t *tes
 	for _, classCode := range []string{"basicos_1", "básicos_2026", "class|with%separators"} {
 		t.Run(classCode, func(t *testing.T) {
 			t.Parallel()
-			response, err := discord.BuildCreateProblemModalResponse(discord.CreateProblemModal{ClassCode: classCode})
+			response, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{ClassCode: classCode})
 			if !assert.NoError(t, err) {
 				return
 			}
-			assert.Equal(t, discord.CreateProblemModalCustomID, discord.ModalRouteFromCustomID(response.Data.CustomID))
+			route, _, _ := strings.Cut(response.Data.CustomID, "|")
+			assert.Equal(t, string(discordcommands.CreateProblem), route)
 			var event discordgo.InteractionCreate
 			if !assert.NoError(t, json.Unmarshal([]byte(createProblemModalSubmission), &event)) {
 				return
 			}
 			data := event.ModalSubmitData()
 			data.CustomID = response.Data.CustomID
-			modal, err := discord.ParseCreateProblemModal(data)
+			modal, err := interactiontransport.ParseCreateProblemModal(data)
 			assert.NoError(t, err)
 			assert.Equal(t, classCode, modal.ClassCode)
 		})
@@ -209,13 +210,13 @@ func TestCreateProblemModalContextPreservesClassCodesThroughSDKSubmission(t *tes
 
 func TestBuildCreateProblemModalResponseRejectsMissingClassAndEnforcesCustomIDLimit(t *testing.T) {
 	t.Parallel()
-	classCapacity := 100 - len(discord.CreateProblemModalCustomID) - len("|")
-	response, err := discord.BuildCreateProblemModalResponse(discord.CreateProblemModal{ClassCode: strings.Repeat("a", classCapacity)})
+	classCapacity := 100 - len(string(discordcommands.CreateProblem)) - len("|")
+	response, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{ClassCode: strings.Repeat("a", classCapacity)})
 	if assert.NoError(t, err) {
 		assert.Len(t, response.Data.CustomID, 100)
 	}
 	for _, classCode := range []string{"", " \t ", strings.Repeat("a", classCapacity+1)} {
-		response, err := discord.BuildCreateProblemModalResponse(discord.CreateProblemModal{ClassCode: classCode})
+		response, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{ClassCode: classCode})
 		assert.Error(t, err)
 		assert.Nil(t, response)
 	}
@@ -241,9 +242,9 @@ const createProblemModalSubmission = `{
 func TestParseCreateProblemModalReadsSDKSubmissionsByFieldIDAndPreservesRawText(t *testing.T) {
 	t.Parallel()
 
-	expected := discord.CreateProblemModal{
+	expected := interactiontransport.CreateProblemModal{
 		ClassCode: "basicos_1",
-		ProblemModalFields: discord.ProblemModalFields{
+		ProblemModalFields: interactiontransport.ProblemModalFields{
 			Name: "  Two Sum 🚀  ", URL: " https://example.com/problem?id=2 ",
 			Difficulty: new("medium"), Priority: new("recommended"), Topic: new("Binary search\nTwo pointers"),
 		},
@@ -258,7 +259,7 @@ func TestParseCreateProblemModalReadsSDKSubmissionsByFieldIDAndPreservesRawText(
 	tests := []struct {
 		name   string
 		change func(*discordgo.ModalSubmitInteractionData)
-		want   discord.CreateProblemModal
+		want   interactiontransport.CreateProblemModal
 	}{
 		{name: "multiword unicode and whitespace survive the SDK and parser", want: expected},
 		{
@@ -302,7 +303,7 @@ func TestParseCreateProblemModalReadsSDKSubmissionsByFieldIDAndPreservesRawText(
 			if tt.change != nil {
 				tt.change(&data)
 			}
-			modal, err := discord.ParseCreateProblemModal(data)
+			modal, err := interactiontransport.ParseCreateProblemModal(data)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, modal)
 		})
@@ -317,12 +318,14 @@ func TestParseCreateProblemModalRejectsIncompleteAmbiguousAndUnexpectedComponent
 		change func(*discordgo.ModalSubmitInteractionData)
 	}{
 		{"different form ID", func(data *discordgo.ModalSubmitInteractionData) { data.CustomID = "other-form" }},
-		{"missing class context", func(data *discordgo.ModalSubmitInteractionData) { data.CustomID = discord.CreateProblemModalCustomID }},
+		{"missing class context", func(data *discordgo.ModalSubmitInteractionData) {
+			data.CustomID = string(discordcommands.CreateProblem)
+		}},
 		{"invalid class encoding", func(data *discordgo.ModalSubmitInteractionData) {
-			data.CustomID = discord.CreateProblemModalCustomID + "|%ZZ"
+			data.CustomID = string(discordcommands.CreateProblem) + "|%ZZ"
 		}},
 		{"empty class context", func(data *discordgo.ModalSubmitInteractionData) {
-			data.CustomID = discord.CreateProblemModalCustomID + "|"
+			data.CustomID = string(discordcommands.CreateProblem) + "|"
 		}},
 		{"missing input", func(data *discordgo.ModalSubmitInteractionData) { data.Components = data.Components[:4] }},
 		{"repeated input ID", func(data *discordgo.ModalSubmitInteractionData) {
@@ -353,87 +356,9 @@ func TestParseCreateProblemModalRejectsIncompleteAmbiguousAndUnexpectedComponent
 			}
 			data := event.ModalSubmitData()
 			tt.change(&data)
-			modal, err := discord.ParseCreateProblemModal(data)
+			modal, err := interactiontransport.ParseCreateProblemModal(data)
 			assert.Error(t, err)
-			assert.Equal(t, discord.CreateProblemModal{}, modal, "a malformed form must not produce a partial request")
-		})
-	}
-}
-
-func TestFormatCreateProblemErrorPreservesDetailsWithinLimitAndFallsBackAboveIt(t *testing.T) {
-	t.Parallel()
-	fallback := "Could not add the problem. Please try /problem add again."
-	for _, test := range []struct {
-		name         string
-		content      string
-		want         string
-		recoverDraft bool
-	}{
-		{name: "short error keeps correction details", content: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again.", want: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again."},
-		{name: "exactly 2000 ASCII units are preserved", content: strings.Repeat("a", 2000), want: strings.Repeat("a", 2000)},
-		{name: "2001 ASCII units use the selected class in the fallback", content: strings.Repeat("a", 2001), want: fallback},
-		{name: "exactly 2000 UTF-16 units are preserved despite larger UTF-8 length", content: strings.Repeat("🚀", 1000), want: strings.Repeat("🚀", 1000)},
-		{name: "2001 UTF-16 units use the fallback", content: strings.Repeat("🚀", 1000) + "a", want: fallback},
-		{name: "recoverable error gets retry instruction", content: "Invalid URL", recoverDraft: true, want: "Invalid URL. Try /problem add class:basicos_2 again."},
-		{name: "long recoverable error keeps selected class", content: strings.Repeat("a", 2001), recoverDraft: true, want: "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."},
-		{name: "retry instruction counts toward limit", content: strings.Repeat("a", 2000), recoverDraft: true, want: "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			content := discord.FormatCreateProblemError(test.content, "basicos_2", test.recoverDraft)
-			assert.Equal(t, test.want, content)
-			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
-		})
-	}
-}
-
-func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		input      string
-		assertFunc func(*testing.T, string)
-	}{
-		{
-			name:  "normal text is shown",
-			input: "Two Sum",
-			assertFunc: func(t *testing.T, content string) {
-				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two Sum\"", content)
-			},
-		},
-		{
-			name:  "newlines stay inside their field",
-			input: "Two\nSum",
-			assertFunc: func(t *testing.T, content string) {
-				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two\\nSum\"", content)
-			},
-		},
-		{
-			name:  "unicode name within the UTF-16 limit is shown even when its UTF-8 bytes exceed 2000",
-			input: strings.Repeat("🚀", 600),
-			assertFunc: func(t *testing.T, content string) {
-				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \""+strings.Repeat("🚀", 600)+"\"", content)
-			},
-		},
-		{
-			name:  "large unicode name is omitted from the receipt",
-			input: strings.Repeat("🚀", 1000),
-			assertFunc: func(t *testing.T, content string) {
-				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".", content)
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			content := discord.FormatCreatedProblemReceipt(42, "basicos_1", tt.input)
-			tt.assertFunc(t, content)
-			assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
+			assert.Equal(t, interactiontransport.CreateProblemModal{}, modal, "a malformed form must not produce a partial request")
 		})
 	}
 }

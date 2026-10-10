@@ -2,6 +2,7 @@ package bot
 
 import (
 	"errors"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"testing"
 
 	"github.com/bwmarrin/discordgo"
@@ -23,7 +24,7 @@ func TestUpsertACSlashCommand(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			api := &fakeApplicationCommandCreator{err: test.apiErr}
-			err := upsertACSlashCommand(api, test.app, test.guild)
+			err := upsertSlashCommand(api, test.app, test.guild, discordcommands.ACSlashCommand())
 			if test.wantError != "" {
 				assert.ErrorContains(t, err, test.wantError)
 				return

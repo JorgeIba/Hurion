@@ -3,13 +3,13 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	form "github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,9 +54,9 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 			env.seedClassroom(t, testChannelID, "basicos_1")
 			opened := env.openProblemForm(t, "mentor_1", "")
 			assert.Empty(t, opened.Name)
-			failed := form.CreateProblemModal{
+			failed := interactiontransport.CreateProblemModal{
 				ClassCode: "basicos_1",
-				ProblemModalFields: form.ProblemModalFields{
+				ProblemModalFields: interactiontransport.ProblemModalFields{
 					Name: " Two Sum 🚀 ", URL: "ftp://example.com/problem", Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Binary search "),
 				},
 			}
@@ -215,12 +215,14 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
-		mutate func(*form.CreateProblemModal)
+		mutate func(*interactiontransport.CreateProblemModal)
 		want   string
 	}{
-		{name: "name", mutate: func(m *form.CreateProblemModal) { m.Name = strings.Repeat("🚀", 201) }, want: "problem name must be at most 200 characters"},
-		{name: "URL", mutate: func(m *form.CreateProblemModal) { m.URL = "https://example.com/" + strings.Repeat("a", 2000) }, want: "URL must be at most 2000 characters"},
-		{name: "topic", mutate: func(m *form.CreateProblemModal) { m.Topic = new(strings.Repeat("é", 101)) }, want: "topic must be at most 100 characters"},
+		{name: "name", mutate: func(m *interactiontransport.CreateProblemModal) { m.Name = strings.Repeat("🚀", 201) }, want: "problem name must be at most 200 characters"},
+		{name: "URL", mutate: func(m *interactiontransport.CreateProblemModal) {
+			m.URL = "https://example.com/" + strings.Repeat("a", 2000)
+		}, want: "URL must be at most 2000 characters"},
+		{name: "topic", mutate: func(m *interactiontransport.CreateProblemModal) { m.Topic = new(strings.Repeat("é", 101)) }, want: "topic must be at most 100 characters"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -343,21 +345,21 @@ func addProblemCommand(userID, classCode string) *discordgo.InteractionCreate {
 	}}
 }
 
-func (env *workflowEnv) openProblemForm(t *testing.T, userID, classCode string) form.CreateProblemModal {
+func (env *workflowEnv) openProblemForm(t *testing.T, userID, classCode string) interactiontransport.CreateProblemModal {
 	t.Helper()
 	before := len(env.Responder.responses)
 	env.handleInteractionEvent(addProblemCommand(userID, classCode))
 	require.Len(t, env.Responder.responses, before+1)
 	response := env.Responder.responses[before].response
 	require.Equal(t, discordgo.InteractionResponseModal, response.Type)
-	modal, err := form.ParseCreateProblemModal(submittedProblemFormData(t, response))
+	modal, err := interactiontransport.ParseCreateProblemModal(submittedProblemFormData(t, response))
 	require.NoError(t, err)
 	return modal
 }
 
-func (env *workflowEnv) submitProblemForm(t *testing.T, userID string, modal form.CreateProblemModal) {
+func (env *workflowEnv) submitProblemForm(t *testing.T, userID string, modal interactiontransport.CreateProblemModal) {
 	t.Helper()
-	response, err := form.BuildCreateProblemModalResponse(modal)
+	response, err := buildCreateProblemModalForTest(modal)
 	require.NoError(t, err)
 	before := len(env.Responder.responses)
 	beforeEdits := len(env.Responder.edits)
@@ -378,8 +380,8 @@ func submittedProblemFormData(t *testing.T, response *discordgo.InteractionRespo
 
 func TestSubmittedProblemFormOverridesPreserveOtherSelectionsAndAllowClearing(t *testing.T) {
 	t.Parallel()
-	response, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{
-		ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{
+	response, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{
+		ClassCode: "basicos_1", ProblemModalFields: interactiontransport.ProblemModalFields{
 			Name: "Original name", Difficulty: new("hard"), Priority: new("recommended"),
 		},
 	})
@@ -393,9 +395,9 @@ func TestSubmittedProblemFormOverridesPreserveOtherSelectionsAndAllowClearing(t 
 		{name: "clearing one selection preserves the other", values: map[string]string{"name": "Two Sum", "difficulty": ""}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			modal, err := form.ParseCreateProblemModal(submittedProblemFormDataWithValues(t, response, test.values))
+			modal, err := interactiontransport.ParseCreateProblemModal(submittedProblemFormDataWithValues(t, response, test.values))
 			require.NoError(t, err)
-			assert.Equal(t, form.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{
+			assert.Equal(t, interactiontransport.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: interactiontransport.ProblemModalFields{
 				Name: "Two Sum", Difficulty: test.wantDifficulty, Priority: new("recommended"),
 			}}, modal)
 		})

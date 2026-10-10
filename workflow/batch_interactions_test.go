@@ -3,13 +3,14 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,9 +52,9 @@ func TestWorkflow_BatchCommandsOpenFormsAndValidateWithoutWrites(t *testing.T) {
 			}
 			response := env.Responder.responses[0].response
 			assert.Equal(t, discordgo.InteractionResponseModal, response.Type)
-			expectedRoute := discord.ACBatchModalCustomID
+			expectedRoute := string(discordcommands.ACBatch)
 			if test.command == "problem" {
-				expectedRoute = discord.ProblemBatchModalCustomID
+				expectedRoute = string(discordcommands.ProblemBatch)
 			}
 			assert.Equal(t, expectedRoute, response.Data.CustomID)
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
@@ -123,7 +124,7 @@ func TestWorkflow_BatchInteractionsHonorAuthorityAndBotGates(t *testing.T) {
 			kind := discordgo.InteractionApplicationCommand
 			if test.submit {
 				kind = discordgo.InteractionModalSubmit
-				data = discordgo.ModalSubmitInteractionData{CustomID: discord.ACBatchModalCustomID}
+				data = discordgo.ModalSubmitInteractionData{CustomID: string(discordcommands.ACBatch)}
 			}
 			if test.ackFails {
 				env.Responder.respondFunc = func(*discordgo.InteractionResponse) error { return errors.New("ack failed") }
@@ -162,8 +163,8 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 	for _, test := range []struct {
 		name, input, route string
 	}{
-		{name: "problem", input: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, route: discord.ProblemBatchModalCustomID},
-		{name: "ac", input: `[{"user_id":"123","problem_id":42}]`, route: discord.ACBatchModalCustomID},
+		{name: "problem", input: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, route: string(discordcommands.ProblemBatch)},
+		{name: "ac", input: `[{"user_id":"123","problem_id":42}]`, route: string(discordcommands.ACBatch)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -232,6 +233,7 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 		{name: "Discord lookup failure", command: "ac", input: `[{"user_id":"123","problem_id":1}]`, lookupFails: true, want: []string{"Could not resolve a batch student from Discord"}, wantLookups: 1},
 		{name: "valid AC followed by unknown problem", command: "ac", input: `[{"user_id":"123","problem_id":1},{"user_id":"123","problem_id":9999}]`, want: []string{"Batch validation failed", "Entry 2"}, wantLookups: 1},
 		{name: "existing AC remains valid", command: "ac", input: `[{"user_id":"123","problem_id":1}]`, alreadyRecorded: true, want: []string{"AC batch validated", "Entries: 1", "Already recorded entries: 1"}, wantLookups: 1},
+		{name: "canonical student IDs resolve once", command: "ac", input: `[{"user_id":" 00123 ","problem_id":1},{"user_id":"123","problem_id":1}]`, alreadyRecorded: true, want: []string{"AC batch validated", "Entries: 2", "Students: 1", "Already recorded entries: 2"}, wantLookups: 1},
 		{name: "repeated existing ACs preserved", command: "ac", input: `[{"user_id":"123","problem_id":1},{"user_id":"123","problem_id":1}]`, alreadyRecorded: true, want: []string{"AC batch validated", "Entries: 2", "Students: 1", "Already recorded entries: 2"}, wantLookups: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -300,6 +302,103 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 				assert.Equal(t, "Student", user.DisplayName)
 			} else {
 				assert.Error(t, err)
+			}
+		})
+	}
+}
+
+func TestWorkflow_ACBatchRejectsInvalidInputBeforeStudentLookups(t *testing.T) {
+	t.Parallel()
+	oversizedEntries := make([]string, 101)
+	oversizedUsers := make([]string, len(oversizedEntries))
+	for index := range oversizedEntries {
+		oversizedUsers[index] = fmt.Sprint(1000 + index)
+		oversizedEntries[index] = fmt.Sprintf(`{"user_id":"%d","problem_id":1}`, 1000+index)
+	}
+	for _, test := range []struct {
+		name, input string
+		want        []string
+		users       []string
+	}{
+		{
+			name:  "valid entry followed by invalid student",
+			input: `[{"user_id":"123","problem_id":1},{"user_id":"Ana","problem_id":1}]`,
+			want:  []string{"Entry 2", "positive numeric Discord ID"},
+			users: []string{"123", "Ana"},
+		},
+		{
+			name:  "all invalid entries are reported",
+			input: `[{"user_id":"Ana","problem_id":1},{"user_id":"123","problem_id":0}]`,
+			want:  []string{"Entry 1", "positive numeric Discord ID", "Entry 2", "problem_id must be positive"},
+			users: []string{"Ana", "123"},
+		},
+		{
+			name:  "101 valid entries with distinct students",
+			input: "[" + strings.Join(oversizedEntries, ",") + "]",
+			want:  []string{"between 1 and 100 operations"},
+			users: oversizedUsers,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			classID := env.seedClass(t, "basicos", "Basicos")
+			problemID := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+			env.seedClassAccessRole(t, "basicos", "student")
+			cachedLookups, httpLookups := 0, 0
+			env.Discord.getCachedMemberFunc = func(_, _ string) (*discordgo.Member, error) {
+				cachedLookups++
+				return nil, errors.New("unexpected student lookup")
+			}
+			env.Discord.fetchMemberFunc = func(_, _ string) (*discordgo.Member, error) {
+				httpLookups++
+				return nil, errors.New("unexpected student lookup")
+			}
+			input := strings.ReplaceAll(test.input, `"problem_id":1}`, fmt.Sprintf(`"problem_id":%d}`, problemID))
+			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionApplicationCommand, GuildID: testGuildID, Member: member,
+				Data: discordgo.ApplicationCommandInteractionData{Name: "ac", Options: []*discordgo.ApplicationCommandInteractionDataOption{
+					{Name: "add_batch", Type: discordgo.ApplicationCommandOptionSubCommand},
+				}},
+			}})
+			if !assert.Len(t, env.Responder.responses, 1) {
+				return
+			}
+			route := env.Responder.responses[0].response.Data.CustomID
+			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				Type: discordgo.InteractionModalSubmit, GuildID: testGuildID, Member: member,
+				Data: discordgo.ModalSubmitInteractionData{CustomID: route, Components: []discordgo.MessageComponent{
+					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: input}},
+					&discordgo.Label{Component: &discordgo.FileUpload{CustomID: "file"}},
+				}},
+			}})
+			assert.Zero(t, cachedLookups, "validate the entire input before consulting Discord's cache")
+			assert.Zero(t, httpLookups, "invalid input must not fetch students over HTTP")
+			assert.Len(t, env.Responder.responses, 2, "opening the form and acknowledging its submission are the only responses")
+			if !assert.Len(t, env.Responder.edits, 1) {
+				return
+			}
+			receipt := env.Responder.edits[0].response
+			for _, want := range test.want {
+				assert.Contains(t, *receipt.Content, want)
+			}
+			assert.Contains(t, *receipt.Content, "Batch validation failed")
+			assert.Contains(t, *receipt.Content, "No changes were applied")
+			if receipt.Components != nil {
+				assert.Empty(t, *receipt.Components, "invalid input must not create a preview")
+			}
+			problems, err := env.DB.GetProblemsByClass(classID)
+			assert.NoError(t, err)
+			assert.Len(t, problems, 1)
+
+			for _, userID := range test.users {
+				_, err := env.DB.GetUserByUserID(userID)
+				assert.Error(t, err, "invalid input must not create student %s", userID)
+				solved, err := env.DB.HasUserSolvedProblem(userID, problemID)
+				assert.NoError(t, err)
+				assert.False(t, solved, "invalid input must not record an AC for %s", userID)
 			}
 		})
 	}
@@ -411,8 +510,8 @@ func TestWorkflow_BatchCancelButtonsHonorBotGates(t *testing.T) {
 		name, guild, customID, want string
 		testMode                    bool
 	}{
-		{name: "wrong server", guild: "other", customID: discord.ProblemBatchCancelCustomID + "|id", want: "configured server"},
-		{name: "development whitelist", guild: testGuildID, customID: discord.ACBatchCancelCustomID + "|id", testMode: true, want: "not enabled"},
+		{name: "wrong server", guild: "other", customID: string(discordcommands.CancelProblemBatch) + "|id", want: "configured server"},
+		{name: "development whitelist", guild: testGuildID, customID: string(discordcommands.CancelACBatch) + "|id", testMode: true, want: "not enabled"},
 		{name: "unrelated button ignored", guild: testGuildID, customID: "unrelated|id"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
