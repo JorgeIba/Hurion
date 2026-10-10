@@ -12,23 +12,27 @@ import (
 
 func TestBatchPreviewCancelButtonRoundTripsAndFitsDiscordIDLimit(t *testing.T) {
 	t.Parallel()
-	for _, test := range []struct{ name, route string }{
-		{name: "problem", route: string(discordcommands.CancelProblemBatch)},
-		{name: "AC", route: string(discordcommands.CancelACBatch)},
+	for _, test := range []struct{ name, route, confirmRoute string }{
+		{name: "problem", route: string(discordcommands.CancelProblemBatch), confirmRoute: string(discordcommands.ConfirmProblemBatch)},
+		{name: "AC", route: string(discordcommands.CancelACBatch), confirmRoute: string(discordcommands.ConfirmACBatch)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			preview := discord.BuildValidatedBatchPreview("Validated batch", test.route+"|abcdefghijklmnopqrstuvwxyz")
-			assert.Equal(t, "Validated batch", *preview.Content)
+			preview := discord.BuildValidatedBatchPreview("Validated batch", test.confirmRoute+"|abcdefghijklmnopqrstuvwxyz", test.route+"|abcdefghijklmnopqrstuvwxyz")
+			assert.Contains(t, *preview.Content, "Validated batch")
 			assert.Empty(t, preview.AllowedMentions.Parse)
 			if !assert.NotNil(t, preview.Components) || !assert.Len(t, *preview.Components, 1) {
 				return
 			}
 			row := (*preview.Components)[0].(discordgo.ActionsRow)
-			if !assert.Len(t, row.Components, 1) {
+			if !assert.Len(t, row.Components, 2) {
 				return
 			}
-			button := row.Components[0].(discordgo.Button)
+			confirm := row.Components[0].(discordgo.Button)
+			assert.Equal(t, "Confirm", confirm.Label)
+			assert.Equal(t, test.confirmRoute+"|abcdefghijklmnopqrstuvwxyz", confirm.CustomID)
+			assert.LessOrEqual(t, len(confirm.CustomID), 100)
+			button := row.Components[1].(discordgo.Button)
 			assert.Equal(t, "Cancel", button.Label)
 			assert.LessOrEqual(t, len(button.CustomID), 100)
 			id, err := parseCancelIDForTest(button.CustomID, test.route)

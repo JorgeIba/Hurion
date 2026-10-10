@@ -82,3 +82,28 @@ func TestProblemIDsEnforceContextAndWireLength(t *testing.T) {
 	_, err = EditProblemModalID("class", 0)
 	assert.Error(t, err)
 }
+
+func TestBatchConfirmationIDsPreserveContextAndRejectOtherActions(t *testing.T) {
+	for _, family := range []struct {
+		name   string
+		action discordcommands.Action
+		build  func(string) string
+		parse  func(string) (string, error)
+		other  string
+	}{
+		{"problem", discordcommands.ConfirmProblemBatch, ProblemBatchConfirmID, ParseProblemBatchConfirmID, ACBatchConfirmID("batch")},
+		{"AC", discordcommands.ConfirmACBatch, ACBatchConfirmID, ParseACBatchConfirmID, ProblemBatchConfirmID("batch")},
+	} {
+		t.Run(family.name, func(t *testing.T) {
+			id := family.build("batch")
+			assert.Equal(t, family.action, ComponentAction(id))
+			batchID, err := family.parse(id)
+			assert.NoError(t, err)
+			assert.Equal(t, "batch", batchID)
+			for _, invalid := range []string{string(family.action), family.build(""), family.build(" "), family.build("batch|extra"), family.other, ProblemBatchCancelID("batch"), ACBatchCancelID("batch")} {
+				_, err := family.parse(invalid)
+				assert.Error(t, err)
+			}
+		})
+	}
+}

@@ -63,3 +63,11 @@ func mapProblemBatchValidationIssues(entries batchInput[problemInput], issues []
 	}
 	return locations
 }
+
+func mapProblemBatchExecutionIssues(batch []service_model.PreparedProblem, issues []service_model.BatchEntryError) []discord.JSONInputIssue {
+	entries := make(batchInput[problemInput], len(batch))
+	for index, entry := range batch {
+		entries[index] = problemInput{Class: entry.Params.ClassCode, Name: entry.Params.Name, URL: entry.Params.URL}
+	}
+	return mapProblemBatchValidationIssues(entries, mapBatchEntryErrors(issues))
+}

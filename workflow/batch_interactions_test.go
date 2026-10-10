@@ -456,10 +456,10 @@ func TestWorkflow_BatchPreviewAndCancellationApplyNoWrites(t *testing.T) {
 				return
 			}
 			row := (*preview.Components)[0].(discordgo.ActionsRow)
-			if !assert.Len(t, row.Components, 1) {
+			if !assert.Len(t, row.Components, 2) {
 				return
 			}
-			button := row.Components[0].(discordgo.Button)
+			button := row.Components[1].(discordgo.Button)
 			assert.Equal(t, "Cancel", button.Label)
 			assert.LessOrEqual(t, len(button.CustomID), 100)
 			env.Responder.editFunc = nil

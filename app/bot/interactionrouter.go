@@ -48,6 +48,12 @@ var interactionModalMap = map[discordcommands.Action]InteractionRouter{
 }
 
 var interactionComponentMap = map[discordcommands.Action]InteractionRouter{
+	discordcommands.ConfirmProblemBatch: func(c *context.InteractionContext) {
+		c.ProblemController.HandleConfirmProblemBatchInteraction(c.Interaction)
+	},
+	discordcommands.ConfirmACBatch: func(c *context.InteractionContext) {
+		c.ACController.HandleConfirmACBatchInteraction(c.Interaction)
+	},
 	discordcommands.CancelProblemBatch: func(c *context.InteractionContext) {
 		c.ProblemController.HandleCancelProblemBatchInteraction(c.Interaction)
 	},

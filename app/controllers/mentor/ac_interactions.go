@@ -121,14 +121,89 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 	}
 
 	preview := discord.BuildValidatedBatchPreview(
-		discord.FormatACBatchValidationResult(prepared), interactiontransport.ACBatchCancelID(key.batchID),
+		discord.FormatACBatchValidationResult(prepared),
+		interactiontransport.ACBatchConfirmID(key.batchID),
+		interactiontransport.ACBatchCancelID(key.batchID),
 	)
 	if _, err := ctrl.responder.EditResponse(event.Interaction, preview); err != nil {
 		ctrl.validatedBatches.consumeBatch(key)
 	}
 }
 
+// HandleConfirmACBatchInteraction claims a validated batch before executing it.
+func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *discordgo.InteractionCreate) {
+	// Read the button context and identify the submitting member.
+	if event.MessageComponentData().ComponentType != discordgo.ButtonComponent {
+		ctrl.responder.RespondPrivately(event.Interaction, "invalid batch action button")
+		return
+	}
+
+	batchID, err := interactiontransport.ParseACBatchConfirmID(event.MessageComponentData().CustomID)
+	if err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
+		ctrl.responder.RespondPrivately(event.Interaction, "Batch commands require an identified server member.")
+		return
+	}
+
+	// Find an unexpired batch owned by this member and guild.
+	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
+	snapshot, available := ctrl.validatedBatches.loadValidatedBatch(key)
+	if !available {
+		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
+		return
+	}
+
+	// Acknowledge the click and verify current authority.
+	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
+		return
+	}
+	if err := ctrl.authorizeACInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	// Resolve current student identities and roles before claiming the batch.
+	userIDs := make([]string, len(snapshot))
+	for index, entry := range snapshot {
+		userIDs[index] = entry.User.UserID
+	}
+	students, err := controllers_common.GetMemberPrincipals(ctrl.fetcher, event.GuildID, userIDs)
+	if err != nil {
+		logger.Log.Errorf("Failed to resolve AC batch students before confirmation: %v", err)
+		ctrl.responder.FollowupPrivately(event.Interaction, "Could not resolve a batch student from Discord. Try confirming again.")
+		return
+	}
+
+	// Claim once, then revalidate and execute through the batch service.
+	batch, claimed := ctrl.validatedBatches.consumeBatch(key)
+	if !claimed {
+		return
+	}
+	result, issues, err := ctrl.services.Batch.ExecuteACBatch(batch, students)
+
+	// Present validation failures or the acknowledged execution outcome.
+	var response *discordgo.WebhookEdit
+	if len(issues) > 0 {
+		locations := mapACBatchExecutionIssues(batch, issues)
+		response = discord.BuildBatchValidationFailure(discord.FormatBatchValidationErrors(locations))
+	} else {
+		if err != nil {
+			logger.Log.Errorf("Failed to execute AC batch %s: %v", batchID, err)
+		}
+		response = discord.BuildACBatchExecutionResult(result, err != nil)
+	}
+	// Log and deliver the result without retrying consumed operations.
+	logger.Log.Infof("AC batch %s outcome: result=%v validationIssues=%d error=%v", batchID, result, len(issues), err)
+	if _, err := ctrl.responder.EditResponse(event.Interaction, response); err != nil {
+		logger.Log.Errorf("Failed to deliver AC batch %s result: %v", batchID, err)
+	}
+}
+
 func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *discordgo.InteractionCreate) {
+	// Read the button context and identify the submitting member.
 	if event.MessageComponentData().ComponentType != discordgo.ButtonComponent {
 		ctrl.responder.RespondPrivately(event.Interaction, "invalid batch cancellation button")
 		return
@@ -145,12 +220,14 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 		return
 	}
 
+	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
 	if _, available := ctrl.validatedBatches.loadValidatedBatch(key); !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
 
+	// Acknowledge the click and verify current authority.
 	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
 		return
 	}
@@ -160,6 +237,7 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 		return
 	}
 
+	// Consume the pending batch and remove its preview actions.
 	_, cancelled := ctrl.validatedBatches.consumeBatch(key)
 	if !cancelled {
 		return
