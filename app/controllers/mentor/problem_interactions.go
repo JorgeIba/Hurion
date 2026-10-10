@@ -249,7 +249,13 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 	}
 	// Adapt the input and validate the complete batch with the service.
 	inputs := mapProblemBatchInputToCreateProblemParams(entries)
-	prepared, domainIssues := ctrl.services.Problem.PrepareCreationBatch(inputs)
+	prepared, domainIssues, err := ctrl.services.Problem.PrepareCreationBatch(inputs)
+	if err != nil {
+		logger.Log.Errorf("Failed to validate problem batch: %v", err)
+		ctrl.editInteractionResponse(event.Interaction, "Could not validate the problem batch. No changes were applied. Try again.")
+		return
+	}
+
 	if len(domainIssues) > 0 {
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return

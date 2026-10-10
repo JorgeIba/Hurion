@@ -204,7 +204,8 @@ func setupConfirmationRace(t *testing.T, problem bool, validator providers.Disco
 	responder := dispatcher.NewDiscordInteractionResponder(client)
 	key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 	if problem {
-		prepared, issues := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{{ClassCode: "basicos", Name: "New", URL: "https://example.com/new"}})
+		prepared, issues, err := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{{ClassCode: "basicos", Name: "New", URL: "https://example.com/new"}})
+		require.NoError(t, err)
 		require.Empty(t, issues)
 		controller := NewProblemInteractionController(svcs, validator, responder)
 		require.True(t, controller.validatedBatches.saveValidatedBatch(key, prepared))

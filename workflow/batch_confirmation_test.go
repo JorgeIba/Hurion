@@ -193,13 +193,13 @@ type uncertainBatchStore struct {
 	writes int
 }
 
-func (store *uncertainBatchStore) AddProblem(problem data.Problem) (int64, error) {
+func (store *uncertainBatchStore) AddProblemsBatch(problems []data.Problem) ([]int64, error) {
 	store.writes++
-	id, err := store.DataStore.AddProblem(problem)
-	if err == nil && store.writes == 2 {
-		return 0, errors.New("lost acknowledgement")
+	problemIDs, err := store.DataStore.AddProblemsBatch(problems)
+	if err == nil {
+		return nil, errors.New("lost acknowledgement")
 	}
-	return id, err
+	return problemIDs, err
 }
 func (store *uncertainBatchStore) AddACBatch(targets []data.ACKey) (int, error) {
 	store.writes++
@@ -242,20 +242,17 @@ func TestWorkflow_BatchStorageFailureReportsProgressWithoutRetrying(t *testing.T
 			if command == "ac" {
 				assert.Contains(t, *receipt.Content, "it may have been applied")
 			} else {
-				assert.Contains(t, *receipt.Content, "may also have been applied")
+				assert.Contains(t, *receipt.Content, "may have been applied")
 			}
 			assert.NotContains(t, *receipt.Content, "No changes were applied")
 			assert.Empty(t, *receipt.Components)
-			expectedWrites := 2
-			if command == "ac" {
-				expectedWrites = 1
-			}
+			expectedWrites := 1
 			assert.Equal(t, expectedWrites, store.writes, "do not retry writes")
 			if command == "problem" {
-				assert.Contains(t, *receipt.Content, "Confirmed problem creations: 1")
+				assert.Contains(t, *receipt.Content, "Confirmed problem creations: 0")
 				problems, err := env.DB.GetProblemsByClass(classID)
 				require.NoError(t, err)
-				assert.Len(t, problems, 2)
+				assert.Len(t, problems, 3)
 			} else {
 				assert.Contains(t, *receipt.Content, "Confirmed AC registrations: 0")
 				env.assertProblemSolved(t, "123", problemID)

@@ -33,7 +33,7 @@ func TestBatchExecutionReceiptsPreserveIDsAndClearActions(t *testing.T) {
 			for index, id := range ids {
 				assert.Equal(t, strconv.FormatInt(id, 10), lines[index])
 			}
-			assert.Equal(t, failed, strings.Contains(*result.Content, "not rolled back"))
+			assert.Equal(t, failed, strings.Contains(*result.Content, "batch outcome could not be confirmed"))
 			assert.NotContains(t, *result.Content, "No changes were applied")
 		})
 	}
