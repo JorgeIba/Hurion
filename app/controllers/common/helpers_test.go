@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -464,4 +466,48 @@ func TestIsValidClassCode(t *testing.T) {
 	assert.False(t, IsValidClassCode("basic 1"))
 	assert.False(t, IsValidClassCode("basic@1"))
 	assert.False(t, IsValidClassCode(""))
+}
+
+func TestGetMemberPrincipalsUsesCacheAndResolvesDistinctIDs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	fetcher := mock_providers.NewMockDiscordFetcher(ctrl)
+	cached := &discordgo.Member{User: &discordgo.User{ID: "123"}, Nick: "Ana", Roles: []string{"student"}}
+	fetcher.EXPECT().GetCachedMember("guild", "123").Return(cached, nil)
+	fetcher.EXPECT().GetCachedMember("guild", "456").Return(nil, errors.New("cache miss"))
+	fetcher.EXPECT().FetchMember("guild", "456").Return(&discordgo.Member{User: &discordgo.User{ID: "456"}, Roles: []string{"other"}}, nil)
+	principals, err := GetMemberPrincipals(fetcher, "guild", []string{"123", "123", "456"})
+	require.NoError(t, err)
+	require.Len(t, principals, 2)
+	assert.Equal(t, "Ana", principals["123"].DisplayName)
+	assert.Equal(t, []string{"other"}, principals["456"].Roles)
+	cached.Roles[0] = "changed"
+	assert.Equal(t, []string{"student"}, principals["123"].Roles)
+}
+func TestGetMemberPrincipalsRejectsUnavailableOrInvalidMembers(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		member *discordgo.Member
+		err    error
+	}{
+		{name: "missing member"},
+		{name: "missing identity", member: &discordgo.Member{}},
+		{name: "wrong identity", member: &discordgo.Member{User: &discordgo.User{ID: "456"}}},
+		{name: "Discord unavailable", err: errors.New("offline")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			fetcher := mock_providers.NewMockDiscordFetcher(ctrl)
+			fetcher.EXPECT().GetCachedMember("guild", "111").Return(&discordgo.Member{User: &discordgo.User{ID: "111"}}, nil)
+			fetcher.EXPECT().GetCachedMember("guild", "123").Return(nil, nil)
+			fetcher.EXPECT().FetchMember("guild", "123").Return(test.member, test.err)
+			principals, err := GetMemberPrincipals(fetcher, "guild", []string{"111", "123", "123", "789"})
+			assert.Nil(t, principals)
+			var internal *controllerserr.InternalError
+			require.ErrorAs(t, err, &internal)
+			assert.ErrorContains(t, err, "123")
+			if test.err != nil {
+				assert.ErrorIs(t, err, test.err)
+			}
+		})
+	}
 }

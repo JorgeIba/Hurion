@@ -1,10 +1,12 @@
 package mentor
 
 import (
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseProblemBatch(t *testing.T) {
@@ -13,45 +15,45 @@ func TestParseProblemBatch(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		input string
-		want  []problemBatchEntry
+		want  batchInput[problemInput]
 	}{
 		{
 			name:  "preserves supplied spaces casing Unicode and escaped quotes",
 			input: `[{"class":" basicos ","url":"https://example.com/problem","name":" Árbol \"binario\" ","difficulty":"HARD","topic":" Árboles binarios ","priority":"RECOMMENDED"}]`,
-			want: []problemBatchEntry{{entry: 1, input: problemBatchInput{
+			want: batchInput[problemInput]{{
 				Class: " basicos ", URL: "https://example.com/problem", Name: ` Árbol "binario" `,
 				Difficulty: text("HARD"), Topic: text(" Árboles binarios "), Priority: text("RECOMMENDED"),
-			}}},
+			}},
 		},
 		{
 			name: "omitted null and blank optional fields and multiple classes",
 			input: "[\r\n" + `{"class":"basicos","url":"https://example.com/one","name":"Two   Sum"},` + "\r\n\r\n" +
 				`{"class":"avanzados","url":"https://example.com/two","name":"Otro problema","difficulty":null,"topic":" ","priority":"not_required"}]`,
-			want: []problemBatchEntry{
-				{entry: 1, input: problemBatchInput{Class: "basicos", URL: "https://example.com/one", Name: "Two   Sum"}},
-				{entry: 2, input: problemBatchInput{Class: "avanzados", URL: "https://example.com/two", Name: "Otro problema", Topic: text(" "), Priority: text("not_required")}},
+			want: batchInput[problemInput]{
+				{Class: "basicos", URL: "https://example.com/one", Name: "Two   Sum"},
+				{Class: "avanzados", URL: "https://example.com/two", Name: "Otro problema", Topic: text(" "), Priority: text("not_required")},
 			},
 		},
 		{
 			name:  "missing fields and invalid business values are left for preparation",
 			input: `[{}, {"class":" ","url":"javascript:alert(1)","name":"","difficulty":"extreme","topic":"` + strings.Repeat("á", 101) + `","priority":"urgent"}]`,
-			want: []problemBatchEntry{
-				{entry: 1, input: problemBatchInput{}},
-				{entry: 2, input: problemBatchInput{Class: " ", URL: "javascript:alert(1)", Difficulty: text("extreme"), Topic: text(strings.Repeat("á", 101)), Priority: text("urgent")}},
+			want: batchInput[problemInput]{
+				{},
+				{Class: " ", URL: "javascript:alert(1)", Difficulty: text("extreme"), Topic: text(strings.Repeat("á", 101)), Priority: text("urgent")},
 			},
 		},
 		{
 			name:  "identical problems are both preserved",
 			input: `[{"class":"basicos","url":"https://example.com/problem","name":"Same name"},{"class":"basicos","url":"https://example.com/problem","name":"Same name"}]`,
-			want: []problemBatchEntry{
-				{entry: 1, input: problemBatchInput{Class: "basicos", URL: "https://example.com/problem", Name: "Same name"}},
-				{entry: 2, input: problemBatchInput{Class: "basicos", URL: "https://example.com/problem", Name: "Same name"}},
+			want: batchInput[problemInput]{
+				{Class: "basicos", URL: "https://example.com/problem", Name: "Same name"},
+				{Class: "basicos", URL: "https://example.com/problem", Name: "Same name"},
 			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entries, issues := parseProblemBatch(test.input)
+			entries, issues := parseProblemTextForTest(t, test.input)
 			assert.Empty(t, issues)
 			assert.Equal(t, test.want, entries)
 		})
@@ -84,7 +86,7 @@ func TestParseProblemBatchReportsInvalidEntriesWithoutPartialResults(t *testing.
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entries, issues := parseProblemBatch(test.input)
+			entries, issues := parseProblemTextForTest(t, test.input)
 			assert.Nil(t, entries)
 			assertBatchIssues(t, issues, test.entries, test.messages)
 		})
@@ -96,31 +98,31 @@ func TestParseACBatch(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		input string
-		want  []acBatchEntry
+		want  batchInput[acInput]
 	}{
 		{
 			name:  "preserves large IDs duplicates and original order",
 			input: `[{"user_id":"123456789012345678","problem_id":42},{"user_id":"456","problem_id":9223372036854775807},{"user_id":"123456789012345678","problem_id":42}]`,
-			want: []acBatchEntry{
-				{entry: 1, input: acBatchInput{UserID: "123456789012345678", ProblemID: 42}},
-				{entry: 2, input: acBatchInput{UserID: "456", ProblemID: 9223372036854775807}},
-				{entry: 3, input: acBatchInput{UserID: "123456789012345678", ProblemID: 42}},
+			want: batchInput[acInput]{
+				{UserID: "123456789012345678", ProblemID: 42},
+				{UserID: "456", ProblemID: 9223372036854775807},
+				{UserID: "123456789012345678", ProblemID: 42},
 			},
 		},
 		{
 			name:  "missing targets names mentions and nonpositive IDs await preparation",
 			input: `[{},{"user_id":"Ana","problem_id":0},{"user_id":"<@123>","problem_id":-1},{"user_id":"<@!123>","problem_id":-9223372036854775808}]`,
-			want: []acBatchEntry{
-				{entry: 1, input: acBatchInput{}},
-				{entry: 2, input: acBatchInput{UserID: "Ana", ProblemID: 0}},
-				{entry: 3, input: acBatchInput{UserID: "<@123>", ProblemID: -1}},
-				{entry: 4, input: acBatchInput{UserID: "<@!123>", ProblemID: -9223372036854775808}},
+			want: batchInput[acInput]{
+				{},
+				{UserID: "Ana", ProblemID: 0},
+				{UserID: "<@123>", ProblemID: -1},
+				{UserID: "<@!123>", ProblemID: -9223372036854775808},
 			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entries, issues := parseACBatch(test.input)
+			entries, issues := parseACTextForTest(t, test.input)
 			assert.Empty(t, issues)
 			assert.Equal(t, test.want, entries)
 		})
@@ -153,7 +155,7 @@ func TestParseACBatchReportsInvalidEntriesWithoutPartialResults(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entries, issues := parseACBatch(test.input)
+			entries, issues := parseACTextForTest(t, test.input)
 			assert.Nil(t, entries)
 			assertBatchIssues(t, issues, test.entries, test.messages)
 		})
@@ -165,14 +167,14 @@ func TestBatchJSONContractAppliesToBothParsers(t *testing.T) {
 	for _, parser := range []struct {
 		name  string
 		valid string
-		parse func(string) (int, []batchInputError)
+		parse func(string) (int, []batchInputIssue)
 	}{
-		{name: "problems", valid: `{"class":"basicos","url":"https://example.com/one","name":"Valid"}`, parse: func(input string) (int, []batchInputError) {
-			entries, issues := parseProblemBatch(input)
+		{name: "problems", valid: `{"class":"basicos","url":"https://example.com/one","name":"Valid"}`, parse: func(input string) (int, []batchInputIssue) {
+			entries, issues := parseProblemTextForTest(t, input)
 			return len(entries), issues
 		}},
-		{name: "ACs", valid: `{"user_id":"123","problem_id":42}`, parse: func(input string) (int, []batchInputError) {
-			entries, issues := parseACBatch(input)
+		{name: "ACs", valid: `{"user_id":"123","problem_id":42}`, parse: func(input string) (int, []batchInputIssue) {
+			entries, issues := parseACTextForTest(t, input)
 			return len(entries), issues
 		}},
 	} {
@@ -185,8 +187,8 @@ func TestBatchJSONContractAppliesToBothParsers(t *testing.T) {
 				entry   int
 				message string
 			}{
-				{name: "empty text", message: "expected one JSON array"},
-				{name: "whitespace", input: "\r\n \t\n", message: "expected one JSON array"},
+				{name: "empty text", message: "expected one JSON document"},
+				{name: "whitespace", input: "\r\n \t\n", message: "expected one JSON document"},
 				{name: "empty array", input: "[]"},
 				{name: "null document", input: "null", message: "not null"},
 				{name: "object document", input: parser.valid, message: "expected one JSON array"},
@@ -194,9 +196,9 @@ func TestBatchJSONContractAppliesToBothParsers(t *testing.T) {
 				{name: "null entry", input: "[" + parser.valid + ",null]", entry: 2, message: "entry must be a JSON object"},
 				{name: "array entry", input: "[" + parser.valid + ",[]]", entry: 2, message: "JSON array into Go"},
 				{name: "string entry", input: "[" + parser.valid + `,"text"]`, entry: 2, message: "JSON string into Go"},
-				{name: "second document", input: "[" + parser.valid + "] []", message: "expected one JSON array"},
-				{name: "markdown fences", input: "```json\n[" + parser.valid + "]\n```", message: "expected one JSON array"},
-				{name: "comments", input: "[/*comment*/" + parser.valid + "]", message: "expected one JSON array"},
+				{name: "second document", input: "[" + parser.valid + "] []", message: "expected one JSON document"},
+				{name: "markdown fences", input: "```json\n[" + parser.valid + "]\n```", message: "expected one JSON document"},
+				{name: "comments", input: "[/*comment*/" + parser.valid + "]", message: "expected one JSON document"},
 				{name: "100 operations", input: "[" + strings.Repeat(parser.valid+",\r\n", 99) + parser.valid + "]", count: 100},
 				{name: "101 operations", input: "[" + strings.Repeat(parser.valid+",", 100) + parser.valid + "]", count: 101},
 			} {
@@ -215,48 +217,19 @@ func TestBatchJSONContractAppliesToBothParsers(t *testing.T) {
 	}
 }
 
-func TestBatchSyntaxErrorLocation(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name   string
-		input  string
-		line   int
-		column int
-	}{
-		{name: "CRLF and Unicode column", input: "[\r\n  {\"name\":\"á\",?}\r\n]", line: 2, column: 15},
-		{name: "trailing comma", input: "[\n{},\n]", line: 2, column: 3},
-		{name: "empty input", line: 1, column: 1},
-		{name: "missing array closing bracket", input: "[{}", line: 1, column: 4},
-		{name: "EOF after newline", input: "[{}\n", line: 2, column: 1},
-		{name: "EOF after CRLF", input: "[{}\r\n", line: 2, column: 1},
-		{name: "EOF after Unicode", input: "[\"á\"", line: 1, column: 5},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			items, issues := parseBatchItems(test.input)
-			assert.Nil(t, items)
-			if assert.Len(t, issues, 1) {
-				assert.Zero(t, issues[0].entry)
-				assert.Equal(t, test.line, issues[0].line)
-				assert.Equal(t, test.column, issues[0].column)
-			}
-		})
-	}
-}
-
 func TestBatchParsersRejectUnpairedUnicodeEscapes(t *testing.T) {
 	t.Parallel()
 	for _, parser := range []struct {
 		name  string
 		field string
-		parse func(string) (int, []batchInputError)
+		parse func(string) (int, []batchInputIssue)
 	}{
-		{name: "problems", field: "name", parse: func(input string) (int, []batchInputError) {
-			entries, issues := parseProblemBatch(input)
+		{name: "problems", field: "name", parse: func(input string) (int, []batchInputIssue) {
+			entries, issues := parseProblemTextForTest(t, input)
 			return len(entries), issues
 		}},
-		{name: "ACs", field: "user_id", parse: func(input string) (int, []batchInputError) {
-			entries, issues := parseACBatch(input)
+		{name: "ACs", field: "user_id", parse: func(input string) (int, []batchInputIssue) {
+			entries, issues := parseACTextForTest(t, input)
 			return len(entries), issues
 		}},
 	} {
@@ -311,22 +284,43 @@ func TestParseProblemBatchPreservesValidUnicodeEscapes(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			entries, issues := parseProblemBatch(`[{"name":"` + test.value + `"}]`)
+			entries, issues := parseProblemTextForTest(t, `[{"name":"`+test.value+`"}]`)
 			assert.Empty(t, issues)
 			if assert.Len(t, entries, 1) {
-				assert.Equal(t, test.want, entries[0].input.Name)
+				assert.Equal(t, test.want, entries[0].Name)
 			}
 		})
 	}
 }
 
-func assertBatchIssues(t *testing.T, issues []batchInputError, entries []int, messages []string) {
+func assertBatchIssues(t *testing.T, issues []batchInputIssue, entries []int, messages []string) {
 	t.Helper()
 	if !assert.Len(t, issues, len(entries)) {
 		return
 	}
 	for index, entry := range entries {
 		assert.Equal(t, entry, issues[index].entry)
-		assert.Contains(t, issues[index].message, messages[index])
+		assert.Contains(t, issues[index].err.Error(), messages[index])
 	}
+}
+
+func documentForTest(t *testing.T, input string) jsontext.Value {
+	t.Helper()
+	document, err := parseJSONDocument(input)
+	require.NoError(t, err)
+	return document
+}
+func parseProblemTextForTest(t *testing.T, input string) (batchInput[problemInput], []batchInputIssue) {
+	document, err := parseJSONDocument(input)
+	if err != nil {
+		return nil, []batchInputIssue{{err: err}}
+	}
+	return parseProblemBatchInput(document)
+}
+func parseACTextForTest(t *testing.T, input string) (batchInput[acInput], []batchInputIssue) {
+	document, err := parseJSONDocument(input)
+	if err != nil {
+		return nil, []batchInputIssue{{err: err}}
+	}
+	return parseACBatchInput(document)
 }

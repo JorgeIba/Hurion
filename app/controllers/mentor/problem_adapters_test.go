@@ -1,9 +1,9 @@
-package discord_test
+package mentor
 
 import (
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"testing"
 
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,7 +21,7 @@ func TestProblemModalAdaptersPreserveOptionalValuesInBothDirections(t *testing.T
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			fields := discord.ProblemModalFields{
+			fields := interactiontransport.ProblemModalFields{
 				Name: " Two Sum con números ", URL: " fix this URL ",
 				Difficulty: test.difficulty, Topic: test.topic, Priority: test.priority,
 			}
@@ -30,18 +30,18 @@ func TestProblemModalAdaptersPreserveOptionalValuesInBothDirections(t *testing.T
 					ClassCode: "basicos_1", Name: fields.Name, URL: fields.URL,
 					Difficulty: test.difficulty, Topic: test.topic, Priority: test.priority,
 				}
-				modal := discord.MapCreateProblemParamsToCreateProblemModal(params)
-				assert.Equal(t, discord.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: fields}, modal)
-				assert.Equal(t, params, discord.MapCreateProblemModalToCreateProblemParams(modal))
+				modal := mapCreateProblemParamsToCreateProblemModal(params)
+				assert.Equal(t, interactiontransport.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: fields}, modal)
+				assert.Equal(t, params, mapCreateProblemModalToCreateProblemParams(modal))
 			})
 			t.Run("update request and form", func(t *testing.T) {
 				params := service_model.UpdateProblemParams{
 					ProblemID: 42, ClassCode: "basicos_1", Name: fields.Name, URL: fields.URL,
 					Difficulty: test.difficulty, Topic: test.topic, Priority: test.priority,
 				}
-				modal := discord.MapUpdateProblemParamsToEditProblemModal(params)
-				assert.Equal(t, discord.EditProblemModal{ProblemID: 42, ClassCode: "basicos_1", ProblemModalFields: fields}, modal)
-				assert.Equal(t, params, discord.MapEditProblemModalToUpdateProblemParams(modal))
+				modal := mapUpdateProblemParamsToEditProblemModal(params)
+				assert.Equal(t, interactiontransport.EditProblemModal{ProblemID: 42, ClassCode: "basicos_1", ProblemModalFields: fields}, modal)
+				assert.Equal(t, params, mapEditProblemModalToUpdateProblemParams(modal))
 			})
 		})
 	}

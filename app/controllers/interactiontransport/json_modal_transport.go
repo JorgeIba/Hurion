@@ -1,8 +1,9 @@
-package discord
+package interactiontransport
 
 import (
 	"fmt"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -40,10 +41,7 @@ func buildJSONModalResponse(customID, title, example string) *discordgo.Interact
 
 // parseJSONModalSource verifies the form structure and resolves the selected
 // attachment from Discord's payload; downloading and JSON parsing are separate.
-func parseJSONModalSource(data discordgo.ModalSubmitInteractionData, customID string) (JSONModalSource, error) {
-	if data.CustomID != customID {
-		return JSONModalSource{}, fmt.Errorf("invalid batch form ID")
-	}
+func parseJSONModalSource(data discordgo.ModalSubmitInteractionData) (JSONModalSource, error) {
 	var source JSONModalSource
 	seenText, seenFile := false, false
 	var fileIDs []string
@@ -89,66 +87,4 @@ func parseJSONModalSource(data discordgo.ModalSubmitInteractionData, customID st
 	return source, nil
 }
 
-// JSONInputIssue carries parser locations for a private Discord receipt.
-type JSONInputIssue struct {
-	Entry   int
-	Line    int
-	Column  int
-	Message string
-}
-
-func FormatJSONParseResult(count int, issues []JSONInputIssue) string {
-	if len(issues) > 0 {
-		return formatJSONInputErrors(issues)
-	}
-	return fmt.Sprintf("JSON parsed. Entries: %d. No changes were applied.", count)
-}
-
-func formatJSONInputErrors(issues []JSONInputIssue) string {
-	return formatInputIssues(fmt.Sprintf("Could not read JSON: %d issue(s).", len(issues)), issues)
-}
-
-func FormatBatchValidationErrors(issues []JSONInputIssue) string {
-	return formatInputIssues(fmt.Sprintf("Batch validation failed: %d issue(s). No changes were applied.", len(issues)), issues)
-}
-
-func formatInputIssues(content string, issues []JSONInputIssue) string {
-	for index, issue := range issues {
-		location := "Input"
-		if issue.Entry > 0 {
-			location = fmt.Sprintf("Entry %d", issue.Entry)
-		}
-		if issue.Line > 0 {
-			location += fmt.Sprintf(" (line %d, column %d)", issue.Line, issue.Column)
-		}
-		// One malformed value must not consume the whole receipt. Preserve the
-		// entry/location and reserve room for the omitted-error count.
-		message := truncateJSONInputError(issue.Message, 500)
-		line := fmt.Sprintf("\n%s: %s", location, message)
-		if utf16Count(content+line) > 1900 {
-			content += fmt.Sprintf("\n%d more issue(s). Correct these and submit again.", len(issues)-index)
-			break
-		}
-		content += line
-	}
-	return content
-}
-
-func truncateJSONInputError(message string, limit int) string {
-	message = strings.ReplaceAll(message, "\n", " ")
-	var result strings.Builder
-	length := 0
-	for _, char := range message {
-		width := 1
-		if char > 0xFFFF {
-			width = 2
-		}
-		if length+width > limit {
-			result.WriteString("…")
-			break
-		}
-		result.WriteRune(char)
-		length += width
-	}
-	return result.String()
-}
+func utf16Count(s string) int { return len(utf16.Encode([]rune(s))) }

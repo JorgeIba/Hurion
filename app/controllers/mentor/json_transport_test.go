@@ -61,7 +61,7 @@ func TestReadJSONFile(t *testing.T) {
 				}
 				return &http.Response{StatusCode: test.status, Header: http.Header{"Location": []string{"https://example.com/file"}}, Body: io.NopCloser(strings.NewReader(test.body)), Request: request}, nil
 			})}
-			reader := newJSONFileTransport(client)
+			reader := newJSONTransport(client)
 			filename := test.filename
 			if filename == "" {
 				filename = "batch.json"
@@ -81,6 +81,35 @@ func TestReadJSONFile(t *testing.T) {
 			}
 			assert.Zero(t, client.Timeout, "constructor must not mutate the shared client")
 			assert.Equal(t, 15*time.Second, reader.client.Timeout)
+		})
+	}
+}
+
+func TestBatchSyntaxErrorLocation(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		input  string
+		line   int
+		column int
+	}{
+		{name: "CRLF and Unicode column", input: "[\r\n  {\"name\":\"á\",?}\r\n]", line: 2, column: 15},
+		{name: "trailing comma", input: "[\n{},\n]", line: 3, column: 1},
+		{name: "empty input", line: 1, column: 1},
+		{name: "missing array closing bracket", input: "[{}", line: 1, column: 4},
+		{name: "EOF after newline", input: "[{}\n", line: 2, column: 1},
+		{name: "EOF after CRLF", input: "[{}\r\n", line: 2, column: 1},
+		{name: "EOF after Unicode", input: "[\"á\"", line: 1, column: 5},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			document, err := parseJSONDocument(test.input)
+			assert.Nil(t, document)
+			var syntax *jsonDocumentError
+			if assert.ErrorAs(t, err, &syntax) {
+				assert.Equal(t, test.line, syntax.line)
+				assert.Equal(t, test.column, syntax.column)
+			}
 		})
 	}
 }

@@ -1,11 +1,11 @@
 package mentor
 
 import (
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,7 +35,7 @@ func TestCreateProblemDraftExpiresTenMinutesAfterLastFailure(t *testing.T) {
 			clock.now.Store(time.Now().UnixNano())
 			cache := newCreateProblemDraftCache(clock)
 			key := createProblemDraftCacheKey{guildID: "guild", userID: "mentor", classCode: "basicos_1"}
-			modal := discord.CreateProblemModal{ClassCode: key.classCode, ProblemModalFields: discord.ProblemModalFields{Name: "Original", URL: "invalid"}}
+			modal := interactiontransport.CreateProblemModal{ClassCode: key.classCode, ProblemModalFields: interactiontransport.ProblemModalFields{Name: "Original", URL: "invalid"}}
 			assert.True(t, cache.saveFailedDraft(key, modal), "a new draft is available after writing")
 			if test.failAgain {
 				clock.now.Add(int64(9 * time.Minute))
@@ -66,7 +66,7 @@ func TestCreateProblemDraftIsIsolatedByServerAuthorAndClass(t *testing.T) {
 			t.Parallel()
 			cache := newCreateProblemDraftCache(nil)
 			key := createProblemDraftCacheKey{guildID: "guild", userID: "mentor", classCode: "basicos_1"}
-			modal := discord.CreateProblemModal{ClassCode: key.classCode, ProblemModalFields: discord.ProblemModalFields{Name: "My problem"}}
+			modal := interactiontransport.CreateProblemModal{ClassCode: key.classCode, ProblemModalFields: interactiontransport.ProblemModalFields{Name: "My problem"}}
 			cache.saveFailedDraft(key, modal)
 			_, found := cache.loadFailedDraft(test.key)
 			assert.False(t, found)

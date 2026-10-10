@@ -72,6 +72,11 @@ type PendingConfirmation struct {
 // Request Parameters
 // ============================================================================
 
+type CreateACParams struct {
+	UserID    string
+	ProblemID int64
+}
+
 // ProblemFields contains the editable values shared by creation and updates.
 type ProblemFields struct {
 	Name       string

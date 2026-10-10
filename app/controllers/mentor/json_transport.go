@@ -1,15 +1,19 @@
 package mentor
 
 import (
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
+	"errors"
 	"fmt"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"io"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -25,11 +29,11 @@ const (
 	discordEphemeralPathPrefix  = "/ephemeral-attachments/"
 )
 
-type jsonFileTransport struct {
+type jsonTransport struct {
 	client *http.Client
 }
 
-func newJSONFileTransport(client *http.Client) *jsonFileTransport {
+func newJSONTransport(client *http.Client) *jsonTransport {
 	if client == nil {
 		client = &http.Client{}
 	}
@@ -39,21 +43,50 @@ func newJSONFileTransport(client *http.Client) *jsonFileTransport {
 	// Attachment URLs resolve directly; never follow redirects to another origin.
 	boundedClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
-	return &jsonFileTransport{client: &boundedClient}
+	return &jsonTransport{client: &boundedClient}
 }
 
 // read uses the uploaded file when present; failed file reads never fall back to text.
-func (reader *jsonFileTransport) read(source discord.JSONModalSource) (string, error) {
-	if source.Attachment == nil {
-		return source.Text, nil
+func (reader *jsonTransport) read(source interactiontransport.JSONModalSource) (jsontext.Value, error) {
+	content := source.Text
+	if source.Attachment != nil {
+		var err error
+		content, err = reader.readFile(source.Attachment)
+		if err != nil {
+			return nil, err
+		}
 	}
+	return parseJSONDocument(content)
+}
 
-	return reader.readFile(source.Attachment)
+type jsonDocumentError struct {
+	line, column int
+	err          error
+}
+
+func (err *jsonDocumentError) Error() string { return err.err.Error() }
+func (err *jsonDocumentError) Unwrap() error { return err.err }
+
+func parseJSONDocument(input string) (jsontext.Value, error) {
+	var document jsontext.Value
+	// Defer Unicode and duplicate-name checks to entry decoding,
+	// which can report issues for multiple entries together.
+	if err := jsonv2.Unmarshal([]byte(input), &document, jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true)); err != nil {
+		location := &jsonDocumentError{err: fmt.Errorf("expected one JSON document: %w", err)}
+		if syntax, ok := errors.AsType[*jsontext.SyntacticError](err); ok {
+			offset := max(0, min(len(input), int(syntax.ByteOffset)))
+			before := input[:offset]
+			location.line = strings.Count(before, "\n") + 1
+			location.column = utf8.RuneCountInString(before[strings.LastIndex(before, "\n")+1:]) + 1
+		}
+		return nil, location
+	}
+	return document, nil
 }
 
 // readFile validates the attachment and downloads its complete contents.
-// JSON syntax, Unicode, and entry types are validated by the existing parsers.
-func (reader *jsonFileTransport) readFile(attachment *discordgo.MessageAttachment) (string, error) {
+// read checks document syntax; batch input decoding checks individual entries.
+func (reader *jsonTransport) readFile(attachment *discordgo.MessageAttachment) (string, error) {
 	if attachment == nil || !strings.EqualFold(filepath.Ext(attachment.Filename), jsonFileExtension) {
 		return "", fmt.Errorf("upload a file with the %s extension", jsonFileExtension)
 	}
@@ -85,14 +118,4 @@ func (reader *jsonFileTransport) readFile(attachment *discordgo.MessageAttachmen
 		return "", fmt.Errorf("could not read the complete JSON file; upload it again")
 	}
 	return string(contents), nil
-}
-
-func batchParseReceipt(count int, issues []batchInputError) string {
-	locations := make([]discord.JSONInputIssue, len(issues))
-
-	for index, issue := range issues {
-		locations[index] = discord.JSONInputIssue{Entry: issue.entry, Line: issue.line, Column: issue.column, Message: issue.message}
-	}
-
-	return discord.FormatJSONParseResult(count, locations)
 }

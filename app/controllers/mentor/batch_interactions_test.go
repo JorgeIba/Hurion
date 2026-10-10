@@ -2,6 +2,7 @@ package mentor
 
 import (
 	"errors"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"io"
 	"net/http"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
@@ -63,7 +63,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 		permissionErr                 error
 		wantDownload                  bool
 	}{
-		{name: "problem file", route: discord.ProblemBatchModalCustomID, body: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, status: 200, want: "Entries: 1", wantDownload: true},
+		{name: "problem file", route: string(discordcommands.ProblemBatch), body: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, status: 200, want: "Entries: 1", wantDownload: true},
 		{name: "file wins over invalid pasted text", text: "invalid JSON", body: `[{"user_id":"123","problem_id":42}]`, status: 200, want: "Entries: 1", wantDownload: true},
 		{name: "malformed file does not fall back to valid text", text: `[{"user_id":"123","problem_id":42}]`, body: `[{`, status: 200, want: "Could not read JSON", wantDownload: true},
 		{name: "failed download does not fall back to valid text", text: `[{"user_id":"123","problem_id":42}]`, body: `[]`, status: 403, want: "HTTP 403", wantDownload: true},
@@ -75,9 +75,9 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 		{name: "oversized file", size: maxJSONFileBytes + 1, want: "5 MiB"},
 		{name: "empty file", want: "non-empty"},
 		{name: "failed acknowledgement", ackFails: true},
-		{name: "failed problem acknowledgement", route: discord.ProblemBatchModalCustomID, ackFails: true},
+		{name: "failed problem acknowledgement", route: string(discordcommands.ProblemBatch), ackFails: true},
 		{name: "permission revoked", denied: true, want: "mentor or admin"},
-		{name: "problem permission revoked", route: discord.ProblemBatchModalCustomID, denied: true, want: "mentor or admin"},
+		{name: "problem permission revoked", route: string(discordcommands.ProblemBatch), denied: true, want: "mentor or admin"},
 		{name: "permission lookup failure", permissionErr: errors.New("Discord unavailable"), want: "verifying permissions"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -88,7 +88,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 			store := mock_data.NewMockDataStore(mockCtrl)
 			svcs := services.NewServices(store)
 			if strings.HasPrefix(test.want, "Entries:") {
-				if test.route == discord.ProblemBatchModalCustomID {
+				if test.route == string(discordcommands.ProblemBatch) {
 					store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
 				} else {
 					count := 1
@@ -113,14 +113,14 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 				client.ackErr = errors.New("ack rejected")
 			}
 			downloads := 0
-			reader := newJSONFileTransport(&http.Client{Transport: batchFileTransport(func(request *http.Request) (*http.Response, error) {
+			reader := newJSONTransport(&http.Client{Transport: batchFileTransport(func(request *http.Request) (*http.Response, error) {
 				downloads++
 				assert.Len(t, client.responses, 1, "acknowledge before downloading")
 				return &http.Response{StatusCode: test.status, Body: io.NopCloser(strings.NewReader(test.body)), Header: make(http.Header), Request: request}, nil
 			})})
 			route := test.route
 			if route == "" {
-				route = discord.ACBatchModalCustomID
+				route = string(discordcommands.ACBatch)
 			}
 			size := test.size
 			if size == 0 {
@@ -138,7 +138,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 				},
 			}}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
-			if route == discord.ProblemBatchModalCustomID {
+			if route == string(discordcommands.ProblemBatch) {
 				controller := NewProblemInteractionController(svcs, validator, responder)
 				controller.attachments = reader
 				controller.HandleCreateProblemBatchModalSubmitInteraction(event)

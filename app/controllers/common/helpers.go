@@ -96,6 +96,22 @@ func GetMemberPrincipal(fetcher providers.DiscordFetcher, guildID, userID string
 	}, nil
 }
 
+// GetMemberPrincipals resolves distinct IDs once per call. A failure returns no partial map.
+func GetMemberPrincipals(fetcher providers.DiscordFetcher, guildID string, userIDs []string) (map[string]service_model.Principal, error) {
+	principals := make(map[string]service_model.Principal, len(userIDs))
+	for _, userID := range userIDs {
+		if _, found := principals[userID]; found {
+			continue
+		}
+		principal, err := GetMemberPrincipal(fetcher, guildID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("could not resolve Discord member %s: %w", userID, err)
+		}
+		principals[userID] = *principal
+	}
+	return principals, nil
+}
+
 // RequireClassAccess verifies if the user has permission to access a class.
 func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (bool, error) {
 	// Admin Bypass

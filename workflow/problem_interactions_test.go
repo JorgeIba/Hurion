@@ -2,13 +2,15 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"strings"
 	"testing"
 	"unicode/utf16"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
-	form "github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -62,7 +64,7 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 					Name: "problem", Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: "add", Type: discordgo.ApplicationCommandOptionSubCommand}},
 				}
 				if kind == discordgo.InteractionModalSubmit {
-					data = discordgo.ModalSubmitInteractionData{CustomID: form.CreateProblemModalCustomID}
+					data = discordgo.ModalSubmitInteractionData{CustomID: string(discordcommands.CreateProblem)}
 				}
 				event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 					GuildID: testGuildID, ChannelID: testChannelID, Type: kind, Member: test.member, Data: data,
@@ -129,22 +131,22 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		fields form.ProblemModalFields
+		fields interactiontransport.ProblemModalFields
 		want   string
 		saved  bool
 	}{
-		{name: "normalized values", fields: form.ProblemModalFields{Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: new("hard"), Priority: new("not_required"), Topic: new(" Binary search ")}, want: "was added to class", saved: true},
-		{name: "blank optional fields", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"}, want: "was added to class", saved: true},
-		{name: "blank required name", fields: form.ProblemModalFields{Name: " ", URL: "https://example.com/problem"}, want: "problem name is required"},
-		{name: "invalid URL", fields: form.ProblemModalFields{Name: "Two Sum", URL: "javascript:alert(1)"}, want: "URL must be"},
-		{name: "unknown difficulty is ignored", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Difficulty: new("extreme")}, want: "was added to class", saved: true},
-		{name: "unknown priority is ignored", fields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Priority: new("urgent")}, want: "was added to class", saved: true},
+		{name: "normalized values", fields: interactiontransport.ProblemModalFields{Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: new("hard"), Priority: new("not_required"), Topic: new(" Binary search ")}, want: "was added to class", saved: true},
+		{name: "blank optional fields", fields: interactiontransport.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"}, want: "was added to class", saved: true},
+		{name: "blank required name", fields: interactiontransport.ProblemModalFields{Name: " ", URL: "https://example.com/problem"}, want: "problem name is required"},
+		{name: "invalid URL", fields: interactiontransport.ProblemModalFields{Name: "Two Sum", URL: "javascript:alert(1)"}, want: "URL must be"},
+		{name: "unknown difficulty is ignored", fields: interactiontransport.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Difficulty: new("extreme")}, want: "was added to class", saved: true},
+		{name: "unknown priority is ignored", fields: interactiontransport.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem", Priority: new("urgent")}, want: "was added to class", saved: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
 			classID := env.seedClass(t, "basicos_1", "Basicos")
-			response, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: test.fields})
+			response, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: test.fields})
 			require.NoError(t, err)
 			data := submittedProblemFormDataWithValues(t, response, map[string]string{
 				"name":       test.fields.Name,
@@ -194,7 +196,14 @@ func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
 	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
 	modal.Name, modal.URL = strings.Repeat("🚀", 1500), "https://example.com/problem"
 	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
-	problemService.EXPECT().CreateProblemIntoClass(form.MapCreateProblemModalToCreateProblemParams(modal)).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
+	problemService.EXPECT().CreateProblemIntoClass(service_model.CreateProblemParams{
+		ClassCode:  modal.ClassCode,
+		Name:       modal.Name,
+		URL:        modal.URL,
+		Difficulty: modal.Difficulty,
+		Topic:      modal.Topic,
+		Priority:   modal.Priority,
+	}).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
 	env.Services.Problem = problemService
 	env.submitProblemForm(t, "mentor_1", modal)
 	require.Len(t, env.Responder.edits, 1)
@@ -212,12 +221,19 @@ func TestWorkflow_ProblemAddRetainsDraftForDuplicateFailure(t *testing.T) {
 	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
 	env.seedClass(t, "basicos_2", "Basicos 2")
 	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
-	modal.ProblemModalFields = form.ProblemModalFields{
+	modal.ProblemModalFields = interactiontransport.ProblemModalFields{
 		Name: " Duplicate problem ", URL: " https://example.com/duplicate ",
 		Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Binary search "),
 	}
 	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
-	problemService.EXPECT().CreateProblemIntoClass(form.MapCreateProblemModalToCreateProblemParams(modal)).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
+	problemService.EXPECT().CreateProblemIntoClass(service_model.CreateProblemParams{
+		ClassCode:  modal.ClassCode,
+		Name:       modal.Name,
+		URL:        modal.URL,
+		Difficulty: modal.Difficulty,
+		Topic:      modal.Topic,
+		Priority:   modal.Priority,
+	}).Return(int64(0), serviceerr.NewDuplicateProblemError("duplicate problem", nil))
 	env.Services.Problem = problemService
 	env.submitProblemForm(t, "mentor_1", modal)
 	reopened := env.openProblemForm(t, "mentor_1", "basicos_2")
@@ -419,8 +435,8 @@ func TestWorkflow_ProblemSubmitDoesNotCheckPermissionsOrSaveWhenAcknowledgementF
 				assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, response.Type)
 				return test.err
 			}
-			formResponse, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{
-				ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"},
+			formResponse, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{
+				ClassCode: "basicos_1", ProblemModalFields: interactiontransport.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"},
 			})
 			require.NoError(t, err)
 			event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
@@ -466,8 +482,8 @@ func TestWorkflow_ProblemSubmitAcknowledgesBeforePermissionLookupAndKeepsSaveWhe
 		assert.Contains(t, *response.Content, "was added to class")
 		return fmt.Errorf("Discord receipt failed")
 	}
-	response, err := form.BuildCreateProblemModalResponse(form.CreateProblemModal{
-		ClassCode: "basicos_1", ProblemModalFields: form.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"},
+	response, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{
+		ClassCode: "basicos_1", ProblemModalFields: interactiontransport.ProblemModalFields{Name: "Two Sum", URL: "https://example.com/problem"},
 	})
 	require.NoError(t, err)
 	event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{

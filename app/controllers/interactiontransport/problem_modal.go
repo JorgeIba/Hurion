@@ -1,4 +1,4 @@
-package discord
+package interactiontransport
 
 type ProblemModalFields struct {
 	Name       string

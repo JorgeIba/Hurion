@@ -2,6 +2,8 @@ package bot
 
 import (
 	"errors"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"testing"
 
 	"github.com/bwmarrin/discordgo"
@@ -9,24 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type fakeApplicationCommandCreator struct {
-	applicationID string
-	guildID       string
-	commands      []*discordgo.ApplicationCommand
-	err           error
-}
-
-func (fake *fakeApplicationCommandCreator) ApplicationCommandCreate(appID, guildID string, command *discordgo.ApplicationCommand, _ ...discordgo.RequestOption) (*discordgo.ApplicationCommand, error) {
-	fake.applicationID = appID
-	fake.guildID = guildID
-	fake.commands = append(fake.commands, command)
-	return command, fake.err
-}
-
 func TestUpsertProblemSlashCommandCreatesGuildScopedProblemCommand(t *testing.T) {
 	api := &fakeApplicationCommandCreator{}
 
-	err := upsertProblemSlashCommand(api, "application-123", "guild-456")
+	err := upsertSlashCommand(api, "application-123", "guild-456", discordcommands.ProblemSlashCommand(service_model.ClassCodeMaxLength))
 
 	require.NoError(t, err)
 	require.Len(t, api.commands, 1)
@@ -70,7 +58,7 @@ func TestUpsertProblemSlashCommandRejectsMissingIDsBeforeCallingDiscord(t *testi
 		t.Run(test.name, func(t *testing.T) {
 			api := &fakeApplicationCommandCreator{}
 
-			err := upsertProblemSlashCommand(api, test.applicationID, test.guildID)
+			err := upsertSlashCommand(api, test.applicationID, test.guildID, discordcommands.ProblemSlashCommand(service_model.ClassCodeMaxLength))
 
 			require.Error(t, err)
 			assert.Empty(t, api.commands)
@@ -81,7 +69,7 @@ func TestUpsertProblemSlashCommandRejectsMissingIDsBeforeCallingDiscord(t *testi
 func TestUpsertProblemSlashCommandReturnsDiscordError(t *testing.T) {
 	api := &fakeApplicationCommandCreator{err: errors.New("Discord API unavailable")}
 
-	err := upsertProblemSlashCommand(api, "application-123", "guild-456")
+	err := upsertSlashCommand(api, "application-123", "guild-456", discordcommands.ProblemSlashCommand(service_model.ClassCodeMaxLength))
 
 	require.ErrorContains(t, err, "upsert guild slash command /problem")
 	assert.ErrorContains(t, err, "Discord API unavailable")

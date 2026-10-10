@@ -157,10 +157,7 @@ func main() {
 		}
 		// Register the owned slash commands for the guild
 		// It needs the associated application user ID to register the command correctly in the guild
-		if err := bot.UpsertProblemSlashCommand(session, applicationUser.ID, guildID); err != nil {
-			log.Fatalf("Failed to register guild slash commands: %v", err)
-		}
-		if err := bot.UpsertACSlashCommand(session, applicationUser.ID, guildID); err != nil {
+		if err := bot.UpsertSlashCommands(session, applicationUser.ID, guildID); err != nil {
 			log.Fatalf("Failed to register guild slash commands: %v", err)
 		}
 		logger.Log.Infof("Upserted guild slash commands /problem and /ac in server %s", guildID)

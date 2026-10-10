@@ -1,10 +1,11 @@
-package discord
+package interactiontransport_test
 
 import (
 	"encoding/json"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"strings"
 	"testing"
-	"unicode/utf16"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -17,8 +18,8 @@ func TestJSONModalEncoding(t *testing.T) {
 		response *discordgo.InteractionResponse
 		route    string
 	}{
-		{"problems", BuildProblemBatchModalResponse(), ProblemBatchModalCustomID},
-		{"ACs", BuildACBatchModalResponse(), ACBatchModalCustomID},
+		{"problems", buildProblemBatchModalForTest(), string(discordcommands.ProblemBatch)},
+		{"ACs", buildACBatchModalForTest(), string(discordcommands.ACBatch)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -79,7 +80,7 @@ func TestParseProblemBatchModalSource(t *testing.T) {
 			t.Parallel()
 			// Decode the actual wire shape rather than hand-constructing SDK labels.
 			raw, err := json.Marshal(map[string]any{
-				"custom_id": ProblemBatchModalCustomID,
+				"custom_id": string(discordcommands.ProblemBatch),
 				"components": []any{
 					map[string]any{"type": 18, "component": map[string]any{"type": 4, "custom_id": "json", "value": test.text}},
 					map[string]any{"type": 18, "component": map[string]any{"type": 19, "custom_id": "file", "values": test.files}},
@@ -92,7 +93,7 @@ func TestParseProblemBatchModalSource(t *testing.T) {
 			if test.mutate != nil {
 				test.mutate(&data)
 			}
-			result, err := ParseProblemBatchModalSource(data)
+			result, err := interactiontransport.ParseProblemBatchModalSource(data)
 			if test.wantError != "" {
 				assert.ErrorContains(t, err, test.wantError)
 				assert.Empty(t, result)
@@ -112,41 +113,15 @@ func TestParseProblemBatchModalSource(t *testing.T) {
 	}
 }
 
-func TestJSONParseReceiptFitsDiscordLimit(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name, message string
-		count         int
-	}{
-		{name: "many entries", message: "unknown field", count: 100},
-		{name: "large Unicode error", message: strings.Repeat("🚀", 2000), count: 1},
-		{name: "many large errors", message: strings.Repeat("🚀", 2000), count: 100},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			issues := make([]JSONInputIssue, test.count)
-			for index := range issues {
-				issues[index] = JSONInputIssue{Entry: index + 1, Message: test.message}
-			}
-			result := FormatJSONParseResult(0, issues)
-			assert.Contains(t, result, "Entry 1")
-			assert.LessOrEqual(t, len(utf16.Encode([]rune(result))), 2000)
-			if test.count > 1 {
-				assert.Contains(t, result, "more issue(s)")
-			}
-		})
-	}
-}
-
 func TestJSONModalSourceRejectsAnotherCommandRoute(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name  string
 		route string
-		parse func(discordgo.ModalSubmitInteractionData) (JSONModalSource, error)
+		parse func(discordgo.ModalSubmitInteractionData) (interactiontransport.JSONModalSource, error)
 	}{
-		{name: "problem rejects AC route", route: ACBatchModalCustomID, parse: ParseProblemBatchModalSource},
-		{name: "AC rejects problem route", route: ProblemBatchModalCustomID, parse: ParseACBatchModalSource},
+		{name: "problem rejects AC route", route: string(discordcommands.ACBatch), parse: interactiontransport.ParseProblemBatchModalSource},
+		{name: "AC rejects problem route", route: string(discordcommands.ProblemBatch), parse: interactiontransport.ParseACBatchModalSource},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
