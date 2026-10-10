@@ -29,21 +29,7 @@ func (service *BatchService) PrepareProblemBatch(inputs []service_model.CreatePr
 	if err := ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}
 	}
-	var prepared []service_model.PreparedProblem
-	var issues []service_model.BatchEntryError
-	for index, input := range inputs {
-		preparedProblem, err := service.Problem.PrepareCreation(input)
-		if err != nil {
-			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: err})
-			continue
-		}
-		preparedProblem.Entry = index + 1
-		prepared = append(prepared, preparedProblem)
-	}
-	if len(issues) > 0 {
-		return nil, issues
-	}
-	return prepared, nil
+	return service.Problem.PrepareCreationBatch(inputs)
 }
 
 // PrepareACBatch returns the complete prepared batch or indexed errors, never
@@ -81,19 +67,5 @@ func (service *BatchService) PrepareProblemUpdateBatch(inputs []service_model.Up
 	if err := ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}
 	}
-	var prepared []service_model.PreparedProblemUpdate
-	var issues []service_model.BatchEntryError
-	for index, input := range inputs {
-		preparedProblem, err := service.Problem.PrepareUpdate(input)
-		if err != nil {
-			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: err})
-			continue
-		}
-		preparedProblem.Entry = index + 1
-		prepared = append(prepared, preparedProblem)
-	}
-	if len(issues) > 0 {
-		return nil, issues
-	}
-	return prepared, nil
+	return service.Problem.PrepareUpdateBatch(inputs)
 }

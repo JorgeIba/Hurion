@@ -37,9 +37,11 @@ func TestExecuteProblemBatchRejectsReplacedClassBeforeWrites(t *testing.T) {
 	t.Parallel()
 	problem := mock_services.NewMockProblemService(gomock.NewController(t))
 	params := service_model.CreateProblemParams{ClassCode: "basicos", Name: "New", URL: "https://example.com"}
-	problem.EXPECT().PrepareCreation(params).Return(service_model.PreparedProblem{
-		Params: params, Class: service_model.Class{ID: 20, ClassCode: "basicos"},
-	}, nil)
+	problem.EXPECT().ExecuteCreationBatch(gomock.Any()).Return(
+		service_model.ProblemCreateBatchResult{},
+		[]service_model.BatchEntryError{{Entry: 1, Err: serviceerr.NewConflictError("destination class changed", nil)}},
+		nil,
+	)
 	result, issues, err := (&BatchService{Problem: problem}).ExecuteProblemBatch([]service_model.PreparedProblem{
 		{Entry: 1, Params: params, Class: service_model.Class{ID: 10, ClassCode: "basicos"}},
 	})
