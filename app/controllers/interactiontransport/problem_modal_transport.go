@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+
 	"github.com/JorgeIba/Hurion/app/presentation"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
@@ -278,6 +280,16 @@ func ParseEditProblemModal(data discordgo.ModalSubmitInteractionData) (EditProbl
 
 func ParseProblemBatchModalSource(data discordgo.ModalSubmitInteractionData) (JSONModalSource, error) {
 	if err := ValidateProblemBatchModalID(data.CustomID); err != nil {
+		return JSONModalSource{}, err
+	}
+	return parseJSONModalSource(data)
+}
+
+func BuildProblemEditBatchModalResponse() *discordgo.InteractionResponse {
+	return buildJSONModalResponse(ProblemEditBatchModalID(), "Edit problem batch", `[{"problem_id":42,"class":"basicos","name":"Two Sum","url":"https://example.com/problem"}]`)
+}
+func ParseProblemEditBatchModalSource(data discordgo.ModalSubmitInteractionData) (JSONModalSource, error) {
+	if err := validateBatchModalID(data.CustomID, discordcommands.ProblemEditBatch); err != nil {
 		return JSONModalSource{}, err
 	}
 	return parseJSONModalSource(data)

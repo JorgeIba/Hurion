@@ -20,6 +20,9 @@ var interactionCommandMap = map[string]map[string]InteractionRouter{
 		},
 	},
 	discordcommands.ProblemCommandName: {
+		discordcommands.ProblemEditBatchCommandName: func(c *context.InteractionContext) {
+			c.ProblemController.HandleEditProblemBatchInteraction(c.Interaction)
+		},
 		discordcommands.ProblemAddBatchCommandName: func(c *context.InteractionContext) {
 			c.ProblemController.HandleAddProblemBatchInteraction(c.Interaction)
 		},
@@ -33,6 +36,9 @@ var interactionCommandMap = map[string]map[string]InteractionRouter{
 }
 
 var interactionModalMap = map[discordcommands.Action]InteractionRouter{
+	discordcommands.ProblemEditBatch: func(c *context.InteractionContext) {
+		c.ProblemController.HandleEditProblemBatchModalSubmitInteraction(c.Interaction)
+	},
 	discordcommands.ProblemBatch: func(c *context.InteractionContext) {
 		c.ProblemController.HandleCreateProblemBatchModalSubmitInteraction(c.Interaction)
 	},
@@ -48,6 +54,12 @@ var interactionModalMap = map[discordcommands.Action]InteractionRouter{
 }
 
 var interactionComponentMap = map[discordcommands.Action]InteractionRouter{
+	discordcommands.ConfirmProblemEditBatch: func(c *context.InteractionContext) {
+		c.ProblemController.HandleConfirmProblemEditBatchInteraction(c.Interaction)
+	},
+	discordcommands.CancelProblemEditBatch: func(c *context.InteractionContext) {
+		c.ProblemController.HandleCancelProblemEditBatchInteraction(c.Interaction)
+	},
 	discordcommands.ConfirmProblemBatch: func(c *context.InteractionContext) {
 		c.ProblemController.HandleConfirmProblemBatchInteraction(c.Interaction)
 	},

@@ -100,6 +100,21 @@ func (mr *MockProblemServiceMockRecorder) PrepareCreation(params any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCreation", reflect.TypeOf((*MockProblemService)(nil).PrepareCreation), params)
 }
 
+// PrepareUpdate mocks base method.
+func (m *MockProblemService) PrepareUpdate(params service_model.UpdateProblemParams) (service_model.PreparedProblemUpdate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareUpdate", params)
+	ret0, _ := ret[0].(service_model.PreparedProblemUpdate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareUpdate indicates an expected call of PrepareUpdate.
+func (mr *MockProblemServiceMockRecorder) PrepareUpdate(params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareUpdate", reflect.TypeOf((*MockProblemService)(nil).PrepareUpdate), params)
+}
+
 // RemoveProblemFromClass mocks base method.
 func (m *MockProblemService) RemoveProblemFromClass(problemID int64) error {
 	m.ctrl.T.Helper()

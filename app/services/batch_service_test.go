@@ -258,3 +258,56 @@ func TestPrepareACBatchFailsClosedOnLookupAndAccessErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestPrepareProblemUpdateBatchValidatesTargetsWithoutWrites(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
+	store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+	prepared, issues := NewServices(store).Batch.PrepareProblemUpdateBatch([]service_model.UpdateProblemParams{{ProblemID: 42, ClassCode: " basicos ", ProblemFields: service_model.ProblemFields{Name: " Updated ", URL: " https://example.com/new "}}})
+	assert.Empty(t, issues)
+	if assert.Len(t, prepared, 1) {
+		assert.Equal(t, 1, prepared[0].Entry)
+		assert.EqualValues(t, 42, prepared[0].Params.ProblemID)
+		assert.Equal(t, "basicos", prepared[0].Params.ClassCode)
+		assert.Equal(t, "Updated", prepared[0].Params.Name)
+		assert.Equal(t, "https://example.com/new", prepared[0].Params.URL)
+		assert.EqualValues(t, 10, prepared[0].Class.ID)
+	}
+}
+
+func TestPrepareProblemUpdateBatchReportsIssuesWithoutPartialResults(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
+	store.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10, ClassCode: "basicos"}, nil)
+	store.EXPECT().GetProblemByID(int64(99)).Return(data.Problem{}, dataerr.NewNotFoundError("missing", nil))
+	prepared, issues := NewServices(store).Batch.PrepareProblemUpdateBatch([]service_model.UpdateProblemParams{
+		{ProblemID: 42, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Valid", URL: "https://example.com/new"}},
+		{},
+		{ProblemID: 99, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Missing", URL: "https://example.com/new"}},
+	})
+	assert.Nil(t, prepared)
+	if assert.Len(t, issues, 2) {
+		assert.Equal(t, 2, issues[0].Entry)
+		assert.Equal(t, 3, issues[1].Entry)
+		assert.IsType(t, &serviceerr.ProblemNotFoundError{}, issues[1].Err)
+	}
+}
+
+func TestProblemUpdateBatchRejectsInvalidSizeBeforeReadingOrWriting(t *testing.T) {
+	t.Parallel()
+	for _, size := range []int{0, service_model.MaxBatchOperations + 1} {
+		store := mock_data.NewMockDataStore(gomock.NewController(t))
+		svc := NewServices(store).Batch
+		prepared, issues := svc.PrepareProblemUpdateBatch(make([]service_model.UpdateProblemParams, size))
+		assert.Nil(t, prepared)
+		if assert.Len(t, issues, 1) {
+			assert.Zero(t, issues[0].Entry)
+		}
+		result, issues, err := svc.ExecuteProblemUpdateBatch(make([]service_model.PreparedProblemUpdate, size))
+		assert.NoError(t, err)
+		assert.Empty(t, result.UpdatedProblemIDs)
+		assert.Len(t, issues, 1)
+	}
+}

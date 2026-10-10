@@ -13,8 +13,8 @@ import (
 // Validation issues imply no writes. An execution error stops subsequent writes
 // but does not roll back earlier ones; the result contains acknowledged creations.
 // Execution assumes no concurrent changes between validation and writes.
-func (service *BatchService) ExecuteProblemBatch(batch []service_model.PreparedProblem) (service_model.ProblemBatchResult, []service_model.BatchEntryError, error) {
-	var result service_model.ProblemBatchResult
+func (service *BatchService) ExecuteProblemBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error) {
+	var result service_model.ProblemCreateBatchResult
 	if err := ValidateBatchSize(len(batch)); err != nil {
 		return result, []service_model.BatchEntryError{{Err: err}}, nil
 	}
@@ -96,6 +96,47 @@ func (service *BatchService) ExecuteACBatch(batch []service_model.PreparedAC, st
 			return result, nil, fmt.Errorf("could not record AC at batch entry %d: %w", index+1, err)
 		}
 		result.Recorded++
+	}
+	return result, nil, nil
+}
+
+// ExecuteProblemUpdateBatch revalidates the complete snapshot before the first write.
+// The caller must authorize the actor and claim the batch before calling it.
+// Validation issues imply no writes. An execution error stops subsequent writes
+// but does not roll back earlier ones; the result contains acknowledged updates.
+// Execution assumes no concurrent changes between validation and writes.
+func (service *BatchService) ExecuteProblemUpdateBatch(batch []service_model.PreparedProblemUpdate) (service_model.ProblemUpdateBatchResult, []service_model.BatchEntryError, error) {
+	var result service_model.ProblemUpdateBatchResult
+	if err := ValidateBatchSize(len(batch)); err != nil {
+		return result, []service_model.BatchEntryError{{Err: err}}, nil
+	}
+
+	inputs := make([]service_model.UpdateProblemParams, len(batch))
+	for index, entry := range batch {
+		inputs[index] = entry.Params
+	}
+
+	prepared, issues := service.PrepareProblemUpdateBatch(inputs)
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	for index, entry := range prepared {
+		if entry.Class.ID != batch[index].Class.ID {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewConflictError("destination class changed; validate a new batch", nil)})
+		}
+	}
+
+	if len(issues) > 0 {
+		return result, issues, nil
+	}
+
+	for index, entry := range prepared {
+		err := service.Problem.UpdateProblemByProblemID(entry.Params)
+		if err != nil {
+			return result, nil, fmt.Errorf("could not update problem at batch entry %d: %w", index+1, err)
+		}
+		result.UpdatedProblemIDs = append(result.UpdatedProblemIDs, entry.Params.ProblemID)
 	}
 	return result, nil, nil
 }

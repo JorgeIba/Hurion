@@ -52,6 +52,7 @@ func TestCancelIDsKeepFamiliesAndBatchContextDistinct(t *testing.T) {
 		action discordcommands.Action
 	}{
 		{"problem", ProblemBatchCancelID, ParseProblemBatchCancelID, ParseACBatchCancelID, discordcommands.CancelProblemBatch},
+		{"problem edit", ProblemEditBatchCancelID, ParseProblemEditBatchCancelID, ParseProblemBatchCancelID, discordcommands.CancelProblemEditBatch},
 		{"AC", ACBatchCancelID, ParseACBatchCancelID, ParseProblemBatchCancelID, discordcommands.CancelACBatch},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -92,6 +93,7 @@ func TestBatchConfirmationIDsPreserveContextAndRejectOtherActions(t *testing.T) 
 		other  string
 	}{
 		{"problem", discordcommands.ConfirmProblemBatch, ProblemBatchConfirmID, ParseProblemBatchConfirmID, ACBatchConfirmID("batch")},
+		{"problem edit", discordcommands.ConfirmProblemEditBatch, ProblemEditBatchConfirmID, ParseProblemEditBatchConfirmID, ProblemBatchConfirmID("batch")},
 		{"AC", discordcommands.ConfirmACBatch, ACBatchConfirmID, ParseACBatchConfirmID, ProblemBatchConfirmID("batch")},
 	} {
 		t.Run(family.name, func(t *testing.T) {

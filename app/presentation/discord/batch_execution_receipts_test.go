@@ -21,7 +21,7 @@ func TestBatchExecutionReceiptsPreserveIDsAndClearActions(t *testing.T) {
 			for index := range ids {
 				ids[index] = math.MaxInt64 - int64(index)
 			}
-			result := BuildProblemBatchExecutionResult(service_model.ProblemBatchResult{CreatedProblemIDs: ids}, failed)
+			result := BuildProblemBatchExecutionResult(service_model.ProblemCreateBatchResult{CreatedProblemIDs: ids}, failed)
 			assert.LessOrEqual(t, utf16Count(*result.Content), maxMessageContentLength)
 			assert.Empty(t, *result.Components)
 			assert.Empty(t, result.AllowedMentions.Parse)
@@ -37,7 +37,7 @@ func TestBatchExecutionReceiptsPreserveIDsAndClearActions(t *testing.T) {
 			assert.NotContains(t, *result.Content, "No changes were applied")
 		})
 	}
-	short := BuildProblemBatchExecutionResult(service_model.ProblemBatchResult{CreatedProblemIDs: []int64{23, 42}}, false)
+	short := BuildProblemBatchExecutionResult(service_model.ProblemCreateBatchResult{CreatedProblemIDs: []int64{23, 42}}, false)
 	assert.Contains(t, *short.Content, "Problems created: 2")
 	assert.Contains(t, *short.Content, "23, 42")
 	assert.Empty(t, short.Files)

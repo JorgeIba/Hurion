@@ -7,18 +7,22 @@ import (
 )
 
 const (
-	ProblemCommandName         = "problem"
-	ProblemAddCommandName      = "add"
-	ProblemEditCommandName     = "edit"
-	ProblemAddBatchCommandName = "add_batch"
+	ProblemCommandName          = "problem"
+	ProblemAddCommandName       = "add"
+	ProblemEditCommandName      = "edit"
+	ProblemAddBatchCommandName  = "add_batch"
+	ProblemEditBatchCommandName = "edit_batch"
 )
 
 const (
-	ConfirmProblemBatch Action = "huron:problem:batch:confirm"
-	CreateProblem       Action = "huron:problem:create"
-	EditProblem         Action = "huron:problem:edit"
-	ProblemBatch        Action = "huron:problem:batch"
-	CancelProblemBatch  Action = "huron:problem:batch:cancel"
+	ProblemEditBatch        Action = "huron:problem:batch:edit"
+	ConfirmProblemEditBatch Action = "huron:problem:batch:edit:confirm"
+	CancelProblemEditBatch  Action = "huron:problem:batch:edit:cancel"
+	ConfirmProblemBatch     Action = "huron:problem:batch:confirm"
+	CreateProblem           Action = "huron:problem:create"
+	EditProblem             Action = "huron:problem:edit"
+	ProblemBatch            Action = "huron:problem:batch"
+	CancelProblemBatch      Action = "huron:problem:batch:cancel"
 )
 
 func ProblemSlashCommand(classCodeMaxLength int) *discordgo.ApplicationCommand {
@@ -61,6 +65,11 @@ func ProblemSlashCommand(classCodeMaxLength int) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        ProblemAddBatchCommandName,
 				Description: "Read a problem batch from JSON",
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        ProblemEditBatchCommandName,
+				Description: "Read problem replacements from JSON",
 			},
 		},
 	}

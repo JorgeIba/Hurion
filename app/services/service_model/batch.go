@@ -27,11 +27,23 @@ type PreparedAC struct {
 
 // Execution results contain only acknowledged writes. When execution returns
 // an error, the failed write's outcome may be uncertain; these are not rollback results.
-type ProblemBatchResult struct {
+type ProblemCreateBatchResult struct {
 	CreatedProblemIDs []int64
 }
 
 type ACBatchResult struct {
 	Recorded        int
 	AlreadyRecorded int
+}
+
+// PreparedProblemUpdate contains normalized replacement values and destination identity.
+type PreparedProblemUpdate struct {
+	Entry  int
+	Params UpdateProblemParams
+	Class  Class
+}
+
+// ProblemUpdateBatchResult reports acknowledged updates in input order.
+type ProblemUpdateBatchResult struct {
+	UpdatedProblemIDs []int64
 }
