@@ -204,7 +204,7 @@ func setupConfirmationRace(t *testing.T, problem bool, validator providers.Disco
 	responder := dispatcher.NewDiscordInteractionResponder(client)
 	key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 	if problem {
-		prepared, issues := svcs.Batch.PrepareProblemBatch([]service_model.CreateProblemParams{{ClassCode: "basicos", Name: "New", URL: "https://example.com/new"}})
+		prepared, issues := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{{ClassCode: "basicos", Name: "New", URL: "https://example.com/new"}})
 		require.Empty(t, issues)
 		controller := NewProblemInteractionController(svcs, validator, responder)
 		require.True(t, controller.validatedBatches.saveValidatedBatch(key, prepared))
@@ -214,7 +214,7 @@ func setupConfirmationRace(t *testing.T, problem bool, validator providers.Disco
 	require.NoError(t, err)
 	require.NoError(t, db.AddClassAccessRole(data.ClassAccessRole{ClassCode: "basicos", RoleID: "student"}))
 	principal := service_model.Principal{UserID: "123", Roles: []string{"student"}}
-	prepared, issues, err := svcs.Batch.PrepareACBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: problemID}}, map[string]service_model.Principal{"123": principal})
+	prepared, issues, err := svcs.Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: problemID}}, map[string]service_model.Principal{"123": principal})
 	require.NoError(t, err)
 	require.Empty(t, issues)
 	controller := NewACInteractionController(svcs, validator, fetcher, responder)

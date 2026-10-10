@@ -7,6 +7,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
+	"github.com/JorgeIba/Hurion/app/services/helpers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
@@ -194,6 +195,10 @@ func (service *SolutionService) PrepareCreationBatch(
 	inputs []service_model.CreateACParams,
 	studentsByID map[string]service_model.Principal,
 ) ([]service_model.PreparedAC, []service_model.BatchEntryError, error) {
+	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
+		return nil, []service_model.BatchEntryError{{Err: err}}, nil
+	}
+
 	normalizedInputs := make([]service_model.CreateACParams, len(inputs))
 	entryErrors := make([]error, len(inputs))
 	var requestedACs []data.ACKey
@@ -243,6 +248,9 @@ func (service *SolutionService) PrepareCreationBatch(
 // No concurrent changes are assumed between validation and execution.
 func (service *SolutionService) ExecuteCreationBatch(batch []service_model.PreparedAC, studentsByID map[string]service_model.Principal) (service_model.ACBatchResult, []service_model.BatchEntryError, error) {
 	var result service_model.ACBatchResult
+	if err := helpers.ValidateBatchSize(len(batch)); err != nil {
+		return result, []service_model.BatchEntryError{{Err: err}}, nil
+	}
 
 	// Resolve current targets, permissions and recorded solves for the whole batch.
 	inputs := make([]service_model.CreateACParams, len(batch))

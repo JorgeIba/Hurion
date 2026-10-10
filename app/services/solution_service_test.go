@@ -559,7 +559,7 @@ func TestIndividualAndBatchACValidationShareAccessRules(t *testing.T) {
 			svcs := NewServices(store)
 			individualErr := svcs.Solution.AddACByPrincipal(student, 42)
 			pendingErr := svcs.Solution.AddPendingACByPrincipal("message", student, 42)
-			batch, issues, err := svcs.Batch.PrepareACBatch([]service_model.CreateACParams{{UserID: " 00123 ", ProblemID: 42}}, map[string]service_model.Principal{"123": student})
+			batch, issues, err := svcs.Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: " 00123 ", ProblemID: 42}}, map[string]service_model.Principal{"123": student})
 			require.NoError(t, err)
 			if !test.allowed {
 				assert.IsType(t, &serviceerr.UserNotEnrolledError{}, individualErr)
@@ -609,4 +609,272 @@ func TestIndividualACRejectsMissingClassBeforeWrites(t *testing.T) {
 	student := service_model.Principal{UserID: "u1", Roles: []string{"student"}}
 	assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, service.AddACByPrincipal(student, 42))
 	assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, service.AddPendingACByPrincipal("message", student, 42))
+}
+
+func TestPrepareACBatchUsesStudentAndClassWithoutWrites(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}}).Return(map[data.ACKey]data.ACValidationData{{UserID: "123", ProblemID: 42}: {Problem: &data.Problem{ID: 42, ClassID: 10, Name: "Two Sum"}, Class: &data.Class{ID: 10, ClassCode: "basicos"}, AccessRoleIDs: []string{"student"}}}, nil)
+
+	prepared, issues, err := NewServices(store).Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: " 00123 ", ProblemID: 42}}, map[string]service_model.Principal{"123": {UserID: "123", DisplayName: "Ana", Roles: []string{"student"}}})
+	require.NoError(t, err)
+	assert.Empty(t, issues)
+	if assert.Len(t, prepared, 1) {
+		assert.Equal(t, 1, prepared[0].Entry)
+		assert.Equal(t, "123", prepared[0].User.UserID)
+		assert.Equal(t, "Ana", prepared[0].User.DisplayName)
+		assert.Equal(t, int64(42), prepared[0].Problem.ID)
+		assert.Equal(t, "basicos", prepared[0].Class.ClassCode)
+	}
+}
+
+func TestPrepareACBatchAllowsRepeatedEntriesAndMarksExistingSolves(t *testing.T) {
+	t.Parallel()
+	for _, alreadyRecorded := range []bool{false, true} {
+		t.Run(fmt.Sprint(alreadyRecorded), func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 42}}).Return(map[data.ACKey]data.ACValidationData{
+				{UserID: "123", ProblemID: 42}: {Problem: &data.Problem{ID: 42, ClassID: 10}, Class: &data.Class{ID: 10, ClassCode: "basicos"}, AccessRoleIDs: []string{"student"}, AlreadyRecorded: alreadyRecorded},
+			}, nil)
+			prepared, issues, err := NewServices(store).Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: "00123", ProblemID: 42}, {UserID: "123", ProblemID: 42}}, map[string]service_model.Principal{"123": {UserID: "123", Roles: []string{"student"}}})
+			require.NoError(t, err)
+			require.Empty(t, issues)
+			require.Len(t, prepared, 2)
+			for index, entry := range prepared {
+				assert.Equal(t, index+1, entry.Entry)
+				assert.Equal(t, "123", entry.User.UserID)
+				assert.Equal(t, int64(42), entry.Problem.ID)
+				assert.Equal(t, "basicos", entry.Class.ClassCode)
+				assert.Equal(t, alreadyRecorded, entry.AlreadyRecorded)
+			}
+		})
+	}
+}
+
+func TestPrepareACBatchDoesNotIgnoreOtherErrors(t *testing.T) {
+	t.Parallel()
+	for _, failure := range []error{errors.New("database unavailable"), serviceerr.NewConflictError("another conflict", nil)} {
+		t.Run(failure.Error(), func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}}).Return(nil, failure)
+			prepared, issues, err := NewServices(store).Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: 42}}, nil)
+			assert.Nil(t, prepared)
+			assert.Empty(t, issues, "technical failures are not entry validation issues")
+			assert.IsType(t, &serviceerr.InternalError{}, err)
+			assert.ErrorIs(t, err, failure)
+		})
+	}
+}
+
+func TestPrepareACBatchRejectsInvalidValuesWithoutLookups(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name  string
+		input service_model.CreateACParams
+	}{
+		{name: "missing or null required values"},
+		{name: "mention", input: service_model.CreateACParams{UserID: "<@123>", ProblemID: 42}},
+		{name: "name", input: service_model.CreateACParams{UserID: "Ana", ProblemID: 42}},
+		{name: "zero user ID", input: service_model.CreateACParams{UserID: "0", ProblemID: 42}},
+		{name: "overflowing user ID", input: service_model.CreateACParams{UserID: "18446744073709551616", ProblemID: 42}},
+		{name: "signed user ID", input: service_model.CreateACParams{UserID: "+123", ProblemID: 42}},
+		{name: "negative problem", input: service_model.CreateACParams{UserID: "123", ProblemID: -1}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			prepared, issues, err := NewServices(store).Solution.PrepareCreationBatch([]service_model.CreateACParams{test.input}, nil)
+			require.NoError(t, err)
+			assert.Nil(t, prepared)
+			if assert.Len(t, issues, 1) {
+				assert.Equal(t, 1, issues[0].Entry)
+				assert.IsType(t, &serviceerr.ValidationError{}, issues[0].Err)
+			}
+		})
+	}
+}
+
+func TestPrepareACBatchFailsClosedOnLookupAndAccessErrors(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		facts   data.ACValidationData
+		student service_model.Principal
+		wantErr error
+	}{
+		{name: "missing problem", wantErr: &serviceerr.ProblemNotFoundError{}},
+		{name: "missing class", facts: data.ACValidationData{Problem: &data.Problem{ID: 42, ClassID: 10}}, wantErr: &serviceerr.ClassCodeNotFoundError{}},
+		{name: "no matching role", facts: data.ACValidationData{Problem: &data.Problem{ID: 42}, Class: &data.Class{ID: 10, ClassCode: "basicos"}, AccessRoleIDs: []string{"student"}}, student: service_model.Principal{UserID: "123", Roles: []string{"other"}}, wantErr: &serviceerr.UserNotEnrolledError{}},
+		{name: "class has no roles", facts: data.ACValidationData{Problem: &data.Problem{ID: 42}, Class: &data.Class{ID: 10, ClassCode: "basicos"}}, student: service_model.Principal{UserID: "123", Roles: []string{"student"}}, wantErr: &serviceerr.UserNotEnrolledError{}},
+		{name: "missing student", facts: data.ACValidationData{Problem: &data.Problem{ID: 42}, Class: &data.Class{ID: 10}}, wantErr: &serviceerr.InternalError{}},
+		{name: "wrong student", facts: data.ACValidationData{Problem: &data.Problem{ID: 42}, Class: &data.Class{ID: 10}}, student: service_model.Principal{UserID: "456"}, wantErr: &serviceerr.InternalError{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}}).Return(map[data.ACKey]data.ACValidationData{{UserID: "123", ProblemID: 42}: test.facts}, nil)
+			prepared, issues, err := NewServices(store).Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: 42}}, map[string]service_model.Principal{"123": test.student})
+			require.NoError(t, err)
+			assert.Nil(t, prepared)
+			require.Len(t, issues, 1)
+			assert.Equal(t, 1, issues[0].Entry)
+			assert.IsType(t, test.wantErr, issues[0].Err)
+		})
+	}
+}
+
+func TestACBatchUsesOneFactsReadForPreparationAndConfirmation(t *testing.T) {
+	for _, size := range []int{1, service_model.MaxBatchOperations} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			inputs := make([]service_model.CreateACParams, size)
+			targets := make([]data.ACKey, size)
+			facts := make(map[data.ACKey]data.ACValidationData)
+			students := make(map[string]service_model.Principal)
+			for index := range size {
+				id := int64(index + 1)
+				code := fmt.Sprintf("class-%d", index)
+				userID := fmt.Sprint(index + 1)
+				inputs[index] = service_model.CreateACParams{UserID: userID, ProblemID: id}
+				targets[index] = data.ACKey{UserID: userID, ProblemID: id}
+				facts[targets[index]] = data.ACValidationData{Problem: &data.Problem{ID: id, ClassID: id}, Class: &data.Class{ID: id, ClassCode: code}, AccessRoleIDs: []string{code}}
+				students[userID] = service_model.Principal{UserID: userID, Roles: []string{code}}
+			}
+			store.EXPECT().GetACValidationData(targets).Return(facts, nil).Times(2)
+			store.EXPECT().AddACBatch(targets).Return(size, nil)
+			service := &SolutionService{Datastore: store}
+			prepared, issues, err := service.PrepareCreationBatch(inputs, students)
+			require.NoError(t, err)
+			require.Empty(t, issues)
+			require.Len(t, prepared, size)
+			for index, entry := range prepared {
+				assert.Equal(t, index+1, entry.Entry)
+				assert.Equal(t, inputs[index].UserID, entry.User.UserID)
+				assert.Equal(t, inputs[index].ProblemID, entry.Problem.ID)
+			}
+			result, issues, err := service.ExecuteCreationBatch(prepared, students)
+			require.NoError(t, err)
+			require.Empty(t, issues)
+			assert.Equal(t, size, result.Recorded)
+			assert.Zero(t, result.AlreadyRecorded)
+		})
+	}
+}
+
+func TestPrepareACBatchReportsAllBusinessIssuesInInputOrder(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 99}}).Return(map[data.ACKey]data.ACValidationData{
+		{UserID: "123", ProblemID: 42}: {Problem: &data.Problem{ID: 42, ClassID: 10}},
+	}, nil)
+	prepared, issues, err := NewServices(store).Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 99}, {}}, nil)
+	require.NoError(t, err)
+	assert.Nil(t, prepared)
+	require.Len(t, issues, 3)
+	assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, issues[0].Err)
+	assert.IsType(t, &serviceerr.ProblemNotFoundError{}, issues[1].Err)
+	assert.IsType(t, &serviceerr.ValidationError{}, issues[2].Err)
+	for index, issue := range issues {
+		assert.Equal(t, index+1, issue.Entry)
+	}
+}
+
+func TestPrepareACBatchDoesNotShareAccessRolesBetweenClasses(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 43}}).Return(map[data.ACKey]data.ACValidationData{
+		{UserID: "123", ProblemID: 42}: {Problem: &data.Problem{ID: 42}, Class: &data.Class{ID: 10, ClassCode: "first"}, AccessRoleIDs: []string{"role-first"}},
+		{UserID: "123", ProblemID: 43}: {Problem: &data.Problem{ID: 43}, Class: &data.Class{ID: 20, ClassCode: "second"}, AccessRoleIDs: []string{"role-second"}},
+	}, nil)
+	prepared, issues, err := NewServices(store).Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 43}}, map[string]service_model.Principal{"123": {UserID: "123", Roles: []string{"role-first"}}})
+	require.NoError(t, err)
+	assert.Nil(t, prepared)
+	require.Len(t, issues, 1)
+	assert.Equal(t, 2, issues[0].Entry)
+	assert.IsType(t, &serviceerr.UserNotEnrolledError{}, issues[0].Err)
+}
+
+func TestExecuteACBatchReportsInsertedAndRepeatedCounts(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 43}, {UserID: "456", ProblemID: 42}}).Return(map[data.ACKey]data.ACValidationData{
+		{UserID: "123", ProblemID: 42}: {Problem: &data.Problem{ID: 42}, Class: &data.Class{ID: 10}, AccessRoleIDs: []string{"student"}},
+		{UserID: "123", ProblemID: 43}: {Problem: &data.Problem{ID: 43}, Class: &data.Class{ID: 10}, AccessRoleIDs: []string{"student"}},
+		{UserID: "456", ProblemID: 42}: {Problem: &data.Problem{ID: 42}, Class: &data.Class{ID: 10}, AccessRoleIDs: []string{"student"}, AlreadyRecorded: true},
+	}, nil)
+
+	store.EXPECT().AddACBatch([]data.ACKey{
+		{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 42},
+		{UserID: "123", ProblemID: 43}, {UserID: "456", ProblemID: 42},
+	}).Return(2, nil)
+	batch := []service_model.PreparedAC{
+		{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 42}, Class: service_model.Class{ID: 10}},
+		{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 42}, Class: service_model.Class{ID: 10}},
+		{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 43}, Class: service_model.Class{ID: 10}},
+		{User: service_model.User{UserID: "456"}, Problem: service_model.Problem{ID: 42}, Class: service_model.Class{ID: 10}},
+	}
+	students := map[string]service_model.Principal{
+		"123": {UserID: "123", Roles: []string{"student"}},
+		"456": {UserID: "456", Roles: []string{"student"}},
+	}
+	result, issues, err := NewServices(store).Solution.ExecuteCreationBatch(batch, students)
+	require.NoError(t, err)
+	assert.Empty(t, issues)
+	assert.Equal(t, 2, result.Recorded)
+	assert.Equal(t, 2, result.AlreadyRecorded)
+}
+
+func TestExecuteACBatchReadFailureStopsBeforeWrites(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	failure := errors.New("validation read unavailable")
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}}).Return(nil, failure)
+	result, issues, err := NewServices(store).Solution.ExecuteCreationBatch([]service_model.PreparedAC{
+		{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 42}, Class: service_model.Class{ID: 10}},
+	}, nil)
+	assert.Zero(t, result)
+	assert.Empty(t, issues)
+	assert.ErrorIs(t, err, failure)
+	_, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err)
+	assert.True(t, preparationFailed, "callers must distinguish a failed read from an uncertain write")
+}
+
+func TestACCreationBatchRejectsInvalidSizeBeforeReadingOrWriting(t *testing.T) {
+	t.Parallel()
+	for _, size := range []int{0, service_model.MaxBatchOperations + 1} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			t.Parallel()
+			service := &SolutionService{Datastore: mock_data.NewMockDataStore(gomock.NewController(t))}
+			prepared, preparationIssues, err := service.PrepareCreationBatch(make([]service_model.CreateACParams, size), nil)
+			require.NoError(t, err)
+			assert.Nil(t, prepared)
+			result, executionIssues, err := service.ExecuteCreationBatch(make([]service_model.PreparedAC, size), nil)
+			require.NoError(t, err)
+			assert.Zero(t, result)
+			for _, issues := range [][]service_model.BatchEntryError{preparationIssues, executionIssues} {
+				require.Len(t, issues, 1)
+				assert.Zero(t, issues[0].Entry)
+				assert.IsType(t, &serviceerr.ValidationError{}, issues[0].Err)
+			}
+		})
+	}
+}
+
+func TestPrepareACBatchDoesNotReturnPartialSuccess(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}}).Return(map[data.ACKey]data.ACValidationData{
+		{UserID: "123", ProblemID: 42}: {Problem: &data.Problem{ID: 42, ClassID: 10}, Class: &data.Class{ID: 10, ClassCode: "basicos"}, AccessRoleIDs: []string{"student"}, AlreadyRecorded: true},
+	}, nil)
+	prepared, issues, err := (&SolutionService{Datastore: store}).PrepareCreationBatch(
+		[]service_model.CreateACParams{{UserID: "123", ProblemID: 42}, {}},
+		map[string]service_model.Principal{"123": {UserID: "123", Roles: []string{"student"}}},
+	)
+	require.NoError(t, err)
+	assert.Nil(t, prepared)
+	require.Len(t, issues, 1)
+	assert.Equal(t, 2, issues[0].Entry)
 }

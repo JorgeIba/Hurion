@@ -17,11 +17,11 @@ func TestIntegration_ExecuteProblemBatchCreatesOrderedRepeatedProblems(t *testin
 	firstClass := env.SeedClass(t, "basicos", "Basics")
 	secondClass := env.SeedClass(t, "avanzados", "Advanced")
 	repeated := service_model.CreateProblemParams{ClassCode: "basicos", Name: "Repeated", URL: "https://example.com/repeated"}
-	prepared, issues := env.Services.Batch.PrepareProblemBatch([]service_model.CreateProblemParams{
+	prepared, issues := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
 		repeated, {ClassCode: "avanzados", Name: "Other", URL: "https://example.com/other"}, repeated,
 	})
 	require.Empty(t, issues)
-	result, issues, err := env.Services.Batch.ExecuteProblemBatch(prepared)
+	result, issues, err := env.Services.Problem.ExecuteCreationBatch(prepared)
 	require.NoError(t, err)
 	require.Empty(t, issues)
 	require.Len(t, result.CreatedProblemIDs, 3)
@@ -40,13 +40,13 @@ func TestIntegration_ExecuteProblemBatchValidatesEveryTargetBeforeWrites(t *test
 	env := setupIntegrationEnv(t)
 	validClass := env.SeedClass(t, "basicos", "Basics")
 	removedClass := env.SeedClass(t, "removed", "Removed")
-	prepared, issues := env.Services.Batch.PrepareProblemBatch([]service_model.CreateProblemParams{
+	prepared, issues := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
 		{ClassCode: "basicos", Name: "Valid", URL: "https://example.com/valid"},
 		{ClassCode: "removed", Name: "Gone", URL: "https://example.com/gone"},
 	})
 	require.Empty(t, issues)
 	require.NoError(t, env.DB.DeleteClass(removedClass))
-	result, issues, err := env.Services.Batch.ExecuteProblemBatch(prepared)
+	result, issues, err := env.Services.Problem.ExecuteCreationBatch(prepared)
 	require.NoError(t, err)
 	assert.Empty(t, result.CreatedProblemIDs)
 	require.Len(t, issues, 1)
@@ -71,7 +71,7 @@ func TestIntegration_ExecuteACBatchRechecksSolvesAndCountsRepeatedEntries(t *tes
 				require.NoError(t, env.DB.AddAC("123", problemID))
 			}
 			input := service_model.CreateACParams{UserID: "123", ProblemID: problemID}
-			prepared, issues, err := env.Services.Batch.PrepareACBatch([]service_model.CreateACParams{input, input}, students)
+			prepared, issues, err := env.Services.Solution.PrepareCreationBatch([]service_model.CreateACParams{input, input}, students)
 			require.NoError(t, err)
 			require.Empty(t, issues)
 			if scenario == "solve added after preview" {
@@ -80,7 +80,7 @@ func TestIntegration_ExecuteACBatchRechecksSolvesAndCountsRepeatedEntries(t *tes
 			} else if scenario == "solve removed after preview" {
 				require.NoError(t, env.DB.RemoveAC("123", problemID))
 			}
-			result, issues, err := env.Services.Batch.ExecuteACBatch(prepared, students)
+			result, issues, err := env.Services.Solution.ExecuteCreationBatch(prepared, students)
 			require.NoError(t, err)
 			require.Empty(t, issues)
 			if scenario == "solve added after preview" {
@@ -109,7 +109,7 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 				"123": {UserID: "123", Roles: []string{"student"}},
 				"456": {UserID: "456", Roles: []string{"student"}},
 			}
-			prepared, issues, err := env.Services.Batch.PrepareACBatch([]service_model.CreateACParams{
+			prepared, issues, err := env.Services.Solution.PrepareCreationBatch([]service_model.CreateACParams{
 				{UserID: "123", ProblemID: firstProblem}, {UserID: "456", ProblemID: secondProblem},
 			}, students)
 			require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 				problem.ClassID = otherClass
 				require.NoError(t, env.DB.UpdateProblemByProblemID(secondProblem, problem))
 			}
-			result, issues, err := env.Services.Batch.ExecuteACBatch(prepared, students)
+			result, issues, err := env.Services.Solution.ExecuteCreationBatch(prepared, students)
 			require.NoError(t, err)
 			assert.Zero(t, result.Recorded)
 			assert.Zero(t, result.AlreadyRecorded)
@@ -185,12 +185,12 @@ func TestIntegration_ExecuteBatchStopsOnStorageFailureAndReportsAcknowledgedWrit
 			classID := env.SeedClass(t, "basicos", "Basics")
 			failure := errors.New("storage unavailable")
 			store := &failingBatchStore{DataStore: env.DB, failure: failure}
-			batch := services.NewServices(store).Batch
+			svcs := services.NewServices(store)
 			if family == "problem" {
 				input := service_model.CreateProblemParams{ClassCode: "basicos", Name: "Repeated", URL: "https://example.com"}
-				prepared, issues := batch.PrepareProblemBatch([]service_model.CreateProblemParams{input, input, input})
+				prepared, issues := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{input, input, input})
 				require.Empty(t, issues)
-				result, issues, err := batch.ExecuteProblemBatch(prepared)
+				result, issues, err := svcs.Problem.ExecuteCreationBatch(prepared)
 				require.ErrorIs(t, err, failure)
 				assert.Contains(t, err.Error(), "entry 2")
 				assert.Empty(t, issues)
@@ -209,10 +209,10 @@ func TestIntegration_ExecuteBatchStopsOnStorageFailureAndReportsAcknowledgedWrit
 					students[userID] = service_model.Principal{UserID: userID, Roles: []string{"student"}}
 					inputs = append(inputs, service_model.CreateACParams{UserID: userID, ProblemID: problemID})
 				}
-				prepared, issues, err := batch.PrepareACBatch(inputs, students)
+				prepared, issues, err := svcs.Solution.PrepareCreationBatch(inputs, students)
 				require.NoError(t, err)
 				require.Empty(t, issues)
-				result, issues, err := batch.ExecuteACBatch(prepared, students)
+				result, issues, err := svcs.Solution.ExecuteCreationBatch(prepared, students)
 				require.ErrorIs(t, err, failure)
 				assert.Contains(t, err.Error(), "AC batch")
 				assert.Empty(t, issues)

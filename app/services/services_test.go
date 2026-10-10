@@ -36,8 +36,6 @@ func TestNewServices(t *testing.T) {
 			assert.Equal(t, mockStore, services.Class.Datastore)
 			assert.Equal(t, mockStore, services.Solution.Datastore)
 			assert.Equal(t, mockStore, services.Score.Datastore)
-			assert.Same(t, services.Problem, services.Batch.Problem)
-			assert.Same(t, services.Solution, services.Batch.Solution)
 
 			// Verify the problemService struct inside the interface has the correct Datastore
 			concreteProblemSvc, ok := services.Problem.(*problemService)
