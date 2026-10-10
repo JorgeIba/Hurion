@@ -220,7 +220,7 @@ func TestWorkflow_EditProblemRetryIncludesResolvedClass(t *testing.T) {
 			original := env.Services.Problem
 			if test.longError {
 				mock := mock_services.NewMockProblemService(gomock.NewController(t))
-				mock.EXPECT().UpdateProblemByProblemID(gomock.Any()).Return(serviceerr.NewValidationError(strings.Repeat("x", 2100), nil))
+				mock.EXPECT().ReplaceProblemByProblemID(gomock.Any()).Return(serviceerr.NewValidationError(strings.Repeat("x", 2100), nil))
 				env.Services.Problem = mock
 			}
 			fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: "invalid", Topic: new(" Raw topic ")}
@@ -266,8 +266,8 @@ func TestWorkflow_EditProblemReceiptFailureDoesNotUndoWrite(t *testing.T) {
 	response := env.openProblemEditor(t, "mentor", id, "")
 	problemService := env.Services.Problem
 	mock := mock_services.NewMockProblemService(gomock.NewController(t))
-	mock.EXPECT().UpdateProblemByProblemID(gomock.Any()).DoAndReturn(func(params service_model.UpdateProblemParams) error {
-		return problemService.UpdateProblemByProblemID(params)
+	mock.EXPECT().ReplaceProblemByProblemID(gomock.Any()).DoAndReturn(func(params service_model.ReplaceProblemParams) error {
+		return problemService.ReplaceProblemByProblemID(params)
 	}).Times(1)
 	env.Services.Problem = mock
 	receiptAttempts := 0
@@ -352,7 +352,7 @@ func TestWorkflow_EditProblemRetainsDraftsForEveryFailedWrite(t *testing.T) {
 			id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
 			response := env.openProblemEditor(t, "mentor", id, "destination")
 			mock := mock_services.NewMockProblemService(gomock.NewController(t))
-			mock.EXPECT().UpdateProblemByProblemID(gomock.Any()).Return(test.err).Times(1)
+			mock.EXPECT().ReplaceProblemByProblemID(gomock.Any()).Return(test.err).Times(1)
 			original := env.Services.Problem
 			env.Services.Problem = mock
 			fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: "https://example.com/new"}

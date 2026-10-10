@@ -185,9 +185,9 @@ type uncertainProblemUpdateStore struct {
 	writes int
 }
 
-func (store *uncertainProblemUpdateStore) UpdateProblemByProblemID(id int64, problem data.Problem) error {
+func (store *uncertainProblemUpdateStore) ReplaceProblemByProblemID(id int64, problem data.Problem) error {
 	store.writes++
-	err := store.DataStore.UpdateProblemByProblemID(id, problem)
+	err := store.DataStore.ReplaceProblemByProblemID(id, problem)
 	if err == nil && store.writes == 2 {
 		return errors.New("lost acknowledgement")
 	}

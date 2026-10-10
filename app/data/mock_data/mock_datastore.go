@@ -585,16 +585,16 @@ func (mr *MockDataStoreMockRecorder) RemoveProblemByID(problemID any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveProblemByID", reflect.TypeOf((*MockDataStore)(nil).RemoveProblemByID), problemID)
 }
 
-// UpdateProblemByProblemID mocks base method.
-func (m *MockDataStore) UpdateProblemByProblemID(problemID int64, problem data.Problem) error {
+// ReplaceProblemByProblemID mocks base method.
+func (m *MockDataStore) ReplaceProblemByProblemID(problemID int64, problem data.Problem) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateProblemByProblemID", problemID, problem)
+	ret := m.ctrl.Call(m, "ReplaceProblemByProblemID", problemID, problem)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateProblemByProblemID indicates an expected call of UpdateProblemByProblemID.
-func (mr *MockDataStoreMockRecorder) UpdateProblemByProblemID(problemID, problem any) *gomock.Call {
+// ReplaceProblemByProblemID indicates an expected call of ReplaceProblemByProblemID.
+func (mr *MockDataStoreMockRecorder) ReplaceProblemByProblemID(problemID, problem any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProblemByProblemID", reflect.TypeOf((*MockDataStore)(nil).UpdateProblemByProblemID), problemID, problem)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceProblemByProblemID", reflect.TypeOf((*MockDataStore)(nil).ReplaceProblemByProblemID), problemID, problem)
 }

@@ -35,13 +35,13 @@ func TestProblemModalAdaptersPreserveOptionalValuesInBothDirections(t *testing.T
 				assert.Equal(t, params, mapCreateProblemModalToCreateProblemParams(modal))
 			})
 			t.Run("update request and form", func(t *testing.T) {
-				params := service_model.UpdateProblemParams{
+				params := service_model.ReplaceProblemParams{
 					ProblemID: 42, ClassCode: "basicos_1", Name: fields.Name, URL: fields.URL,
 					Difficulty: test.difficulty, Topic: test.topic, Priority: test.priority,
 				}
-				modal := mapUpdateProblemParamsToEditProblemModal(params)
+				modal := mapReplaceProblemParamsToEditProblemModal(params)
 				assert.Equal(t, interactiontransport.EditProblemModal{ProblemID: 42, ClassCode: "basicos_1", ProblemModalFields: fields}, modal)
-				assert.Equal(t, params, mapEditProblemModalToUpdateProblemParams(modal))
+				assert.Equal(t, params, mapEditProblemModalToReplaceProblemParams(modal))
 			})
 		})
 	}

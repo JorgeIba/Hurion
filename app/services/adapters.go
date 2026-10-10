@@ -9,9 +9,9 @@ import (
 // Service Model to Request Params Adapters
 // ============================================================================
 
-// MapProblemToUpdateProblemParams prepares a pending update from saved values.
-func MapProblemToUpdateProblemParams(problem service_model.Problem, classCode string) service_model.UpdateProblemParams {
-	return service_model.UpdateProblemParams{
+// MapProblemToReplaceProblemParams prepares a full replacement request from saved values.
+func MapProblemToReplaceProblemParams(problem service_model.Problem, classCode string) service_model.ReplaceProblemParams {
+	return service_model.ReplaceProblemParams{
 		ProblemID:  problem.ID,
 		Name:       problem.Name,
 		URL:        problem.URL,
@@ -156,7 +156,7 @@ func mapCreateProblemParamsToDataProblem(params service_model.CreateProblemParam
 	}
 }
 
-func mapUpdateProblemParamsToDataProblem(params service_model.UpdateProblemParams, classID int64) data.Problem {
+func mapReplaceProblemParamsToDataProblem(params service_model.ReplaceProblemParams, classID int64) data.Problem {
 	return data.Problem{
 		ID:         params.ProblemID,
 		Name:       params.Name,

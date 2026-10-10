@@ -93,11 +93,11 @@ type CreateProblemParams struct {
 	ClassCode string
 }
 
-// UpdateProblemParams identifies the target and supplies all replacement values,
+// ReplaceProblemParams identifies the target and supplies all replacement values,
 // including class membership. Nil Difficulty, Topic, or Priority clears that stored
 // value; omitted fields do not mean "leave unchanged". CreatedAt is immutable.
 // This type does not validate input.
-type UpdateProblemParams struct {
+type ReplaceProblemParams struct {
 	ProblemFields
 	ProblemID int64
 	ClassCode string

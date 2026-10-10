@@ -398,7 +398,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
-	if err = c.Services.Problem.UpdateProblemByProblemID(service_model.UpdateProblemParams{
+	if err = c.Services.Problem.ReplaceProblemByProblemID(service_model.ReplaceProblemParams{
 		ProblemID:  problemID,
 		Name:       problemName,
 		ClassCode:  classCode,

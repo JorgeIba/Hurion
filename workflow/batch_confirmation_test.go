@@ -349,7 +349,7 @@ func TestWorkflow_ACBatchRejectsMovedProblemBeforeAnyWrite(t *testing.T) {
 	changed, err := env.DB.GetProblemByID(second)
 	require.NoError(t, err)
 	changed.ClassID = destination
-	require.NoError(t, env.DB.UpdateProblemByProblemID(second, changed))
+	require.NoError(t, env.DB.ReplaceProblemByProblemID(second, changed))
 	env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
 	require.Len(t, env.Responder.edits, 2)
 	assert.Contains(t, *env.Responder.edits[1].response.Content, "Entry 2")

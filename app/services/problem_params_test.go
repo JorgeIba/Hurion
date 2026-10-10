@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(t *testing.T) {
+func TestMapProblemToReplaceProblemParamsPreservesIdentityClassAndOptionalValues(t *testing.T) {
 	t.Parallel()
 	text := func(value string) *string { return &value }
 	for _, test := range []struct {
 		name    string
 		problem service_model.Problem
-		want    service_model.UpdateProblemParams
+		want    service_model.ReplaceProblemParams
 	}{
 		{
 			name: "populated problem keeps all values",
@@ -21,7 +21,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				ID: 42, ClassID: 7, Name: "Two Sum", URL: "https://example.com/two-sum",
 				Difficulty: text("Easy"), Topic: text("Arrays"),
 			},
-			want: service_model.UpdateProblemParams{
+			want: service_model.ReplaceProblemParams{
 				ProblemID: 42, ClassCode: "basicos", Name: "Two Sum", URL: "https://example.com/two-sum",
 				Difficulty: text("Easy"), Topic: text("Arrays"),
 			},
@@ -31,7 +31,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 			problem: service_model.Problem{
 				ID: 93, ClassID: 12, Name: "Reverse Linked List", URL: "https://example.com/reverse-list",
 			},
-			want: service_model.UpdateProblemParams{
+			want: service_model.ReplaceProblemParams{
 				ProblemID: 93, ClassCode: "basicos", Name: "Reverse Linked List", URL: "https://example.com/reverse-list",
 			},
 		},
@@ -41,7 +41,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				ID: 58, ClassID: 4, Name: "Search Insert Position", URL: "https://example.com/search-insert",
 				Topic: text("Binary search"),
 			},
-			want: service_model.UpdateProblemParams{
+			want: service_model.ReplaceProblemParams{
 				ProblemID: 58, ClassCode: "basicos", Name: "Search Insert Position", URL: "https://example.com/search-insert",
 				Topic: text("Binary search"),
 			},
@@ -52,7 +52,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				ID: 81, ClassID: 9, Name: "Two Sum con números", URL: "https://example.com/two-sum-numeros",
 				Difficulty: text(" medium "),
 			},
-			want: service_model.UpdateProblemParams{
+			want: service_model.ReplaceProblemParams{
 				ProblemID: 81, ClassCode: "basicos", Name: "Two Sum con números", URL: "https://example.com/two-sum-numeros",
 				Difficulty: text(" medium "),
 			},
@@ -63,7 +63,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 				ID: 106, ClassID: 3, Name: "Valid Parentheses", URL: "https://example.com/parentheses",
 				Difficulty: text(""), Topic: text(""),
 			},
-			want: service_model.UpdateProblemParams{
+			want: service_model.ReplaceProblemParams{
 				ProblemID: 106, ClassCode: "basicos", Name: "Valid Parentheses", URL: "https://example.com/parentheses",
 				Difficulty: text(""), Topic: text(""),
 			},
@@ -71,7 +71,7 @@ func TestMapProblemToUpdateProblemParamsPreservesIdentityClassAndOptionalValues(
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, test.want, MapProblemToUpdateProblemParams(test.problem, "basicos"))
+			assert.Equal(t, test.want, MapProblemToReplaceProblemParams(test.problem, "basicos"))
 		})
 	}
 }

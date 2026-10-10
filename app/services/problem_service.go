@@ -18,12 +18,12 @@ type ProblemService interface {
 	PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error)
 	PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError)
 	ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error)
-	PrepareUpdate(params service_model.UpdateProblemParams) (service_model.PreparedProblemUpdate, error)
-	PrepareUpdateBatch(params []service_model.UpdateProblemParams) ([]service_model.PreparedProblemUpdate, []service_model.BatchEntryError)
-	ExecuteUpdateBatch(batch []service_model.PreparedProblemUpdate) (service_model.ProblemUpdateBatchResult, []service_model.BatchEntryError, error)
+	PrepareProblemReplacement(params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error)
+	PrepareProblemReplacementBatch(params []service_model.ReplaceProblemParams) ([]service_model.PreparedProblemReplacement, []service_model.BatchEntryError)
+	ExecuteProblemReplacementBatch(batch []service_model.PreparedProblemReplacement) (service_model.ProblemReplacementBatchResult, []service_model.BatchEntryError, error)
 	CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error)
 	RemoveProblemFromClass(problemID int64) error
-	UpdateProblemByProblemID(params service_model.UpdateProblemParams) error
+	ReplaceProblemByProblemID(params service_model.ReplaceProblemParams) error
 	GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error)
 	GetProblemByID(problemID int64) (service_model.Problem, error)
 }
@@ -223,46 +223,46 @@ func (service *problemService) RemoveProblemFromClass(problemID int64) error {
 	return nil
 }
 
-// PrepareUpdate validates replacement values and resolves the target without writing.
-func (service *problemService) PrepareUpdate(params service_model.UpdateProblemParams) (service_model.PreparedProblemUpdate, error) {
-	params, err := service_model.NormalizeAndValidateUpdateProblemParams(params)
+// PrepareProblemReplacement validates replacement values and resolves the target without writing.
+func (service *problemService) PrepareProblemReplacement(params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error) {
+	params, err := service_model.NormalizeAndValidateReplaceProblemParams(params)
 	if err != nil {
-		return service_model.PreparedProblemUpdate{}, serviceerr.NewValidationError("invalid problem values", err)
+		return service_model.PreparedProblemReplacement{}, serviceerr.NewValidationError("invalid problem values", err)
 	}
 	problemID := params.ProblemID
 	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
-		return service_model.PreparedProblemUpdate{}, err
+		return service_model.PreparedProblemReplacement{}, err
 	} else if !isValidProblem {
-		return service_model.PreparedProblemUpdate{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+		return service_model.PreparedProblemReplacement{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
 	}
 
 	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
 	if err != nil {
 		if dataerr.IsNotFound(err) {
-			return service_model.PreparedProblemUpdate{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %s doesn't exist", params.ClassCode), err)
+			return service_model.PreparedProblemReplacement{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("destination class %s doesn't exist", params.ClassCode), err)
 		}
-		return service_model.PreparedProblemUpdate{}, serviceerr.MakeGeneralError(err)
+		return service_model.PreparedProblemReplacement{}, serviceerr.MakeGeneralError(err)
 	}
 	if err := service_model.ValidateClassCodeLength(class.ClassCode); err != nil {
-		return service_model.PreparedProblemUpdate{}, serviceerr.NewValidationError("invalid class code", err)
+		return service_model.PreparedProblemReplacement{}, serviceerr.NewValidationError("invalid class code", err)
 	}
 
-	return service_model.PreparedProblemUpdate{Params: params, Class: mapDataClassToServiceClass(class)}, nil
+	return service_model.PreparedProblemReplacement{Params: params, Class: mapDataClassToServiceClass(class)}, nil
 }
 
-// PrepareUpdateBatch validates targets and destination classes using one read per set.
-func (service *problemService) PrepareUpdateBatch(inputs []service_model.UpdateProblemParams) ([]service_model.PreparedProblemUpdate, []service_model.BatchEntryError) {
+// PrepareProblemReplacementBatch validates targets and destination classes using one read per set.
+func (service *problemService) PrepareProblemReplacementBatch(inputs []service_model.ReplaceProblemParams) ([]service_model.PreparedProblemReplacement, []service_model.BatchEntryError) {
 	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}
 	}
 
-	normalized := make([]service_model.UpdateProblemParams, len(inputs))
+	normalized := make([]service_model.ReplaceProblemParams, len(inputs))
 	var issues []service_model.BatchEntryError
 	problemIDs := make([]int64, 0, len(inputs))
 	seenIDs := make(map[int64]struct{}, len(inputs))
 	// Normalize each entry and collect distinct target IDs for a bulk lookup.
 	for index, input := range inputs {
-		value, err := service_model.NormalizeAndValidateUpdateProblemParams(input)
+		value, err := service_model.NormalizeAndValidateReplaceProblemParams(input)
 		if err != nil {
 			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid problem values", err)})
 			continue
@@ -344,7 +344,7 @@ func (service *problemService) PrepareUpdateBatch(inputs []service_model.UpdateP
 	}
 
 	// Build entries in input order and report missing classes or invalid class codes.
-	prepared := make([]service_model.PreparedProblemUpdate, len(inputs))
+	prepared := make([]service_model.PreparedProblemReplacement, len(inputs))
 	for index, input := range normalized {
 		if input.ClassCode == "" {
 			continue
@@ -361,7 +361,7 @@ func (service *problemService) PrepareUpdateBatch(inputs []service_model.UpdateP
 			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid class code", err)})
 			continue
 		}
-		prepared[index] = service_model.PreparedProblemUpdate{Entry: index + 1, Params: input, Class: mapDataClassToServiceClass(class)}
+		prepared[index] = service_model.PreparedProblemReplacement{Entry: index + 1, Params: input, Class: mapDataClassToServiceClass(class)}
 	}
 
 	// Return all indexed issues together and never expose a partial batch.
@@ -372,20 +372,20 @@ func (service *problemService) PrepareUpdateBatch(inputs []service_model.UpdateP
 	return prepared, nil
 }
 
-// ExecuteUpdateBatch revalidates every entry before the first write.
-func (service *problemService) ExecuteUpdateBatch(batch []service_model.PreparedProblemUpdate) (service_model.ProblemUpdateBatchResult, []service_model.BatchEntryError, error) {
-	var result service_model.ProblemUpdateBatchResult
+// ExecuteProblemReplacementBatch revalidates every entry before the first write.
+func (service *problemService) ExecuteProblemReplacementBatch(batch []service_model.PreparedProblemReplacement) (service_model.ProblemReplacementBatchResult, []service_model.BatchEntryError, error) {
+	var result service_model.ProblemReplacementBatchResult
 	if err := helpers.ValidateBatchSize(len(batch)); err != nil {
 		return result, []service_model.BatchEntryError{{Err: err}}, nil
 	}
 
-	inputs := make([]service_model.UpdateProblemParams, len(batch))
+	inputs := make([]service_model.ReplaceProblemParams, len(batch))
 	// Extract submitted values so they can be checked against current datastore state.
 	for index, entry := range batch {
 		inputs[index] = entry.Params
 	}
 	// Revalidate targets and destination classes against current datastore state.
-	prepared, issues := service.PrepareUpdateBatch(inputs)
+	prepared, issues := service.PrepareProblemReplacementBatch(inputs)
 	if len(issues) > 0 {
 		return result, issues, nil
 	}
@@ -400,36 +400,36 @@ func (service *problemService) ExecuteUpdateBatch(batch []service_model.Prepared
 		return result, issues, nil
 	}
 
-	// Apply updates in input order and retain acknowledged IDs on failure.
+	// Apply replacements in input order and retain acknowledged IDs on failure.
 	for index, entry := range prepared {
-		if err := service.updatePreparedProblem(entry); err != nil {
-			return result, nil, fmt.Errorf("could not update problem at batch entry %d: %w", index+1, err)
+		if err := service.replacePreparedProblem(entry); err != nil {
+			return result, nil, fmt.Errorf("could not replace problem at batch entry %d: %w", index+1, err)
 		}
-		result.UpdatedProblemIDs = append(result.UpdatedProblemIDs, entry.Params.ProblemID)
+		result.ReplacedProblemIDs = append(result.ReplacedProblemIDs, entry.Params.ProblemID)
 	}
 	return result, nil, nil
 }
 
-// UpdateProblemByProblemID updates a problem's information
-func (service *problemService) UpdateProblemByProblemID(params service_model.UpdateProblemParams) error {
-	prepared, err := service.PrepareUpdate(params)
+// ReplaceProblemByProblemID replaces a problem's editable values.
+func (service *problemService) ReplaceProblemByProblemID(params service_model.ReplaceProblemParams) error {
+	prepared, err := service.PrepareProblemReplacement(params)
 	if err != nil {
 		return err
 	}
-	return service.updatePreparedProblem(prepared)
+	return service.replacePreparedProblem(prepared)
 }
 
-func (service *problemService) updatePreparedProblem(prepared service_model.PreparedProblemUpdate) error {
+func (service *problemService) replacePreparedProblem(prepared service_model.PreparedProblemReplacement) error {
 	params := prepared.Params
 	problemID := params.ProblemID
-	if err := service.Datastore.UpdateProblemByProblemID(problemID, mapUpdateProblemParamsToDataProblem(params, prepared.Class.ID)); err != nil {
+	if err := service.Datastore.ReplaceProblemByProblemID(problemID, mapReplaceProblemParamsToDataProblem(params, prepared.Class.ID)); err != nil {
 		switch {
 		case dataerr.IsNotFound(err):
-			// Defensive mapping in case the row disappears between pre-check and update.
+			// Defensive mapping in case the row disappears between pre-check and replacement.
 			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
 		case dataerr.IsRowConflict(err):
 			return serviceerr.NewDuplicateProblemError(
-				fmt.Sprintf("duplicate problem detected while updating problemID=%d (name=%q, classCode=%s)", problemID, params.Name, params.ClassCode),
+				fmt.Sprintf("duplicate problem detected while replacing problemID=%d (name=%q, classCode=%s)", problemID, params.Name, params.ClassCode),
 				err,
 			)
 		default:

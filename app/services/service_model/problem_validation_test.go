@@ -144,13 +144,13 @@ func TestNormalizeAndValidateCreateProblemParamsReportsAllInvalidFields(t *testi
 	assert.ErrorContains(t, err, "URL must be")
 }
 
-func TestNormalizeAndValidateUpdateProblemParamsPreservesIdentityAndInput(t *testing.T) {
+func TestNormalizeAndValidateReplaceProblemParamsPreservesIdentityAndInput(t *testing.T) {
 	difficulty, topic, priority := " HARD ", " Graphs ", " ESSENTIAL "
-	input := UpdateProblemParams{
+	input := ReplaceProblemParams{
 		ProblemID: 42, ClassCode: " basicos ", Name: " Two Sum ", URL: " https://example.com/problem ",
 		Difficulty: &difficulty, Topic: &topic, Priority: &priority,
 	}
-	result, err := NormalizeAndValidateUpdateProblemParams(input)
+	result, err := NormalizeAndValidateReplaceProblemParams(input)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -169,7 +169,7 @@ func TestNormalizeAndValidateUpdateProblemParamsPreservesIdentityAndInput(t *tes
 	assert.Equal(t, " ESSENTIAL ", priority)
 }
 
-func TestNormalizeAndValidateUpdateProblemParamsNormalizesClearedValues(t *testing.T) {
+func TestNormalizeAndValidateReplaceProblemParamsNormalizesClearedValues(t *testing.T) {
 	empty, whitespace := "", " \t"
 	for _, tt := range []struct {
 		name  string
@@ -180,11 +180,11 @@ func TestNormalizeAndValidateUpdateProblemParamsNormalizesClearedValues(t *testi
 		{name: "whitespace", value: &whitespace},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			params := UpdateProblemParams{
+			params := ReplaceProblemParams{
 				ProblemID: 42, ClassCode: "basicos", Name: "Two Sum", URL: "https://example.com/problem",
 				Difficulty: tt.value, Topic: tt.value, Priority: tt.value,
 			}
-			result, err := NormalizeAndValidateUpdateProblemParams(params)
+			result, err := NormalizeAndValidateReplaceProblemParams(params)
 			assert.NoError(t, err)
 			assert.Nil(t, result.Difficulty)
 			assert.Nil(t, result.Topic)

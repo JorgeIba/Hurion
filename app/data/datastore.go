@@ -40,7 +40,7 @@ type UpdateDataStore interface {
 	CreateClass(class Class) (int64, error)
 	AddPendingConfirmation(confirmation PendingConfirmation) error
 	RemovePendingConfirmation(messageID string) error
-	UpdateProblemByProblemID(problemID int64, problem Problem) error
+	ReplaceProblemByProblemID(problemID int64, problem Problem) error
 	ExterminateUser(userID string) error
 }
 

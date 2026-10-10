@@ -218,30 +218,30 @@ func TestCreateProblemIntoClassRejectsInvalidValuesBeforeAccessingDatastore(t *t
 	}
 }
 
-func TestUpdateProblemByProblemIDRejectsOversizedFieldsBeforeAccessingDatastore(t *testing.T) {
+func TestReplaceProblemByProblemIDRejectsOversizedFieldsBeforeAccessingDatastore(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
-		mutate func(*service_model.UpdateProblemParams)
+		mutate func(*service_model.ReplaceProblemParams)
 		want   string
 	}{
-		{name: "name", mutate: func(p *service_model.UpdateProblemParams) { p.Name = " " + strings.Repeat("🚀", 201) + " " }, want: "problem name must be at most 200 characters"},
-		{name: "URL", mutate: func(p *service_model.UpdateProblemParams) {
+		{name: "name", mutate: func(p *service_model.ReplaceProblemParams) { p.Name = " " + strings.Repeat("🚀", 201) + " " }, want: "problem name must be at most 200 characters"},
+		{name: "URL", mutate: func(p *service_model.ReplaceProblemParams) {
 			p.URL = " https://example.com/" + strings.Repeat("a", 2000) + " "
 		}, want: "URL must be at most 2000 characters"},
-		{name: "topic", mutate: func(p *service_model.UpdateProblemParams) {
+		{name: "topic", mutate: func(p *service_model.ReplaceProblemParams) {
 			p.Topic = helpers.PtrStr(" " + strings.Repeat("é", 101) + " ")
 		}, want: "topic must be at most 100 characters"},
-		{name: "class code", mutate: func(p *service_model.UpdateProblemParams) {
+		{name: "class code", mutate: func(p *service_model.ReplaceProblemParams) {
 			p.ClassCode = " " + strings.Repeat("🚀", 51) + " "
 		}, want: "class code must be at most 50 characters"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
-			params := service_model.UpdateProblemParams{ProblemID: 42, ClassCode: "basicos_1", Name: "Two Sum", URL: "https://example.com/problem"}
+			params := service_model.ReplaceProblemParams{ProblemID: 42, ClassCode: "basicos_1", Name: "Two Sum", URL: "https://example.com/problem"}
 			test.mutate(&params)
-			err := NewProblemService(store).UpdateProblemByProblemID(params)
+			err := NewProblemService(store).ReplaceProblemByProblemID(params)
 			require.Error(t, err)
 			assert.IsType(t, &serviceerr.ValidationError{}, err)
 			assert.ErrorContains(t, err, test.want)
@@ -249,7 +249,7 @@ func TestUpdateProblemByProblemIDRejectsOversizedFieldsBeforeAccessingDatastore(
 	}
 }
 
-func TestUpdateProblemByProblemIDPreservesValuesAtTextLimits(t *testing.T) {
+func TestReplaceProblemByProblemIDPreservesValuesAtTextLimits(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name  string
@@ -262,17 +262,17 @@ func TestUpdateProblemByProblemIDPreservesValuesAtTextLimits(t *testing.T) {
 			t.Parallel()
 			prefix := "https://example.com/"
 			classCode := strings.Repeat("🚀", 50)
-			params := service_model.UpdateProblemParams{ProblemID: 42, ClassCode: " " + classCode + " ", Name: " " + strings.Repeat("🚀", 200) + " ", URL: " " + prefix + strings.Repeat("a", 2000-len(prefix)) + " ", Topic: test.topic}
+			params := service_model.ReplaceProblemParams{ProblemID: 42, ClassCode: " " + classCode + " ", Name: " " + strings.Repeat("🚀", 200) + " ", URL: " " + prefix + strings.Repeat("a", 2000-len(prefix)) + " ", Topic: test.topic}
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
 			store.EXPECT().GetClassByClassCode(classCode).Return(data.Class{ID: 7, ClassCode: classCode}, nil)
-			store.EXPECT().UpdateProblemByProblemID(int64(42), data.Problem{ID: 42, ClassID: 7, Name: strings.Repeat("🚀", 200), URL: prefix + strings.Repeat("a", 2000-len(prefix)), Topic: test.topic}).Return(nil)
-			require.NoError(t, NewProblemService(store).UpdateProblemByProblemID(params))
+			store.EXPECT().ReplaceProblemByProblemID(int64(42), data.Problem{ID: 42, ClassID: 7, Name: strings.Repeat("🚀", 200), URL: prefix + strings.Repeat("a", 2000-len(prefix)), Topic: test.topic}).Return(nil)
+			require.NoError(t, NewProblemService(store).ReplaceProblemByProblemID(params))
 		})
 	}
 }
 
-func TestUpdateProblemByProblemIDRejectsInvalidTargetClassesBeforeWriting(t *testing.T) {
+func TestReplaceProblemByProblemIDRejectsInvalidTargetClassesBeforeWriting(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name        string
@@ -290,7 +290,7 @@ func TestUpdateProblemByProblemIDRejectsInvalidTargetClassesBeforeWriting(t *tes
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			store.EXPECT().GetProblemByID(int64(42)).Return(data.Problem{ID: 42}, nil)
 			store.EXPECT().GetClassByClassCode("basicos_1").Return(test.class, test.lookupErr)
-			err := NewProblemService(store).UpdateProblemByProblemID(service_model.UpdateProblemParams{ProblemID: 42, ClassCode: "basicos_1", Name: "Two Sum", URL: "https://example.com/problem"})
+			err := NewProblemService(store).ReplaceProblemByProblemID(service_model.ReplaceProblemParams{ProblemID: 42, ClassCode: "basicos_1", Name: "Two Sum", URL: "https://example.com/problem"})
 			require.Error(t, err)
 			assert.IsType(t, test.wantErr, err)
 			if test.wantMessage != "" {
@@ -368,7 +368,7 @@ func TestProblemService_RemoveProblemFromClass(t *testing.T) {
 	}
 }
 
-func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
+func TestProblemService_ReplaceProblemByProblemID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -381,7 +381,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), data.Problem{
+				m.EXPECT().ReplaceProblemByProblemID(int64(1), data.Problem{
 					ID: 1, Name: "New Name", URL: "https://example.com/problem", ClassID: 10,
 					Difficulty: helpers.PtrStr("hard"), Topic: helpers.PtrStr("Binary search"), Priority: helpers.PtrStr("recommended"),
 				}).Return(nil)
@@ -422,7 +422,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(dataerr.NewNotFoundError("deleted problem", nil))
+				m.EXPECT().ReplaceProblemByProblemID(int64(1), gomock.Any()).Return(dataerr.NewNotFoundError("deleted problem", nil))
 			},
 			wantErr: &serviceerr.ProblemNotFoundError{},
 		},
@@ -431,7 +431,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(dataerr.NewRowConflictError("problem exists", nil))
+				m.EXPECT().ReplaceProblemByProblemID(int64(1), gomock.Any()).Return(dataerr.NewRowConflictError("problem exists", nil))
 			},
 			wantErr: &serviceerr.DuplicateProblemError{},
 		},
@@ -440,7 +440,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetProblemByID(int64(1)).Return(data.Problem{ID: 1}, nil)
 				m.EXPECT().GetClassByClassCode("basicos").Return(data.Class{ID: 10}, nil)
-				m.EXPECT().UpdateProblemByProblemID(int64(1), gomock.Any()).Return(errors.New("db fail"))
+				m.EXPECT().ReplaceProblemByProblemID(int64(1), gomock.Any()).Return(errors.New("db fail"))
 			},
 			wantErr: &serviceerr.InternalError{},
 		},
@@ -451,7 +451,7 @@ func TestProblemService_UpdateProblemByProblemID(t *testing.T) {
 			t.Parallel()
 			mockStore := mock_data.NewMockDataStore(gomock.NewController(t))
 			tt.setupMock(mockStore)
-			err := NewProblemService(mockStore).UpdateProblemByProblemID(service_model.UpdateProblemParams{
+			err := NewProblemService(mockStore).ReplaceProblemByProblemID(service_model.ReplaceProblemParams{
 				ProblemID: 1, ClassCode: "basicos", Name: " New Name ", URL: " https://example.com/problem ",
 				Difficulty: helpers.PtrStr(" HARD "), Topic: helpers.PtrStr(" Binary search "), Priority: helpers.PtrStr(" RECOMMENDED "),
 			})
@@ -469,25 +469,25 @@ func TestUpdateProblemRejectsInvalidValuesBeforeAccessingDatastore(t *testing.T)
 
 	for _, tt := range []struct {
 		name   string
-		mutate func(*service_model.UpdateProblemParams)
+		mutate func(*service_model.ReplaceProblemParams)
 		reason string
 	}{
-		{"zero problem ID", func(p *service_model.UpdateProblemParams) { p.ProblemID = 0 }, "problem ID must be positive"},
-		{"negative problem ID", func(p *service_model.UpdateProblemParams) { p.ProblemID = -1 }, "problem ID must be positive"},
-		{"missing destination class code", func(p *service_model.UpdateProblemParams) { p.ClassCode = "" }, "class code is required"},
-		{"blank destination class code", func(p *service_model.UpdateProblemParams) { p.ClassCode = " " }, "class code is required"},
-		{"blank name", func(p *service_model.UpdateProblemParams) { p.Name = " " }, "problem name is required"},
-		{"relative URL", func(p *service_model.UpdateProblemParams) { p.URL = "/problem" }, "URL must be an absolute HTTP or HTTPS URL"},
-		{"unsupported URL", func(p *service_model.UpdateProblemParams) { p.URL = "ftp://example.com/problem" }, "URL must be an absolute HTTP or HTTPS URL"},
-		{"invalid difficulty", func(p *service_model.UpdateProblemParams) { p.Difficulty = helpers.PtrStr("extreme") }, "invalid difficulty"},
-		{"invalid priority", func(p *service_model.UpdateProblemParams) { p.Priority = helpers.PtrStr("urgent") }, "invalid priority"},
+		{"zero problem ID", func(p *service_model.ReplaceProblemParams) { p.ProblemID = 0 }, "problem ID must be positive"},
+		{"negative problem ID", func(p *service_model.ReplaceProblemParams) { p.ProblemID = -1 }, "problem ID must be positive"},
+		{"missing destination class code", func(p *service_model.ReplaceProblemParams) { p.ClassCode = "" }, "class code is required"},
+		{"blank destination class code", func(p *service_model.ReplaceProblemParams) { p.ClassCode = " " }, "class code is required"},
+		{"blank name", func(p *service_model.ReplaceProblemParams) { p.Name = " " }, "problem name is required"},
+		{"relative URL", func(p *service_model.ReplaceProblemParams) { p.URL = "/problem" }, "URL must be an absolute HTTP or HTTPS URL"},
+		{"unsupported URL", func(p *service_model.ReplaceProblemParams) { p.URL = "ftp://example.com/problem" }, "URL must be an absolute HTTP or HTTPS URL"},
+		{"invalid difficulty", func(p *service_model.ReplaceProblemParams) { p.Difficulty = helpers.PtrStr("extreme") }, "invalid difficulty"},
+		{"invalid priority", func(p *service_model.ReplaceProblemParams) { p.Priority = helpers.PtrStr("urgent") }, "invalid priority"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			params := service_model.UpdateProblemParams{ProblemID: 1, ClassCode: "basicos", Name: "Two Sum", URL: "https://example.com/problem"}
+			params := service_model.ReplaceProblemParams{ProblemID: 1, ClassCode: "basicos", Name: "Two Sum", URL: "https://example.com/problem"}
 			tt.mutate(&params)
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
-			err := NewProblemService(store).UpdateProblemByProblemID(params)
+			err := NewProblemService(store).ReplaceProblemByProblemID(params)
 			assert.IsType(t, &serviceerr.ValidationError{}, err)
 			assert.ErrorContains(t, err, tt.reason)
 		})
@@ -696,7 +696,7 @@ func TestPrepareProblemUpdateBatchValidatesTargetsWithoutWrites(t *testing.T) {
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
 	store.EXPECT().GetProblemsByIDs([]int64{42}).Return([]data.Problem{{ID: 42}}, nil)
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
-	prepared, issues := NewServices(store).Problem.PrepareUpdateBatch([]service_model.UpdateProblemParams{{ProblemID: 42, ClassCode: " basicos ", ProblemFields: service_model.ProblemFields{Name: " Updated ", URL: " https://example.com/new "}}})
+	prepared, issues := NewServices(store).Problem.PrepareProblemReplacementBatch([]service_model.ReplaceProblemParams{{ProblemID: 42, ClassCode: " basicos ", ProblemFields: service_model.ProblemFields{Name: " Updated ", URL: " https://example.com/new "}}})
 	assert.Empty(t, issues)
 	if assert.Len(t, prepared, 1) {
 		assert.Equal(t, 1, prepared[0].Entry)
@@ -713,7 +713,7 @@ func TestPrepareProblemUpdateBatchReportsIssuesWithoutPartialResults(t *testing.
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
 	store.EXPECT().GetProblemsByIDs([]int64{42, 99}).Return([]data.Problem{{ID: 42}}, nil)
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
-	prepared, issues := NewServices(store).Problem.PrepareUpdateBatch([]service_model.UpdateProblemParams{
+	prepared, issues := NewServices(store).Problem.PrepareProblemReplacementBatch([]service_model.ReplaceProblemParams{
 		{ProblemID: 42, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Valid", URL: "https://example.com/new"}},
 		{},
 		{ProblemID: 99, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Missing", URL: "https://example.com/new"}},
@@ -775,13 +775,13 @@ func TestProblemBatchUsesBulkLookupsForPreparationAndConfirmation(t *testing.T) 
 				store := mock_data.NewMockDataStore(gomock.NewController(t))
 				problems := make([]data.Problem, size)
 				classes := make([]data.Class, size)
-				inputs := make([]service_model.UpdateProblemParams, size)
+				inputs := make([]service_model.ReplaceProblemParams, size)
 				for index := range size {
 					id := int64(index + 1)
 					classCode := fmt.Sprintf("class-%03d", index)
 					problems[index] = data.Problem{ID: id}
 					classes[index] = data.Class{ID: id, ClassCode: classCode}
-					inputs[index] = service_model.UpdateProblemParams{
+					inputs[index] = service_model.ReplaceProblemParams{
 						ProblemID: id,
 						ClassCode: classCode,
 						ProblemFields: service_model.ProblemFields{
@@ -803,16 +803,16 @@ func TestProblemBatchUsesBulkLookupsForPreparationAndConfirmation(t *testing.T) 
 						return classes, nil
 					},
 				).Times(2)
-				store.EXPECT().UpdateProblemByProblemID(gomock.Any(), gomock.Any()).Return(nil).Times(size)
+				store.EXPECT().ReplaceProblemByProblemID(gomock.Any(), gomock.Any()).Return(nil).Times(size)
 
 				service := NewServices(store)
-				prepared, issues := service.Problem.PrepareUpdateBatch(inputs)
+				prepared, issues := service.Problem.PrepareProblemReplacementBatch(inputs)
 				require.Empty(t, issues)
 				require.Len(t, prepared, size)
-				result, issues, err := service.Problem.ExecuteUpdateBatch(prepared)
+				result, issues, err := service.Problem.ExecuteProblemReplacementBatch(prepared)
 				require.NoError(t, err)
 				require.Empty(t, issues)
-				assert.Len(t, result.UpdatedProblemIDs, size)
+				assert.Len(t, result.ReplacedProblemIDs, size)
 			})
 		})
 	}
@@ -824,7 +824,7 @@ func TestPrepareProblemUpdateBatchPreservesMissingTargetsWhenClassLookupFails(t 
 	store.EXPECT().GetProblemsByIDs([]int64{42, 99}).Return([]data.Problem{{ID: 42}}, nil)
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return(nil, errors.New("database unavailable"))
 
-	prepared, issues := NewServices(store).Problem.PrepareUpdateBatch([]service_model.UpdateProblemParams{
+	prepared, issues := NewServices(store).Problem.PrepareProblemReplacementBatch([]service_model.ReplaceProblemParams{
 		{ProblemID: 42, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Existing", URL: "https://example.com/problem"}},
 		{ProblemID: 99, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Missing", URL: "https://example.com/problem"}},
 	})
@@ -843,14 +843,14 @@ func TestProblemUpdateBatchRejectsInvalidSizeBeforeReadingOrWriting(t *testing.T
 	for _, size := range []int{0, service_model.MaxBatchOperations + 1} {
 		store := mock_data.NewMockDataStore(gomock.NewController(t))
 		svc := NewServices(store)
-		prepared, issues := svc.Problem.PrepareUpdateBatch(make([]service_model.UpdateProblemParams, size))
+		prepared, issues := svc.Problem.PrepareProblemReplacementBatch(make([]service_model.ReplaceProblemParams, size))
 		assert.Nil(t, prepared)
 		if assert.Len(t, issues, 1) {
 			assert.Zero(t, issues[0].Entry)
 		}
-		result, issues, err := svc.Problem.ExecuteUpdateBatch(make([]service_model.PreparedProblemUpdate, size))
+		result, issues, err := svc.Problem.ExecuteProblemReplacementBatch(make([]service_model.PreparedProblemReplacement, size))
 		assert.NoError(t, err)
-		assert.Empty(t, result.UpdatedProblemIDs)
+		assert.Empty(t, result.ReplacedProblemIDs)
 		assert.Len(t, issues, 1)
 	}
 }

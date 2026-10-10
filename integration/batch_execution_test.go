@@ -130,7 +130,7 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 				problem, err := env.DB.GetProblemByID(secondProblem)
 				require.NoError(t, err)
 				problem.ClassID = otherClass
-				require.NoError(t, env.DB.UpdateProblemByProblemID(secondProblem, problem))
+				require.NoError(t, env.DB.ReplaceProblemByProblemID(secondProblem, problem))
 			}
 			result, issues, err := env.Services.Solution.ExecuteCreationBatch(prepared, students)
 			require.NoError(t, err)
