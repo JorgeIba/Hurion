@@ -529,6 +529,20 @@ func (mr *MockDataStoreMockRecorder) IsRoomRegistered(roomID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRoomRegistered", reflect.TypeOf((*MockDataStore)(nil).IsRoomRegistered), roomID)
 }
 
+// PatchProblemByProblemID mocks base method.
+func (m *MockDataStore) PatchProblemByProblemID(problemID int64, patch data.ProblemPatch) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PatchProblemByProblemID", problemID, patch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PatchProblemByProblemID indicates an expected call of PatchProblemByProblemID.
+func (mr *MockDataStoreMockRecorder) PatchProblemByProblemID(problemID, patch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PatchProblemByProblemID", reflect.TypeOf((*MockDataStore)(nil).PatchProblemByProblemID), problemID, patch)
+}
+
 // RemoveAC mocks base method.
 func (m *MockDataStore) RemoveAC(userID string, problemID int64) error {
 	m.ctrl.T.Helper()

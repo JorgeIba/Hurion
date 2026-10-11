@@ -47,3 +47,16 @@ type PreparedProblemReplacement struct {
 type ProblemReplacementBatchResult struct {
 	ReplacedProblemIDs []int64
 }
+
+// PreparedProblemPatch contains a normalized patch and the destination class,
+// when the patch explicitly changes class membership.
+type PreparedProblemPatch struct {
+	Entry  int
+	Params PatchProblemParams
+	Class  Class
+}
+
+// ProblemPatchBatchResult reports acknowledged patches in input order.
+type ProblemPatchBatchResult struct {
+	PatchedProblemIDs []int64
+}
