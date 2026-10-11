@@ -1,10 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { llmsGuide } from './build/llms';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), llmsGuide()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
