@@ -111,6 +111,16 @@ type PatchField[T any] struct {
 	Value T
 }
 
+// IsZero omits fields that were not supplied, regardless of their stored value.
+func (field PatchField[T]) IsZero() bool {
+	return !field.Set
+}
+
+// MarshalJSON encodes the supplied value directly, including explicit null.
+func (field PatchField[T]) MarshalJSON() ([]byte, error) {
+	return jsonv2.Marshal(field.Value)
+}
+
 // UnmarshalJSON records field presence while preserving JSON null as the zero value
 // of T. In particular, PatchField[*string] distinguishes omission from null.
 func (field *PatchField[T]) UnmarshalJSON(data []byte) error {
@@ -120,12 +130,12 @@ func (field *PatchField[T]) UnmarshalJSON(data []byte) error {
 
 // PatchProblemFields contains only fields that may be changed by a patch.
 type PatchProblemFields struct {
-	ClassCode  PatchField[string]  `json:"class,omitempty"`
-	Name       PatchField[string]  `json:"name,omitempty"`
-	URL        PatchField[string]  `json:"url,omitempty"`
-	Difficulty PatchField[*string] `json:"difficulty,omitempty"`
-	Topic      PatchField[*string] `json:"topic,omitempty"`
-	Priority   PatchField[*string] `json:"priority,omitempty"`
+	ClassCode  PatchField[string]  `json:"class,omitzero"`
+	Name       PatchField[string]  `json:"name,omitzero"`
+	URL        PatchField[string]  `json:"url,omitzero"`
+	Difficulty PatchField[*string] `json:"difficulty,omitzero"`
+	Topic      PatchField[*string] `json:"topic,omitzero"`
+	Priority   PatchField[*string] `json:"priority,omitzero"`
 }
 
 // PatchProblemParams identifies a problem and supplies only fields to change.

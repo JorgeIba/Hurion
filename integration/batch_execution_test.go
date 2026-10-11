@@ -84,6 +84,15 @@ func TestIntegration_ExecuteProblemPatchBatchUpdatesOnlySpecifiedFields(t *testi
 	assert.True(t, inputs[0].Topic.Set)
 	assert.Nil(t, inputs[0].Topic.Value)
 
+	// A serialized patch must retain the same update and clear instructions.
+	encoded, err := jsonv2.Marshal(inputs)
+	require.NoError(t, err)
+	assert.JSONEq(t, input, string(encoded))
+	var decodedInputs []service_model.PatchProblemParams
+	require.NoError(t, jsonv2.Unmarshal(encoded, &decodedInputs))
+	assert.Equal(t, inputs, decodedInputs)
+	inputs = decodedInputs
+
 	prepared, issues := env.Services.Problem.PrepareProblemPatchBatch(inputs)
 	require.Empty(t, issues)
 	require.Len(t, prepared, 1)
