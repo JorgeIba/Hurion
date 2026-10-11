@@ -5,6 +5,7 @@ import { HeaderBar } from '@/components/HeaderBar';
 import { StandingsRoute } from '@/app/routing/routes';
 import { ProblemsView } from '@/components/ProblemsView';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { BrandLogoLink } from '@/components/BrandLogoLink';
 import { sortUsersBySolved, CLASS_LABELS, CLASS_CONFIG } from '@/domain/class';
 import { resolvePriorityPresentation } from '@/presentation/priority';
 
@@ -35,7 +36,7 @@ function ScoreboardContent() {
       <div className="app-container">
         <header className="header-bar">
           <div className="brand-section">
-            <span className="brand-logo">{CLASS_LABELS.BRAND_LOGO}</span>
+            <BrandLogoLink />
             <h1 className="header-title">{CLASS_CONFIG.DEFAULT_PAGE_TITLE}</h1>
           </div>
         </header>
@@ -52,7 +53,7 @@ function ScoreboardContent() {
       <div className="app-container">
         <header className="header-bar">
           <div className="brand-section">
-            <span className="brand-logo">{CLASS_LABELS.BRAND_LOGO}</span>
+            <BrandLogoLink />
             <h1 className="header-title">{CLASS_CONFIG.DEFAULT_PAGE_TITLE}</h1>
           </div>
         </header>

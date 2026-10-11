@@ -6,6 +6,7 @@ import {
   CLASS_CONFIG,
 } from '@/domain/class';
 import { NavigationTabs } from '@/components/NavigationTabs';
+import { BrandLogoLink } from '@/components/BrandLogoLink';
 
 interface HeaderBarProps {
   title?: string;
@@ -30,7 +31,7 @@ export function HeaderBar({
   return (
     <header className="header-bar">
       <div className="brand-section">
-        <span className="brand-logo">{CLASS_LABELS.BRAND_LOGO}</span>
+        <BrandLogoLink />
         <h1 className="header-title" id="title">
           {title || CLASS_CONFIG.DEFAULT_PAGE_TITLE}
         </h1>
