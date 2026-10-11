@@ -2,21 +2,21 @@
 
 ## Layers
 
-The bot follows a clean **layered architecture** with clear separation of concerns:
+The bot follows a layered architecture with clear separation of concerns:
 
 | Layer | Responsibility | Key Packages |
 |---|---|---|
-| **Discord (Entry Point)** | Receives messages and reactions from Discord via `discordgo` session handlers. | `bot/` |
-| **Context** | Data structure encapsulating the Discord event, dependencies, and executor information. | `context/` |
-| **Command Router** | Parses `!commands`, resolves argument arity, and routes to the correct controller. | `bot/commandrouter.go` |
-| **Reaction Router** | Handles emoji reactions for AC approvals and confirmation flows. | `bot/reactionrouter.go` |
-| **Controllers** | Orchestrate permission checks, call services, and format Discord responses. Organized by role: `admin/`, `enrolled/`, `general/`, `mentor/`. | `controllers/` |
-| **Adapters** | Transform data between layers (service models → presentation models). | `controllers/adapters/` |
+| **Discord (Entry Point)** | Receives prefix messages, reactions, slash commands, modal submissions, and button interactions via `discordgo`. | `bot/` |
+| **Command Routers** | The prefix router parses `!commands`; the interaction router dispatches slash commands, modals, and components. | `bot/commandrouter.go`, `bot/interactionrouter.go` |
+| **Event Context** | Carries each Discord event and its dependencies into the controller handling it. | `context/` |
+| **Reaction Router** | Handles emoji reactions for AC approvals and prefix-command confirmations. | `bot/reactionrouter.go` |
+| **Controllers** | Orchestrate permission checks, contextual lookups, calls to services, and Discord response delivery. Mentor slash workflows live under `controllers/mentor/`. | `controllers/` |
+| **Adapters and Interaction Transport** | Map request and response models and encode or decode Discord forms and component identifiers. | `controllers/adapters/`, `controllers/interactiontransport/` |
 | **Providers** | Verify Discord roles and interact with External APIs (`DiscordProvider`). | `providers/` |
-| **Services** | Business logic layer. Six services: `UserService`, `EnrollmentService`, `ClassService`, `ProblemService`, `SolutionService`, `ScoreService`. | `services/` |
+| **Services** | Apply business rules across user, enrollment, class, problem, solution, and score operations. `ProblemService` owns problem creation and patch batches; `SolutionService` owns AC batches. Both prepare and revalidate batches before writes. | `services/` |
 | **Data (Repository)** | Framework-agnostic database operations via the `DataStore` interface. | `data/` |
-| **Presentation** | Rendering layer: generates score images (`image/`) and Excel exports (`excelizer/`). | `presentation/` |
-| **Dispatcher** | Buffered, async message queue that handles sending all Discord responses (simple messages, embeds, reactions, files, paginated embeds, confirmation messages). | `dispatcher/` |
+| **Presentation** | Builds Discord embeds, form responses, batch previews and receipts, score images, and Excel exports. | `presentation/` |
+| **Dispatcher and Interaction Responder** | Deliver prefix-command responses and acknowledge, defer, follow up, or edit slash-command interaction responses. | `dispatcher/` |
 | **Logger** | Structured logging via `logrus`. | `logger/` |
 | **Custom Errors** | Typed errors per layer: `dataerr`, `serviceerr`, `discorderr`, `controllerserr`, `presentationerr`. | `customerr/` |
 
@@ -28,8 +28,10 @@ The bot follows a clean **layered architecture** with clear separation of concer
 graph TB
     subgraph BotLayer["Bot Layer"]
         Discord[Discord Client]
-        Commands[Command Router]
+        Prefix[Prefix Command Router]
+        Interactions[Interaction Router]
         Reactions[Reaction Router]
+        Context[Event Context]
     end
 
     subgraph ControllerLayer["Controller Layer"]
@@ -37,6 +39,7 @@ graph TB
         MentorCtrl[Mentor Controller]
         EnrolledCtrl[Enrolled Controller]
         GeneralCtrl[General Controller]
+        MentorInteractions[Mentor Interaction Controllers]
     end
 
     subgraph ProviderLayer["Provider Layer"]
@@ -63,19 +66,30 @@ graph TB
     end
 
     %% Internal connections
-    Discord --> Context
-    Context --> Commands
-    Context --> Reactions
+    Discord --> Prefix
+    Discord --> Interactions
+    Discord --> Reactions
     Queries --> DB
 
     %% Flow between layers
-    Commands --> ControllerLayer
-    Reactions --> ControllerLayer
+    Prefix --> Context
+    Reactions --> Context
+    Interactions --> Context
+    Context --> ControllerLayer
+    Context --> MentorInteractions
+    MentorInteractions --> ProviderLayer
+    MentorInteractions --> ServiceLayer
     ControllerLayer --> ProviderLayer
     ControllerLayer --> ServiceLayer
     ControllerLayer --> PresentationLayer
     ServiceLayer --> DataLayer
 ```
+
+## Discord slash workflows
+
+Slash command interactions use a separate router from prefix commands and reactions. Mentor controllers authorize the actor, adapt submitted form values, call application services, and send private interaction responses. `/problem add` and `/problem edit` use forms for individual changes; the edit workflow keeps the problem identity and recorded ACs.
+
+The JSON batch workflows use a prepare, preview, confirm sequence. Mentor controllers parse one typed batch and delegate validation and target resolution to `ProblemService` or `SolutionService` without writing. They retain the prepared snapshot in an expiring in-process cache. Confirm and Cancel buttons are bound to the submitting guild and actor. Confirmation checks current authority and revalidates the complete batch before execution. Problem creation and AC batches are persisted transactionally; problem edit batches apply patches in input order and can leave earlier entries applied if storage fails. A confirmed batch is consumed once and is not automatically retried. User-facing schemas and examples are in the [Mentor JSON Batch Guide](MENTOR_BATCHES.md); AI-authoring instructions are generated from [`web/llms.txt.template`](../web/llms.txt.template).
 
 ---
 
