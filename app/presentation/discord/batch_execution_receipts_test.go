@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"io"
 	"math"
-	"strconv"
 	"strings"
 	"testing"
 )
 
-func TestBatchExecutionReceiptsPreserveIDsAndClearActions(t *testing.T) {
+func TestBatchExecutionReceiptsSummarizeCountsAndClearActions(t *testing.T) {
 	t.Parallel()
 	for _, failed := range []bool{false, true} {
 		t.Run(fmt.Sprint(failed), func(t *testing.T) {
@@ -25,21 +22,15 @@ func TestBatchExecutionReceiptsPreserveIDsAndClearActions(t *testing.T) {
 			assert.LessOrEqual(t, utf16Count(*result.Content), maxMessageContentLength)
 			assert.Empty(t, *result.Components)
 			assert.Empty(t, result.AllowedMentions.Parse)
-			require.Len(t, result.Files, 1)
-			payload, err := io.ReadAll(result.Files[0].Reader)
-			require.NoError(t, err)
-			lines := strings.Split(string(payload), "\n")
-			require.Len(t, lines, len(ids))
-			for index, id := range ids {
-				assert.Equal(t, strconv.FormatInt(id, 10), lines[index])
-			}
+			assert.Empty(t, result.Files)
+			assert.NotContains(t, *result.Content, "Problem IDs")
 			assert.Equal(t, failed, strings.Contains(*result.Content, "batch outcome could not be confirmed"))
 			assert.NotContains(t, *result.Content, "No changes were applied")
 		})
 	}
 	short := BuildProblemBatchExecutionResult(service_model.ProblemCreateBatchResult{CreatedProblemIDs: []int64{23, 42}}, false)
 	assert.Contains(t, *short.Content, "Problems created: 2")
-	assert.Contains(t, *short.Content, "23, 42")
+	assert.NotContains(t, *short.Content, "23, 42")
 	assert.Empty(t, short.Files)
 	ac := BuildACBatchExecutionResult(service_model.ACBatchResult{Recorded: 2, AlreadyRecorded: 3}, false)
 	assert.Contains(t, *ac.Content, "ACs recorded: 2. Already recorded: 3.")

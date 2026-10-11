@@ -55,18 +55,18 @@ func (mr *MockDataStoreMockRecorder) AddAC(userID, problemID any) *gomock.Call {
 }
 
 // AddACBatch mocks base method.
-func (m *MockDataStore) AddACBatch(targets []data.ACKey) (int, error) {
+func (m *MockDataStore) AddACBatch(targets []data.ACKey, users []data.User) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddACBatch", targets)
+	ret := m.ctrl.Call(m, "AddACBatch", targets, users)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddACBatch indicates an expected call of AddACBatch.
-func (mr *MockDataStoreMockRecorder) AddACBatch(targets any) *gomock.Call {
+func (mr *MockDataStoreMockRecorder) AddACBatch(targets, users any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddACBatch", reflect.TypeOf((*MockDataStore)(nil).AddACBatch), targets)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddACBatch", reflect.TypeOf((*MockDataStore)(nil).AddACBatch), targets, users)
 }
 
 // AddClassAccessRole mocks base method.

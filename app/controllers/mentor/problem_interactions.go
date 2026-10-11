@@ -257,6 +257,9 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 	}
 
 	if len(domainIssues) > 0 {
+		for _, issue := range domainIssues {
+			logger.Log.Warnf("Problem batch validation rejected: guild=%s actor=%s entry=%d error=%v", event.GuildID, event.Member.User.ID, issue.Entry, issue.Err)
+		}
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
 	}
@@ -339,7 +342,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 		response = discord.BuildProblemBatchExecutionResult(result, err != nil)
 	}
 	// Log and deliver the result without retrying consumed operations.
-	logger.Log.Infof("Problem batch %s outcome: result=%v validationIssues=%d error=%v", batchID, result.CreatedProblemIDs, len(issues), err)
+	logger.Log.Infof("Problem batch %s outcome: guild=%s actor=%s entries=%d result=%v validationIssues=%d error=%v", batchID, event.GuildID, event.Member.User.ID, len(batch), result.CreatedProblemIDs, len(issues), err)
 	if _, err := ctrl.responder.EditResponse(event.Interaction, response); err != nil {
 		logger.Log.Errorf("Failed to deliver Problem batch %s result: %v", batchID, err)
 	}
@@ -439,6 +442,9 @@ func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInter
 	inputs := mapProblemEditBatchInputToPatchProblemParams(entries)
 	prepared, domainIssues := ctrl.services.Problem.PrepareProblemPatchBatch(inputs)
 	if len(domainIssues) > 0 {
+		for _, issue := range domainIssues {
+			logger.Log.Warnf("Problem edit batch validation rejected: guild=%s actor=%s entry=%d error=%v", event.GuildID, event.Member.User.ID, issue.Entry, issue.Err)
+		}
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemEditBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
 	}
@@ -522,7 +528,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 	}
 
 	// Log and deliver the result without retrying consumed operations.
-	logger.Log.Infof("Problem edit batch %s outcome: result=%v validationIssues=%d error=%v", batchID, result.PatchedProblemIDs, len(issues), err)
+	logger.Log.Infof("Problem edit batch %s outcome: guild=%s actor=%s entries=%d result=%v validationIssues=%d error=%v", batchID, event.GuildID, event.Member.User.ID, len(batch), result.PatchedProblemIDs, len(issues), err)
 	if _, err := ctrl.responder.EditResponse(event.Interaction, response); err != nil {
 		logger.Log.Errorf("Failed to deliver Problem edit batch %s result: %v", batchID, err)
 	}

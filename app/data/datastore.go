@@ -34,7 +34,7 @@ type UpdateDataStore interface {
 	AddProblemsBatch(problems []Problem) ([]int64, error)
 	RemoveProblemByID(problemID int64) (int64, error)
 	AddAC(userID string, problemID int64) error
-	AddACBatch(targets []ACKey) (int, error)
+	AddACBatch(targets []ACKey, users []User) (int, error)
 	RemoveAC(userID string, problemID int64) error
 	ClearClassContents(classID int64) error
 	DeleteClass(classID int64) error

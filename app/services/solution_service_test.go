@@ -732,6 +732,7 @@ func TestACBatchUsesOneFactsReadForPreparationAndConfirmation(t *testing.T) {
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			inputs := make([]service_model.CreateACParams, size)
 			targets := make([]data.ACKey, size)
+			users := make([]data.User, size)
 			facts := make(map[data.ACKey]data.ACValidationData)
 			students := make(map[string]service_model.Principal)
 			for index := range size {
@@ -741,10 +742,11 @@ func TestACBatchUsesOneFactsReadForPreparationAndConfirmation(t *testing.T) {
 				inputs[index] = service_model.CreateACParams{UserID: userID, ProblemID: id}
 				targets[index] = data.ACKey{UserID: userID, ProblemID: id}
 				facts[targets[index]] = data.ACValidationData{Problem: &data.Problem{ID: id, ClassID: id}, Class: &data.Class{ID: id, ClassCode: code}, AccessRoleIDs: []string{code}}
-				students[userID] = service_model.Principal{UserID: userID, Roles: []string{code}}
+				students[userID] = service_model.Principal{User: service_model.User{UserID: userID, DisplayName: "Discord " + userID}, Roles: []string{code}}
+				users[index] = data.User{UserID: userID, DisplayName: "Discord " + userID}
 			}
 			store.EXPECT().GetACValidationData(targets).Return(facts, nil).Times(2)
-			store.EXPECT().AddACBatch(targets).Return(size, nil)
+			store.EXPECT().AddACBatch(targets, users).Return(size, nil)
 			service := &SolutionService{Datastore: store}
 			prepared, issues, err := service.PrepareCreationBatch(inputs, students)
 			require.NoError(t, err)
@@ -809,7 +811,7 @@ func TestExecuteACBatchReportsInsertedAndRepeatedCounts(t *testing.T) {
 	store.EXPECT().AddACBatch([]data.ACKey{
 		{UserID: "123", ProblemID: 42}, {UserID: "123", ProblemID: 42},
 		{UserID: "123", ProblemID: 43}, {UserID: "456", ProblemID: 42},
-	}).Return(2, nil)
+	}, gomock.Any()).Return(2, nil)
 	batch := []service_model.PreparedAC{
 		{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 42}, Class: service_model.Class{ID: 10}},
 		{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 42}, Class: service_model.Class{ID: 10}},

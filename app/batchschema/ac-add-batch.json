@@ -20,7 +20,7 @@
         "type": "integer",
         "minimum": 1,
         "maximum": 9223372036854775807,
-        "description": "ID of an existing solved problem (problems[].id in the class export). If the problem is new, create it first and use the ID returned after successful confirmation."
+        "description": "ID of an existing solved problem (problems[].id in the class export). If the problem is new, create it first and refresh the class export after successful confirmation and use the assigned ID."
       }
     }
   },

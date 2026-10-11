@@ -2458,7 +2458,7 @@ func TestAddACBatchUsesTwoWritesAndPreservesExistingSolves(t *testing.T) {
 			targets[index] = ACKey{UserID: fmt.Sprintf("size-%d-user-%d", size, index), ProblemID: problemID}
 		}
 		batchWriteQueryCount.Store(0)
-		inserted, err := db.AddACBatch(targets)
+		inserted, err := db.AddACBatch(targets, nil)
 		require.NoError(t, err)
 		assert.Equal(t, size, inserted)
 		expectedWrites := int64(2)
@@ -2479,7 +2479,7 @@ func TestAddACBatchUsesTwoWritesAndPreservesExistingSolves(t *testing.T) {
 	_, err = conn.Exec("UPDATE solved_problems SET solved_at = '2000-01-01 00:00:00' WHERE user_id = ?", "existing")
 	require.NoError(t, err)
 	newTarget := ACKey{UserID: "new'; DROP TABLE users; --", ProblemID: problemID}
-	inserted, err := db.AddACBatch([]ACKey{{UserID: "existing", ProblemID: problemID}, newTarget, newTarget})
+	inserted, err := db.AddACBatch([]ACKey{{UserID: "existing", ProblemID: problemID}, newTarget, newTarget}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, inserted)
 	user, err := db.GetUserByUserID("existing")
@@ -2516,7 +2516,7 @@ func TestAddACBatchRollsBackUsersAndSolvesOnFailure(t *testing.T) {
 				_, err = db.conn.Exec(`CREATE TRIGGER reject_solve BEFORE INSERT ON solved_problems WHEN NEW.user_id = 'second' BEGIN SELECT RAISE(ABORT, 'solve failure'); END`)
 				require.NoError(t, err)
 			}
-			inserted, err := db.AddACBatch(targets)
+			inserted, err := db.AddACBatch(targets, nil)
 			require.Error(t, err)
 			assert.Zero(t, inserted)
 			for _, userID := range []string{"first", "second"} {
@@ -2583,4 +2583,54 @@ func TestAddProblemsBatchRollsBackWhenAnInsertFails(t *testing.T) {
 	problems, err := db.GetProblemsByClass(classID)
 	require.NoError(t, err)
 	assert.Empty(t, problems, "earlier inserts must roll back with the failing entry")
+}
+
+func TestAddACBatchRefreshesDiscordNamesWithoutReplacingThemWithUnknown(t *testing.T) {
+	t.Parallel()
+	db := setupDB(t)
+	t.Cleanup(db.CloseDB)
+	classID, err := db.CreateClass(Class{ClassCode: "batch", Name: "Batch"})
+	require.NoError(t, err)
+	problemID, err := db.AddProblem(Problem{Name: "Problem", ClassID: classID})
+	require.NoError(t, err)
+	for _, user := range []User{{UserID: "unknown", DisplayName: "Unknown"}, {UserID: "known", DisplayName: "Previous Name"}} {
+		require.NoError(t, db.EnsureUser(user))
+		require.NoError(t, db.AddAC(user.UserID, problemID))
+	}
+	_, err = db.conn.Exec("UPDATE solved_problems SET solved_at = '2000-01-01 00:00:00'")
+	require.NoError(t, err)
+	targets := []ACKey{{UserID: "new", ProblemID: problemID}, {UserID: "unknown", ProblemID: problemID}, {UserID: "known", ProblemID: problemID}}
+	users := []User{{UserID: "new", DisplayName: " New Student "}, {UserID: "unknown", DisplayName: "Jorge Luis"}, {UserID: "known", DisplayName: "Different Name"}}
+	inserted, err := db.AddACBatch(targets, users)
+	require.NoError(t, err)
+	assert.Equal(t, 1, inserted)
+	for id, name := range map[string]string{"new": "New Student", "unknown": "Jorge Luis", "known": "Different Name"} {
+		user, err := db.GetUserByUserID(id)
+		require.NoError(t, err)
+		assert.Equal(t, name, user.DisplayName)
+	}
+	var solvedAt time.Time
+	require.NoError(t, db.conn.QueryRow("SELECT solved_at FROM solved_problems WHERE user_id = 'unknown'").Scan(&solvedAt))
+	assert.Equal(t, 2000, solvedAt.Year(), "name repair must preserve existing AC timestamps")
+	inserted, err = db.AddACBatch(targets, []User{{UserID: "new", DisplayName: "Unknown"}, {UserID: "known", DisplayName: " "}})
+	require.NoError(t, err)
+	assert.Zero(t, inserted)
+	user, err := db.GetUserByUserID("new")
+	require.NoError(t, err)
+	assert.Equal(t, "New Student", user.DisplayName)
+	user, err = db.GetUserByUserID("known")
+	require.NoError(t, err)
+	assert.Equal(t, "Different Name", user.DisplayName, "blank names must preserve the known name")
+}
+
+func TestAddACBatchRollsBackNameRepairWhenSolveFails(t *testing.T) {
+	t.Parallel()
+	db := setupDB(t)
+	t.Cleanup(db.CloseDB)
+	require.NoError(t, db.EnsureUser(User{UserID: "unknown", DisplayName: "Unknown"}))
+	_, err := db.AddACBatch([]ACKey{{UserID: "unknown", ProblemID: -1}}, []User{{UserID: "unknown", DisplayName: "Jorge Luis"}})
+	require.Error(t, err)
+	user, err := db.GetUserByUserID("unknown")
+	require.NoError(t, err)
+	assert.Equal(t, "Unknown", user.DisplayName)
 }

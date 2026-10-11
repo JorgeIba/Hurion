@@ -208,7 +208,7 @@ func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
 	env.submitProblemForm(t, "mentor_1", modal)
 	require.Len(t, env.Responder.edits, 1)
 	content := *env.Responder.edits[0].response.Content
-	assert.Equal(t, "Could not add the problem. Please check the values and try /problem add class:basicos_2 again.", content)
+	assert.Equal(t, "Could not add the problem. Please check the values and try `/problem add class:basicos_2` again.", content)
 	assert.LessOrEqual(t, len(utf16.Encode([]rune(content))), 2000)
 	problems, err := env.DB.GetProblemsByClass(classID)
 	require.NoError(t, err)
@@ -355,7 +355,7 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 			assert.Same(t, submit.Interaction, receipt.interaction)
 			require.NotNil(t, receipt.response.AllowedMentions)
 			assert.Empty(t, receipt.response.AllowedMentions.Parse)
-			assert.Contains(t, *receipt.response.Content, fmt.Sprintf("class %q", test.wantClass))
+			assert.Contains(t, *receipt.response.Content, fmt.Sprintf("class `%s`", test.wantClass))
 			assert.Empty(t, env.Dispatcher.Messages())
 			class, err := env.DB.GetClassByClassCode(test.wantClass)
 			require.NoError(t, err)

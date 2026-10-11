@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Problem add batch",
-  "description": "Input for the Discord command /problem add_batch. The document is a JSON array of new problems; each entry creates one problem with a specific topic. The bot validates and persists the complete batch atomically before returning the created IDs.",
+  "description": "Input for the Discord command /problem add_batch. The document is a JSON array of new problems; each entry creates one problem with a specific topic. The bot validates and persists the complete batch atomically before confirming success. Refresh the class export to discover the created IDs.",
   "type": "array",
   "minItems": 1,
   "maxItems": 100,

@@ -85,6 +85,7 @@ func TestWorkflow_BatchConfirmationWritesOnceAndReportsActualResults(t *testing.
 				problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
 				env.seedClassAccessRole(t, "basicos", "student")
 				env.setRoles("123", []string{"student"})
+				env.Discord.setDisplayName("123", "Preview Name")
 				entry = fmt.Sprintf(`{"user_id":"123","problem_id":%d}`, problemID)
 				if test.alreadyRecorded {
 					require.NoError(t, env.Services.Solution.AddACToUserID("123", problemID))
@@ -95,6 +96,9 @@ func TestWorkflow_BatchConfirmationWritesOnceAndReportsActualResults(t *testing.
 				input = "[" + entry + "," + entry + "]"
 			}
 			preview := submitBatchPreview(t, env, test.command, input)
+			if test.command == "ac" {
+				env.Discord.setDisplayName("123", "Jorge Luis")
+			}
 			if test.deliveryFails {
 				env.Responder.editFunc = func(*discordgo.WebhookEdit) error { return errors.New("delivery failed") }
 			}
@@ -115,11 +119,13 @@ func TestWorkflow_BatchConfirmationWritesOnceAndReportsActualResults(t *testing.
 				require.NoError(t, err)
 				require.Len(t, problems, count)
 				assert.Contains(t, *receipt.Content, fmt.Sprintf("Problems created: %d", count))
-				for _, problem := range problems {
-					assert.Contains(t, *receipt.Content, fmt.Sprint(problem.ID))
-				}
+				assert.NotContains(t, *receipt.Content, "Problem IDs")
+				assert.Empty(t, receipt.Files)
 			} else {
 				env.assertProblemSolved(t, "123", problemID)
+				user, err := env.DB.GetUserByUserID("123")
+				require.NoError(t, err)
+				assert.Equal(t, "Jorge Luis", user.DisplayName, "persist the confirmation name, including when the AC already exists")
 				recorded, already := 1, 0
 				if test.repeated {
 					already = 1
@@ -248,9 +254,9 @@ func (store *uncertainBatchStore) AddProblemsBatch(problems []data.Problem) ([]i
 	}
 	return problemIDs, err
 }
-func (store *uncertainBatchStore) AddACBatch(targets []data.ACKey) (int, error) {
+func (store *uncertainBatchStore) AddACBatch(targets []data.ACKey, users []data.User) (int, error) {
 	store.writes++
-	count, err := store.DataStore.AddACBatch(targets)
+	count, err := store.DataStore.AddACBatch(targets, users)
 	if err == nil {
 		return 0, errors.New("lost acknowledgement")
 	}
