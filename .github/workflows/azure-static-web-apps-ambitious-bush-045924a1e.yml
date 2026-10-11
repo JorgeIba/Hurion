@@ -17,6 +17,8 @@ jobs:
     permissions:
        id-token: write
        contents: read
+    env:
+      VITE_EXPORTS_BASE_URL: ${{ vars.VITE_EXPORTS_BASE_URL }}
     steps:
       - uses: actions/checkout@v3
         with:

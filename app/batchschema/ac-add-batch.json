@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AC add batch",
+  "description": "Input for the Discord command /ac add_batch. The document is a JSON array; each entry records that a student solved an existing problem. The student must have access to the problem's class. All targets are validated before writes; new users and ACs are persisted together, and ACs that already exist are skipped.",
+  "type": "array",
+  "minItems": 1,
+  "maxItems": 100,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["user_id", "problem_id"],
+    "properties": {
+      "user_id": {
+        "type": "string",
+        "maxLength": 20,
+        "pattern": "^([1-9][0-9]{0,18}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|1844674407370955[0][0-9]{3}|18446744073709551[0-5][0-9]{2}|184467440737095516[0][0-9]|1844674407370955161[0-4]|18446744073709551615)$",
+        "description": "Positive Discord user ID as a JSON string; it must fit uint64. Use users[].userId from the class export when available. Students without ACs are not in the export; ask the mentor for their IDs."
+      },
+      "problem_id": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9223372036854775807,
+        "description": "ID of an existing solved problem (problems[].id in the class export). If the problem is new, create it first and use the ID returned after successful confirmation."
+      }
+    }
+  },
+  "examples": [
+    [
+      { "user_id": "123456789012345678", "problem_id": 42 }
+    ]
+  ]
+}

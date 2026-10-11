@@ -18,7 +18,7 @@ import (
 func TestWorkflow_BatchCommandsOpenFormsAndValidateWithoutWrites(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, command, input, want string }{
-		{name: "problem JSON", command: "problem", input: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, want: "Entries: 1"},
+		{name: "problem JSON", command: "problem", input: `[{"class":"basicos","name":"Two Sum","url":"https://example.com","topic":"Arrays"}]`, want: "Entries: 1"},
 		{name: "AC JSON", command: "ac", input: `[{"user_id":"123","problem_id":42}]`, want: "Entries: 1"},
 		{name: "repeated ACs preserved", command: "ac", input: `[{"user_id":"123","problem_id":42},{"user_id":"123","problem_id":42}]`, want: "Entries: 2"},
 		{name: "syntax error", command: "problem", input: `[{`, want: "line 1, column"},
@@ -163,7 +163,7 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 	for _, test := range []struct {
 		name, input, route string
 	}{
-		{name: "problem", input: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, route: string(discordcommands.ProblemBatch)},
+		{name: "problem", input: `[{"class":"basicos","name":"Two Sum","url":"https://example.com","topic":"Arrays"}]`, route: string(discordcommands.ProblemBatch)},
 		{name: "ac", input: `[{"user_id":"123","problem_id":42}]`, route: string(discordcommands.ACBatch)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -219,9 +219,9 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 		denyAccess, lookupFails, alreadyRecorded bool
 		wantLookups                              int
 	}{
-		{name: "unknown class", command: "problem", input: `[{"class":"missing","name":"Valid","url":"https://example.com"}]`, want: []string{"Batch validation failed", "Entry 1", "Class code `missing` not found"}},
+		{name: "unknown class", command: "problem", input: `[{"class":"missing","name":"Valid","url":"https://example.com","topic":"Arrays"}]`, want: []string{"Batch validation failed", "Entry 1", "Class code `missing` not found"}},
 		{name: "invalid problem values", command: "problem", input: `[{}]`, want: []string{"Entry 1", "Please correct the values"}},
-		{name: "valid problem followed by unknown class", command: "problem", input: `[{"class":"basicos","name":"Valid","url":"https://example.com"},{"class":"missing","name":"Other","url":"https://example.com"}]`, want: []string{"Batch validation failed", "Entry 2"}},
+		{name: "valid problem followed by unknown class", command: "problem", input: `[{"class":"basicos","name":"Valid","url":"https://example.com","topic":"Arrays"},{"class":"missing","name":"Other","url":"https://example.com","topic":"Arrays"}]`, want: []string{"Batch validation failed", "Entry 2"}},
 		{name: "empty problem batch", command: "problem", input: `[]`, want: []string{"between 1 and 100 operations"}},
 		{name: "oversized problem batch", command: "problem", input: `[` + strings.Repeat(`{},`, 100) + `{}]`, want: []string{"between 1 and 100 operations"}},
 		{name: "empty AC batch", command: "ac", input: `[]`, want: []string{"between 1 and 100 operations"}},
@@ -420,7 +420,7 @@ func TestWorkflow_BatchPreviewAndCancellationApplyNoWrites(t *testing.T) {
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
 			classID := env.seedClass(t, "basicos", "Basicos")
-			input := `[{"class":"basicos","name":"New","url":"https://example.com/new"}]`
+			input := `[{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}]`
 			var problemID int64
 			if test.command == "ac" {
 				problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")

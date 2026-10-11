@@ -79,7 +79,7 @@ func TestWorkflow_BatchConfirmationWritesOnceAndReportsActualResults(t *testing.
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
 			classID := env.seedClass(t, "basicos", "Basicos")
-			entry := `{"class":"basicos","name":"New","url":"https://example.com/new"}`
+			entry := `{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}`
 			var problemID int64
 			if test.command == "ac" {
 				problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
@@ -147,7 +147,7 @@ func TestWorkflow_BatchConfirmationRevalidatesBeforeAnyWrite(t *testing.T) {
 			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
 			classID := env.seedClass(t, "basicos", "Basicos")
 			otherClassID := env.seedClass(t, "other", "Other")
-			input := `[{"class":"basicos","name":"Valid","url":"https://example.com/valid"},{"class":"other","name":"Invalid after preview","url":"https://example.com/other"}]`
+			input := `[{"class":"basicos","name":"Valid","url":"https://example.com/valid","topic":"Arrays"},{"class":"other","name":"Invalid after preview","url":"https://example.com/other","topic":"Arrays"}]`
 			var problemID int64
 			if command == "ac" {
 				problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
@@ -216,7 +216,7 @@ func TestWorkflow_ProblemBatchRevalidationReadFailureReportsNoWrites(t *testing.
 	responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
 	env.ProblemController = mentor.NewProblemInteractionController(svcs, env.Discord, responder)
 
-	preview := submitBatchPreview(t, env, "problem", `[{"class":"basicos","name":"New","url":"https://example.com/new"}]`)
+	preview := submitBatchPreview(t, env, "problem", `[{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}]`)
 	require.Equal(t, 1, store.classLookups, "preview preparation resolves the class once")
 	event := batchButtonEvent(t, preview, "Confirm")
 	env.handleInteractionEvent(event)
@@ -270,7 +270,7 @@ func TestWorkflow_BatchStorageFailureReportsProgressWithoutRetrying(t *testing.T
 			responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
 			env.ProblemController = mentor.NewProblemInteractionController(svcs, env.Discord, responder)
 			env.ACController = mentor.NewACInteractionController(svcs, env.Discord, env.Discord, responder)
-			input := `[{"class":"basicos","name":"One","url":"https://example.com/one"},{"class":"basicos","name":"Two","url":"https://example.com/two"},{"class":"basicos","name":"Three","url":"https://example.com/three"}]`
+			input := `[{"class":"basicos","name":"One","url":"https://example.com/one","topic":"Arrays"},{"class":"basicos","name":"Two","url":"https://example.com/two","topic":"Arrays"},{"class":"basicos","name":"Three","url":"https://example.com/three","topic":"Arrays"}]`
 			var problemID int64
 			if command == "ac" {
 				problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
@@ -326,7 +326,7 @@ func TestWorkflow_ConfirmationCanRetryAfterFailureBeforeClaim(t *testing.T) {
 				allowed := true
 				env.Discord.isMentorFunc = func(string, string) (bool, error) { return allowed, nil }
 				classID := env.seedClass(t, "basicos", "Basicos")
-				input := `[{"class":"basicos","name":"New","url":"https://example.com/new"}]`
+				input := `[{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}]`
 				var problemID int64
 				if command == "ac" {
 					problemID = env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")

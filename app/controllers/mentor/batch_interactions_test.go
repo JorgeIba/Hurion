@@ -63,7 +63,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 		permissionErr                 error
 		wantDownload                  bool
 	}{
-		{name: "problem file", route: string(discordcommands.ProblemBatch), body: `[{"class":"basicos","name":"Two Sum","url":"https://example.com"}]`, status: 200, want: "Entries: 1", wantDownload: true},
+		{name: "problem file", route: string(discordcommands.ProblemBatch), body: `[{"class":"basicos","name":"Two Sum","url":"https://example.com","topic":"Arrays"}]`, status: 200, want: "Entries: 1", wantDownload: true},
 		{name: "file wins over invalid pasted text", text: "invalid JSON", body: `[{"user_id":"123","problem_id":42}]`, status: 200, want: "Entries: 1", wantDownload: true},
 		{name: "malformed file does not fall back to valid text", text: `[{"user_id":"123","problem_id":42}]`, body: `[{`, status: 200, want: "Could not read JSON", wantDownload: true},
 		{name: "failed download does not fall back to valid text", text: `[{"user_id":"123","problem_id":42}]`, body: `[]`, status: 403, want: "HTTP 403", wantDownload: true},

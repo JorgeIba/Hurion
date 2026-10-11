@@ -9,6 +9,7 @@ This document covers the setup, local development workflow, and cloud deployment
 The Scoreboard Web UI is a standalone React 19 + Vite web application that renders live competitive programming leaderboards, difficulty statistics, and student problem solves.
 
 * **Decoupled Static Pipeline**: Reads pre-rendered `<class_code>_score.json` files generated asynchronously by the `ScoreboardExporterWorker`.
+* **AI Agent Guide**: Vite generates `dist/llms.txt` from `web/llms.txt.template` using the web app's `VITE_EXPORTS_BASE_URL` and shared default URL. Batch schemas, classes, and scoreboards are published together by the bot exporter to the configured exports storage.
 * **Zero Database Load**: Web clients fetch static JSON exports directly without triggering live database queries on SQLite.
 * **Agnostic Frontend**: Runs in any standard web browser, mobile overlay, or embedded window (such as a Discord Activity).
 
@@ -60,7 +61,7 @@ Azure Static Web Apps uses `web/public/staticwebapp.config.json` (which Vite cop
   "$schema": "https://json.schemastore.org/staticwebapp.config.json",
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*"]
+    "exclude": ["/assets/*", "/llms.txt"]
   },
   "responseOverrides": {
     "404": {
@@ -73,6 +74,7 @@ Azure Static Web Apps uses `web/public/staticwebapp.config.json` (which Vite cop
 
 > [!NOTE]
 > When fetching directly from Azure Blob Storage in production (`VITE_EXPORTS_BASE_URL`), ensure the `exports` container has public anonymous blob read access and CORS enabled (`GET, HEAD, OPTIONS`) for the Static Web App domain.
+> The public agent guide is available at `${WEB_UI_BASE_URL}/llms.txt`; its schemas and state links point to the exports storage published by the bot. Set the GitHub Actions repository variable `VITE_EXPORTS_BASE_URL` to override the exports URL for both the guide and web app. `pnpm build` generates the guide automatically using Vite's resolved environment (including `.env` files); `pnpm dev` serves it with `/exports`.
 
 ---
 
