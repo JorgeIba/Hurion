@@ -231,17 +231,19 @@ func BuildACBatchExecutionResult(result service_model.ACBatchResult, failed bool
 	return buildCompletedBatchResponse(content)
 }
 
-func FormatProblemEditBatchValidationResult(prepared []service_model.PreparedProblemReplacement) string {
+func FormatProblemEditBatchValidationResult(prepared []service_model.PreparedProblemPatch) string {
 	classes := make(map[int64]struct{})
 	for _, entry := range prepared {
-		classes[entry.Class.ID] = struct{}{}
+		if entry.Params.ClassCode.Set {
+			classes[entry.Class.ID] = struct{}{}
+		}
 	}
-	return fmt.Sprintf("Problem edit batch validated. Entries: %d. Destination classes: %d. No changes were applied.", len(prepared), len(classes))
+	return fmt.Sprintf("Problem edit batch validated. Entries: %d. Destination classes: %d. Only supplied fields will be changed. No changes were applied.", len(prepared), len(classes))
 }
-func BuildProblemEditBatchExecutionResult(result service_model.ProblemReplacementBatchResult, failed bool) *discordgo.WebhookEdit {
-	content := fmt.Sprintf("Batch completed. Problem updates applied: %d.", len(result.ReplacedProblemIDs))
+func BuildProblemEditBatchExecutionResult(result service_model.ProblemPatchBatchResult, failed bool) *discordgo.WebhookEdit {
+	content := fmt.Sprintf("Batch completed. Problem updates applied: %d.", len(result.PatchedProblemIDs))
 	if failed {
-		content = fmt.Sprintf("Batch stopped. Confirmed problem updates: %d.\nEarlier writes were not rolled back. The failed operation may also have been applied. Check the problems before submitting again.", len(result.ReplacedProblemIDs))
+		content = fmt.Sprintf("Batch stopped. Confirmed problem updates: %d.\nEarlier writes were not rolled back. The failed operation may also have been applied. Check the problems before submitting again.", len(result.PatchedProblemIDs))
 	}
-	return buildProblemBatchIDResponse(content, result.ReplacedProblemIDs, "updated-problem-ids.txt")
+	return buildProblemBatchIDResponse(content, result.PatchedProblemIDs, "updated-problem-ids.txt")
 }

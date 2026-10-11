@@ -436,8 +436,8 @@ func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInter
 	}
 
 	// Adapt the input and validate the complete batch with the service.
-	inputs := mapProblemEditBatchInputToReplaceProblemParams(entries)
-	prepared, domainIssues := ctrl.services.Problem.PrepareProblemReplacementBatch(inputs)
+	inputs := mapProblemEditBatchInputToPatchProblemParams(entries)
+	prepared, domainIssues := ctrl.services.Problem.PrepareProblemPatchBatch(inputs)
 	if len(domainIssues) > 0 {
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemEditBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
 		return
@@ -507,7 +507,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Problem.ExecuteProblemReplacementBatch(batch)
+	result, issues, err := ctrl.services.Problem.ExecuteProblemPatchBatch(batch)
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit
@@ -522,7 +522,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 	}
 
 	// Log and deliver the result without retrying consumed operations.
-	logger.Log.Infof("Problem edit batch %s outcome: result=%v validationIssues=%d error=%v", batchID, result.ReplacedProblemIDs, len(issues), err)
+	logger.Log.Infof("Problem edit batch %s outcome: result=%v validationIssues=%d error=%v", batchID, result.PatchedProblemIDs, len(issues), err)
 	if _, err := ctrl.responder.EditResponse(event.Interaction, response); err != nil {
 		logger.Log.Errorf("Failed to deliver Problem edit batch %s result: %v", batchID, err)
 	}
