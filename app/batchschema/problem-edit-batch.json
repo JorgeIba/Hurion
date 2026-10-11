@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Problem edit batch",
+  "description": "Input for the Discord command /problem edit_batch. The document is a JSON array; each entry updates only the supplied fields of an existing problem. Each entry requires problem_id and at least one editable field. Omitted fields retain their current values; null clears difficulty, topic, or priority. Repeated problem IDs are applied in array order. If storage fails, earlier entries may already have been applied; inspect the current state before retrying.",
+  "type": "array",
+  "minItems": 1,
+  "maxItems": 100,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["problem_id"],
+    "anyOf": [
+      { "required": ["class"] },
+      { "required": ["name"] },
+      { "required": ["url"] },
+      { "required": ["difficulty"] },
+      { "required": ["topic"] },
+      { "required": ["priority"] }
+    ],
+    "properties": {
+      "problem_id": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9223372036854775807,
+        "description": "ID of an existing problem to edit (problems[].id in the class export)."
+      },
+      "class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50,
+        "pattern": "\\S",
+        "description": "Optional destination class code. If supplied, it must exist in classes.json; omit it to keep the current class."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "pattern": "\\S",
+        "description": "Optional problem name; omit it to keep the current name."
+      },
+      "url": {
+        "type": "string",
+        "format": "uri",
+        "pattern": "^https?://[a-zA-Z0-9.-]+(:[0-9]+)?([/?#].*)?$",
+        "minLength": 1,
+        "maxLength": 2000,
+        "description": "Optional absolute HTTP or HTTPS URL of the problem statement; omit it to keep the current URL."
+      },
+      "difficulty": {
+        "type": ["string", "null"],
+        "enum": ["easy", "medium", "hard", null],
+        "description": "Optional difficulty; omit it to keep the current value, or use null to clear it."
+      },
+      "topic": {
+        "type": ["string", "null"],
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "\\S",
+        "not": { "type": "string", "pattern": "^[\\s]*[Gg][Ee][Nn][Ee][Rr][Aa][Ll][\\s]*$" },
+        "description": "Optional topic patch; omit it to preserve the current value, supply a non-blank specific topic to update it, or use null only when intentionally clearing it. Do not use \"General\"."
+      },
+      "priority": {
+        "type": ["string", "null"],
+        "enum": ["essential", "recommended", "supplementary", "not_required", "discouraged", null],
+        "description": "Optional priority; omit it to keep the current value, or use null to clear it."
+      }
+    }
+  },
+  "examples": [
+    [
+      {
+        "problem_id": 42,
+        "class": "basicos",
+        "name": "Two Sum",
+        "url": "https://example.com/problems/two-sum",
+        "difficulty": "medium",
+        "topic": "Arrays",
+        "priority": "recommended"
+      }
+    ],
+    [
+      {
+        "problem_id": 42,
+        "difficulty": "hard",
+        "topic": "Graphs"
+      }
+    ]
+  ]
+}

@@ -1,0 +1,64 @@
+# Huron-Bot AI Agent Batch Guide
+
+Huron-Bot manages competitive programming scoreboards and assignments via Discord slash commands.
+AI agents generate JSON batches for mentors, who then paste them or upload a `.json` file into the bot's interactive modal.
+
+> **Instruction for AI Agents:**
+> Always fetch and inspect `classes.json`, the relevant `<classCode>_score.json`, and the corresponding schema before generating any batch. Do not rely on cached or assumed field names.
+> These are read-only public snapshots, not database access or a write API. The schemas and state files come from the bot's background exporter. If Blob Storage is unavailable, these public files may be stale until a later export succeeds; Discord commands remain available.
+
+## General Constraints
+
+1. **Root Type:** Every batch document must be a JSON array of objects (`[{...}, ...]`). Never wrap it in a top-level object.
+2. **Batch Size:** Between 1 and 100 entries per batch.
+3. **Delivery:** Up to 4,000 characters when pasted directly into the Discord modal. For larger batches, generate a `.json` file (up to 5 MiB supported).
+4. **Strict Schema:** Unknown, misspelled, or extra fields are strictly rejected.
+5. **Topics:** For creation, `topic` is required and must be a non-blank, specific topic (e.g., `"Binary Search"`, `"Dynamic Programming"`), never `"General"`. For edits, omit `topic` to preserve it; if the existing value is shown as `"General"` or is missing, assign a representative specific topic when editing that problem. A supplied topic must be specific and non-blank; use `null` only when the mentor explicitly asks to clear it.
+6. **AC targets:** Every `problem_id` in an AC batch must already exist. If a requested problem is new, create it with `/problem add_batch` first, wait for successful confirmation, and use the returned ID (or refresh the scoreboard if needed). Never guess an ID or combine creation and ACs as if they were one operation.
+7. **Output:** Return one raw JSON array ready to paste into the Discord modal, without Markdown fences or surrounding prose. Keep batches within 100 entries and the 4,000-character text limit; otherwise provide a `.json` file no larger than 5 MiB.
+
+## Data Discovery Endpoints
+
+Scoreboards and class metadata are hosted as static JSON files:
+* Production Exports URL: `https://huronproblemcheckerjorge.blob.core.windows.net/exports`
+* Local Development URL: `/exports`
+
+In the endpoint templates below, `<exports_url>` means the production exports URL above, or `/exports` during local development.
+
+### 1. Discover Available Classes
+`GET <exports_url>/classes.json`
+Returns an array of classes:
+```json
+[
+  { "classCode": "basicos", "name": "Algoritmos Básicos" },
+  { "classCode": "avanzados", "name": "Algoritmos Avanzados" }
+]
+```
+Only use `classCode` values present in this file.
+
+### 2. Inspect Existing Problems and Students
+`GET <exports_url>/<classCode>_score.json`
+Contains current class state:
+* `problems[]`: Existing problems with `id`, `name`, `url`, `difficulty`, `priority`, `topic`.
+* `users[]`: Students with `userId`, `displayName`, `solvedCount`, and `solved[]` (list of solved problem IDs).
+* **Important:** Students with 0 solved problems do not appear in `users[]`. If recording ACs for a student with no prior solves, ask the mentor for their Discord `user_id`.
+
+## Batch Commands and Schemas
+
+### 1. Create Problems (`/problem add_batch`)
+* **JSON Schema:** `<exports_url>/problem-add-batch.json`
+* **Required fields:** `class` (string, max 50), `name` (string, max 200), `url` (valid http/https, max 2000), `topic` (specific non-blank string, max 100; not `"General"`).
+* **Optional fields:** `difficulty` (`"easy"` | `"medium"` | `"hard"`), `priority` (`"essential"` | `"recommended"` | `"supplementary"` | `"not_required"` | `"discouraged"`).
+* **Semantics:** The bot validates the whole batch before writing it atomically. Use the created problem IDs returned after successful confirmation for any later edits or ACs. If the result is unclear, refresh the class scoreboard before creating dependent batches.
+
+### 2. Edit Problems (`/problem edit_batch`)
+* **JSON Schema:** `<exports_url>/problem-edit-batch.json`
+* **Required fields:** `problem_id` (integer > 0) and at least one editable field.
+* **Editable fields:** `class` (string, max 50), `name` (string, max 200), `url` (valid http/https, max 2000), `difficulty`, `topic`, `priority`.
+* **Semantics:** Only supplied fields change; omitted fields retain their current values. `null` clears `difficulty`, `topic`, or `priority`; use `null` for topic only when the mentor explicitly requests clearing it. A supplied topic must be specific and non-blank, never `"General"`. `class`, `name`, and `url` cannot be null. Repeated problem IDs are processed in array order. If confirmation reports a storage failure, earlier updates may already have been applied; refresh the relevant scoreboard and inspect the IDs before retrying.
+* **Example:** `[ {"problem_id":42,"difficulty":"hard","topic":"Graphs"} ]` changes the difficulty and assigns a specific topic. To change only the difficulty, omit `topic` and preserve its current value.
+
+### 3. Record Student Solves (`/ac add_batch`)
+* **JSON Schema:** `<exports_url>/ac-add-batch.json`
+* **Required fields:** `user_id` (string of positive digits, e.g. `"123456789012345678"`), `problem_id` (integer > 0).
+* **Semantics:** Records completion for an existing problem. The student must have access to that problem's class. Read `problems[]` from the relevant scoreboard first. If the problem is new, create it and confirm successfully before recording its AC. The bot validates all target problems before writing; missing users and new ACs are persisted in one transaction. Existing ACs (`users[].solved`) are skipped and counted. Students with no exported solves may be absent from `users[]`; ask the mentor for their exact Discord `user_id`.

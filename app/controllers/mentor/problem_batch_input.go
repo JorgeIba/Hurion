@@ -2,6 +2,8 @@ package mentor
 
 import (
 	"encoding/json/jsontext"
+	"errors"
+	"strings"
 
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -23,9 +25,30 @@ func parseProblemBatchInput(document jsontext.Value) (batchInput[problemInput], 
 }
 
 func validateProblemInput(input problemInput) error {
+	if err := validateBatchProblemTopic(input.Topic, true); err != nil {
+		return serviceerr.NewValidationError("invalid problem values", err)
+	}
 	_, err := service_model.NormalizeAndValidateCreateProblemParams(mapProblemInputToCreateProblemParams(input))
 	if err != nil {
 		return serviceerr.NewValidationError("invalid problem values", err)
+	}
+	return nil
+}
+
+func validateBatchProblemTopic(topic *string, required bool) error {
+	if topic == nil {
+		if required {
+			return errors.New("problem topic is required")
+		}
+		return nil
+	}
+
+	value := strings.TrimSpace(*topic)
+	if value == "" {
+		return errors.New("problem topic must be non-blank")
+	}
+	if strings.EqualFold(value, service_model.DefaultTopic) {
+		return errors.New("problem topic must be specific, not General")
 	}
 	return nil
 }
@@ -89,6 +112,11 @@ func mapProblemEditInputToPatchProblemParams(input problemEditInput) service_mod
 }
 
 func validateProblemEditInput(input problemEditInput) error {
+	if input.Topic.Set && input.Topic.Value != nil {
+		if err := validateBatchProblemTopic(input.Topic.Value, false); err != nil {
+			return serviceerr.NewValidationError("invalid problem values", err)
+		}
+	}
 	_, err := service_model.NormalizeAndValidatePatchProblemParams(mapProblemEditInputToPatchProblemParams(input))
 	if err != nil {
 		return serviceerr.NewValidationError("invalid problem values", err)

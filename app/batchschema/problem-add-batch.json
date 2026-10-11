@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Problem add batch",
+  "description": "Input for the Discord command /problem add_batch. The document is a JSON array of new problems; each entry creates one problem with a specific topic. The bot validates and persists the complete batch atomically before returning the created IDs.",
+  "type": "array",
+  "minItems": 1,
+  "maxItems": 100,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["class", "name", "url", "topic"],
+    "properties": {
+      "class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50,
+        "pattern": "\\S",
+        "description": "Code of an existing class, as listed in classes.json."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "pattern": "\\S",
+        "description": "Problem name."
+      },
+      "url": {
+        "type": "string",
+        "format": "uri",
+        "pattern": "^https?://[a-zA-Z0-9.-]+(:[0-9]+)?([/?#].*)?$",
+        "minLength": 1,
+        "maxLength": 2000,
+        "description": "Absolute HTTP or HTTPS URL of the problem statement."
+      },
+      "difficulty": {
+        "type": ["string", "null"],
+        "enum": ["easy", "medium", "hard", null],
+        "description": "Optional difficulty. Omit or use null to leave it unset."
+      },
+      "topic": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "\\S",
+        "not": { "type": "string", "pattern": "^[\\s]*[Gg][Ee][Nn][Ee][Rr][Aa][Ll][\\s]*$" },
+        "description": "Required specific topic. Do not use \"General\" or a blank value."
+      },
+      "priority": {
+        "type": ["string", "null"],
+        "enum": ["essential", "recommended", "supplementary", "not_required", "discouraged", null],
+        "description": "Optional priority. Omit or use null to leave it unset."
+      }
+    }
+  },
+  "examples": [
+    [
+      {
+        "class": "basicos",
+        "name": "Two Sum",
+        "url": "https://example.com/problems/two-sum",
+        "difficulty": "easy",
+        "topic": "Arrays",
+        "priority": "essential"
+      }
+    ]
+  ]
+}

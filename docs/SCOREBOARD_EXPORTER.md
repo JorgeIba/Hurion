@@ -49,25 +49,36 @@ The exporter uses the `storage.BlobStorage` interface (`Save(ctx context.Context
 
 ### A. Local Development (`DiskStorage`)
 * Automatically selected when Azure environment variables are absent.
-* Writes JSON files atomically (`writeAtomic` via temporary file and `os.Rename`) to `./data/exports/<class_code>_score.json`.
+* Writes JSON files atomically (`writeAtomic` via temporary file and `os.Rename`) to `./data/exports/`.
+* This includes `classes.json`, `<class_code>_score.json`, and the three batch schemas.
 
 ### B. Production Cloud (`AzureBlobStorage`)
-* Automatically selected when `AZURE_STORAGE_ACCOUNT` and `AZURE_STORAGE_KEY` (or `LITESTREAM_AZURE_ACCOUNT_KEY`) are set via `storage.NewStorageFromEnv()`.
+* Selected when `AZURE_STORAGE_ACCOUNT` is set together with either `AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_KEY` via `storage.NewStorageFromEnv()`.
+* Uses `AZURE_STORAGE_CONTAINER`, defaulting to `exports` when unset.
 * Stream JSON byte buffers directly to Azure Blob Storage over HTTPS via the official Azure SDK for Go (`azblob`).
+
+The JSON Schemas are embedded from `app/batchschema/` into the bot binary and written through the same `Storage.Save` path as class and scoreboard exports. The web build does not copy or publish schema files.
+
+### Best-effort publication
+* The exporter runs only when the bot starts with `--exporter`. It publishes once on startup and again after database updates, using the configured storage provider.
+* Storage errors are logged and do not disable Discord commands. If Blob Storage is unavailable, public exports can remain stale until a later triggered export succeeds; the worker does not run a timed retry loop.
 
 ---
 
 ## 4. Production Environment Variables (Azure VM)
 
-The following 5 environment variables are configured on the Azure VM where the Hurion Bot executes:
+The following environment variables are configured on the Azure VM where the Hurion Bot executes:
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
 | `DISCORD_BOT_TOKEN` | Discord Bot Authentication Token | `MTA...` |
 | `AZURE_STORAGE_ACCOUNT` | Azure Storage Account Name | `hurionstorage` |
-| `AZURE_STORAGE_KEY` *(or `LITESTREAM_AZURE_ACCOUNT_KEY`)* | Azure Storage Shared Access Key | `w8x...==` |
+| `AZURE_STORAGE_KEY` | Azure Storage Shared Access Key | `w8x...==` |
+| `AZURE_STORAGE_CONNECTION_STRING` | Alternative Azure Storage credentials, used together with `AZURE_STORAGE_ACCOUNT` | `DefaultEndpointsProtocol=...` |
 | `AZURE_STORAGE_CONTAINER` | Azure Blob Container for exports | `exports` |
 | `WEB_UI_BASE_URL` | Base URL of hosted Azure Static Web App | `https://<your-app-name>.azurestaticapps.net` |
+
+The public agent guide is served by the Static Web App at `${WEB_UI_BASE_URL}/llms.txt`.
 
 > [!NOTE]
 > For the hosted Web UI to read exported scoreboards directly, the Azure Blob Storage container must have public anonymous read access and CORS enabled (`GET, HEAD, OPTIONS`) for the Static Web App domain.

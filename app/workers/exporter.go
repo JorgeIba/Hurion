@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JorgeIba/Hurion/app/batchschema"
 	"github.com/JorgeIba/Hurion/app/infrastructure/storage"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/jsonexport"
@@ -119,6 +120,23 @@ func (w *ScoreboardExporterWorker) ExportAll(ctx context.Context) error {
 		return fmt.Errorf("failed to get classes: %w", err)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("export context canceled: %w", err)
+	}
+
+	w.exportBatchSchemas(ctx)
+
+	classesBytes, err := jsonexport.FormatClasses(classes)
+	if err != nil {
+		if logger.Log != nil {
+			logger.Log.Errorf("failed to format classes JSON: %v", err)
+		}
+	} else if err := w.Storage.Save(ctx, "classes.json", classesBytes); err != nil {
+		if logger.Log != nil {
+			logger.Log.Errorf("failed to save classes.json: %v", err)
+		}
+	}
+
 	for _, c := range classes {
 		if err := ctx.Err(); err != nil {
 			return fmt.Errorf("export context canceled: %w", err)
@@ -149,4 +167,39 @@ func (w *ScoreboardExporterWorker) ExportAll(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// exportBatchSchemas publishes the exact schema files embedded in this bot build.
+// Publication is best effort: a storage outage must never disable Discord commands.
+func (w *ScoreboardExporterWorker) exportBatchSchemas(ctx context.Context) {
+	files, err := batchschema.FS.ReadDir(".")
+	if err != nil {
+		if logger.Log != nil {
+			logger.Log.Errorf("failed to list batch schemas: %v", err)
+		}
+		return
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			if logger.Log != nil {
+				logger.Log.Errorf("stopped exporting batch schemas: %v", err)
+			}
+			return
+		}
+
+		contents, err := batchschema.FS.ReadFile(file.Name())
+		if err != nil {
+			if logger.Log != nil {
+				logger.Log.Errorf("failed to read batch schema %s: %v", file.Name(), err)
+			}
+			continue
+		}
+		if err := w.Storage.Save(ctx, file.Name(), contents); err != nil && logger.Log != nil {
+			logger.Log.Errorf("failed to save batch schema %s: %v", file.Name(), err)
+		}
+	}
 }
