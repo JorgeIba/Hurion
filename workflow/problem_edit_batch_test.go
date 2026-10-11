@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWorkflow_EditBatchPreservesIdentityAndSolutionsAndReplacesFields(t *testing.T) {
+func TestWorkflow_EditBatchPreservesIdentitySolutionsAndOmittedFields(t *testing.T) {
 	t.Parallel()
 	for _, repeated := range []bool{false, true} {
 		t.Run(fmt.Sprintf("repeated target=%t", repeated), func(t *testing.T) {
@@ -52,9 +52,9 @@ func TestWorkflow_EditBatchPreservesIdentityAndSolutionsAndReplacesFields(t *tes
 			assert.Equal(t, before.ID, after.ID)
 			assert.Equal(t, before.CreatedAt, after.CreatedAt)
 			assert.Equal(t, destination, after.ClassID)
-			assert.Nil(t, after.Difficulty)
-			assert.Nil(t, after.Topic)
-			assert.Nil(t, after.Priority)
+			assert.Equal(t, before.Difficulty, after.Difficulty)
+			assert.Equal(t, before.Topic, after.Topic)
+			assert.Equal(t, before.Priority, after.Priority)
 			expectedName, expectedURL, count := "Updated @everyone", "https://example.com/updated", 1
 			if repeated {
 				expectedName, expectedURL, count = "Last", "https://example.com/last", 2
@@ -95,6 +95,12 @@ func TestWorkflow_EditBatchInvalidInputDoesNotPartiallyUpdate(t *testing.T) {
 		`{"problem_id":-1,"class":"source","name":"Bad","url":"https://example.com"}`,
 		`{"problem_id":9223372036854775807,"class":"source","name":"Missing","url":"https://example.com"}`,
 		`{"problem_id":1,"class":"missing","name":"Bad","url":"https://example.com"}`,
+		`{"problem_id":1}`,
+		`{"problem_id":1,"name":null}`,
+		`{"problem_id":1,"url":null}`,
+		`{"problem_id":1,"class":null}`,
+		`{"problem_id":1,"difficulty":"unknown"}`,
+		`{"problem_id":1,"priority":"unknown"}`,
 	} {
 		t.Run(invalid, func(t *testing.T) {
 			t.Parallel()
@@ -117,6 +123,102 @@ func TestWorkflow_EditBatchInvalidInputDoesNotPartiallyUpdate(t *testing.T) {
 			assert.Equal(t, before, after)
 		})
 	}
+}
+
+func TestWorkflow_EditBatchUpdatesOnlySuppliedField(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, input string
+		apply       func(*data.Problem, int64)
+	}{
+		{"name", `"name":" Changed "`, func(p *data.Problem, _ int64) { p.Name = "Changed" }},
+		{"url", `"url":" https://example.com/new "`, func(p *data.Problem, _ int64) { p.URL = "https://example.com/new" }},
+		{"class", `"class":" destination "`, func(p *data.Problem, destination int64) { p.ClassID = destination }},
+		{"difficulty", `"difficulty":"easy"`, func(p *data.Problem, _ int64) { p.Difficulty = new("easy") }},
+		{"topic", `"topic":" Graphs "`, func(p *data.Problem, _ int64) { p.Topic = new("Graphs") }},
+		{"priority", `"priority":"supplementary"`, func(p *data.Problem, _ int64) { p.Priority = new("supplementary") }},
+		{"clear difficulty", `"difficulty":null`, func(p *data.Problem, _ int64) { p.Difficulty = nil }},
+		{"clear topic", `"topic":null`, func(p *data.Problem, _ int64) { p.Topic = nil }},
+		{"clear priority", `"priority":null`, func(p *data.Problem, _ int64) { p.Priority = nil }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			source := env.seedClass(t, "source", "Source")
+			destination := env.seedClass(t, "destination", "Destination")
+			id, err := env.DB.AddProblem(data.Problem{Name: "Original", URL: "https://example.com/original", ClassID: source, Difficulty: new("hard"), Topic: new("Trees"), Priority: new("recommended")})
+			require.NoError(t, err)
+			env.seedUser(t, "student", "Student")
+			require.NoError(t, env.DB.AddAC("student", id))
+			before, err := env.DB.GetProblemByID(id)
+			require.NoError(t, err)
+
+			preview := submitBatchCommandPreview(t, env, "problem", "edit_batch", fmt.Sprintf(`[{"problem_id":%d,%s}]`, id, test.input))
+			untouched, err := env.DB.GetProblemByID(id)
+			require.NoError(t, err)
+			assert.Equal(t, before, untouched)
+			classCount := 0
+			if test.name == "class" {
+				classCount = 1
+			}
+			assert.Contains(t, *preview.Content, fmt.Sprintf("Destination classes: %d", classCount))
+			env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
+
+			expected := before
+			test.apply(&expected, destination)
+			after, err := env.DB.GetProblemByID(id)
+			require.NoError(t, err)
+			assert.Equal(t, expected, after)
+			solved, err := env.DB.HasUserSolvedProblem("student", id)
+			require.NoError(t, err)
+			assert.True(t, solved)
+			require.Len(t, env.Responder.edits, 2)
+			assert.Contains(t, *env.Responder.edits[1].response.Content, "Problem updates applied: 1")
+		})
+	}
+}
+
+func TestWorkflow_EditBatchRepeatedTargetsCombinePartialUpdates(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	class := env.seedClass(t, "source", "Source")
+	id := env.seedProblem(t, "Original", "https://example.com/original", class, "hard", "Trees")
+	before, err := env.DB.GetProblemByID(id)
+	require.NoError(t, err)
+	input := fmt.Sprintf(`[{"problem_id":%d,"name":"Changed","topic":null},{"problem_id":%d,"difficulty":"easy"},{"problem_id":%d,"name":"Last"}]`, id, id, id)
+	preview := submitBatchCommandPreview(t, env, "problem", "edit_batch", input)
+	env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
+	after, err := env.DB.GetProblemByID(id)
+	require.NoError(t, err)
+	expected := before
+	expected.Name, expected.Difficulty, expected.Topic = "Last", new("easy"), nil
+	assert.Equal(t, expected, after)
+	require.Len(t, env.Responder.edits, 2)
+	assert.Contains(t, *env.Responder.edits[1].response.Content, "Problem updates applied: 3")
+}
+
+func TestWorkflow_EditBatchPreservesChangesToOmittedFieldsAfterPreview(t *testing.T) {
+	t.Parallel()
+	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	source := env.seedClass(t, "source", "Source")
+	destination := env.seedClass(t, "destination", "Destination")
+	id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
+	preview := submitBatchCommandPreview(t, env, "problem", "edit_batch", fmt.Sprintf(`[{"problem_id":%d,"difficulty":"easy"}]`, id))
+	require.NoError(t, env.DB.PatchProblemByProblemID(id, data.ProblemPatch{
+		Name:    data.PatchField[string]{Set: true, Value: "Changed after preview"},
+		ClassID: data.PatchField[int64]{Set: true, Value: destination},
+		Topic:   data.PatchField[*string]{Set: true, Value: new("Graphs")},
+	}))
+	expected, err := env.DB.GetProblemByID(id)
+	require.NoError(t, err)
+	expected.Difficulty = new("easy")
+	env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
+	after, err := env.DB.GetProblemByID(id)
+	require.NoError(t, err)
+	assert.Equal(t, expected, after)
 }
 
 func TestWorkflow_EditBatchRevalidatesAllTargetsBeforeWriting(t *testing.T) {
@@ -185,9 +287,9 @@ type uncertainProblemUpdateStore struct {
 	writes int
 }
 
-func (store *uncertainProblemUpdateStore) ReplaceProblemByProblemID(id int64, problem data.Problem) error {
+func (store *uncertainProblemUpdateStore) PatchProblemByProblemID(id int64, patch data.ProblemPatch) error {
 	store.writes++
-	err := store.DataStore.ReplaceProblemByProblemID(id, problem)
+	err := store.DataStore.PatchProblemByProblemID(id, patch)
 	if err == nil && store.writes == 2 {
 		return errors.New("lost acknowledgement")
 	}

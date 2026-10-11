@@ -43,11 +43,6 @@ type PreparedProblemReplacement struct {
 	Class  Class
 }
 
-// ProblemReplacementBatchResult reports acknowledged replacements in input order.
-type ProblemReplacementBatchResult struct {
-	ReplacedProblemIDs []int64
-}
-
 // PreparedProblemPatch contains a normalized patch and the destination class,
 // when the patch explicitly changes class membership.
 type PreparedProblemPatch struct {

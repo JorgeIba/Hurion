@@ -69,7 +69,7 @@ func ProblemSlashCommand(classCodeMaxLength int) *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        ProblemEditBatchCommandName,
-				Description: "Read problem replacements from JSON",
+				Description: "Update supplied problem fields from JSON",
 			},
 		},
 	}

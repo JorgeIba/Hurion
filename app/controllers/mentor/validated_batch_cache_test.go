@@ -97,7 +97,7 @@ func TestValidatedBatchCachesAreIndependentAndBounded(t *testing.T) {
 	key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "same-id"}
 	assert.True(t, problems.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
 	assert.True(t, acs.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 2}}))
-	assert.True(t, edits.saveValidatedBatch(key, []service_model.PreparedProblemReplacement{{Entry: 3}}))
+	assert.True(t, edits.saveValidatedBatch(key, []service_model.PreparedProblemPatch{{Entry: 3}}))
 	_, found := problems.consumeBatch(key)
 	assert.True(t, found)
 	value, found := acs.loadValidatedBatch(key)

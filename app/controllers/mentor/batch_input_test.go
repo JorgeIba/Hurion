@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -332,15 +333,19 @@ func TestProblemEditBatchInputPreservesFieldsAndRejectsInvalidJSONTypes(t *testi
 	require.Empty(t, issues)
 	require.Len(t, entries, 1)
 	assert.EqualValues(t, 9223372036854775807, entries[0].ProblemID)
-	assert.Equal(t, " source ", entries[0].Class)
-	assert.Equal(t, " Updated ", entries[0].Name)
-	assert.Equal(t, new("hard"), entries[0].Difficulty)
-	assert.Nil(t, entries[0].Topic)
-	assert.Nil(t, entries[0].Priority)
+	assert.Equal(t, service_model.PatchField[string]{Set: true, Value: " source "}, entries[0].ClassCode)
+	assert.Equal(t, service_model.PatchField[string]{Set: true, Value: " Updated "}, entries[0].Name)
+	assert.Equal(t, service_model.PatchField[*string]{Set: true, Value: new("hard")}, entries[0].Difficulty)
+	assert.Equal(t, service_model.PatchField[*string]{Set: true}, entries[0].Topic)
+	assert.Equal(t, service_model.PatchField[*string]{}, entries[0].Priority)
 	assert.Empty(t, entries.validate(validateProblemEditInput))
 	for _, invalid := range []string{
 		`{"problem_id":"1"}`, `{"problem_id":1.5}`, `{"problem_id":9223372036854775808}`,
 		`{"problem_id":1,"problem_id":2}`, `{"Problem_id":1}`, `{"problem_id":1,"typo":true}`,
+		`{"problem_id":1,"topic":{"Set":true,"Value":"Graphs"}}`,
+		`{"problem_id":1,"difficulty":true}`, `{"problem_id":1,"priority":[]}`,
+		`{"problem_id":1,"topic":"Trees","topic":null}`,
+		`{"problem_id":1,"ClassCode":"source"}`,
 	} {
 		t.Run(invalid, func(t *testing.T) {
 			t.Parallel()

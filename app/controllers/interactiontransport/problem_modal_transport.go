@@ -286,7 +286,7 @@ func ParseProblemBatchModalSource(data discordgo.ModalSubmitInteractionData) (JS
 }
 
 func BuildProblemEditBatchModalResponse() *discordgo.InteractionResponse {
-	return buildJSONModalResponse(ProblemEditBatchModalID(), "Edit problem batch", `[{"problem_id":42,"class":"basicos","name":"Two Sum","url":"https://example.com/problem"}]`)
+	return buildJSONModalResponse(ProblemEditBatchModalID(), "Edit problem batch", `[{"problem_id":42,"difficulty":"hard","topic":null}]`)
 }
 func ParseProblemEditBatchModalSource(data discordgo.ModalSubmitInteractionData) (JSONModalSource, error) {
 	if err := validateBatchModalID(data.CustomID, discordcommands.ProblemEditBatch); err != nil {

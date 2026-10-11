@@ -712,14 +712,14 @@ func TestPrepareProblemUpdateBatchValidatesTargetsWithoutWrites(t *testing.T) {
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
 	store.EXPECT().GetProblemsByIDs([]int64{42}).Return([]data.Problem{{ID: 42}}, nil)
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
-	prepared, issues := NewServices(store).Problem.PrepareProblemReplacementBatch([]service_model.ReplaceProblemParams{{ProblemID: 42, ClassCode: " basicos ", ProblemFields: service_model.ProblemFields{Name: " Updated ", URL: " https://example.com/new "}}})
+	prepared, issues := NewServices(store).Problem.PrepareProblemPatchBatch([]service_model.PatchProblemParams{{ProblemID: 42, ClassCode: service_model.PatchField[string]{Set: true, Value: " basicos "}, Name: service_model.PatchField[string]{Set: true, Value: " Updated "}, URL: service_model.PatchField[string]{Set: true, Value: " https://example.com/new "}}})
 	assert.Empty(t, issues)
 	if assert.Len(t, prepared, 1) {
 		assert.Equal(t, 1, prepared[0].Entry)
 		assert.EqualValues(t, 42, prepared[0].Params.ProblemID)
-		assert.Equal(t, "basicos", prepared[0].Params.ClassCode)
-		assert.Equal(t, "Updated", prepared[0].Params.Name)
-		assert.Equal(t, "https://example.com/new", prepared[0].Params.URL)
+		assert.Equal(t, "basicos", prepared[0].Params.ClassCode.Value)
+		assert.Equal(t, "Updated", prepared[0].Params.Name.Value)
+		assert.Equal(t, "https://example.com/new", prepared[0].Params.URL.Value)
 		assert.EqualValues(t, 10, prepared[0].Class.ID)
 	}
 }
@@ -729,10 +729,10 @@ func TestPrepareProblemUpdateBatchReportsIssuesWithoutPartialResults(t *testing.
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
 	store.EXPECT().GetProblemsByIDs([]int64{42, 99}).Return([]data.Problem{{ID: 42}}, nil)
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
-	prepared, issues := NewServices(store).Problem.PrepareProblemReplacementBatch([]service_model.ReplaceProblemParams{
-		{ProblemID: 42, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Valid", URL: "https://example.com/new"}},
+	prepared, issues := NewServices(store).Problem.PrepareProblemPatchBatch([]service_model.PatchProblemParams{
+		{ProblemID: 42, ClassCode: service_model.PatchField[string]{Set: true, Value: "basicos"}, Name: service_model.PatchField[string]{Set: true, Value: "Valid"}},
 		{},
-		{ProblemID: 99, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Missing", URL: "https://example.com/new"}},
+		{ProblemID: 99, ClassCode: service_model.PatchField[string]{Set: true, Value: "basicos"}, Name: service_model.PatchField[string]{Set: true, Value: "Missing"}},
 	})
 	assert.Nil(t, prepared)
 	if assert.Len(t, issues, 2) {
@@ -740,6 +740,31 @@ func TestPrepareProblemUpdateBatchReportsIssuesWithoutPartialResults(t *testing.
 		assert.Equal(t, 3, issues[1].Entry)
 		assert.IsType(t, &serviceerr.ProblemNotFoundError{}, issues[1].Err)
 	}
+}
+
+func TestProblemPatchBatchWithoutClassChangesDoesNotResolveClasses(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetProblemsByIDs([]int64{42}).Return([]data.Problem{{ID: 42, ClassID: 10}}, nil).Times(2)
+	store.EXPECT().PatchProblemByProblemID(int64(42), data.ProblemPatch{
+		Difficulty: data.PatchField[*string]{Set: true, Value: new("easy")},
+	}).Return(nil)
+	store.EXPECT().PatchProblemByProblemID(int64(42), data.ProblemPatch{
+		Topic: data.PatchField[*string]{Set: true},
+	}).Return(nil)
+	service := NewProblemService(store)
+	prepared, issues := service.PrepareProblemPatchBatch([]service_model.PatchProblemParams{
+		{ProblemID: 42, Difficulty: service_model.PatchField[*string]{Set: true, Value: new("easy")}},
+		{ProblemID: 42, Topic: service_model.PatchField[*string]{Set: true}},
+	})
+	require.Empty(t, issues)
+	require.Len(t, prepared, 2)
+	assert.Zero(t, prepared[0].Class)
+	assert.Zero(t, prepared[1].Class)
+	result, issues, err := service.ExecuteProblemPatchBatch(prepared)
+	require.NoError(t, err)
+	assert.Empty(t, issues)
+	assert.Equal(t, []int64{42, 42}, result.PatchedProblemIDs)
 }
 
 func TestProblemBatchUsesBulkLookupsForPreparationAndConfirmation(t *testing.T) {
@@ -795,18 +820,18 @@ func TestProblemBatchUsesBulkLookupsForPreparationAndConfirmation(t *testing.T) 
 				store := mock_data.NewMockDataStore(gomock.NewController(t))
 				problems := make([]data.Problem, size)
 				classes := make([]data.Class, size)
-				inputs := make([]service_model.ReplaceProblemParams, size)
+				inputs := make([]service_model.PatchProblemParams, size)
 				for index := range size {
 					id := int64(index + 1)
 					classCode := fmt.Sprintf("class-%03d", index)
 					problems[index] = data.Problem{ID: id}
 					classes[index] = data.Class{ID: id, ClassCode: classCode}
-					inputs[index] = service_model.ReplaceProblemParams{
+					inputs[index] = service_model.PatchProblemParams{
 						ProblemID: id,
-						ClassCode: classCode,
-						ProblemFields: service_model.ProblemFields{
-							Name: fmt.Sprintf("Updated problem %d", index),
-							URL:  "https://example.com/problem",
+						PatchProblemFields: service_model.PatchProblemFields{
+							ClassCode: service_model.PatchField[string]{Set: true, Value: classCode},
+							Name:      service_model.PatchField[string]{Set: true, Value: fmt.Sprintf("Updated problem %d", index)},
+							URL:       service_model.PatchField[string]{Set: true, Value: "https://example.com/problem"},
 						},
 					}
 				}
@@ -823,16 +848,16 @@ func TestProblemBatchUsesBulkLookupsForPreparationAndConfirmation(t *testing.T) 
 						return classes, nil
 					},
 				).Times(2)
-				store.EXPECT().ReplaceProblemByProblemID(gomock.Any(), gomock.Any()).Return(nil).Times(size)
+				store.EXPECT().PatchProblemByProblemID(gomock.Any(), gomock.Any()).Return(nil).Times(size)
 
 				service := NewServices(store)
-				prepared, issues := service.Problem.PrepareProblemReplacementBatch(inputs)
+				prepared, issues := service.Problem.PrepareProblemPatchBatch(inputs)
 				require.Empty(t, issues)
 				require.Len(t, prepared, size)
-				result, issues, err := service.Problem.ExecuteProblemReplacementBatch(prepared)
+				result, issues, err := service.Problem.ExecuteProblemPatchBatch(prepared)
 				require.NoError(t, err)
 				require.Empty(t, issues)
-				assert.Len(t, result.ReplacedProblemIDs, size)
+				assert.Len(t, result.PatchedProblemIDs, size)
 			})
 		})
 	}
@@ -844,9 +869,9 @@ func TestPrepareProblemUpdateBatchPreservesMissingTargetsWhenClassLookupFails(t 
 	store.EXPECT().GetProblemsByIDs([]int64{42, 99}).Return([]data.Problem{{ID: 42}}, nil)
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return(nil, errors.New("database unavailable"))
 
-	prepared, issues := NewServices(store).Problem.PrepareProblemReplacementBatch([]service_model.ReplaceProblemParams{
-		{ProblemID: 42, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Existing", URL: "https://example.com/problem"}},
-		{ProblemID: 99, ClassCode: "basicos", ProblemFields: service_model.ProblemFields{Name: "Missing", URL: "https://example.com/problem"}},
+	prepared, issues := NewServices(store).Problem.PrepareProblemPatchBatch([]service_model.PatchProblemParams{
+		{ProblemID: 42, ClassCode: service_model.PatchField[string]{Set: true, Value: "basicos"}},
+		{ProblemID: 99, ClassCode: service_model.PatchField[string]{Set: true, Value: "basicos"}},
 	})
 
 	assert.Nil(t, prepared)
@@ -863,14 +888,14 @@ func TestProblemUpdateBatchRejectsInvalidSizeBeforeReadingOrWriting(t *testing.T
 	for _, size := range []int{0, service_model.MaxBatchOperations + 1} {
 		store := mock_data.NewMockDataStore(gomock.NewController(t))
 		svc := NewServices(store)
-		prepared, issues := svc.Problem.PrepareProblemReplacementBatch(make([]service_model.ReplaceProblemParams, size))
+		prepared, issues := svc.Problem.PrepareProblemPatchBatch(make([]service_model.PatchProblemParams, size))
 		assert.Nil(t, prepared)
 		if assert.Len(t, issues, 1) {
 			assert.Zero(t, issues[0].Entry)
 		}
-		result, issues, err := svc.Problem.ExecuteProblemReplacementBatch(make([]service_model.PreparedProblemReplacement, size))
+		result, issues, err := svc.Problem.ExecuteProblemPatchBatch(make([]service_model.PreparedProblemPatch, size))
 		assert.NoError(t, err)
-		assert.Empty(t, result.ReplacedProblemIDs)
+		assert.Empty(t, result.PatchedProblemIDs)
 		assert.Len(t, issues, 1)
 	}
 }

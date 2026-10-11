@@ -63,7 +63,7 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 					var present func() bool
 					if family.edit {
-						assert.True(t, editCache.saveValidatedBatch(key, []service_model.PreparedProblemReplacement{{Entry: 1}}))
+						assert.True(t, editCache.saveValidatedBatch(key, []service_model.PreparedProblemPatch{{Entry: 1}}))
 						present = func() bool { _, found := editCache.loadValidatedBatch(key); return found }
 					} else if family.problem {
 						assert.True(t, problemCache.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
