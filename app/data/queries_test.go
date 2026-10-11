@@ -2532,3 +2532,55 @@ func TestAddACBatchRollsBackUsersAndSolvesOnFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestAddProblemsBatchPreservesOrderAndAllowsRepeatedProblems(t *testing.T) {
+	t.Parallel()
+	db := setupDB(t)
+	t.Cleanup(db.CloseDB)
+	classID, err := db.CreateClass(Class{ClassCode: "batch", Name: "Batch"})
+	require.NoError(t, err)
+	problem := Problem{
+		Name:       "Repeated problem",
+		URL:        "https://example.com/problem",
+		ClassID:    classID,
+		Difficulty: ptrStr("easy"),
+		Topic:      ptrStr("arrays"),
+		Priority:   ptrStr("recommended"),
+	}
+
+	problemIDs, err := db.AddProblemsBatch([]Problem{problem, problem})
+	require.NoError(t, err)
+	if assert.Len(t, problemIDs, 2) {
+		assert.NotEqual(t, problemIDs[0], problemIDs[1])
+		assert.Less(t, problemIDs[0], problemIDs[1])
+	}
+
+	problems, err := db.GetProblemsByIDs(problemIDs)
+	require.NoError(t, err)
+	assert.Len(t, problems, 2)
+	assert.Equal(t, problem.Name, problems[0].Name)
+	assert.Equal(t, problem.Name, problems[1].Name)
+
+	emptyIDs, err := db.AddProblemsBatch(nil)
+	require.NoError(t, err)
+	assert.Empty(t, emptyIDs)
+}
+
+func TestAddProblemsBatchRollsBackWhenAnInsertFails(t *testing.T) {
+	t.Parallel()
+	db := setupDB(t)
+	t.Cleanup(db.CloseDB)
+	classID, err := db.CreateClass(Class{ClassCode: "batch", Name: "Batch"})
+	require.NoError(t, err)
+
+	problemIDs, err := db.AddProblemsBatch([]Problem{
+		{Name: "First", URL: "https://example.com/first", ClassID: classID},
+		{Name: "Invalid class", URL: "https://example.com/invalid", ClassID: -1},
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, problemIDs)
+	problems, err := db.GetProblemsByClass(classID)
+	require.NoError(t, err)
+	assert.Empty(t, problems, "earlier inserts must roll back with the failing entry")
+}

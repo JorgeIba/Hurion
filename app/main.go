@@ -65,7 +65,7 @@ func main() {
 
 		// Compile initial scoreboards on startup
 		exporterWorker.Trigger()
-		data.RegisterUpdateHookCallback(func(op int, dbName string, tableName string, rowid int64) {
+		data.RegisterDataChangeCallback(func() {
 			exporterWorker.Trigger()
 		})
 	}

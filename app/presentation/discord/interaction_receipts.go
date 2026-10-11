@@ -197,7 +197,7 @@ func BuildBatchValidationFailure(content string) *discordgo.WebhookEdit {
 func BuildProblemBatchExecutionResult(result service_model.ProblemCreateBatchResult, failed bool) *discordgo.WebhookEdit {
 	content := fmt.Sprintf("Batch completed. Problems created: %d.", len(result.CreatedProblemIDs))
 	if failed {
-		content = fmt.Sprintf("Batch stopped. Confirmed problem creations: %d.\nEarlier writes were not rolled back. The failed operation may also have been applied. Check the class before submitting again.", len(result.CreatedProblemIDs))
+		content = fmt.Sprintf("Batch stopped. Confirmed problem creations: %d.\nThe batch outcome could not be confirmed; it may have been applied. Check the class before submitting again.", len(result.CreatedProblemIDs))
 	}
 
 	return buildProblemBatchIDResponse(content, result.CreatedProblemIDs, "created-problem-ids.txt")

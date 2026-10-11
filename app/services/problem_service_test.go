@@ -653,7 +653,8 @@ func TestPrepareProblemBatchNormalizesAndKeepsRepeatedProblems(t *testing.T) {
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos", Name: "Basics"}}, nil)
 	difficulty := " HARD "
 	input := service_model.CreateProblemParams{ClassCode: " basicos ", Name: " Two Sum ", URL: " https://example.com/problem ", Difficulty: &difficulty}
-	prepared, issues := NewServices(store).Problem.PrepareCreationBatch([]service_model.CreateProblemParams{input, input})
+	prepared, issues, err := NewServices(store).Problem.PrepareCreationBatch([]service_model.CreateProblemParams{input, input})
+	require.NoError(t, err)
 	assert.Empty(t, issues)
 	if assert.Len(t, prepared, 2) {
 		assert.Equal(t, 1, prepared[0].Entry)
@@ -678,7 +679,8 @@ func TestPrepareProblemBatchReportsEveryInvalidEntry(t *testing.T) {
 		{ClassCode: "missing", Name: "Valid", URL: "https://example.com/problem"},
 		{Name: "Other", ClassCode: "basicos", URL: "javascript:alert(1)"},
 	}
-	prepared, issues := NewServices(store).Problem.PrepareCreationBatch(input)
+	prepared, issues, err := NewServices(store).Problem.PrepareCreationBatch(input)
+	require.NoError(t, err)
 	assert.Nil(t, prepared)
 	if assert.Len(t, issues, 3) {
 		assert.Equal(t, 1, issues[0].Entry)
@@ -689,6 +691,20 @@ func TestPrepareProblemBatchReportsEveryInvalidEntry(t *testing.T) {
 		assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, issues[1].Err)
 		assert.Equal(t, 3, issues[2].Entry)
 	}
+}
+
+func TestPrepareProblemCreationBatchReturnsDatastoreFailuresSeparately(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return(nil, errors.New("database unavailable"))
+
+	prepared, issues, err := NewProblemService(store).PrepareCreationBatch([]service_model.CreateProblemParams{
+		{ClassCode: "basicos", Name: "Valid", URL: "https://example.com/problem"},
+	})
+
+	assert.Nil(t, prepared)
+	assert.Empty(t, issues)
+	assert.IsType(t, &serviceerr.InternalError{}, err)
 }
 
 func TestPrepareProblemUpdateBatchValidatesTargetsWithoutWrites(t *testing.T) {
@@ -754,14 +770,18 @@ func TestProblemBatchUsesBulkLookupsForPreparationAndConfirmation(t *testing.T) 
 						return classes, nil
 					},
 				).Times(2)
-				created := 0
-				store.EXPECT().AddProblem(gomock.Any()).DoAndReturn(func(data.Problem) (int64, error) {
-					created++
-					return int64(created), nil
-				}).Times(size)
+				store.EXPECT().AddProblemsBatch(gomock.Any()).DoAndReturn(func(problems []data.Problem) ([]int64, error) {
+					assert.Len(t, problems, size)
+					problemIDs := make([]int64, size)
+					for index := range problemIDs {
+						problemIDs[index] = int64(index + 1)
+					}
+					return problemIDs, nil
+				})
 
 				service := NewServices(store)
-				prepared, issues := service.Problem.PrepareCreationBatch(inputs)
+				prepared, issues, err := service.Problem.PrepareCreationBatch(inputs)
+				require.NoError(t, err)
 				require.Empty(t, issues)
 				require.Len(t, prepared, size)
 				result, issues, err := service.Problem.ExecuteCreationBatch(prepared)
@@ -870,13 +890,31 @@ func TestExecuteProblemBatchRejectsReplacedClassBeforeWrites(t *testing.T) {
 	assert.IsType(t, &serviceerr.ConflictError{}, issues[0].Err)
 }
 
+func TestExecuteProblemCreationBatchWrapsDatastoreFailure(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
+	store.EXPECT().AddProblemsBatch([]data.Problem{{Name: "New", URL: "https://example.com", ClassID: 10}}).Return(nil, errors.New("database unavailable"))
+
+	result, issues, err := NewProblemService(store).ExecuteCreationBatch([]service_model.PreparedProblem{{
+		Entry:  1,
+		Params: service_model.CreateProblemParams{ClassCode: "basicos", Name: "New", URL: "https://example.com"},
+		Class:  service_model.Class{ID: 10, ClassCode: "basicos"},
+	}})
+
+	assert.Empty(t, result.CreatedProblemIDs)
+	assert.Empty(t, issues)
+	assert.IsType(t, &serviceerr.InternalError{}, err)
+}
+
 func TestProblemCreationBatchRejectsInvalidSizeBeforeReadingOrWriting(t *testing.T) {
 	t.Parallel()
 	for _, size := range []int{0, service_model.MaxBatchOperations + 1} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
 			t.Parallel()
 			service := NewProblemService(mock_data.NewMockDataStore(gomock.NewController(t)))
-			prepared, preparationIssues := service.PrepareCreationBatch(make([]service_model.CreateProblemParams, size))
+			prepared, preparationIssues, preparationErr := service.PrepareCreationBatch(make([]service_model.CreateProblemParams, size))
+			assert.NoError(t, preparationErr)
 			assert.Nil(t, prepared)
 			result, executionIssues, err := service.ExecuteCreationBatch(make([]service_model.PreparedProblem, size))
 			require.NoError(t, err)
@@ -894,9 +932,10 @@ func TestPrepareProblemBatchDoesNotReturnPartialSuccess(t *testing.T) {
 	t.Parallel()
 	store := mock_data.NewMockDataStore(gomock.NewController(t))
 	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
-	prepared, issues := NewProblemService(store).PrepareCreationBatch([]service_model.CreateProblemParams{
+	prepared, issues, err := NewProblemService(store).PrepareCreationBatch([]service_model.CreateProblemParams{
 		{ClassCode: "basicos", Name: "Valid", URL: "https://example.com/problem"}, {},
 	})
+	require.NoError(t, err)
 	assert.Nil(t, prepared)
 	require.Len(t, issues, 1)
 	assert.Equal(t, 2, issues[0].Entry)

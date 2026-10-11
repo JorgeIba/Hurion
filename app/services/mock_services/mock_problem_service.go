@@ -133,12 +133,13 @@ func (mr *MockProblemServiceMockRecorder) PrepareCreation(params any) *gomock.Ca
 }
 
 // PrepareCreationBatch mocks base method.
-func (m *MockProblemService) PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError) {
+func (m *MockProblemService) PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCreationBatch", params)
 	ret0, _ := ret[0].([]service_model.PreparedProblem)
 	ret1, _ := ret[1].([]service_model.BatchEntryError)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // PrepareCreationBatch indicates an expected call of PrepareCreationBatch.

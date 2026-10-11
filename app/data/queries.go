@@ -55,6 +55,58 @@ func (db *DB) AddProblem(problem Problem) (int64, error) {
 	return problemID, nil
 }
 
+// AddProblemsBatch inserts the problems in order within a transaction and
+// returns their IDs only after a successful commit.
+func (db *DB) AddProblemsBatch(problems []Problem) ([]int64, error) {
+	if len(problems) == 0 {
+		return []int64{}, nil
+	}
+
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return nil, dataerr.NewQueryError("could not begin problem batch", err)
+	}
+	defer tx.Rollback()
+
+	query := `
+		INSERT INTO problems (name, url, class_id, difficulty, topic, priority)
+		VALUES (?, ?, ?, ?, ?, ?);
+	`
+
+	problemIDs := make([]int64, 0, len(problems))
+	for index, problem := range problems {
+		result, err := tx.Exec(query, problem.Name, problem.URL, problem.ClassID, problem.Difficulty, problem.Topic, problem.Priority)
+		if err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not insert problem batch entry %d", index+1), err)
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not determine rows affected for problem batch entry %d", index+1), err)
+		}
+
+		if rowsAffected == 0 {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("problem batch entry %d was not inserted", index+1), nil)
+		}
+
+		problemID, err := result.LastInsertId()
+		if err != nil {
+			return nil, dataerr.NewQueryError(fmt.Sprintf("could not fetch ID for problem batch entry %d", index+1), err)
+		}
+
+		problemIDs = append(problemIDs, problemID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, dataerr.NewQueryError("could not commit problem batch", err)
+	}
+
+	// The SQLite update hook runs before commit; notify again so observers read committed data.
+	notifyDataChanged()
+
+	return problemIDs, nil
+}
+
 func (db *DB) RemoveProblemByID(problemID int64) (int64, error) {
 	query := "DELETE FROM problems WHERE id = ?"
 	if _, err := db.conn.Exec(query, problemID); err != nil {
@@ -133,6 +185,9 @@ func (db *DB) AddACBatch(targets []ACKey) (int, error) {
 	if err := tx.Commit(); err != nil {
 		return 0, dataerr.NewQueryError("could not commit AC batch", err)
 	}
+	// The SQLite update hook runs before commit; notify again so observers read committed data.
+	notifyDataChanged()
+
 	return int(insertedCount), nil
 }
 

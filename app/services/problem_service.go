@@ -16,7 +16,7 @@ import (
 //go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 type ProblemService interface {
 	PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error)
-	PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError)
+	PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error)
 	ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error)
 	PrepareProblemReplacement(params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error)
 	PrepareProblemReplacementBatch(params []service_model.ReplaceProblemParams) ([]service_model.PreparedProblemReplacement, []service_model.BatchEntryError)
@@ -98,9 +98,9 @@ func (service *problemService) PrepareCreation(params service_model.CreateProble
 }
 
 // PrepareCreationBatch validates all values and resolves their distinct classes in one read.
-func (service *problemService) PrepareCreationBatch(inputs []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError) {
+func (service *problemService) PrepareCreationBatch(inputs []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error) {
 	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
-		return nil, []service_model.BatchEntryError{{Err: err}}
+		return nil, []service_model.BatchEntryError{{Err: err}}, nil
 	}
 
 	normalized := make([]service_model.CreateProblemParams, len(inputs))
@@ -129,13 +129,7 @@ func (service *problemService) PrepareCreationBatch(inputs []service_model.Creat
 	if len(classCodes) > 0 {
 		classes, err = service.Datastore.GetClassesByClassCodes(classCodes)
 		if err != nil {
-			for index, input := range normalized {
-				if input.ClassCode != "" {
-					issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.MakeGeneralError(err)})
-				}
-			}
-			sort.SliceStable(issues, func(left, right int) bool { return issues[left].Entry < issues[right].Entry })
-			return nil, issues
+			return nil, nil, serviceerr.MakeGeneralError(err)
 		}
 	}
 
@@ -162,9 +156,9 @@ func (service *problemService) PrepareCreationBatch(inputs []service_model.Creat
 	// Return all issues together and never expose a partially prepared batch.
 	if len(issues) > 0 {
 		sort.SliceStable(issues, func(left, right int) bool { return issues[left].Entry < issues[right].Entry })
-		return nil, issues
+		return nil, issues, nil
 	}
-	return prepared, nil
+	return prepared, nil, nil
 }
 
 // ExecuteCreationBatch revalidates every entry before the first write.
@@ -181,7 +175,10 @@ func (service *problemService) ExecuteCreationBatch(batch []service_model.Prepar
 	}
 
 	// Revalidate the inputs and resolve their current destination classes.
-	prepared, issues := service.PrepareCreationBatch(inputs)
+	prepared, issues, err := service.PrepareCreationBatch(inputs)
+	if err != nil {
+		return result, nil, serviceerr.NewBatchPreparationError("could not revalidate problem batch", err)
+	}
 	if len(issues) > 0 {
 		return result, issues, nil
 	}
@@ -197,14 +194,17 @@ func (service *problemService) ExecuteCreationBatch(batch []service_model.Prepar
 		return result, issues, nil
 	}
 
-	// Apply writes in input order and retain acknowledged IDs on failure.
+	// Map the validated entries to storage values and commit them atomically.
+	problems := make([]data.Problem, len(prepared))
 	for index, entry := range prepared {
-		problemID, err := service.createPreparedProblem(entry)
-		if err != nil {
-			return result, nil, fmt.Errorf("could not create problem at batch entry %d: %w", index+1, err)
-		}
-		result.CreatedProblemIDs = append(result.CreatedProblemIDs, problemID)
+		problems[index] = mapCreateProblemParamsToDataProblem(entry.Params, entry.Class.ID)
 	}
+
+	problemIDs, err := service.Datastore.AddProblemsBatch(problems)
+	if err != nil {
+		return result, nil, serviceerr.MakeGeneralError(err)
+	}
+	result.CreatedProblemIDs = problemIDs
 	return result, nil, nil
 }
 

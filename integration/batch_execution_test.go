@@ -17,9 +17,10 @@ func TestIntegration_ExecuteProblemBatchCreatesOrderedRepeatedProblems(t *testin
 	firstClass := env.SeedClass(t, "basicos", "Basics")
 	secondClass := env.SeedClass(t, "avanzados", "Advanced")
 	repeated := service_model.CreateProblemParams{ClassCode: "basicos", Name: "Repeated", URL: "https://example.com/repeated"}
-	prepared, issues := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
+	prepared, issues, err := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
 		repeated, {ClassCode: "avanzados", Name: "Other", URL: "https://example.com/other"}, repeated,
 	})
+	require.NoError(t, err)
 	require.Empty(t, issues)
 	result, issues, err := env.Services.Problem.ExecuteCreationBatch(prepared)
 	require.NoError(t, err)
@@ -40,10 +41,11 @@ func TestIntegration_ExecuteProblemBatchValidatesEveryTargetBeforeWrites(t *test
 	env := setupIntegrationEnv(t)
 	validClass := env.SeedClass(t, "basicos", "Basics")
 	removedClass := env.SeedClass(t, "removed", "Removed")
-	prepared, issues := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
+	prepared, issues, err := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
 		{ClassCode: "basicos", Name: "Valid", URL: "https://example.com/valid"},
 		{ClassCode: "removed", Name: "Gone", URL: "https://example.com/gone"},
 	})
+	require.NoError(t, err)
 	require.Empty(t, issues)
 	require.NoError(t, env.DB.DeleteClass(removedClass))
 	result, issues, err := env.Services.Problem.ExecuteCreationBatch(prepared)
@@ -152,19 +154,22 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 	}
 }
 
-// Inject storage failures to check partial problem writes and atomic AC writes.
+// Inject storage failures to check that problem and AC batches roll back atomically.
 type failingBatchStore struct {
 	data.DataStore
 	failure                 error
 	problemWrites, acWrites int
 }
 
-func (store *failingBatchStore) AddProblem(problem data.Problem) (int64, error) {
+func (store *failingBatchStore) AddProblemsBatch(problems []data.Problem) ([]int64, error) {
 	store.problemWrites++
-	if store.problemWrites == 2 {
-		return 0, store.failure
+	withInvalidProblem := append([]data.Problem(nil), problems...)
+	withInvalidProblem[1].ClassID = -1
+	problemIDs, err := store.DataStore.AddProblemsBatch(withInvalidProblem)
+	if err != nil {
+		return nil, errors.Join(store.failure, err)
 	}
-	return store.DataStore.AddProblem(problem)
+	return problemIDs, nil
 }
 
 func (store *failingBatchStore) AddACBatch(targets []data.ACKey) (int, error) {
@@ -176,7 +181,7 @@ func (store *failingBatchStore) AddACBatch(targets []data.ACKey) (int, error) {
 	return count, errors.Join(store.failure, err)
 }
 
-func TestIntegration_ExecuteBatchStopsOnStorageFailureAndReportsAcknowledgedWrites(t *testing.T) {
+func TestIntegration_ExecuteBatchRollsBackOnStorageFailure(t *testing.T) {
 	t.Parallel()
 	for _, family := range []string{"problem", "ac"} {
 		t.Run(family, func(t *testing.T) {
@@ -188,18 +193,18 @@ func TestIntegration_ExecuteBatchStopsOnStorageFailureAndReportsAcknowledgedWrit
 			svcs := services.NewServices(store)
 			if family == "problem" {
 				input := service_model.CreateProblemParams{ClassCode: "basicos", Name: "Repeated", URL: "https://example.com"}
-				prepared, issues := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{input, input, input})
+				prepared, issues, err := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{input, input, input})
+				require.NoError(t, err)
 				require.Empty(t, issues)
 				result, issues, err := svcs.Problem.ExecuteCreationBatch(prepared)
 				require.ErrorIs(t, err, failure)
 				assert.Contains(t, err.Error(), "entry 2")
 				assert.Empty(t, issues)
-				require.Len(t, result.CreatedProblemIDs, 1)
-				assert.Equal(t, 2, store.problemWrites, "must not attempt the third operation")
+				assert.Empty(t, result.CreatedProblemIDs)
+				assert.Equal(t, 1, store.problemWrites, "the batch must be submitted once")
 				problems, err := env.DB.GetProblemsByClass(classID)
 				require.NoError(t, err)
-				require.Len(t, problems, 1)
-				assert.Equal(t, result.CreatedProblemIDs[0], problems[0].ID)
+				assert.Empty(t, problems, "earlier inserts must roll back with the failing entry")
 			} else {
 				problemID := env.SeedProblem(t, "Problem", "https://example.com", classID, "easy", "Arrays")
 				env.SeedClassAccessRole(t, "basicos", "student")

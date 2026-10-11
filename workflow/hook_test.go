@@ -27,13 +27,6 @@ func TestScoreboardExportOnDbHook(t *testing.T) {
 	worker.Start()
 	defer worker.Stop()
 
-	// Register update hook to trigger background export
-	data.RegisterUpdateHookCallback(func(op int, dbName string, tableName string, rowid int64) {
-		if tableName == "solved_problems" {
-			worker.Trigger()
-		}
-	})
-
 	// Seed test data
 	classCode := "basicos_hook_test"
 	className := "Basicos Hook Test Class"
@@ -48,6 +41,11 @@ func TestScoreboardExportOnDbHook(t *testing.T) {
 	userID := "user_123"
 	userDisplayName := "Alice Tester"
 	env.seedUser(t, userID, userDisplayName)
+
+	// Register a data change callback after setup so only the AC write triggers export.
+	data.RegisterDataChangeCallback(func() {
+		worker.Trigger()
+	})
 
 	// Verify no scoreboard JSON file exists yet
 	expectedFile := filepath.Join(tempExportDir, classCode+"_score.json")
