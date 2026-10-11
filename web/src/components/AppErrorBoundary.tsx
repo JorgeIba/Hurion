@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { BrandLogoLink } from '@/components/BrandLogoLink';
 
 interface Props {
   children: ReactNode;
@@ -41,7 +42,7 @@ export class AppErrorBoundary extends Component<Props, State> {
         <div className="app-container">
           <header className="header-bar">
             <div className="brand-section">
-              <span className="brand-logo">📊</span>
+              <BrandLogoLink />
               <h1 className="header-title">Hurion Scoreboard</h1>
             </div>
           </header>

@@ -35,7 +35,6 @@ export const CLASS_CONFIG = {
 } as const;
 
 export const CLASS_LABELS = {
-  BRAND_LOGO: '📊',
   PROBLEM_HEADER: '(ID) Problem',
   DIFF_HEADER: 'Diff',
   TOTAL_SOLVED: 'Total Solved (ACs)',
