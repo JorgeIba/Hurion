@@ -280,11 +280,13 @@ func (service *SolutionService) ExecuteCreationBatch(batch []service_model.Prepa
 
 	// Persist the validated pairs together and count actual new registrations.
 	targets := make([]data.ACKey, len(prepared))
+	users := make([]data.User, len(prepared))
 	for index, entry := range prepared {
 		targets[index] = data.ACKey{UserID: entry.User.UserID, ProblemID: entry.Problem.ID}
+		users[index] = data.User{UserID: entry.User.UserID, DisplayName: entry.User.DisplayName}
 	}
 
-	insertedCount, err := service.Datastore.AddACBatch(targets)
+	insertedCount, err := service.Datastore.AddACBatch(targets, users)
 	if err != nil {
 		return result, nil, serviceerr.MakeGeneralError(err)
 	}

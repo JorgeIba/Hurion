@@ -15,7 +15,7 @@ AI agents generate JSON batches for mentors, who then paste them or upload a `.j
 3. **Delivery:** Up to 4,000 characters when pasted directly into the Discord modal. For larger batches, generate a `.json` file (up to 5 MiB supported).
 4. **Strict Schema:** Unknown, misspelled, or extra fields are strictly rejected.
 5. **Topics:** For creation, `topic` is required and must be a non-blank, specific topic (e.g., `"Binary Search"`, `"Dynamic Programming"`), never `"General"`. For edits, omit `topic` to preserve it; if the existing value is shown as `"General"` or is missing, assign a representative specific topic when editing that problem. A supplied topic must be specific and non-blank; use `null` only when the mentor explicitly asks to clear it.
-6. **AC targets:** Every `problem_id` in an AC batch must already exist. If a requested problem is new, create it with `/problem add_batch` first, wait for successful confirmation, and use the returned ID (or refresh the scoreboard if needed). Never guess an ID or combine creation and ACs as if they were one operation.
+6. **AC targets:** Every `problem_id` in an AC batch must already exist. If a requested problem is new, create it with `/problem add_batch` first, wait for successful confirmation, and refresh the class scoreboard to obtain the assigned ID. Never guess an ID or combine creation and ACs as if they were one operation.
 7. **Output:** Return one raw JSON array ready to paste into the Discord modal, without Markdown fences or surrounding prose. Keep batches within 100 entries and the 4,000-character text limit; otherwise provide a `.json` file no larger than 5 MiB.
 
 ## Data Discovery Endpoints
@@ -46,7 +46,7 @@ Contains current class state:
 * **JSON Schema:** `${VITE_EXPORTS_BASE_URL}/problem-add-batch.json`
 * **Required fields:** `class` (string, max 50), `name` (string, max 200), `url` (valid http/https, max 2000), `topic` (specific non-blank string, max 100; not `"General"`).
 * **Optional fields:** `difficulty` (`"easy"` | `"medium"` | `"hard"`), `priority` (`"essential"` | `"recommended"` | `"supplementary"` | `"not_required"` | `"discouraged"`).
-* **Semantics:** The bot validates the whole batch before writing it atomically. Use the created problem IDs returned after successful confirmation for any later edits or ACs. If the result is unclear, refresh the class scoreboard before creating dependent batches.
+* **Semantics:** The bot validates the whole batch before writing it atomically. After successful confirmation, refresh the class scoreboard and use its assigned problem IDs for any later edits or ACs. If the result is unclear, refresh the class scoreboard before creating dependent batches.
 
 ### 2. Edit Problems (`/problem edit_batch`)
 * **JSON Schema:** `${VITE_EXPORTS_BASE_URL}/problem-edit-batch.json`

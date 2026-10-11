@@ -234,12 +234,12 @@ func (store *failingBatchStore) AddProblemsBatch(problems []data.Problem) ([]int
 	return problemIDs, nil
 }
 
-func (store *failingBatchStore) AddACBatch(targets []data.ACKey) (int, error) {
+func (store *failingBatchStore) AddACBatch(targets []data.ACKey, users []data.User) (int, error) {
 	store.acWrites++
 	// Force a foreign-key failure after valid pairs reach the bulk insert.
 	withInvalidTarget := append([]data.ACKey(nil), targets...)
 	withInvalidTarget = append(withInvalidTarget, data.ACKey{UserID: "456", ProblemID: -1})
-	count, err := store.DataStore.AddACBatch(withInvalidTarget)
+	count, err := store.DataStore.AddACBatch(withInvalidTarget, users)
 	return count, errors.Join(store.failure, err)
 }
 

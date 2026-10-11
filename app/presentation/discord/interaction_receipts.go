@@ -2,7 +2,6 @@ package discord
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -74,25 +73,42 @@ func truncateJSONInputError(message string, limit int) string {
 	return result.String()
 }
 
+func inlineCode(value string) string {
+	value = strings.NewReplacer("`", "'", "\n", " ", "\r", " ").Replace(strings.TrimSpace(value))
+	return "`" + value + "`"
+}
+
+// Format retry commands without changing identifiers that the mentor must copy.
+func retryCommand(value string) string {
+	if strings.Contains(value, "`") {
+		fence := "```"
+		for strings.Contains(value, fence) {
+			fence += "`"
+		}
+		return "\n" + fence + "\n" + value + "\n" + fence + "\n"
+	}
+	return "`" + value + "`"
+}
+
 // FormatCreateProblemError keeps mapped errors within Discord's message limit.
 func FormatCreateProblemError(content, classCode string, recoverDraft bool) string {
 	if recoverDraft {
-		content += ". Try /problem add class:" + classCode + " again."
+		content += ". Try " + retryCommand("/problem add class:"+classCode) + " again."
 	}
 	if utf16Count(content) <= maxMessageContentLength {
 		return content
 	}
 	if !recoverDraft {
-		return "Could not add the problem. Please try /problem add again."
+		return "Could not add the problem. Please try `/problem add` again."
 	}
 	// The modal identifier already bounds the selected class code's length.
-	return "Could not add the problem. Please check the values and try /problem add class:" + classCode + " again."
+	return "Could not add the problem. Please check the values and try " + retryCommand("/problem add class:"+classCode) + " again."
 }
 
 // FormatCreatedProblemReceipt identifies the saved problem without truncating stored values.
 func FormatCreatedProblemReceipt(problemID int64, classCode, problemName string) string {
-	identity := fmt.Sprintf("Problem `%d` was added to class %q.", problemID, strings.TrimSpace(classCode))
-	content := identity + fmt.Sprintf("\nName: %q", strings.TrimSpace(problemName))
+	identity := fmt.Sprintf("Problem `%d` was added to class %s.", problemID, inlineCode(classCode))
+	content := identity + fmt.Sprintf("\nName: %s", inlineCode(problemName))
 	if utf16Count(content) > maxMessageContentLength {
 		return identity
 	}
@@ -101,7 +117,7 @@ func FormatCreatedProblemReceipt(problemID int64, classCode, problemName string)
 
 func FormatEditProblemError(content string, problemID int64, classCode string, recoverDraft bool) string {
 	if recoverDraft {
-		content += fmt.Sprintf(" Try /problem edit problem:%d class:%s again.", problemID, classCode)
+		content += " Try " + retryCommand(fmt.Sprintf("/problem edit problem:%d class:%s", problemID, classCode)) + " again."
 	}
 
 	if utf16Count(content) <= maxMessageContentLength {
@@ -109,19 +125,19 @@ func FormatEditProblemError(content string, problemID int64, classCode string, r
 	}
 
 	if !recoverDraft {
-		return fmt.Sprintf("Could not update problem `%d`. Please try /problem edit again.", problemID)
+		return fmt.Sprintf("Could not update problem `%d`. Please try `/problem edit` again.", problemID)
 	}
 
-	retry := fmt.Sprintf("Could not update problem `%d`. Try /problem edit problem:%d class:%s again.", problemID, problemID, classCode)
+	retry := fmt.Sprintf("Could not update problem `%d`. Try %s again.", problemID, retryCommand(fmt.Sprintf("/problem edit problem:%d class:%s", problemID, classCode)))
 	if utf16Count(retry) > maxMessageContentLength {
-		return fmt.Sprintf("Could not update problem `%d`. Retry /problem edit with problem:%d and the same destination class code to recover your values.", problemID, problemID)
+		return fmt.Sprintf("Could not update problem `%d`. Retry `/problem edit` with `problem:%d` and the same destination class code to recover your values.", problemID, problemID)
 	}
 	return retry
 }
 
 func FormatUpdatedProblemReceipt(problemID int64, classCode, name string) string {
-	identity := fmt.Sprintf("Problem `%d` was updated in class %q.", problemID, classCode)
-	content := identity + fmt.Sprintf("\nName: %q", strings.TrimSpace(name))
+	identity := fmt.Sprintf("Problem `%d` was updated in class %s.", problemID, inlineCode(classCode))
+	content := identity + fmt.Sprintf("\nName: %s", inlineCode(name))
 	if utf16Count(content) > maxMessageContentLength {
 		return fmt.Sprintf("Problem `%d` was updated.", problemID)
 	}
@@ -200,27 +216,7 @@ func BuildProblemBatchExecutionResult(result service_model.ProblemCreateBatchRes
 		content = fmt.Sprintf("Batch stopped. Confirmed problem creations: %d.\nThe batch outcome could not be confirmed; it may have been applied. Check the class before submitting again.", len(result.CreatedProblemIDs))
 	}
 
-	return buildProblemBatchIDResponse(content, result.CreatedProblemIDs, "created-problem-ids.txt")
-}
-
-func buildProblemBatchIDResponse(content string, problemIDs []int64, filename string) *discordgo.WebhookEdit {
-	ids := make([]string, len(problemIDs))
-	for index, id := range problemIDs {
-		ids[index] = strconv.FormatInt(id, 10)
-	}
-
-	response := buildCompletedBatchResponse(content)
-	if len(ids) > 0 {
-		list := "\nProblem IDs (in batch order): " + strings.Join(ids, ", ")
-		if utf16Count(content+list) <= maxMessageContentLength {
-			content += list
-		} else {
-			content += "\nProblem IDs (in batch order) are attached."
-			response.Files = []*discordgo.File{{Name: filename, ContentType: "text/plain", Reader: strings.NewReader(strings.Join(ids, "\n"))}}
-		}
-	}
-	response.Content = &content
-	return response
+	return buildCompletedBatchResponse(content)
 }
 
 func BuildACBatchExecutionResult(result service_model.ACBatchResult, failed bool) *discordgo.WebhookEdit {
@@ -245,5 +241,5 @@ func BuildProblemEditBatchExecutionResult(result service_model.ProblemPatchBatch
 	if failed {
 		content = fmt.Sprintf("Batch stopped. Confirmed problem updates: %d.\nEarlier writes were not rolled back. The failed operation may also have been applied. Check the problems before submitting again.", len(result.PatchedProblemIDs))
 	}
-	return buildProblemBatchIDResponse(content, result.PatchedProblemIDs, "updated-problem-ids.txt")
+	return buildCompletedBatchResponse(content)
 }

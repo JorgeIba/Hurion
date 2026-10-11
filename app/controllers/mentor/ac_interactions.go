@@ -84,7 +84,7 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 	// Validate input values before external lookups.
 	validationIssues := entries.validate(validateACInput)
 	if len(validationIssues) > 0 {
-		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapACBatchValidationIssues(entries, validationIssues)))
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapACBatchValidationIssues(entries, validationIssues, nil)))
 		return
 	}
 
@@ -110,7 +110,10 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 		return
 	}
 	if len(domainIssues) > 0 {
-		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapACBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
+		for _, issue := range domainIssues {
+			logger.Log.Warnf("AC batch validation rejected: guild=%s actor=%s entry=%d error=%v", event.GuildID, event.Member.User.ID, issue.Entry, issue.Err)
+		}
+		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapACBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues), students)))
 		return
 	}
 
@@ -196,7 +199,10 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 		logger.Log.Errorf("Failed to revalidate AC batch %s: %v", batchID, err)
 		response = discord.BuildBatchValidationFailure("Could not validate the AC batch. No changes were applied. Submit the batch again.")
 	} else if len(issues) > 0 {
-		locations := mapACBatchExecutionIssues(batch, issues)
+		for _, issue := range issues {
+			logger.Log.Warnf("AC batch %s confirmation rejected: guild=%s actor=%s entry=%d error=%v", batchID, event.GuildID, event.Member.User.ID, issue.Entry, issue.Err)
+		}
+		locations := mapACBatchExecutionIssues(batch, issues, students)
 		response = discord.BuildBatchValidationFailure(discord.FormatBatchValidationErrors(locations))
 	} else {
 		if err != nil {
@@ -205,7 +211,7 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 		response = discord.BuildACBatchExecutionResult(result, err != nil)
 	}
 	// Log and deliver the result without retrying consumed operations.
-	logger.Log.Infof("AC batch %s outcome: result=%v validationIssues=%d error=%v", batchID, result, len(issues), err)
+	logger.Log.Infof("AC batch %s outcome: guild=%s actor=%s entries=%d result=%v validationIssues=%d error=%v", batchID, event.GuildID, event.Member.User.ID, len(batch), result, len(issues), err)
 	if _, err := ctrl.responder.EditResponse(event.Interaction, response); err != nil {
 		logger.Log.Errorf("Failed to deliver AC batch %s result: %v", batchID, err)
 	}

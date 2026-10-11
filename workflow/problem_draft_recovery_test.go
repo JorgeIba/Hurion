@@ -62,7 +62,7 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 			}
 			env.submitProblemForm(t, "mentor_1", failed)
 			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "URL must be")
-			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "Try /problem add class:basicos_1 again.")
+			assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "Try `/problem add class:basicos_1` again.")
 			assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", "basicos_1"), "explicit class recovers the channel-derived draft without normalizing values")
 
 			// A corrected submission that still fails replaces the original input.
@@ -116,6 +116,8 @@ func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testin
 		{name: "class resolved from the channel", channelClass: "basicos_1", wantClass: "basicos_1"},
 		{name: "explicit class differs from the channel", channelClass: "basicos_1", optionClass: "basicos_2", wantClass: "basicos_2"},
 		{name: "explicit class from an unmapped channel", optionClass: "basicos_2", wantClass: "basicos_2"},
+		{name: "class containing a backtick", optionClass: "bas`icos", wantClass: "bas`icos"},
+		{name: "class containing paired backticks", optionClass: "bas`ic`os", wantClass: "bas`ic`os"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -123,6 +125,9 @@ func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testin
 			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
 			env.seedClass(t, "basicos_1", "Basicos 1")
 			env.seedClass(t, "basicos_2", "Basicos 2")
+			if strings.Contains(test.wantClass, "`") {
+				env.seedClass(t, test.wantClass, "Backtick Class")
+			}
 			if test.channelClass != "" {
 				env.seedClassroom(t, testChannelID, test.channelClass)
 			}
@@ -132,17 +137,25 @@ func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testin
 			env.submitProblemForm(t, "mentor_1", failed)
 
 			content := *env.Responder.edits[len(env.Responder.edits)-1].response.Content
-			_, retryClass, found := strings.Cut(content, ". Try /problem add class:")
+			_, retryClass, found := strings.Cut(content, ". Try ")
 			require.True(t, found, "the retry instruction must identify the class used by the failed form")
 			require.True(t, strings.HasSuffix(retryClass, " again."))
 			retryClass = strings.TrimSuffix(retryClass, " again.")
+			if strings.Contains(test.wantClass, "`") {
+				require.True(t, strings.HasPrefix(retryClass, "\n```\n"))
+				require.True(t, strings.HasSuffix(retryClass, "\n```\n"))
+				retryClass = strings.TrimSuffix(strings.TrimPrefix(retryClass, "\n```\n"), "\n```\n")
+			} else {
+				retryClass = strings.Trim(retryClass, "`")
+			}
+			retryClass = strings.TrimPrefix(retryClass, "/problem add class:")
 			require.Equal(t, test.wantClass, retryClass)
 			recovered := env.openProblemForm(t, "mentor_1", retryClass)
 			assert.Equal(t, failed, recovered, "following the instruction must restore all original form values")
 			recovered.URL = "https://example.com/problem"
 			env.submitProblemForm(t, "mentor_1", recovered)
 
-			for _, classCode := range []string{"basicos_1", "basicos_2"} {
+			for _, classCode := range []string{"basicos_1", "basicos_2", test.wantClass} {
 				class, err := env.DB.GetClassByClassCode(classCode)
 				require.NoError(t, err)
 				problems, err := env.DB.GetProblemsByClass(class.ID)
@@ -206,7 +219,7 @@ func TestWorkflow_UnknownProblemSelectionsAreIgnoredWithoutDiscardingOtherFields
 			} else {
 				assert.Nil(t, problems[0].Priority)
 			}
-			assert.Equal(t, fmt.Sprintf("Problem `%d` was added to class \"basicos_2\".\nName: \"Two Sum\"", problems[0].ID), *env.Responder.edits[0].response.Content)
+			assert.Equal(t, fmt.Sprintf("Problem `%d` was added to class `basicos_2`.\nName: `Two Sum`", problems[0].ID), *env.Responder.edits[0].response.Content)
 		})
 	}
 }
@@ -235,7 +248,7 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 			test.mutate(&failed)
 			env.submitProblemForm(t, "mentor_1", failed)
 			require.Len(t, env.Responder.edits, 1)
-			assert.Equal(t, "Please correct the values: "+test.want+". Try /problem add class:"+classCode+" again.", *env.Responder.edits[0].response.Content)
+			assert.Equal(t, "Please correct the values: "+test.want+". Try `/problem add class:"+classCode+"` again.", *env.Responder.edits[0].response.Content)
 			problems, err := env.DB.GetProblemsByClass(classID)
 			require.NoError(t, err)
 			assert.Empty(t, problems)

@@ -10,21 +10,21 @@ import (
 
 func TestFormatCreateProblemErrorPreservesDetailsWithinLimitAndFallsBackAboveIt(t *testing.T) {
 	t.Parallel()
-	fallback := "Could not add the problem. Please try /problem add again."
+	fallback := "Could not add the problem. Please try `/problem add` again."
 	for _, test := range []struct {
 		name         string
 		content      string
 		want         string
 		recoverDraft bool
 	}{
-		{name: "short error keeps correction details", content: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again.", want: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try /problem add class:basicos_2 again."},
+		{name: "short error keeps correction details", content: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try `/problem add class:basicos_2` again.", want: "Please correct the values: URL must be an absolute HTTP or HTTPS URL. Try `/problem add class:basicos_2` again."},
 		{name: "exactly 2000 ASCII units are preserved", content: strings.Repeat("a", 2000), want: strings.Repeat("a", 2000)},
 		{name: "2001 ASCII units use the selected class in the fallback", content: strings.Repeat("a", 2001), want: fallback},
 		{name: "exactly 2000 UTF-16 units are preserved despite larger UTF-8 length", content: strings.Repeat("🚀", 1000), want: strings.Repeat("🚀", 1000)},
 		{name: "2001 UTF-16 units use the fallback", content: strings.Repeat("🚀", 1000) + "a", want: fallback},
-		{name: "recoverable error gets retry instruction", content: "Invalid URL", recoverDraft: true, want: "Invalid URL. Try /problem add class:basicos_2 again."},
-		{name: "long recoverable error keeps selected class", content: strings.Repeat("a", 2001), recoverDraft: true, want: "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."},
-		{name: "retry instruction counts toward limit", content: strings.Repeat("a", 2000), recoverDraft: true, want: "Could not add the problem. Please check the values and try /problem add class:basicos_2 again."},
+		{name: "recoverable error gets retry instruction", content: "Invalid URL", recoverDraft: true, want: "Invalid URL. Try `/problem add class:basicos_2` again."},
+		{name: "long recoverable error keeps selected class", content: strings.Repeat("a", 2001), recoverDraft: true, want: "Could not add the problem. Please check the values and try `/problem add class:basicos_2` again."},
+		{name: "retry instruction counts toward limit", content: strings.Repeat("a", 2000), recoverDraft: true, want: "Could not add the problem. Please check the values and try `/problem add class:basicos_2` again."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -48,7 +48,7 @@ func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t
 			input: "Two Sum",
 			assertFunc: func(t *testing.T, content string) {
 				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two Sum\"", content)
+				assert.Equal(t, "Problem `42` was added to class `basicos_1`.\nName: `Two Sum`", content)
 			},
 		},
 		{
@@ -56,7 +56,7 @@ func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t
 			input: "Two\nSum",
 			assertFunc: func(t *testing.T, content string) {
 				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \"Two\\nSum\"", content)
+				assert.Equal(t, "Problem `42` was added to class `basicos_1`.\nName: `Two Sum`", content)
 			},
 		},
 		{
@@ -64,7 +64,7 @@ func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t
 			input: strings.Repeat("🚀", 600),
 			assertFunc: func(t *testing.T, content string) {
 				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".\nName: \""+strings.Repeat("🚀", 600)+"\"", content)
+				assert.Equal(t, "Problem `42` was added to class `basicos_1`.\nName: `"+strings.Repeat("🚀", 600)+"`", content)
 			},
 		},
 		{
@@ -72,7 +72,7 @@ func TestFormatCreatedProblemReceiptPreservesIdentityWithinDiscordMessageLimit(t
 			input: strings.Repeat("🚀", 1000),
 			assertFunc: func(t *testing.T, content string) {
 				t.Helper()
-				assert.Equal(t, "Problem `42` was added to class \"basicos_1\".", content)
+				assert.Equal(t, "Problem `42` was added to class `basicos_1`.", content)
 			},
 		},
 	}
@@ -101,8 +101,12 @@ func TestEditProblemErrorPreservesDestinationWhenShortened(t *testing.T) {
 		classCode string
 		want      string
 	}{
-		{"short error", "Invalid URL.", "avanzados", "Invalid URL. Try /problem edit problem:123 class:avanzados again."},
+		{"short error", "Invalid URL.", "avanzados", "Invalid URL. Try `/problem edit problem:123 class:avanzados` again."},
 		{"long error", strings.Repeat("🚀", 2000), "avanzados", "class:avanzados"},
+		{"backtick class", "Invalid URL.", "bas`icos", "Try \n```\n/problem edit problem:123 class:bas`icos\n```\n again."},
+		{"backtick class in fallback", strings.Repeat("a", 2001), "bas`icos", "Try \n```\n/problem edit problem:123 class:bas`icos\n```\n again."},
+		{"paired backticks", "Invalid URL.", "bas`ic`os", "\n```\n/problem edit problem:123 class:bas`ic`os\n```\n"},
+		{"fence inside identifier", "Invalid URL.", "bas```icos", "\n````\n/problem edit problem:123 class:bas```icos\n````\n"},
 		{"class cannot fit", strings.Repeat("🚀", 2000), strings.Repeat("a", 2000), "same destination class code"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -118,7 +122,7 @@ func TestEditProblemErrorWithoutRecoverableDraft(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "Internal error.", discord.FormatEditProblemError("Internal error.", 123, "avanzados", false))
 	content := discord.FormatEditProblemError(strings.Repeat("🚀", 2000), 123, "avanzados", false)
-	assert.Equal(t, "Could not update problem `123`. Please try /problem edit again.", content)
+	assert.Equal(t, "Could not update problem `123`. Please try `/problem edit` again.", content)
 	assert.LessOrEqual(t, countUTF16ForTest(content), 2000)
 }
 

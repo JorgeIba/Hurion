@@ -174,7 +174,7 @@ func TestWorkflow_EditProblemRecoversDraftForSameProblemAndDestination(t *testin
 	response := env.openProblemEditor(t, "mentor", id, "destination")
 	fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: " invalid ", Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Raw topic ")}
 	env.submitProblemEditor(t, "mentor", response, fields)
-	assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "class:destination again")
+	assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "class:destination` again")
 	assert.Equal(t, "Original", editorFields(t, env.openProblemEditor(t, "mentor", id, "")).Name, "another destination has a separate draft")
 	assert.Equal(t, "Original", editorFields(t, env.openProblemEditor(t, "other", id, "destination")).Name, "another actor has a separate draft")
 	env.Responder.respondFunc = func(r *discordgo.InteractionResponse) error {

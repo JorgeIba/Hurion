@@ -2,6 +2,7 @@ package mentor
 
 import (
 	"encoding/json/jsontext"
+	"strings"
 
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -41,25 +42,33 @@ func mapACBatchInputToCreateACParams(entries batchInput[acInput]) []service_mode
 	return params
 }
 
-func mapACBatchValidationIssues(entries batchInput[acInput], issues []batchInputIssue) []discord.JSONInputIssue {
+func mapACBatchValidationIssues(entries batchInput[acInput], issues []batchInputIssue, students map[string]service_model.Principal) []discord.JSONInputIssue {
 	locations := make([]discord.JSONInputIssue, len(issues))
 	for index, issue := range issues {
 		var input acInput
 		if issue.entry > 0 {
 			input = entries[issue.entry-1]
 		}
+
+		userLabel := input.UserID
+		if student, ok := students[service_model.NormalizeACUserID(input.UserID)]; ok {
+			if name := strings.TrimSpace(student.DisplayName); name != "" && name != "Unknown" {
+				userLabel = strings.NewReplacer("`", "'", "\n", " ", "\r", " ").Replace(name)
+			}
+		}
+
 		locations[index] = discord.JSONInputIssue{
 			Entry:   issue.entry,
-			Message: adapters.MapError(issue.err, adapters.ActionMentorAddAC, input.UserID, input.ProblemID),
+			Message: adapters.MapError(issue.err, adapters.ActionMentorAddAC, userLabel, input.ProblemID),
 		}
 	}
 	return locations
 }
 
-func mapACBatchExecutionIssues(batch []service_model.PreparedAC, issues []service_model.BatchEntryError) []discord.JSONInputIssue {
+func mapACBatchExecutionIssues(batch []service_model.PreparedAC, issues []service_model.BatchEntryError, students map[string]service_model.Principal) []discord.JSONInputIssue {
 	entries := make(batchInput[acInput], len(batch))
 	for index, entry := range batch {
 		entries[index] = acInput{UserID: entry.User.UserID, ProblemID: entry.Problem.ID}
 	}
-	return mapACBatchValidationIssues(entries, mapBatchEntryErrors(issues))
+	return mapACBatchValidationIssues(entries, mapBatchEntryErrors(issues), students)
 }

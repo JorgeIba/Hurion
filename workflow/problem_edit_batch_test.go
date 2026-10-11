@@ -67,7 +67,8 @@ func TestWorkflow_EditBatchPreservesIdentitySolutionsAndOmittedFields(t *testing
 			require.Len(t, env.Responder.edits, 2)
 			receipt := env.Responder.edits[1].response
 			assert.Contains(t, *receipt.Content, fmt.Sprintf("Problem updates applied: %d", count))
-			assert.Contains(t, *receipt.Content, fmt.Sprint(id))
+			assert.NotContains(t, *receipt.Content, "Problem IDs")
+			assert.Empty(t, receipt.Files)
 			assert.Empty(t, *receipt.Components)
 			assert.Empty(t, receipt.AllowedMentions.Parse)
 			env.handleInteractionEvent(event)

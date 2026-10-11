@@ -132,18 +132,28 @@ func (db *DB) AddAC(userID string, problemID int64) error {
 
 // AddACBatch ensures users and records ACs atomically. The returned count includes
 // only inserted pairs; existing and repeated pairs leave their timestamps intact.
-func (db *DB) AddACBatch(targets []ACKey) (int, error) {
+func (db *DB) AddACBatch(targets []ACKey, users []User) (int, error) {
 	if len(targets) == 0 {
 		return 0, nil
 	}
 
-	// Bind submitted pairs once for the two bulk statements.
-	pairPlaceholders := strings.TrimSuffix(strings.Repeat("(?, ?),", len(targets)), ",")
-	queryArgs := make([]any, 0, 2*len(targets))
-	for _, target := range targets {
-		queryArgs = append(queryArgs, target.UserID, target.ProblemID)
+	// Carry verified Discord names into the same transaction as the solves.
+	userNames := make(map[string]string, len(users))
+	for _, user := range users {
+		userNames[user.UserID] = strings.TrimSpace(user.DisplayName)
 	}
-	requestedPairs := "WITH requested(user_id, problem_id) AS (VALUES " + pairPlaceholders + ") "
+
+	// Bind submitted pairs and names once for the two bulk statements.
+	pairPlaceholders := strings.TrimSuffix(strings.Repeat("(?, ?, ?),", len(targets)), ",")
+	queryArgs := make([]any, 0, 3*len(targets))
+	for _, target := range targets {
+		name := userNames[target.UserID]
+		if name == "" {
+			name = "Unknown"
+		}
+		queryArgs = append(queryArgs, target.UserID, target.ProblemID, name)
+	}
+	requestedPairs := "WITH requested(user_id, problem_id, display_name) AS (VALUES " + pairPlaceholders + ") "
 
 	// Keep user creation and solve registration in the same transaction.
 	tx, err := db.conn.Begin()
@@ -152,12 +162,13 @@ func (db *DB) AddACBatch(targets []ACKey) (int, error) {
 	}
 	defer tx.Rollback()
 
-	// Register new users without changing existing display names.
+	// Register users and refresh valid Discord names, matching EnsureUser.
 	// WHERE true disambiguates SELECT from the following ON CONFLICT in SQLite.
 	ensureUsers := requestedPairs + `
 		INSERT INTO users (user_id, display_name)
-		SELECT DISTINCT user_id, 'Unknown' FROM requested WHERE true
-		ON CONFLICT(user_id) DO NOTHING
+		SELECT DISTINCT user_id, display_name FROM requested WHERE true
+		ON CONFLICT(user_id) DO UPDATE SET display_name = excluded.display_name
+		WHERE excluded.display_name <> 'Unknown'
 	`
 
 	if _, err := tx.Exec(ensureUsers, queryArgs...); err != nil {
