@@ -117,7 +117,7 @@ export function sortTopicGroupsByStudent(
   problems: Problem[],
   users: UserScore[],
   sortState: SortState,
-  sortBy: ProblemSort = 'id'
+  sortBy: ProblemSort = 'id-highest-first'
 ): Map<string, Problem[]> {
   const rawGroups = groupProblemsByTopic(problems, sortBy);
   if (!sortState.userId || !sortState.direction) {

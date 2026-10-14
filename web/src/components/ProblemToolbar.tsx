@@ -98,7 +98,8 @@ export function ProblemToolbar({
             onOptionsChange({ ...options, sortBy: event.target.value as ProblemSort })
           }
         >
-          <option value="id">ID · Lowest first</option>
+          <option value="id-highest-first">ID · Highest first</option>
+          <option value="id-lowest-first">ID · Lowest first</option>
           <option value="difficulty-easy-first">Difficulty · Easy first</option>
           <option value="difficulty-hard-first">Difficulty · Hard first</option>
           <option value="priority-essential-first">

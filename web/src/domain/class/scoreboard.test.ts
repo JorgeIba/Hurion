@@ -216,7 +216,17 @@ describe('domain/class/scoreboard', () => {
       const nullState: SortState = { userId: null, direction: null };
       const groups = sortTopicGroupsByStudent([...problems].reverse(), users, nullState);
       expect(Array.from(groups.keys())).toEqual(['DP', 'Greedy', 'Math']);
-      expect(groups.get('DP')?.map((p) => p.id)).toEqual([1, 2]);
+      expect(groups.get('DP')?.map((p) => p.id)).toEqual([2, 1]);
+      expect(
+        sortTopicGroupsByStudent(
+          [...problems].reverse(),
+          users,
+          nullState,
+          'id-lowest-first'
+        )
+          .get('DP')
+          ?.map((p) => p.id)
+      ).toEqual([1, 2]);
     });
 
     it('sorts topics and problems in desc mode (top solved first)', () => {

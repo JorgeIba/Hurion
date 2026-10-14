@@ -198,7 +198,7 @@ describe('shared problem controls', () => {
 
   it('shares combined difficulty and priority filters without changing topic order or class totals', async () => {
     await mount('/');
-    expect(control('Order within topics').value).toBe('id');
+    expect(control('Order within topics').value).toBe('id-highest-first');
     await select('Difficulty', 'hard');
     await select('Priority', 'essential');
     // DP stays first even though its first remaining problem has ID 5, after grafos' 3.
@@ -334,13 +334,13 @@ describe('shared problem controls', () => {
       expect(names()).toEqual(['Core']);
       await toggleAllTopics();
       await select('Difficulty', 'all');
-      expect(names()).toEqual(['BFS', 'Flow']);
+      expect(names()).toEqual(['Flow', 'BFS']);
 
       await select('Difficulty', 'medium');
       await toggleAllTopics();
       expect(names()).toEqual(['Core']);
       await select('Difficulty', 'all');
-      expect(names()).toEqual(['Legacy', 'Starter', 'Must', 'Core', 'BFS', 'Flow']);
+      expect(names()).toEqual(['Core', 'Must', 'Starter', 'Legacy', 'Flow', 'BFS']);
     }
   );
 
@@ -383,11 +383,11 @@ describe('shared problem controls', () => {
     ).toBe(true);
     expect(panel().querySelector('.total-ac-count-cell')?.textContent).toBe('1');
     await switchTab('problems');
-    expect(names()).toEqual(['Must', 'Core', 'Flow']);
+    expect(names()).toEqual(['Core', 'Must', 'Flow']);
     await switchTab('standings');
     expect(names()).toEqual(['Flow']);
     await search('');
-    expect(names()).toEqual(['Must', 'Core', 'Flow']);
+    expect(names()).toEqual(['Core', 'Must', 'Flow']);
     expect(control('Priority').value).toBe('essential');
   });
 
@@ -405,6 +405,51 @@ describe('shared problem controls', () => {
     expect(names()).toHaveLength(7);
   });
 
+  it('switches between ID highest first and lowest first across tabs', async () => {
+    await mount('/');
+    expect(control('Order within topics').value).toBe('id-highest-first');
+    expect(names()).toEqual([
+      'Core',
+      'Must',
+      'Starter',
+      'Legacy',
+      'Flow',
+      'BFS',
+      'Unknown',
+    ]);
+    await select('Order within topics', 'id-lowest-first');
+    expect(names()).toEqual([
+      'Legacy',
+      'Starter',
+      'Must',
+      'Core',
+      'BFS',
+      'Flow',
+      'Unknown',
+    ]);
+    await switchTab('problems');
+    expect(control('Order within topics').value).toBe('id-lowest-first');
+    expect(names()).toEqual([
+      'Legacy',
+      'Starter',
+      'Must',
+      'Core',
+      'BFS',
+      'Flow',
+      'Unknown',
+    ]);
+    await select('Order within topics', 'id-highest-first');
+    expect(names()).toEqual([
+      'Core',
+      'Must',
+      'Starter',
+      'Legacy',
+      'Flow',
+      'BFS',
+      'Unknown',
+    ]);
+  });
+
   it('resets shared controls and student sorting when changing class', async () => {
     await mount('/');
     await select('Priority', 'essential');
@@ -415,14 +460,14 @@ describe('shared problem controls', () => {
       await router.navigate('/?class=avanzados');
     });
     expect(control('Priority').value).toBe('all');
-    expect(control('Order within topics').value).toBe('id');
+    expect(control('Order within topics').value).toBe('id-highest-first');
     expect(names()).toEqual([
-      'Legacy',
-      'Starter',
-      'Must',
       'Core',
-      'BFS',
+      'Must',
+      'Starter',
+      'Legacy',
       'Flow',
+      'BFS',
       'Unknown',
     ]);
     expect(panel().querySelector('[aria-sort="descending"]')).toBeNull();

@@ -26,7 +26,10 @@ const SORT_CONFIG = {
   'difficulty-hard-first': { field: 'difficulty', direction: -1 },
   'priority-essential-first': { field: 'priority', direction: 1 },
   'priority-discouraged-first': { field: 'priority', direction: -1 },
-} satisfies Record<Exclude<ProblemSort, 'id'>, SortConfig>;
+} satisfies Record<
+  Exclude<ProblemSort, 'id' | 'id-lowest-first' | 'id-highest-first'>,
+  SortConfig
+>;
 
 const DIFFICULTY_ORDER: Exclude<ProblemDifficulty, 'unspecified'>[] = [
   'easy',
@@ -48,7 +51,8 @@ function getProblemSortRank(problem: Problem, field: SortField): number | null {
 }
 
 export function compareProblems(a: Problem, b: Problem, sortBy: ProblemSort): number {
-  if (sortBy === 'id') return a.id - b.id;
+  if (sortBy === 'id-highest-first') return b.id - a.id;
+  if (sortBy === 'id-lowest-first' || sortBy === 'id') return a.id - b.id;
   const { field, direction } = SORT_CONFIG[sortBy];
   const rankA = getProblemSortRank(a, field);
   const rankB = getProblemSortRank(b, field);
@@ -80,7 +84,7 @@ export function formatTopicTitle(rawTopic?: string): string {
  */
 export function groupProblemsByTopic(
   problems: Problem[] = [],
-  sortBy: ProblemSort = 'id'
+  sortBy: ProblemSort = 'id-highest-first'
 ): Map<string, Problem[]> {
   const groups = new Map<string, Problem[]>();
 
@@ -93,7 +97,7 @@ export function groupProblemsByTopic(
     groups.get(rawTopic)!.push(p);
   });
 
-  if (sortBy !== 'id') {
+  if (sortBy !== 'id-lowest-first' && sortBy !== 'id') {
     for (const entries of groups.values()) {
       entries.sort((a, b) => compareProblems(a, b, sortBy));
     }
