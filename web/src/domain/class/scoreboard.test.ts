@@ -215,8 +215,18 @@ describe('domain/class/scoreboard', () => {
     it('returns default topic order when sortState is null or inactive', () => {
       const nullState: SortState = { userId: null, direction: null };
       const groups = sortTopicGroupsByStudent([...problems].reverse(), users, nullState);
-      expect(Array.from(groups.keys())).toEqual(['DP', 'Greedy', 'Math']);
+      expect(Array.from(groups.keys())).toEqual(['Math', 'Greedy', 'DP']);
       expect(groups.get('DP')?.map((p) => p.id)).toEqual([2, 1]);
+      expect(
+        Array.from(
+          sortTopicGroupsByStudent(
+            [...problems].reverse(),
+            users,
+            nullState,
+            'id-lowest-first'
+          ).keys()
+        )
+      ).toEqual(['DP', 'Greedy', 'Math']);
       expect(
         sortTopicGroupsByStudent(
           [...problems].reverse(),
@@ -251,7 +261,7 @@ describe('domain/class/scoreboard', () => {
         direction: 'desc',
       };
       const groups = sortTopicGroupsByStudent(problems, users, ghostState);
-      expect(Array.from(groups.keys())).toEqual(['DP', 'Greedy', 'Math']);
+      expect(Array.from(groups.keys())).toEqual(['Math', 'Greedy', 'DP']);
     });
   });
 });

@@ -80,27 +80,50 @@ export function formatTopicTitle(rawTopic?: string): string {
 
 /**
  * Groups problems into a Map keyed by topic section name.
- * Orders topics by their lowest problem ID, then sorts problems within each topic.
+ * Orders topics by highest problem ID by default (or lowest problem ID if sortBy is id-lowest-first),
+ * and sorts problems within each topic using compareProblems.
  */
 export function groupProblemsByTopic(
   problems: Problem[] = [],
   sortBy: ProblemSort = 'id-highest-first'
 ): Map<string, Problem[]> {
-  const groups = new Map<string, Problem[]>();
+  const rawMap = new Map<string, Problem[]>();
 
-  const orderedProblems = (problems || []).filter(Boolean).sort((a, b) => a.id - b.id);
-  orderedProblems.forEach((p) => {
+  for (const p of problems || []) {
+    if (!p) continue;
     const rawTopic = formatTopicTitle(p.topic);
-    if (!groups.has(rawTopic)) {
-      groups.set(rawTopic, []);
+    let list = rawMap.get(rawTopic);
+    if (!list) {
+      list = [];
+      rawMap.set(rawTopic, list);
     }
-    groups.get(rawTopic)!.push(p);
+    list.push(p);
+  }
+
+  for (const entries of rawMap.values()) {
+    entries.sort((a, b) => compareProblems(a, b, sortBy));
+  }
+
+  const topicEntries = Array.from(rawMap.entries());
+  const useLowestId = sortBy === 'id-lowest-first' || sortBy === 'id';
+
+  topicEntries.sort(([topicA, probsA], [topicB, probsB]) => {
+    if (useLowestId) {
+      const minA = Math.min(...probsA.map((p) => p.id));
+      const minB = Math.min(...probsB.map((p) => p.id));
+      if (minA !== minB) return minA - minB;
+      return topicA.localeCompare(topicB);
+    }
+
+    const maxA = Math.max(...probsA.map((p) => p.id));
+    const maxB = Math.max(...probsB.map((p) => p.id));
+    if (maxB !== maxA) return maxB - maxA;
+    return topicA.localeCompare(topicB);
   });
 
-  if (sortBy !== 'id-lowest-first' && sortBy !== 'id') {
-    for (const entries of groups.values()) {
-      entries.sort((a, b) => compareProblems(a, b, sortBy));
-    }
+  const groups = new Map<string, Problem[]>();
+  for (const [topic, list] of topicEntries) {
+    groups.set(topic, list);
   }
   return groups;
 }

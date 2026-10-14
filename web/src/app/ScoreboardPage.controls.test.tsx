@@ -187,7 +187,7 @@ describe('shared problem controls', () => {
   it('keeps the chosen priority order when moving between Problems and Standings', async () => {
     await mount();
     await select('Order within topics', 'priority-essential-first');
-    const expected = ['Must', 'Core', 'Starter', 'Legacy', 'Flow', 'BFS', 'Unknown'];
+    const expected = ['Unknown', 'Must', 'Core', 'Starter', 'Legacy', 'Flow', 'BFS'];
     expect(names()).toEqual(expected);
     await switchTab('standings');
     expect(names()).toEqual(expected);
@@ -260,13 +260,13 @@ describe('shared problem controls', () => {
     ]);
     await clickStudent('Jorge');
     expect(names()).toEqual([
+      'Unknown',
       'Must',
       'Core',
       'Starter',
       'Legacy',
       'Flow',
       'BFS',
-      'Unknown',
     ]);
     expect(control('Order within topics').value).toBe('priority-essential-first');
   });
@@ -277,13 +277,13 @@ describe('shared problem controls', () => {
     await switchTab('problems');
     await select('Order within topics', 'difficulty-hard-first');
     expect(names()).toEqual([
+      'Unknown',
       'Legacy',
       'Must',
       'Core',
       'Starter',
       'Flow',
       'BFS',
-      'Unknown',
     ]);
     await switchTab('standings');
     expect(names()).toEqual([
@@ -409,13 +409,13 @@ describe('shared problem controls', () => {
     await mount('/');
     expect(control('Order within topics').value).toBe('id-highest-first');
     expect(names()).toEqual([
+      'Unknown',
       'Core',
       'Must',
       'Starter',
       'Legacy',
       'Flow',
       'BFS',
-      'Unknown',
     ]);
     await select('Order within topics', 'id-lowest-first');
     expect(names()).toEqual([
@@ -440,13 +440,13 @@ describe('shared problem controls', () => {
     ]);
     await select('Order within topics', 'id-highest-first');
     expect(names()).toEqual([
+      'Unknown',
       'Core',
       'Must',
       'Starter',
       'Legacy',
       'Flow',
       'BFS',
-      'Unknown',
     ]);
   });
 
@@ -462,13 +462,13 @@ describe('shared problem controls', () => {
     expect(control('Priority').value).toBe('all');
     expect(control('Order within topics').value).toBe('id-highest-first');
     expect(names()).toEqual([
+      'Unknown',
       'Core',
       'Must',
       'Starter',
       'Legacy',
       'Flow',
       'BFS',
-      'Unknown',
     ]);
     expect(panel().querySelector('[aria-sort="descending"]')).toBeNull();
   });
