@@ -11,10 +11,17 @@ export type ProblemPriority =
   | 'discouraged';
 export type PriorityFilter = 'all' | 'unset' | ProblemPriority;
 export type ProblemSort =
+  | 'id'
   | 'difficulty-easy-first'
   | 'difficulty-hard-first'
   | 'priority-essential-first'
   | 'priority-discouraged-first';
+
+export interface ProblemViewOptions {
+  difficultyFilter: DifficultyFilter;
+  priorityFilter: PriorityFilter;
+  sortBy: ProblemSort;
+}
 export type ActiveTab = (typeof ACTIVE_TABS)[number];
 
 export interface Problem {

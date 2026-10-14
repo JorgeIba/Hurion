@@ -4,7 +4,7 @@ export interface UseTopicCollapseResult {
   collapsedTopics: Set<string>;
   isCollapsed: (topicName: string) => boolean;
   toggleTopic: (topicName: string) => void;
-  expandAll: () => void;
+  expandAll: (allTopics: string[]) => void;
   collapseAll: (allTopics: string[]) => void;
   isAllCollapsed: (allTopics: string[]) => boolean;
 }
@@ -36,12 +36,16 @@ export function useTopicCollapse(
     });
   }, []);
 
-  const expandAll = useCallback(() => {
-    setCollapsedTopics(new Set());
+  const expandAll = useCallback((allTopics: string[]) => {
+    setCollapsedTopics((prev) => {
+      const next = new Set(prev);
+      for (const topic of allTopics) next.delete(topic);
+      return next;
+    });
   }, []);
 
   const collapseAll = useCallback((allTopics: string[]) => {
-    setCollapsedTopics(new Set(allTopics));
+    setCollapsedTopics((prev) => new Set([...prev, ...allTopics]));
   }, []);
 
   const isAllCollapsed = useCallback(

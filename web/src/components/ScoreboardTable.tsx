@@ -4,6 +4,7 @@ import {
   CLASS_LABELS,
   getNextSortState,
   getSolvedCount,
+  filterProblemGroups,
   Problem,
   SortState,
   sortTopicGroupsByStudent,
@@ -15,8 +16,9 @@ import { useTopicCollapse } from '@/hooks/useTopicCollapse';
 import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 import { ScoreboardProblemRow } from '@/components/ScoreboardProblemRow';
 import { ScoreboardStudentHeader } from '@/components/ScoreboardStudentHeader';
+import { ProblemToolbar, type ProblemViewControls } from '@/components/ProblemToolbar';
 
-interface ScoreboardTableProps {
+interface ScoreboardTableProps extends ProblemViewControls {
   priorityPresentation: PriorityPresentationTable;
   problems: Problem[];
   users: UserScore[];
@@ -29,6 +31,8 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
   problems,
   users,
   selection,
+  options,
+  onOptionsChange,
 }: ScoreboardTableProps) {
   const {
     width: problemWidth,
@@ -51,11 +55,12 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
     });
   }, []);
 
-  const { isCollapsed, toggleTopic } = useTopicCollapse();
+  const { isCollapsed, toggleTopic, expandAll, collapseAll, isAllCollapsed } =
+    useTopicCollapse();
 
   const topicGroups = useMemo(() => {
-    return sortTopicGroupsByStudent(problems, users, sortState);
-  }, [problems, users, sortState]);
+    return sortTopicGroupsByStudent(problems, users, sortState, options.sortBy);
+  }, [problems, users, sortState, options.sortBy]);
 
   // Preserve each student's class rank and solve status when selecting columns.
   const columns = useMemo(() => {
@@ -76,15 +81,15 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
 
   // Filter after sorting the full class so search does not redefine topic order.
   const visibleTopicGroups = useMemo(() => {
-    const groups: Array<[string, Problem[]]> = [];
-    for (const [topic, entries] of topicGroups) {
-      const visible = selection
-        ? entries.filter((problem) => selection.problemIds.has(problem.id))
-        : entries;
-      if (visible.length > 0) groups.push([topic, visible]);
-    }
-    return groups;
-  }, [topicGroups, selection]);
+    return Array.from(
+      filterProblemGroups(
+        topicGroups,
+        options.difficultyFilter,
+        options.priorityFilter,
+        selection?.problemIds
+      )
+    );
+  }, [topicGroups, options.difficultyFilter, options.priorityFilter, selection]);
   const visibleProblemCount = visibleTopicGroups.reduce(
     (count, [, entries]) => count + entries.length,
     0
@@ -99,6 +104,8 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
       : undefined;
   const labels = CLASS_LABELS.SCOREBOARD_VIEW;
   const expandTopics = selection !== undefined;
+  const allTopics = visibleTopicGroups.map(([topic]) => topic);
+  const allCollapsed = !expandTopics && isAllCollapsed(allTopics);
   const emptyMessage = getEmptyMessage({
     totalProblems: problems.length,
     totalStudents: users.length,
@@ -147,6 +154,21 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
         ['--col-problem-width' as string]: `${problemWidth}px`,
       }}
     >
+      <ProblemToolbar
+        priorityPresentation={priorityPresentation}
+        options={options}
+        onOptionsChange={onOptionsChange}
+        isAllCollapsed={allCollapsed}
+        onToggleAllTopics={() =>
+          allCollapsed ? expandAll(allTopics) : collapseAll(allTopics)
+        }
+        showingCount={visibleProblemCount}
+        totalCount={problems.length}
+        collapseDisabledReason={
+          expandTopics ? labels.EXPANDED_WHILE_FILTERING : undefined
+        }
+        orderWithinSolveStatus={sortedUser !== undefined}
+      />
       {feedback}
       {emptyMessage ? (
         <div className="state-row" role="status">

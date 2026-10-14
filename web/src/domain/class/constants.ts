@@ -1,6 +1,12 @@
-import type { ActiveTab } from '@/domain/class/types';
+import type { ActiveTab, ProblemViewOptions } from '@/domain/class/types';
 
 export const ACTIVE_TABS = ['standings', 'problems'] as const;
+
+export const DEFAULT_PROBLEM_VIEW_OPTIONS = {
+  difficultyFilter: 'all',
+  priorityFilter: 'all',
+  sortBy: 'id',
+} as const satisfies ProblemViewOptions;
 
 /**
  * Single Source of Truth for Class Configuration & UI Constants.

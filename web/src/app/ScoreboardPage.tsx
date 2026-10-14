@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useScoreboardData } from '@/hooks/useScoreboardData';
 import { useClassCodeParam, useTabParam } from '@/app/routing/useQueryParam';
 import { HeaderBar } from '@/components/HeaderBar';
@@ -6,7 +6,13 @@ import { StandingsRoute } from '@/app/routing/routes';
 import { ProblemsView } from '@/components/ProblemsView';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { BrandLogoLink } from '@/components/BrandLogoLink';
-import { sortUsersBySolved, CLASS_LABELS, CLASS_CONFIG } from '@/domain/class';
+import {
+  sortUsersBySolved,
+  CLASS_LABELS,
+  CLASS_CONFIG,
+  DEFAULT_PROBLEM_VIEW_OPTIONS,
+  type ProblemViewOptions,
+} from '@/domain/class';
 import { resolvePriorityPresentation } from '@/presentation/priority';
 
 /**
@@ -19,9 +25,11 @@ import { resolvePriorityPresentation } from '@/presentation/priority';
  * 4. Sorts students descending by total solved AC count using `sortUsersBySolved`.
  * 5. Renders HeaderBar (with Tab Navigation) and either ScoreboardTable or ProblemsView.
  */
-function ScoreboardContent() {
-  const [classCode] = useClassCodeParam(CLASS_CONFIG.DEFAULT_CLASS_CODE);
+function ScoreboardContent({ classCode }: { classCode: string }) {
   const [activeTab, setActiveTab] = useTabParam(CLASS_CONFIG.DEFAULT_TAB);
+  const [options, setOptions] = useState<ProblemViewOptions>(
+    DEFAULT_PROBLEM_VIEW_OPTIONS
+  );
   const { data, loading, error } = useScoreboardData(classCode);
 
   // Sort students descending by total solved AC count
@@ -82,6 +90,8 @@ function ScoreboardContent() {
             priorityPresentation={priorityPresentation}
             problems={data.problems || []}
             users={sortedUsers}
+            options={options}
+            onOptionsChange={setOptions}
           />
         </div>
         <div className="tabpanel-wrapper" hidden={activeTab !== 'problems'}>
@@ -89,6 +99,8 @@ function ScoreboardContent() {
             priorityPresentation={priorityPresentation}
             problems={data.problems || []}
             users={sortedUsers}
+            options={options}
+            onOptionsChange={setOptions}
           />
         </div>
       </main>
@@ -101,9 +113,10 @@ function ScoreboardContent() {
  * Wraps ScoreboardContent inside AppErrorBoundary to catch uncaught runtime exceptions.
  */
 export function ScoreboardPage() {
+  const [classCode] = useClassCodeParam(CLASS_CONFIG.DEFAULT_CLASS_CODE);
   return (
     <AppErrorBoundary>
-      <ScoreboardContent />
+      <ScoreboardContent key={classCode} classCode={classCode} />
     </AppErrorBoundary>
   );
 }

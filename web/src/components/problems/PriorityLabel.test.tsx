@@ -9,6 +9,7 @@ import { ProblemRow } from './ProblemRow';
 import { PriorityLabel } from './PriorityLabel';
 import { ScoreboardTable } from '../ScoreboardTable';
 import { ProblemsView } from '../ProblemsView';
+import { DEFAULT_PROBLEM_VIEW_OPTIONS } from '@/domain/class/constants';
 
 describe('priority presentation', () => {
   it.each([
@@ -79,6 +80,8 @@ describe('priority presentation', () => {
     );
     const scoreboard = renderToStaticMarkup(
       <ScoreboardTable
+        options={DEFAULT_PROBLEM_VIEW_OPTIONS}
+        onOptionsChange={() => {}}
         priorityPresentation={priorityPresentation}
         problems={[problem]}
         users={[{ userId: 'student', displayName: 'Student', solved: [1] }]}
@@ -133,6 +136,8 @@ describe('priority presentation', () => {
     const catalog = renderToStaticMarkup(
       <MemoryRouter>
         <ProblemsView
+          options={DEFAULT_PROBLEM_VIEW_OPTIONS}
+          onOptionsChange={() => {}}
           priorityPresentation={priorityPresentation}
           problems={problems}
           users={users}
@@ -141,6 +146,8 @@ describe('priority presentation', () => {
     );
     const scoreboard = renderToStaticMarkup(
       <ScoreboardTable
+        options={DEFAULT_PROBLEM_VIEW_OPTIONS}
+        onOptionsChange={() => {}}
         priorityPresentation={priorityPresentation}
         problems={problems}
         users={users}

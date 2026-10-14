@@ -1,6 +1,13 @@
-import { Problem, UserScore, ActiveTab, ProblemSolveStats, SortState } from './types';
+import {
+  Problem,
+  UserScore,
+  ActiveTab,
+  ProblemSolveStats,
+  SortState,
+  ProblemSort,
+} from './types';
 import { ACTIVE_TABS, CLASS_CONFIG } from './constants';
-import { groupProblemsByTopic } from './problems';
+import { compareProblems, groupProblemsByTopic } from './problems';
 
 /**
  * Sanitizes a raw class code string.
@@ -103,14 +110,16 @@ export function getNextSortState(
  *
  * - 'desc': Topics with highest solved count first. Within each topic, solved problems first.
  * - 'asc' (Échale Ganas): Topics with lowest solved count / highest pending first. Within each topic, unsolved problems first.
- * - null: Default curriculum topic grouping and problem ID sequence.
+ * - null: Default curriculum topic grouping and the chosen problem order.
+ * The chosen problem order breaks ties within solved/pending groups in either direction.
  */
 export function sortTopicGroupsByStudent(
   problems: Problem[],
   users: UserScore[],
-  sortState: SortState
+  sortState: SortState,
+  sortBy: ProblemSort = 'id'
 ): Map<string, Problem[]> {
-  const rawGroups = groupProblemsByTopic(problems);
+  const rawGroups = groupProblemsByTopic(problems, sortBy);
   if (!sortState.userId || !sortState.direction) {
     return rawGroups;
   }
@@ -128,7 +137,7 @@ export function sortTopicGroupsByStudent(
         if (aSolved !== bSolved) {
           return isDesc ? (aSolved ? -1 : 1) : !aSolved ? -1 : 1;
         }
-        return a.id - b.id; // Deterministic tie-breaker by problem ID
+        return compareProblems(a, b, sortBy);
       });
 
       const solvedCount = probList.filter((p) => targetSolvedSet.has(p.id)).length;

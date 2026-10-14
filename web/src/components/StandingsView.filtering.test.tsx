@@ -4,7 +4,11 @@ import { MemoryRouter } from 'react-router';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StandingsRoute } from '@/app/routing/routes';
-import { CLASS_CONFIG, CLASS_LABELS } from '@/domain/class/constants';
+import {
+  CLASS_CONFIG,
+  CLASS_LABELS,
+  DEFAULT_PROBLEM_VIEW_OPTIONS,
+} from '@/domain/class/constants';
 import type { Problem, UserScore } from '@/domain/class/types';
 import { priorityPresentationConfig } from '@/presentation/priorityConfig';
 
@@ -27,6 +31,8 @@ function mount(classProblems = problems, classUsers = users, classCode = 'basico
     root.render(
       <MemoryRouter>
         <StandingsRoute
+          options={DEFAULT_PROBLEM_VIEW_OPTIONS}
+          onOptionsChange={() => {}}
           key={classCode}
           priorityPresentation={priorityPresentationConfig.defaults}
           problems={classProblems}

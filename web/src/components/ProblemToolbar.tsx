@@ -3,48 +3,44 @@ import {
   CLASS_LABELS,
   PriorityFilter,
   ProblemSort,
+  ProblemViewOptions,
   PRIORITY_ORDER,
 } from '@/domain/class';
 import { getProblemPriorityLabel } from '@/presentation/priority';
 import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
-export interface ProblemsFilterToolbarProps {
+export interface ProblemViewControls {
+  options: ProblemViewOptions;
+  onOptionsChange: (options: ProblemViewOptions) => void;
+}
+
+interface ProblemToolbarProps extends ProblemViewControls {
   priorityPresentation: PriorityPresentationTable;
-  difficultyFilter: DifficultyFilter;
-  onSelectDifficulty: (filter: DifficultyFilter) => void;
-  priorityFilter: PriorityFilter;
-  onSelectPriority: (filter: PriorityFilter) => void;
-  sortBy: ProblemSort;
-  onSelectSort: (sort: ProblemSort) => void;
-  hasMultipleTopics: boolean;
   isAllCollapsed: boolean;
   onToggleAllTopics: () => void;
   showingCount: number;
   totalCount: number;
+  collapseDisabledReason?: string;
+  orderWithinSolveStatus?: boolean;
 }
 
 /**
- * ProblemsFilterToolbar Component
- *
- * Renders the top filter and action toolbar for the Problems Catalog:
- * - Difficulty and priority filters
- * - Global Expand All / Collapse All topics toggle
- * - Live problem count badge (Showing X of Y)
+ * Shared problem controls for the catalog and standings.
  */
-export function ProblemsFilterToolbar({
+export function ProblemToolbar({
   priorityPresentation,
-  difficultyFilter,
-  onSelectDifficulty,
-  priorityFilter,
-  onSelectPriority,
-  sortBy,
-  onSelectSort,
-  hasMultipleTopics,
+  options,
+  onOptionsChange,
   isAllCollapsed,
   onToggleAllTopics,
   showingCount,
   totalCount,
-}: ProblemsFilterToolbarProps) {
+  collapseDisabledReason,
+  orderWithinSolveStatus = false,
+}: ProblemToolbarProps) {
+  const { difficultyFilter, priorityFilter, sortBy } = options;
+  const toggleDisabledReason =
+    showingCount === 0 ? 'No topics to expand or collapse' : collapseDisabledReason;
   return (
     <div className="problems-toolbar">
       <div className="problem-filter-controls">
@@ -55,7 +51,10 @@ export function ProblemsFilterToolbar({
           <select
             value={difficultyFilter}
             onChange={(event) =>
-              onSelectDifficulty(event.target.value as DifficultyFilter)
+              onOptionsChange({
+                ...options,
+                difficultyFilter: event.target.value as DifficultyFilter,
+              })
             }
           >
             <option value="all">All difficulties</option>
@@ -71,7 +70,12 @@ export function ProblemsFilterToolbar({
           <span className="problem-control-label">Priority</span>
           <select
             value={priorityFilter}
-            onChange={(event) => onSelectPriority(event.target.value as PriorityFilter)}
+            onChange={(event) =>
+              onOptionsChange({
+                ...options,
+                priorityFilter: event.target.value as PriorityFilter,
+              })
+            }
           >
             <option value="all">All priorities</option>
             {PRIORITY_ORDER.map((code) => (
@@ -83,11 +87,18 @@ export function ProblemsFilterToolbar({
         </label>
       </div>
       <label className="problem-select-control problem-order-select">
-        <span className="problem-control-label">Order within topics</span>
+        <span className="problem-control-label">
+          {orderWithinSolveStatus
+            ? 'Order within solved/pending groups'
+            : 'Order within topics'}
+        </span>
         <select
           value={sortBy}
-          onChange={(event) => onSelectSort(event.target.value as ProblemSort)}
+          onChange={(event) =>
+            onOptionsChange({ ...options, sortBy: event.target.value as ProblemSort })
+          }
         >
+          <option value="id">ID · Lowest first</option>
           <option value="difficulty-easy-first">Difficulty · Easy first</option>
           <option value="difficulty-hard-first">Difficulty · Hard first</option>
           <option value="priority-essential-first">
@@ -101,16 +112,18 @@ export function ProblemsFilterToolbar({
 
       {/* Right Actions: Expand/Collapse All + Count Badge */}
       <div className="toolbar-right-actions">
-        {hasMultipleTopics && (
-          <button
-            type="button"
-            className="btn-toggle-all-topics"
-            onClick={onToggleAllTopics}
-            title={isAllCollapsed ? 'Expand all topics' : 'Collapse all topics'}
-          >
-            {isAllCollapsed ? 'Expand All ▾' : 'Collapse All ▴'}
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn-toggle-all-topics"
+          onClick={onToggleAllTopics}
+          disabled={toggleDisabledReason !== undefined}
+          title={
+            toggleDisabledReason ??
+            (isAllCollapsed ? 'Expand all topics' : 'Collapse all topics')
+          }
+        >
+          {isAllCollapsed ? 'Expand All ▾' : 'Collapse All ▴'}
+        </button>
 
         <div
           className="problems-count-badge"
