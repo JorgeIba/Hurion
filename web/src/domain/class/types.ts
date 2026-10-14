@@ -11,6 +11,8 @@ export type ProblemPriority =
   | 'discouraged';
 export type PriorityFilter = 'all' | 'unset' | ProblemPriority;
 export type ProblemSort =
+  | 'id-highest-first'
+  | 'id-lowest-first'
   | 'id'
   | 'difficulty-easy-first'
   | 'difficulty-hard-first'

@@ -246,7 +246,7 @@ describe('search applied to scoreboard rows and columns', () => {
     expect(names()).toEqual(['BFS', 'Mochila', 'Grafo implícito']);
     act(() => button.click());
     expect(header.getAttribute('aria-sort')).toBe('none');
-    expect(names()).toEqual(['Mochila', 'Grafo implícito', 'BFS']);
+    expect(names()).toEqual(['Grafo implícito', 'Mochila', 'BFS']);
   });
 
   it.each([
@@ -278,7 +278,7 @@ describe('search applied to scoreboard rows and columns', () => {
         .querySelector<HTMLButtonElement>('.scoreboard-sort-summary button')!
         .click()
     );
-    expect(names()[0]).toBe('Mochila');
+    expect(names()[0]).toBe('Grafo implícito');
     expect(container.querySelector('.scoreboard-sort-summary')).toBeNull();
   });
 

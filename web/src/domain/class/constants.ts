@@ -5,7 +5,7 @@ export const ACTIVE_TABS = ['standings', 'problems'] as const;
 export const DEFAULT_PROBLEM_VIEW_OPTIONS = {
   difficultyFilter: 'all',
   priorityFilter: 'all',
-  sortBy: 'id',
+  sortBy: 'id-highest-first',
 } as const satisfies ProblemViewOptions;
 
 /**

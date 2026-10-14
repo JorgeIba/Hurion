@@ -12,6 +12,8 @@ import { CLASS_CONFIG, CLASS_LABELS } from './constants';
 
 describe('domain/class/problems', () => {
   it.each([
+    ['id-highest-first', [8, 3, 2, 1]],
+    ['id-lowest-first', [1, 2, 3, 8]],
     ['difficulty-easy-first', [8, 1, 2, 3]],
     ['difficulty-hard-first', [1, 2, 3, 8]],
     ['priority-essential-first', [1, 2, 3, 8]],
@@ -65,7 +67,12 @@ describe('domain/class/problems', () => {
       const ordered = [...groups.get('Z')!].sort((a, b) => compareProblems(a, b, sortBy));
       expect(ordered.map((p) => p.id)).toEqual(expectedIDs);
       expect([...groups.keys()]).toEqual(['Z', 'A']);
-      expect(groups.get('Z')?.map((p) => p.id)).toEqual([1, 2, 3, 8]);
+      expect(groups.get('Z')?.map((p) => p.id)).toEqual([8, 3, 2, 1]);
+      expect(
+        groupProblemsByTopic(problems, 'id-lowest-first')
+          .get('Z')
+          ?.map((p) => p.id)
+      ).toEqual([1, 2, 3, 8]);
       expect(problems.map((p) => p.id)).toEqual([8, 3, 2, 1, 9]);
     }
   );
@@ -131,7 +138,7 @@ describe('domain/class/problems', () => {
   });
 
   describe('groupProblemsByTopic', () => {
-    it('orders topics by their minimum ID and problems by ID without mutating input', () => {
+    it('orders topics by their minimum ID and problems by highest ID by default without mutating input', () => {
       const problems: Problem[] = [
         { id: 8, name: 'P8', topic: 'Z', createdAt: '2025-01-01T00:00:00Z' },
         { id: 2, name: 'P2', topic: 'A', createdAt: '2026-01-01T00:00:00Z' },
@@ -139,7 +146,12 @@ describe('domain/class/problems', () => {
       ];
       const groups = groupProblemsByTopic(problems);
       expect([...groups.keys()]).toEqual(['Z', 'A']);
-      expect(groups.get('Z')?.map((p) => p.id)).toEqual([1, 8]);
+      expect(groups.get('Z')?.map((p) => p.id)).toEqual([8, 1]);
+      expect(
+        groupProblemsByTopic(problems, 'id-lowest-first')
+          .get('Z')
+          ?.map((p) => p.id)
+      ).toEqual([1, 8]);
       expect(problems.map((p) => p.id)).toEqual([8, 2, 1]);
     });
 
@@ -161,7 +173,12 @@ describe('domain/class/problems', () => {
       ];
       const groups = groupProblemsByTopic(problems);
       expect(Array.from(groups.keys())).toEqual(['Algoritmo_de_Eppstein', 'Greedy']);
-      expect(groups.get('Algoritmo_de_Eppstein')?.map((p) => p.id)).toEqual([1, 3]);
+      expect(groups.get('Algoritmo_de_Eppstein')?.map((p) => p.id)).toEqual([3, 1]);
+      expect(
+        groupProblemsByTopic(problems, 'id-lowest-first')
+          .get('Algoritmo_de_Eppstein')
+          ?.map((p) => p.id)
+      ).toEqual([1, 3]);
       expect(groups.get('Greedy')?.map((p) => p.id)).toEqual([2]);
     });
 
@@ -172,7 +189,7 @@ describe('domain/class/problems', () => {
       ];
       const groups = groupProblemsByTopic(problems);
       expect(Array.from(groups.keys())).toEqual(['two_pointers']);
-      expect(groups.get('two_pointers')?.map((p) => p.id)).toEqual([1, 2]);
+      expect(groups.get('two_pointers')?.map((p) => p.id)).toEqual([2, 1]);
     });
 
     it('assigns undefined or blank topic to General', () => {
@@ -183,7 +200,7 @@ describe('domain/class/problems', () => {
       const groups = groupProblemsByTopic(problems);
       expect(Array.from(groups.keys())).toEqual([CLASS_CONFIG.DEFAULT_TOPIC_NAME]);
       expect(groups.get(CLASS_CONFIG.DEFAULT_TOPIC_NAME)?.map((p) => p.id)).toEqual([
-        1, 2,
+        2, 1,
       ]);
     });
 
