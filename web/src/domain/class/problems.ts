@@ -26,7 +26,7 @@ const SORT_CONFIG = {
   'difficulty-hard-first': { field: 'difficulty', direction: -1 },
   'priority-essential-first': { field: 'priority', direction: 1 },
   'priority-discouraged-first': { field: 'priority', direction: -1 },
-} satisfies Record<ProblemSort, SortConfig>;
+} satisfies Record<Exclude<ProblemSort, 'id'>, SortConfig>;
 
 const DIFFICULTY_ORDER: Exclude<ProblemDifficulty, 'unspecified'>[] = [
   'easy',
@@ -48,6 +48,7 @@ function getProblemSortRank(problem: Problem, field: SortField): number | null {
 }
 
 export function compareProblems(a: Problem, b: Problem, sortBy: ProblemSort): number {
+  if (sortBy === 'id') return a.id - b.id;
   const { field, direction } = SORT_CONFIG[sortBy];
   const rankA = getProblemSortRank(a, field);
   const rankB = getProblemSortRank(b, field);
@@ -75,9 +76,12 @@ export function formatTopicTitle(rawTopic?: string): string {
 
 /**
  * Groups problems into a Map keyed by topic section name.
- * Orders topics by their lowest problem ID, and problems by ID within each topic.
+ * Orders topics by their lowest problem ID, then sorts problems within each topic.
  */
-export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Problem[]> {
+export function groupProblemsByTopic(
+  problems: Problem[] = [],
+  sortBy: ProblemSort = 'id'
+): Map<string, Problem[]> {
   const groups = new Map<string, Problem[]>();
 
   const orderedProblems = (problems || []).filter(Boolean).sort((a, b) => a.id - b.id);
@@ -89,6 +93,11 @@ export function groupProblemsByTopic(problems: Problem[] = []): Map<string, Prob
     groups.get(rawTopic)!.push(p);
   });
 
+  if (sortBy !== 'id') {
+    for (const entries of groups.values()) {
+      entries.sort((a, b) => compareProblems(a, b, sortBy));
+    }
+  }
   return groups;
 }
 
@@ -182,4 +191,22 @@ export function filterProblems(
 
     return nameMatch || idMatch || topicMatch;
   });
+}
+
+/** Selects visible rows without redefining the full class's topic or problem order. */
+export function filterProblemGroups(
+  groups: ReadonlyMap<string, Problem[]>,
+  difficultyFilter: DifficultyFilter,
+  priorityFilter: PriorityFilter,
+  problemIds?: ReadonlySet<number>
+): Map<string, Problem[]> {
+  const visibleGroups = new Map<string, Problem[]>();
+  for (const [topic, entries] of groups) {
+    const filtered = filterProblems(entries, '', difficultyFilter, priorityFilter);
+    const visible = problemIds
+      ? filtered.filter((problem) => problemIds.has(problem.id))
+      : filtered;
+    if (visible.length > 0) visibleGroups.set(topic, visible);
+  }
+  return visibleGroups;
 }

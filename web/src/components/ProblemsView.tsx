@@ -1,24 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   Problem,
   UserScore,
-  DifficultyFilter,
-  PriorityFilter,
-  ProblemSort,
-  compareProblems,
   ProblemSolveStats,
   computeAllProblemSolveStats,
-  filterProblems,
+  filterProblemGroups,
   groupProblemsByTopic,
   CLASS_LABELS,
 } from '@/domain/class';
-import { ProblemsFilterToolbar } from '@/components/problems/ProblemsFilterToolbar';
+import { ProblemToolbar, type ProblemViewControls } from '@/components/ProblemToolbar';
 import { ProblemTopicSection } from '@/components/problems/ProblemTopicSection';
 
 import { useTopicCollapse } from '@/hooks/useTopicCollapse';
 import type { PriorityPresentationTable } from '@/presentation/priorityConfig';
 
-export interface ProblemsViewProps {
+export interface ProblemsViewProps extends ProblemViewControls {
   priorityPresentation: PriorityPresentationTable;
   problems: Problem[];
   users: UserScore[];
@@ -33,31 +29,18 @@ export function ProblemsView({
   priorityPresentation,
   problems,
   users,
+  options,
+  onOptionsChange,
 }: ProblemsViewProps) {
-  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
-  const [sortBy, setSortBy] = useState<ProblemSort>('difficulty-easy-first');
+  const { difficultyFilter, priorityFilter, sortBy } = options;
 
   // Establish topic order before filtering out each topic's earliest problems.
   const topicGroups = useMemo(() => {
-    const groups = groupProblemsByTopic(problems);
-    for (const [topic, entries] of groups) {
-      const visibleProblems = filterProblems(
-        entries,
-        '',
-        difficultyFilter,
-        priorityFilter
-      );
-      if (visibleProblems.length === 0) {
-        groups.delete(topic);
-        continue;
-      }
-      groups.set(
-        topic,
-        visibleProblems.sort((a, b) => compareProblems(a, b, sortBy))
-      );
-    }
-    return groups;
+    return filterProblemGroups(
+      groupProblemsByTopic(problems, sortBy),
+      difficultyFilter,
+      priorityFilter
+    );
   }, [problems, difficultyFilter, priorityFilter, sortBy]);
 
   const showingCount = Array.from(topicGroups.values()).reduce(
@@ -94,14 +77,10 @@ export function ProblemsView({
       aria-labelledby="tab-problems"
     >
       {/* 1. Filter and Action Toolbar */}
-      <ProblemsFilterToolbar
+      <ProblemToolbar
         priorityPresentation={priorityPresentation}
-        difficultyFilter={difficultyFilter}
-        onSelectDifficulty={setDifficultyFilter}
-        priorityFilter={priorityFilter}
-        onSelectPriority={setPriorityFilter}
-        sortBy={sortBy}
-        onSelectSort={setSortBy}
+        options={options}
+        onOptionsChange={onOptionsChange}
         hasMultipleTopics={allTopics.length > 1}
         isAllCollapsed={allCollapsed}
         onToggleAllTopics={handleToggleAll}
@@ -122,8 +101,11 @@ export function ProblemsView({
               type="button"
               className="btn-reset-filters"
               onClick={() => {
-                setDifficultyFilter('all');
-                setPriorityFilter('all');
+                onOptionsChange({
+                  ...options,
+                  difficultyFilter: 'all',
+                  priorityFilter: 'all',
+                });
               }}
             >
               {CLASS_LABELS.PROBLEMS_VIEW.CLEAR_SEARCH}

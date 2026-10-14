@@ -951,6 +951,11 @@ body {
   border-color: rgba(255, 255, 255, 0.16);
 }
 
+.btn-toggle-all-topics:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 /* Problems Scroll Area */
 .problems-scroll-area {
   flex: 1;
@@ -1255,9 +1260,9 @@ body {
   }
 
   .problem-filter-controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.85rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
   }
 
   .toolbar-right-actions {
@@ -1268,6 +1273,10 @@ body {
 
   .problem-select-control select {
     flex: 1;
+    min-height: 44px;
+  }
+
+  .btn-toggle-all-topics {
     min-height: 44px;
   }
 

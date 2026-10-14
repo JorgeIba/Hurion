@@ -14,6 +14,7 @@ import {
 import { StandingsRoute } from '@/app/routing/routes';
 import * as search from '@/hooks/useScoreboardSearch';
 import { priorityPresentationConfig } from '@/presentation/priorityConfig';
+import { DEFAULT_PROBLEM_VIEW_OPTIONS } from '@/domain/class/constants';
 
 vi.mock('@/components/ScoreboardTable', () => ({
   ScoreboardTable: () => <div>Scoreboard</div>,
@@ -62,6 +63,8 @@ beforeEach(() => {
     root.render(
       <MemoryRouter>
         <StandingsRoute
+          options={DEFAULT_PROBLEM_VIEW_OPTIONS}
+          onOptionsChange={() => {}}
           priorityPresentation={priorityPresentationConfig.defaults}
           problems={[]}
           users={[]}
