@@ -319,6 +319,32 @@ describe('shared problem controls', () => {
   });
 
   it.each(['standings', 'problems'] as const)(
+    'preserves hidden topic collapse state when bulk actions target filtered topics in %s',
+    async (tab) => {
+      await mount(`/?tab=${tab}`);
+      const mathTopic = Array.from(
+        panel().querySelectorAll<HTMLButtonElement>(
+          '.topic-header-btn, .problem-topic-header-btn'
+        )
+      ).find((button) => button.textContent?.includes('math'))!;
+      await act(async () => mathTopic.click());
+      expect(names()).not.toContain('Unknown');
+
+      await select('Difficulty', 'medium');
+      expect(names()).toEqual(['Core']);
+      await toggleAllTopics();
+      await select('Difficulty', 'all');
+      expect(names()).toEqual(['BFS', 'Flow']);
+
+      await select('Difficulty', 'medium');
+      await toggleAllTopics();
+      expect(names()).toEqual(['Core']);
+      await select('Difficulty', 'all');
+      expect(names()).toEqual(['Legacy', 'Starter', 'Must', 'Core', 'BFS', 'Flow']);
+    }
+  );
+
+  it.each(['standings', 'problems'] as const)(
     'keeps the expand/collapse control visible for one or zero filtered topics in %s',
     async (tab) => {
       await mount(`/?tab=${tab}`);

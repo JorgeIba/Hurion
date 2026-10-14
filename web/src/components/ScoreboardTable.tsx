@@ -159,7 +159,9 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
         options={options}
         onOptionsChange={onOptionsChange}
         isAllCollapsed={allCollapsed}
-        onToggleAllTopics={() => (allCollapsed ? expandAll() : collapseAll(allTopics))}
+        onToggleAllTopics={() =>
+          allCollapsed ? expandAll(allTopics) : collapseAll(allTopics)
+        }
         showingCount={visibleProblemCount}
         totalCount={problems.length}
         collapseDisabledReason={

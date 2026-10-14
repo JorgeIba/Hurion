@@ -63,7 +63,7 @@ export function ProblemsView({
 
   const handleToggleAll = () => {
     if (allCollapsed) {
-      expandAll();
+      expandAll(allTopics);
     } else {
       collapseAll(allTopics);
     }
