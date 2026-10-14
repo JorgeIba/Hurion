@@ -124,9 +124,11 @@ describe('scoreboard URL navigation', () => {
     const title = container.querySelector<HTMLAnchorElement>('.problem-list-title-link')!;
     expect(title.href).toBe('https://example.com/bfs');
     expect(title.target).toBe('_blank');
-    const progress = container.querySelector<HTMLAnchorElement>(
-      '.problem-list-solves-link'
-    )!;
+    const progress =
+      title
+        .closest('.problem-list-row')
+        ?.querySelector<HTMLAnchorElement>('.problem-list-solves-link') ??
+      container.querySelector<HTMLAnchorElement>('.problem-list-solves-link')!;
     const destination = new URL(progress.href);
     expect(destination.searchParams.get('tab')).toBe('standings');
     expect(destination.searchParams.get('q')).toBe('solved:12');
@@ -162,9 +164,12 @@ describe('scoreboard URL navigation', () => {
 
   it('opens an empty result when no students have solved the problem', async () => {
     mount(['/?class=no-solves&tab=problems']);
-    const progress = container.querySelector<HTMLAnchorElement>(
-      '.problem-list-solves-link'
-    )!;
+    const title = container.querySelector<HTMLAnchorElement>('.problem-list-title-link')!;
+    const progress =
+      title
+        .closest('.problem-list-row')
+        ?.querySelector<HTMLAnchorElement>('.problem-list-solves-link') ??
+      container.querySelector<HTMLAnchorElement>('.problem-list-solves-link')!;
     expect(progress.querySelector('[role="meter"]')?.getAttribute('aria-valuenow')).toBe(
       '0'
     );

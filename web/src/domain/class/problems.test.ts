@@ -66,13 +66,17 @@ describe('domain/class/problems', () => {
       const groups = groupProblemsByTopic(problems);
       const ordered = [...groups.get('Z')!].sort((a, b) => compareProblems(a, b, sortBy));
       expect(ordered.map((p) => p.id)).toEqual(expectedIDs);
-      expect([...groups.keys()]).toEqual(['Z', 'A']);
-      expect(groups.get('Z')?.map((p) => p.id)).toEqual([8, 3, 2, 1]);
+      expect([...groups.keys()]).toEqual(['A', 'Z']);
       expect(
         groupProblemsByTopic(problems, 'id-lowest-first')
           .get('Z')
           ?.map((p) => p.id)
       ).toEqual([1, 2, 3, 8]);
+      expect([...groupProblemsByTopic(problems, 'id-lowest-first').keys()]).toEqual([
+        'Z',
+        'A',
+      ]);
+      expect(groups.get('Z')?.map((p) => p.id)).toEqual([8, 3, 2, 1]);
       expect(problems.map((p) => p.id)).toEqual([8, 3, 2, 1, 9]);
     }
   );
