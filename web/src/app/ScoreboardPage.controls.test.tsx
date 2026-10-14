@@ -318,6 +318,35 @@ describe('shared problem controls', () => {
     expect(names()).toHaveLength(7);
   });
 
+  it.each(['standings', 'problems'] as const)(
+    'keeps the expand/collapse control visible for one or zero filtered topics in %s',
+    async (tab) => {
+      await mount(`/?tab=${tab}`);
+      await select('Difficulty', 'medium');
+      expect(names()).toEqual(['Core']);
+      expect(
+        panel().querySelector<HTMLButtonElement>('.btn-toggle-all-topics')?.disabled
+      ).toBe(false);
+      await toggleAllTopics();
+      expect(names()).toEqual([]);
+      await toggleAllTopics();
+      expect(names()).toEqual(['Core']);
+
+      await select('Priority', 'discouraged');
+      expect(names()).toEqual([]);
+      const button = panel().querySelector<HTMLButtonElement>('.btn-toggle-all-topics');
+      expect(button).not.toBeNull();
+      expect(button?.disabled).toBe(true);
+      expect(button?.title).toBe('No topics to expand or collapse');
+
+      await select('Priority', 'all');
+      expect(names()).toEqual(['Core']);
+      expect(
+        panel().querySelector<HTMLButtonElement>('.btn-toggle-all-topics')?.disabled
+      ).toBe(false);
+    }
+  );
+
   it('intersects shared filters with standings search without filtering Problems or redefining student rank', async () => {
     await mount('/');
     await select('Priority', 'essential');

@@ -16,7 +16,6 @@ export interface ProblemViewControls {
 
 interface ProblemToolbarProps extends ProblemViewControls {
   priorityPresentation: PriorityPresentationTable;
-  hasMultipleTopics: boolean;
   isAllCollapsed: boolean;
   onToggleAllTopics: () => void;
   showingCount: number;
@@ -32,7 +31,6 @@ export function ProblemToolbar({
   priorityPresentation,
   options,
   onOptionsChange,
-  hasMultipleTopics,
   isAllCollapsed,
   onToggleAllTopics,
   showingCount,
@@ -41,6 +39,8 @@ export function ProblemToolbar({
   orderWithinSolveStatus = false,
 }: ProblemToolbarProps) {
   const { difficultyFilter, priorityFilter, sortBy } = options;
+  const toggleDisabledReason =
+    showingCount === 0 ? 'No topics to expand or collapse' : collapseDisabledReason;
   return (
     <div className="problems-toolbar">
       <div className="problem-filter-controls">
@@ -112,20 +112,18 @@ export function ProblemToolbar({
 
       {/* Right Actions: Expand/Collapse All + Count Badge */}
       <div className="toolbar-right-actions">
-        {hasMultipleTopics && (
-          <button
-            type="button"
-            className="btn-toggle-all-topics"
-            onClick={onToggleAllTopics}
-            disabled={collapseDisabledReason !== undefined}
-            title={
-              collapseDisabledReason ??
-              (isAllCollapsed ? 'Expand all topics' : 'Collapse all topics')
-            }
-          >
-            {isAllCollapsed ? 'Expand All ▾' : 'Collapse All ▴'}
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn-toggle-all-topics"
+          onClick={onToggleAllTopics}
+          disabled={toggleDisabledReason !== undefined}
+          title={
+            toggleDisabledReason ??
+            (isAllCollapsed ? 'Expand all topics' : 'Collapse all topics')
+          }
+        >
+          {isAllCollapsed ? 'Expand All ▾' : 'Collapse All ▴'}
+        </button>
 
         <div
           className="problems-count-badge"

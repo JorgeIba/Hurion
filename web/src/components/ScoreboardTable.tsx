@@ -158,7 +158,6 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
         priorityPresentation={priorityPresentation}
         options={options}
         onOptionsChange={onOptionsChange}
-        hasMultipleTopics={allTopics.length > 1}
         isAllCollapsed={allCollapsed}
         onToggleAllTopics={() => (allCollapsed ? expandAll() : collapseAll(allTopics))}
         showingCount={visibleProblemCount}

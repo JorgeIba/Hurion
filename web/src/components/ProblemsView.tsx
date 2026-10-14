@@ -81,7 +81,6 @@ export function ProblemsView({
         priorityPresentation={priorityPresentation}
         options={options}
         onOptionsChange={onOptionsChange}
-        hasMultipleTopics={allTopics.length > 1}
         isAllCollapsed={allCollapsed}
         onToggleAllTopics={handleToggleAll}
         showingCount={showingCount}
