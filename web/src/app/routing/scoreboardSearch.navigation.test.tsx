@@ -72,16 +72,15 @@ function mount(entries = ['/?class=basicos']) {
 }
 
 function input() {
-  const element = container.querySelector<HTMLInputElement>('.scoreboard-search input')!;
-  if (element.hidden)
-    act(() =>
-      container.querySelector<HTMLButtonElement>('.scoreboard-search-trigger')!.click()
-    );
-  return element;
+  return container.querySelector<HTMLInputElement>('.scoreboard-search input')!;
 }
 
 function type(value: string) {
   const element = input();
+  if (element.hidden)
+    act(() =>
+      container.querySelector<HTMLButtonElement>('.scoreboard-search-trigger')!.click()
+    );
   act(() => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
       element,

@@ -184,6 +184,70 @@ afterEach(() => {
 });
 
 describe('shared problem controls', () => {
+  it('toggles the search with the magnifier without clearing the applied query', async () => {
+    await mount('/');
+    const trigger = panel().querySelector<HTMLButtonElement>(
+      '.scoreboard-search-trigger'
+    )!;
+    const input = panel().querySelector<HTMLInputElement>('input[type="search"]')!;
+
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(false);
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+
+    await search('@luis');
+    await act(async () => trigger.click());
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(true);
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger.textContent).toContain('@luis');
+    expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+    expect(new URLSearchParams(router.state.location.search).get('q')).toBe('@luis');
+
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(false);
+    expect(input.value).toBe('@luis');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('edits and clears a compact search in the standings toolbar without losing filters', async () => {
+    await mount('/');
+    const searchRegion = panel().querySelector('[role="search"]');
+    expect(searchRegion).not.toBeNull();
+    const trigger = searchRegion!.querySelector<HTMLButtonElement>(
+      'button[aria-controls]'
+    )!;
+    const input = searchRegion!.querySelector<HTMLInputElement>('input')!;
+    expect(input.hidden).toBe(true);
+
+    await select('Priority', 'essential');
+    await search('@luis');
+    expect(input.hidden).toBe(true);
+    expect(trigger.textContent).toContain('@luis');
+    expect(document.activeElement).toBe(trigger);
+    expect(names()).toEqual(['Core', 'Must', 'Flow']);
+    expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+
+    await act(async () => trigger.click());
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('@luis');
+    await act(async () => control('Difficulty').focus());
+    expect(input.hidden).toBe(true);
+    expect(document.activeElement).toBe(control('Difficulty'));
+
+    await act(async () =>
+      searchRegion!
+        .querySelector<HTMLButtonElement>('[aria-label="Clear search"]')!
+        .click()
+    );
+    expect(input.hidden).toBe(false);
+    expect(document.activeElement).toBe(input);
+    expect(panel().querySelectorAll('.student-name-text')).toHaveLength(2);
+    expect(control('Priority').value).toBe('essential');
+  });
+
   it('keeps the chosen priority order when moving between Problems and Standings', async () => {
     await mount();
     await select('Order within topics', 'priority-essential-first');

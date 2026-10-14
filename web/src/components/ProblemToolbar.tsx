@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   DifficultyFilter,
   CLASS_LABELS,
@@ -15,6 +16,7 @@ export interface ProblemViewControls {
 }
 
 interface ProblemToolbarProps extends ProblemViewControls {
+  search?: ReactNode;
   priorityPresentation: PriorityPresentationTable;
   isAllCollapsed: boolean;
   onToggleAllTopics: () => void;
@@ -28,6 +30,7 @@ interface ProblemToolbarProps extends ProblemViewControls {
  * Shared problem controls for the catalog and standings.
  */
 export function ProblemToolbar({
+  search,
   priorityPresentation,
   options,
   onOptionsChange,
@@ -43,6 +46,7 @@ export function ProblemToolbar({
     showingCount === 0 ? 'No topics to expand or collapse' : collapseDisabledReason;
   return (
     <div className="problems-toolbar">
+      {search}
       <div className="problem-filter-controls">
         <label
           className={`problem-select-control problem-filter-select ${difficultyFilter !== 'all' ? 'is-active' : ''}`}

@@ -19,6 +19,7 @@ import { ScoreboardStudentHeader } from '@/components/ScoreboardStudentHeader';
 import { ProblemToolbar, type ProblemViewControls } from '@/components/ProblemToolbar';
 
 interface ScoreboardTableProps extends ProblemViewControls {
+  search?: React.ReactNode;
   priorityPresentation: PriorityPresentationTable;
   problems: Problem[];
   users: UserScore[];
@@ -27,6 +28,7 @@ interface ScoreboardTableProps extends ProblemViewControls {
 
 /** Coordinates table selection, sorting, topic collapse and column sizing. */
 export const ScoreboardTable = React.memo(function ScoreboardTable({
+  search,
   priorityPresentation,
   problems,
   users,
@@ -155,6 +157,7 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
       }}
     >
       <ProblemToolbar
+        search={search}
         priorityPresentation={priorityPresentation}
         options={options}
         onOptionsChange={onOptionsChange}

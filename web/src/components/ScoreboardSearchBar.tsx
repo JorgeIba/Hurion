@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { CLASS_LABELS } from '@/domain/class/constants';
 import type { SearchIssue } from '@/domain/class/parser';
 
@@ -18,10 +18,17 @@ export function ScoreboardSearchBar({
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const queryMeasureRef = useRef<HTMLSpanElement>(null);
   const helpRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const expanded = isOpen || query.length > 0;
+  const [queryWidth, setQueryWidth] = useState(0);
+  // Measure only the resting query; typing keeps a stable editor width.
+  useLayoutEffect(() => {
+    if (!isOpen && query) {
+      setQueryWidth(queryMeasureRef.current?.getBoundingClientRect().width ?? 0);
+    }
+  }, [isOpen, query]);
   useEffect(() => {
     if (isOpen) inputRef.current?.focus({ preventScroll: true });
   }, [isOpen]);
@@ -42,32 +49,51 @@ export function ScoreboardSearchBar({
   ] as const;
   const clear = () => {
     onQueryChange('');
+    setIsOpen(true);
     inputRef.current?.focus({ preventScroll: true });
+  };
+  const close = () => {
+    setIsOpen(false);
+    setShowHelp(false);
   };
 
   return (
     <div
       className="scoreboard-search"
+      data-editing={isOpen}
+      data-has-query={query.length > 0}
       role="search"
       aria-label={labels.LABEL}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
-          setIsOpen(false);
+          close();
         }
       }}
     >
       <div className="scoreboard-search-actions">
-        <div className="scoreboard-search-controls" data-expanded={expanded}>
+        <div
+          className="scoreboard-search-controls"
+          data-expanded={isOpen}
+          style={
+            !isOpen && query
+              ? { width: `min(${queryWidth + 96}px, var(--search-chip-max-width))` }
+              : undefined
+          }
+        >
           <button
             ref={triggerRef}
             type="button"
             className="scoreboard-search-trigger"
-            aria-label={labels.LABEL}
-            aria-expanded={expanded}
+            aria-label={!isOpen && query ? `${labels.LABEL}: ${query}` : labels.LABEL}
+            aria-expanded={isOpen}
             aria-controls={id}
             onClick={() => {
-              setIsOpen(true);
-              inputRef.current?.focus({ preventScroll: true });
+              if (isOpen) {
+                close();
+                triggerRef.current?.focus({ preventScroll: true });
+              } else {
+                setIsOpen(true);
+              }
             }}
           >
             <svg
@@ -80,7 +106,7 @@ export function ScoreboardSearchBar({
               <circle cx="10.5" cy="10.5" r="6.5" />
               <path d="m16 16 4 4" />
             </svg>
-            {labels.TRIGGER}
+            {!isOpen && query && <span className="scoreboard-search-query">{query}</span>}
           </button>
           <label htmlFor={id} className="scoreboard-search-accessible-text">
             {labels.LABEL}
@@ -90,8 +116,8 @@ export function ScoreboardSearchBar({
             id={id}
             type="search"
             value={query}
-            hidden={!expanded}
-            tabIndex={expanded ? 0 : -1}
+            hidden={!isOpen}
+            tabIndex={isOpen ? 0 : -1}
             onFocus={() => setIsOpen(true)}
             onChange={(event) =>
               onQueryChange(
@@ -104,13 +130,15 @@ export function ScoreboardSearchBar({
               if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 onQuerySubmit();
+                close();
+                triggerRef.current?.focus({ preventScroll: true });
               }
               if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 if (query.length > 0) {
                   clear();
                 } else {
-                  setIsOpen(false);
+                  close();
                   triggerRef.current?.focus();
                 }
               }
@@ -144,6 +172,7 @@ export function ScoreboardSearchBar({
         <div
           ref={helpRef}
           className="scoreboard-search-help-anchor"
+          hidden={!isOpen}
           onMouseEnter={() => setShowHelp(true)}
           onMouseLeave={(event) => {
             if (!event.currentTarget.contains(document.activeElement)) setShowHelp(false);
@@ -197,6 +226,13 @@ export function ScoreboardSearchBar({
           })}
         </div>
       </div>
+      <span
+        ref={queryMeasureRef}
+        className="scoreboard-search-measure"
+        aria-hidden="true"
+      >
+        {query}
+      </span>
     </div>
   );
 }
