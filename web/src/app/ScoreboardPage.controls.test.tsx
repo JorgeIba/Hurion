@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScoreboardPage } from './ScoreboardPage';
 import { apiClient } from '@/domain/class/api';
 import type { ClassData } from '@/domain/class/types';
+import * as problemRows from '@/components/ScoreboardProblemRow';
 
 const classData: ClassData = {
   classCode: 'basicos',
@@ -184,6 +185,43 @@ afterEach(() => {
 });
 
 describe('shared problem controls', () => {
+  it('keeps matrix rows untouched while drafting and updates them on search submit', async () => {
+    vi.useFakeTimers();
+    const renders = vi.spyOn(problemRows, 'ScoreboardProblemRow');
+    try {
+      await mount('/');
+      const trigger = panel().querySelector<HTMLButtonElement>(
+        '.scoreboard-search-trigger'
+      )!;
+      await act(async () => trigger.click());
+      const input = panel().querySelector<HTMLInputElement>('input[type="search"]')!;
+      renders.mockClear();
+      for (const value of ['@', '@l', '@luis']) {
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+            input,
+            value
+          );
+          input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        });
+      }
+      expect(input.value).toBe('@luis');
+      expect(panel().querySelectorAll('.student-name-text')).toHaveLength(2);
+      expect(renders).not.toHaveBeenCalled();
+      await act(async () => {
+        input.dispatchEvent(
+          new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' })
+        );
+      });
+      expect(renders).toHaveBeenCalled();
+      expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+      expect(panel().querySelector('.student-name-text')?.textContent).toBe('Luis');
+    } finally {
+      renders.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it('resizes a saved query when standings becomes visible', async () => {
     let notifyResize = () => {};
     const disconnect = vi.fn();

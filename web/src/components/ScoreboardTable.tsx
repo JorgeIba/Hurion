@@ -146,34 +146,10 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
     </>
   );
 
-  return (
-    <section
-      className="card-container"
-      role="tabpanel"
-      id="tabpanel-standings"
-      aria-labelledby="tab-standings"
-      style={{
-        ['--col-problem-width' as string]: `${problemWidth}px`,
-      }}
-    >
-      <ProblemToolbar
-        search={search}
-        priorityPresentation={priorityPresentation}
-        options={options}
-        onOptionsChange={onOptionsChange}
-        isAllCollapsed={allCollapsed}
-        onToggleAllTopics={() =>
-          allCollapsed ? expandAll(allTopics) : collapseAll(allTopics)
-        }
-        showingCount={visibleProblemCount}
-        totalCount={problems.length}
-        collapseDisabledReason={
-          expandTopics ? labels.EXPANDED_WHILE_FILTERING : undefined
-        }
-        orderWithinSolveStatus={sortedUser !== undefined}
-      />
-      {feedback}
-      {emptyMessage ? (
+  // Draft search text changes the toolbar, not the matrix's data or interactions.
+  const matrix = useMemo(
+    () =>
+      emptyMessage ? (
         <div className="state-row" role="status">
           <p>{emptyMessage}</p>
         </div>
@@ -278,7 +254,57 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
             </tbody>
           </table>
         </div>
-      )}
+      ),
+    [
+      emptyMessage,
+      visibleColumns,
+      visibleTopicGroups,
+      problems.length,
+      sortState,
+      handleStudentClick,
+      priorityPresentation,
+      expandTopics,
+      isCollapsed,
+      toggleTopic,
+      totalCols,
+      problemWidth,
+      isResizing,
+      handlePointerDown,
+      handlePointerMove,
+      handlePointerUp,
+      handleDoubleClick,
+      handleKeyDown,
+    ]
+  );
+
+  return (
+    <section
+      className="card-container"
+      role="tabpanel"
+      id="tabpanel-standings"
+      aria-labelledby="tab-standings"
+      style={{
+        ['--col-problem-width' as string]: `${problemWidth}px`,
+      }}
+    >
+      <ProblemToolbar
+        search={search}
+        priorityPresentation={priorityPresentation}
+        options={options}
+        onOptionsChange={onOptionsChange}
+        isAllCollapsed={allCollapsed}
+        onToggleAllTopics={() =>
+          allCollapsed ? expandAll(allTopics) : collapseAll(allTopics)
+        }
+        showingCount={visibleProblemCount}
+        totalCount={problems.length}
+        collapseDisabledReason={
+          expandTopics ? labels.EXPANDED_WHILE_FILTERING : undefined
+        }
+        orderWithinSolveStatus={sortedUser !== undefined}
+      />
+      {feedback}
+      {matrix}
     </section>
   );
 });
