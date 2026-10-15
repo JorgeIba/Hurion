@@ -16,16 +16,17 @@ import * as search from '@/hooks/useScoreboardSearch';
 import { priorityPresentationConfig } from '@/presentation/priorityConfig';
 import { DEFAULT_PROBLEM_VIEW_OPTIONS } from '@/domain/class/constants';
 
-vi.mock('@/components/ScoreboardTable', () => ({
-  ScoreboardTable: () => <div>Scoreboard</div>,
-}));
-
 let container: HTMLDivElement;
 let root: Root;
 let input: HTMLInputElement;
 let resolve: MockInstance<typeof search.useScoreboardSearch>;
 
 function type(value: string, isComposing = false) {
+  if (input.hidden) {
+    act(() =>
+      container.querySelector<HTMLButtonElement>('.scoreboard-search-trigger')!.click()
+    );
+  }
   act(() => {
     // Use the native setter so React observes an actual input event.
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(

@@ -32,13 +32,15 @@ export function StandingsView({
 
   return (
     <div className="standings-view">
-      <ScoreboardSearchBar
-        query={query}
-        onQueryChange={changeQuery}
-        onQuerySubmit={submitQuery}
-        issues={query === appliedQuery ? issues : []}
-      />
       <ScoreboardTable
+        search={
+          <ScoreboardSearchBar
+            query={query}
+            onQueryChange={changeQuery}
+            onQuerySubmit={submitQuery}
+            issues={query === appliedQuery ? issues : []}
+          />
+        }
         priorityPresentation={priorityPresentation}
         problems={problems}
         users={users}

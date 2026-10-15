@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScoreboardPage } from './ScoreboardPage';
 import { apiClient } from '@/domain/class/api';
 import type { ClassData } from '@/domain/class/types';
+import * as problemRows from '@/components/ScoreboardProblemRow';
 
 const classData: ClassData = {
   classCode: 'basicos',
@@ -184,6 +185,143 @@ afterEach(() => {
 });
 
 describe('shared problem controls', () => {
+  it('keeps matrix rows untouched while drafting and updates them on search submit', async () => {
+    vi.useFakeTimers();
+    const renders = vi.spyOn(problemRows, 'ScoreboardProblemRow');
+    try {
+      await mount('/');
+      const trigger = panel().querySelector<HTMLButtonElement>(
+        '.scoreboard-search-trigger'
+      )!;
+      await act(async () => trigger.click());
+      const input = panel().querySelector<HTMLInputElement>('input[type="search"]')!;
+      renders.mockClear();
+      for (const value of ['@', '@l', '@luis']) {
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+            input,
+            value
+          );
+          input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        });
+      }
+      expect(input.value).toBe('@luis');
+      expect(panel().querySelectorAll('.student-name-text')).toHaveLength(2);
+      expect(renders).not.toHaveBeenCalled();
+      await act(async () => {
+        input.dispatchEvent(
+          new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' })
+        );
+      });
+      expect(renders).toHaveBeenCalled();
+      expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+      expect(panel().querySelector('.student-name-text')?.textContent).toBe('Luis');
+    } finally {
+      renders.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('resizes a saved query when standings becomes visible', async () => {
+    let notifyResize = () => {};
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          notifyResize = callback;
+        }
+        observe() {}
+        disconnect = disconnect;
+      }
+    );
+    // jsdom has no layout: model the browser reporting zero under a hidden panel.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      return DOMRect.fromRect({ width: this.closest('[hidden]') ? 0 : 120 });
+    });
+    try {
+      await mount('/?tab=problems&q=%40luis');
+      await switchTab('standings');
+      await act(async () => notifyResize());
+      const chip = panel().querySelector<HTMLElement>('.scoreboard-search-controls')!;
+      expect(chip.style.width).toContain('216px');
+      expect(panel().querySelector('.scoreboard-search-trigger')?.textContent).toContain(
+        '@luis'
+      );
+      expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+      await act(async () => root.render(null));
+      expect(disconnect).toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('toggles the search with the magnifier without clearing the applied query', async () => {
+    await mount('/');
+    const trigger = panel().querySelector<HTMLButtonElement>(
+      '.scoreboard-search-trigger'
+    )!;
+    const input = panel().querySelector<HTMLInputElement>('input[type="search"]')!;
+
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(false);
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+
+    await search('@luis');
+    await act(async () => trigger.click());
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(true);
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger.textContent).toContain('@luis');
+    expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+    expect(new URLSearchParams(router.state.location.search).get('q')).toBe('@luis');
+
+    await act(async () => trigger.click());
+    expect(input.hidden).toBe(false);
+    expect(input.value).toBe('@luis');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('edits and clears a compact search in the standings toolbar without losing filters', async () => {
+    await mount('/');
+    const searchRegion = panel().querySelector('[role="search"]');
+    expect(searchRegion).not.toBeNull();
+    const trigger = searchRegion!.querySelector<HTMLButtonElement>(
+      'button[aria-controls]'
+    )!;
+    const input = searchRegion!.querySelector<HTMLInputElement>('input')!;
+    expect(input.hidden).toBe(true);
+
+    await select('Priority', 'essential');
+    await search('@luis');
+    expect(input.hidden).toBe(true);
+    expect(trigger.textContent).toContain('@luis');
+    expect(document.activeElement).toBe(trigger);
+    expect(names()).toEqual(['Core', 'Must', 'Flow']);
+    expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+
+    await act(async () => trigger.click());
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('@luis');
+    await act(async () => control('Difficulty').focus());
+    expect(input.hidden).toBe(true);
+    expect(document.activeElement).toBe(control('Difficulty'));
+
+    await act(async () =>
+      searchRegion!
+        .querySelector<HTMLButtonElement>('[aria-label="Clear search"]')!
+        .click()
+    );
+    expect(input.hidden).toBe(false);
+    expect(document.activeElement).toBe(input);
+    expect(panel().querySelectorAll('.student-name-text')).toHaveLength(2);
+    expect(control('Priority').value).toBe('essential');
+  });
+
   it('keeps the chosen priority order when moving between Problems and Standings', async () => {
     await mount();
     await select('Order within topics', 'priority-essential-first');

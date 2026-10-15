@@ -880,13 +880,14 @@ body {
 }
 
 .problem-select-control select:focus-visible {
-  outline: 2px solid var(--accent-cyan);
-  outline-offset: 3px;
+  border-color: var(--text-secondary);
+  outline: 1px solid var(--text-secondary);
+  outline-offset: -1px;
 }
 
 .problem-select-control.is-active select {
-  border-color: var(--accent-cyan);
-  color: var(--accent-cyan);
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .problem-select-control select {
@@ -954,6 +955,11 @@ body {
 .btn-toggle-all-topics:disabled {
   cursor: default;
   opacity: 0.5;
+}
+
+.problems-toolbar .btn-toggle-all-topics:focus-visible {
+  outline: 1px solid var(--text-secondary);
+  outline-offset: -1px;
 }
 
 /* Problems Scroll Area */
@@ -1347,28 +1353,31 @@ body {
   min-width: 0;
 }
 .scoreboard-search {
+  --search-max-width: min(22.5rem, calc(100vw - 6.5rem));
+  --search-chip-max-width: min(17rem, var(--search-max-width));
   position: relative;
   z-index: 26;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  align-self: flex-end;
   min-width: 0;
-  padding: 1rem 1.25rem;
-  background: #0d1527;
-  border-bottom: var(--border-hairline);
+  max-width: 100%;
   color: var(--text-secondary);
   font-size: 0.875rem;
 }
 .scoreboard-search-controls {
   display: flex;
-  flex-shrink: 0;
   align-items: center;
-  width: 7rem;
-  max-width: 100%;
-  height: 40px;
+  flex-shrink: 1;
+  width: 44px;
+  max-width: var(--search-max-width);
+  height: 44px;
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
+  border-radius: 22px;
   background: var(--bg-base);
   overflow: clip;
-  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    width 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 150ms ease-out;
 }
 .scoreboard-search-actions {
   display: flex;
@@ -1376,11 +1385,12 @@ body {
   gap: 0.5rem;
 }
 .scoreboard-search .scoreboard-search-help-trigger {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
 }
 .scoreboard-search-controls[data-expanded="true"] {
-  width: 22.5rem;
+  width: var(--search-max-width);
+  border-radius: 6px;
 }
 .scoreboard-search-controls:focus-within {
   border-color: var(--text-secondary);
@@ -1404,12 +1414,39 @@ body {
   background: var(--bg-row-hover);
 }
 .scoreboard-search button:focus-visible {
-  outline: 2px solid var(--text-secondary);
-  outline-offset: -3px;
+  outline: 1px solid var(--text-secondary);
+  outline-offset: -1px;
+}
+.scoreboard-search-controls button:focus-visible {
+  background: var(--bg-row-hover);
+  color: var(--text-primary);
 }
 .scoreboard-search-trigger {
-  width: calc(7rem - 2px);
+  width: 42px;
   gap: 0.5rem;
+}
+.scoreboard-search[data-has-query="true"][data-editing="false"]
+  .scoreboard-search-trigger {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+}
+.scoreboard-search-trigger svg {
+  flex-shrink: 0;
+}
+.scoreboard-search-query {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scoreboard-search-measure {
+  position: absolute;
+  width: max-content;
+  max-width: calc(var(--search-chip-max-width) - 96px);
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre;
 }
 .scoreboard-search svg {
   stroke: currentColor;
@@ -1447,7 +1484,7 @@ body {
   color: var(--text-secondary);
 }
 .scoreboard-search-clear {
-  width: 40px;
+  width: 44px;
 }
 .scoreboard-search-accessible-text {
   position: absolute;
@@ -1464,6 +1501,8 @@ body {
   top: 100%;
   left: 0;
   width: min(22.5rem, calc(100vw - 3rem));
+  max-height: min(16rem, 40vh);
+  overflow: auto;
   margin: 0;
   padding: 0.75rem;
   border: var(--border-hairline);
@@ -1478,47 +1517,37 @@ body {
   flex-shrink: 0;
 }
 .scoreboard-search-issues {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  width: min(28rem, calc(100vw - 3rem));
+  max-height: 8rem;
+  padding: 0.75rem;
+  border: var(--border-hairline);
+  border-radius: 6px;
+  background: var(--bg-surface);
   color: var(--accent-gold);
-  flex: 1;
-  min-width: 0;
-  height: 3em;
   line-height: 1.5;
   overflow: auto;
   overflow-wrap: anywhere;
+}
+.scoreboard-search-issues:empty {
+  display: none;
 }
 .scoreboard-search-issues p {
   margin: 0;
 }
 @media (max-width: 768px) {
-  .scoreboard-search-actions {
-    flex-wrap: wrap;
-  }
-  .scoreboard-search-issues {
-    flex-basis: 100%;
-  }
   .scoreboard-search {
-    padding: 0.875rem 0.75rem;
-  }
-  .scoreboard-search-controls {
-    height: 44px;
-  }
-  .scoreboard-search-controls[data-expanded="true"] {
-    width: calc(100% - 3.25rem);
+    align-self: flex-start;
   }
   .scoreboard-search input {
     font-size: 1rem;
   }
-  .scoreboard-search-clear {
-    width: 44px;
-  }
-  .scoreboard-search .scoreboard-search-help-trigger {
-    width: 44px;
-    height: 44px;
-  }
   .scoreboard-search-help {
-    left: 0.75rem;
-    right: 0.75rem;
-    width: auto;
+    left: 0;
+    right: auto;
+    width: min(22.5rem, calc(100vw - 3rem));
   }
   .scoreboard-search-help-anchor {
     position: static;
