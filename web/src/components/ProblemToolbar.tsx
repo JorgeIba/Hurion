@@ -86,11 +86,13 @@ export function ProblemToolbar({
             {CLASS_LABELS.PROBLEMS_VIEW.STATS_OF} {totalCount}{' '}
             {CLASS_LABELS.PROBLEMS_VIEW.STATS_PROBLEMS}
           </span>
-          <span
-            className="toolbar-compact-label"
-            aria-label={`${showingCount} of ${totalCount} problems`}
-          >
-            {showingCount}/{totalCount}
+          <span className="toolbar-compact-label">
+            <span aria-hidden="true">
+              {showingCount}/{totalCount}
+            </span>
+            <span className="visually-hidden">
+              {showingCount} of {totalCount} problems
+            </span>
           </span>
         </div>
       </div>
@@ -150,16 +152,16 @@ function ProblemControls({
         ref={controlsButtonRef}
         className="problem-controls-trigger"
         type="button"
+        aria-label={
+          activeCount > 0 ? `Controls, ${activeCount} active settings` : undefined
+        }
         aria-expanded={controlsOpen}
         aria-controls={controlsId}
         onClick={() => setControlsOpen((open) => !open)}
       >
         Controls
         {activeCount > 0 && (
-          <span
-            className="problem-controls-count"
-            aria-label={`${activeCount} active settings`}
-          >
+          <span className="problem-controls-count" aria-hidden="true">
             {activeCount}
           </span>
         )}

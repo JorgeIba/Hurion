@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { CLASS_CONFIG } from '@/domain/class';
 
 interface ColumnResizeOptions {
@@ -12,12 +12,12 @@ interface ColumnResizeOptions {
  * Allows mobile screens (<= 768px) to start with a compact layout while
  * preserving user drag interactivity.
  */
-function getResponsiveDefaults(): {
+function getResponsiveDefaults(isMobile: boolean): {
   defaultWidth: number;
   minWidth: number;
   maxWidth: number;
 } {
-  if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+  if (isMobile) {
     return {
       defaultWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_DEFAULT_WIDTH,
       minWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_MIN_WIDTH,
@@ -42,12 +42,24 @@ export function useColumnResize({
   minWidth,
   maxWidth,
 }: ColumnResizeOptions = {}) {
-  const responsiveDefaults = getResponsiveDefaults();
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const responsiveDefaults = getResponsiveDefaults(isMobile);
   const resolvedDefaultWidth = defaultWidth ?? responsiveDefaults.defaultWidth;
   const resolvedMinWidth = minWidth ?? responsiveDefaults.minWidth;
   const resolvedMaxWidth = maxWidth ?? responsiveDefaults.maxWidth;
 
-  const [width, setWidth] = useState<number>(resolvedDefaultWidth);
+  const [storedWidth, setWidth] = useState<number>(resolvedDefaultWidth);
+  const width = Math.max(resolvedMinWidth, Math.min(resolvedMaxWidth, storedWidth));
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const resizeStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -120,10 +132,10 @@ export function useColumnResize({
       const STEP = 15;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setWidth((w) => Math.max(resolvedMinWidth, w - STEP));
+        setWidth(Math.max(resolvedMinWidth, width - STEP));
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
         e.preventDefault();
-        setWidth((w) => Math.min(resolvedMaxWidth, w + STEP));
+        setWidth(Math.min(resolvedMaxWidth, width + STEP));
       } else if (e.key === 'Home') {
         e.preventDefault();
         setWidth(resolvedMinWidth);
@@ -135,7 +147,7 @@ export function useColumnResize({
         setWidth(resolvedDefaultWidth);
       }
     },
-    [resolvedMinWidth, resolvedMaxWidth, resolvedDefaultWidth]
+    [resolvedMinWidth, resolvedMaxWidth, resolvedDefaultWidth, width]
   );
 
   return {

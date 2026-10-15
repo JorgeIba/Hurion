@@ -1701,6 +1701,7 @@ body {
 .scoreboard-search-clear {
   width: 44px;
 }
+.visually-hidden,
 .scoreboard-search-accessible-text {
   position: absolute;
   width: 1px;
