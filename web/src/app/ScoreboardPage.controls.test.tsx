@@ -184,6 +184,42 @@ afterEach(() => {
 });
 
 describe('shared problem controls', () => {
+  it('resizes a saved query when standings becomes visible', async () => {
+    let notifyResize = () => {};
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          notifyResize = callback;
+        }
+        observe() {}
+        disconnect = disconnect;
+      }
+    );
+    // jsdom has no layout: model the browser reporting zero under a hidden panel.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      return DOMRect.fromRect({ width: this.closest('[hidden]') ? 0 : 120 });
+    });
+    try {
+      await mount('/?tab=problems&q=%40luis');
+      await switchTab('standings');
+      await act(async () => notifyResize());
+      const chip = panel().querySelector<HTMLElement>('.scoreboard-search-controls')!;
+      expect(chip.style.width).toContain('216px');
+      expect(panel().querySelector('.scoreboard-search-trigger')?.textContent).toContain(
+        '@luis'
+      );
+      expect(panel().querySelectorAll('.student-name-text')).toHaveLength(1);
+      await act(async () => root.render(null));
+      expect(disconnect).toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it('toggles the search with the magnifier without clearing the applied query', async () => {
     await mount('/');
     const trigger = panel().querySelector<HTMLButtonElement>(

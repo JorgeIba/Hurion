@@ -25,9 +25,15 @@ export function ScoreboardSearchBar({
   const [queryWidth, setQueryWidth] = useState(0);
   // Measure only the resting query; typing keeps a stable editor width.
   useLayoutEffect(() => {
-    if (!isOpen && query) {
-      setQueryWidth(queryMeasureRef.current?.getBoundingClientRect().width ?? 0);
-    }
+    const measure = queryMeasureRef.current;
+    if (isOpen || !query || !measure) return;
+    const updateWidth = () => setQueryWidth(measure.getBoundingClientRect().width);
+    updateWidth();
+    // A mounted, hidden tab has no layout until its panel is revealed.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(measure);
+    return () => observer.disconnect();
   }, [isOpen, query]);
   useEffect(() => {
     if (isOpen) inputRef.current?.focus({ preventScroll: true });
