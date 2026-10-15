@@ -1,4 +1,11 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { CLASS_LABELS } from '@/domain/class/constants';
 import type { SearchIssue } from '@/domain/class/parser';
 
@@ -68,6 +75,13 @@ export function ScoreboardSearchBar({
       className="scoreboard-search"
       data-editing={isOpen}
       data-has-query={query.length > 0}
+      style={
+        {
+          '--search-resting-width': query
+            ? `min(${queryWidth + 96}px, var(--search-chip-max-width))`
+            : '44px',
+        } as CSSProperties
+      }
       role="search"
       aria-label={labels.LABEL}
       onBlur={(event) => {
@@ -179,7 +193,7 @@ export function ScoreboardSearchBar({
           ref={helpRef}
           className="scoreboard-search-help-anchor"
           hidden={!isOpen}
-          onMouseEnter={() => setShowHelp(true)}
+          onMouseMove={() => setShowHelp(true)}
           onMouseLeave={(event) => {
             if (!event.currentTarget.contains(document.activeElement)) setShowHelp(false);
           }}

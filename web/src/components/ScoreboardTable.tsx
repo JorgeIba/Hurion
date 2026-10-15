@@ -39,6 +39,8 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
   const {
     width: problemWidth,
     isResizing,
+    minWidth: problemMinWidth,
+    maxWidth: problemMaxWidth,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
@@ -164,9 +166,7 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
               {visibleColumns.map(({ user }) => (
                 <col
                   key={`col-student-${user.userId}`}
-                  style={{
-                    width: `${CLASS_CONFIG.DIMENSIONS.STUDENT_COL_WIDTH_PX}px`,
-                  }}
+                  style={{ width: 'var(--col-student-width)' }}
                 />
               ))}
             </colgroup>
@@ -180,8 +180,8 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
                     tabIndex={0}
                     aria-orientation="vertical"
                     aria-valuenow={problemWidth}
-                    aria-valuemin={CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH}
-                    aria-valuemax={CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH}
+                    aria-valuemin={problemMinWidth}
+                    aria-valuemax={problemMaxWidth}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
@@ -268,6 +268,8 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
       toggleTopic,
       totalCols,
       problemWidth,
+      problemMinWidth,
+      problemMaxWidth,
       isResizing,
       handlePointerDown,
       handlePointerMove,
@@ -285,6 +287,10 @@ export const ScoreboardTable = React.memo(function ScoreboardTable({
       aria-labelledby="tab-standings"
       style={{
         ['--col-problem-width' as string]: `${problemWidth}px`,
+        ['--col-problem-mobile-width' as string]: `${problemWidth}px`,
+        ['--col-student-width' as string]: `${CLASS_CONFIG.DIMENSIONS.STUDENT_COL_WIDTH_PX}px`,
+        ['--col-student-min-width' as string]: `${CLASS_CONFIG.DIMENSIONS.STUDENT_COL_MIN_WIDTH_PX}px`,
+        ['--col-student-mobile-width' as string]: `${CLASS_CONFIG.DIMENSIONS.STUDENT_COL_MOBILE_WIDTH_PX}px`,
       }}
     >
       <ProblemToolbar

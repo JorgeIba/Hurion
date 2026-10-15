@@ -29,7 +29,8 @@ export function ScoreboardStudentHeader({
     crownEmoji = CLASS_LABELS.MEDALS.BRONZE;
   }
 
-  const isMastered = totalProblems > 0 && getSolvedCount(user) >= totalProblems;
+  const solvedCount = getSolvedCount(user);
+  const isMastered = totalProblems > 0 && solvedCount >= totalProblems;
 
   const name = user.displayName || user.userId;
   const sortPresentation = {
@@ -70,6 +71,9 @@ export function ScoreboardStudentHeader({
       >
         {crownEmoji && <span className="student-crown">{crownEmoji}</span>}
         <span className="student-name-text">{name}</span>
+        <span className="student-header-score">
+          {solvedCount}/{totalProblems} AC
+        </span>
         {isMastered && (
           <span className="mastered-badge">{CLASS_LABELS.MASTERY_BADGE}</span>
         )}

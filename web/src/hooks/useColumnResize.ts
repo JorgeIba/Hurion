@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { CLASS_CONFIG } from '@/domain/class';
 
 interface ColumnResizeOptions {
@@ -8,20 +8,26 @@ interface ColumnResizeOptions {
 }
 
 /**
- * Resolves default and minimum column widths based on current viewport size.
- * Allows mobile screens (<= 640px) to start with a compact layout while
+ * Resolves column width bounds based on the scoreboard's responsive breakpoint.
+ * Allows mobile screens (<= 768px) to start with a compact layout while
  * preserving user drag interactivity.
  */
-function getResponsiveDefaults(): { defaultWidth: number; minWidth: number } {
-  if (typeof window !== 'undefined' && window.innerWidth <= 640) {
+function getResponsiveDefaults(isMobile: boolean): {
+  defaultWidth: number;
+  minWidth: number;
+  maxWidth: number;
+} {
+  if (isMobile) {
     return {
       defaultWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_DEFAULT_WIDTH,
       minWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_MIN_WIDTH,
+      maxWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MOBILE_MAX_WIDTH,
     };
   }
   return {
     defaultWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_DEFAULT_WIDTH,
     minWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MIN_WIDTH,
+    maxWidth: CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH,
   };
 }
 
@@ -34,13 +40,26 @@ function getResponsiveDefaults(): { defaultWidth: number; minWidth: number } {
 export function useColumnResize({
   defaultWidth,
   minWidth,
-  maxWidth = CLASS_CONFIG.DIMENSIONS.PROBLEM_COL_MAX_WIDTH,
+  maxWidth,
 }: ColumnResizeOptions = {}) {
-  const responsiveDefaults = getResponsiveDefaults();
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const responsiveDefaults = getResponsiveDefaults(isMobile);
   const resolvedDefaultWidth = defaultWidth ?? responsiveDefaults.defaultWidth;
   const resolvedMinWidth = minWidth ?? responsiveDefaults.minWidth;
+  const resolvedMaxWidth = maxWidth ?? responsiveDefaults.maxWidth;
 
-  const [width, setWidth] = useState<number>(resolvedDefaultWidth);
+  const [storedWidth, setWidth] = useState<number>(resolvedDefaultWidth);
+  const width = Math.max(resolvedMinWidth, Math.min(resolvedMaxWidth, storedWidth));
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const resizeStartRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -64,7 +83,7 @@ export function useColumnResize({
       const delta = e.clientX - resizeStartRef.current.startX;
       const newWidth = Math.max(
         resolvedMinWidth,
-        Math.min(maxWidth, resizeStartRef.current.startWidth + delta)
+        Math.min(resolvedMaxWidth, resizeStartRef.current.startWidth + delta)
       );
 
       // Throttle state update with requestAnimationFrame for smooth 60fps
@@ -75,7 +94,7 @@ export function useColumnResize({
         setWidth(newWidth);
       });
     },
-    [isResizing, resolvedMinWidth, maxWidth]
+    [isResizing, resolvedMinWidth, resolvedMaxWidth]
   );
 
   const handlePointerUp = useCallback(
@@ -94,14 +113,14 @@ export function useColumnResize({
         const delta = e.clientX - resizeStartRef.current.startX;
         const finalWidth = Math.max(
           resolvedMinWidth,
-          Math.min(maxWidth, resizeStartRef.current.startWidth + delta)
+          Math.min(resolvedMaxWidth, resizeStartRef.current.startWidth + delta)
         );
         setWidth(finalWidth);
       }
       setIsResizing(false);
       resizeStartRef.current = null;
     },
-    [isResizing, resolvedMinWidth, maxWidth]
+    [isResizing, resolvedMinWidth, resolvedMaxWidth]
   );
 
   const handleDoubleClick = useCallback(() => {
@@ -113,27 +132,29 @@ export function useColumnResize({
       const STEP = 15;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setWidth((w) => Math.max(resolvedMinWidth, w - STEP));
+        setWidth(Math.max(resolvedMinWidth, width - STEP));
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
         e.preventDefault();
-        setWidth((w) => Math.min(maxWidth, w + STEP));
+        setWidth(Math.min(resolvedMaxWidth, width + STEP));
       } else if (e.key === 'Home') {
         e.preventDefault();
         setWidth(resolvedMinWidth);
       } else if (e.key === 'End') {
         e.preventDefault();
-        setWidth(maxWidth);
+        setWidth(resolvedMaxWidth);
       } else if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         setWidth(resolvedDefaultWidth);
       }
     },
-    [resolvedMinWidth, maxWidth, resolvedDefaultWidth]
+    [resolvedMinWidth, resolvedMaxWidth, resolvedDefaultWidth, width]
   );
 
   return {
     width,
     isResizing,
+    minWidth: resolvedMinWidth,
+    maxWidth: resolvedMaxWidth,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,

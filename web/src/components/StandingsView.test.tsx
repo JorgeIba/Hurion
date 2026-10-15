@@ -198,11 +198,13 @@ describe('scoreboard search interaction', () => {
     expect(help.hidden).toBe(true);
   });
 
-  it('keeps the tooltip open when moving the pointer from its trigger to its text', () => {
+  it('ignores passive hover but opens help on pointer movement and keeps it open over its text', () => {
     const anchor = container.querySelector('.scoreboard-search-help-anchor')!;
     const help = container.querySelector<HTMLParagraphElement>('[role="tooltip"]')!;
     const button = anchor.querySelector('button')!;
     act(() => button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })));
+    expect(help.hidden).toBe(true);
+    act(() => button.dispatchEvent(new MouseEvent('mousemove', { bubbles: true })));
     expect(help.hidden).toBe(false);
     act(() =>
       button.dispatchEvent(
