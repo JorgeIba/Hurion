@@ -68,10 +68,19 @@ export function ScoreboardProblemRow({
       {columns.map(({ user, solved }) => {
         const isSolved = solved.has(problem.id);
         return (
-          <td key={`status-${problem.id}-${user.userId}`} className="status-cell">
+          <td
+            key={`status-${problem.id}-${user.userId}`}
+            className="status-cell"
+            aria-label={isSolved ? 'Solved' : 'Not solved'}
+          >
             {isSolved && (
-              <span className="status-ac-pill" aria-label="Solved" title="Solved">
+              <span className="status-ac-pill" title="Solved">
                 ✓
+              </span>
+            )}
+            {!isSolved && (
+              <span className="status-not-solved" aria-hidden="true">
+                —
               </span>
             )}
           </td>

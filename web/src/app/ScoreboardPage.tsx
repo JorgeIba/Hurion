@@ -75,7 +75,7 @@ function ScoreboardContent({ classCode }: { classCode: string }) {
   const priorityPresentation = resolvePriorityPresentation(data.classCode);
 
   return (
-    <div className="app-container">
+    <div className="app-container" data-active-tab={activeTab}>
       <HeaderBar
         title={data.className || data.classCode}
         users={sortedUsers}

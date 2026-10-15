@@ -50,6 +50,6 @@ web/DESIGN.md
 web/*.pid
 
 # Web Node modules and Vite build output
-web/node_modules/
+web/node_modules
 web/dist/
 *.tsbuildinfo

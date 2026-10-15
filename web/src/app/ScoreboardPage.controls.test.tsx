@@ -222,6 +222,51 @@ describe('shared problem controls', () => {
     }
   });
 
+  it('keeps controls open between selectors and preserves filters after outside dismissal', async () => {
+    await mount('/?tab=standings');
+    const trigger = panel().querySelector<HTMLButtonElement>(
+      '.problem-controls-trigger'
+    )!;
+    await act(async () => trigger.click());
+    await act(async () => control('Difficulty').focus());
+    await select('Difficulty', 'hard');
+    await act(async () => control('Priority').focus());
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(names()).toContain('Must');
+    expect(names()).not.toContain('Starter');
+    await act(async () => {
+      container
+        .querySelector('h1')!
+        .dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    await act(async () => trigger.click());
+    expect(control('Difficulty').value).toBe('hard');
+  });
+
+  it('dismisses controls on Escape and when focus leaves the group', async () => {
+    await mount('/?tab=standings');
+    const trigger = panel().querySelector<HTMLButtonElement>(
+      '.problem-controls-trigger'
+    )!;
+    await act(async () => trigger.click());
+    await act(async () => {
+      const difficulty = control('Difficulty');
+      difficulty.focus();
+      difficulty.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+      );
+    });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+    await act(async () => trigger.click());
+    await act(async () => control('Priority').focus());
+    await act(async () =>
+      panel().querySelector<HTMLButtonElement>('.btn-toggle-all-topics')!.focus()
+    );
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('resizes a saved query when standings becomes visible', async () => {
     let notifyResize = () => {};
     const disconnect = vi.fn();
