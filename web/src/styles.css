@@ -1764,9 +1764,6 @@ body {
     right: auto;
     width: min(22.5rem, calc(100vw - 3rem));
   }
-  .scoreboard-search-help-anchor {
-    position: static;
-  }
 }
 
 @media (max-width: 768px) {
@@ -1931,6 +1928,9 @@ body {
     z-index: 36;
     width: var(--search-resting-width);
     height: 44px;
+  }
+  .problems-toolbar .scoreboard-search-help-anchor {
+    position: static;
   }
   .problems-toolbar .scoreboard-search-actions {
     position: absolute;
