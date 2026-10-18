@@ -4,12 +4,19 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	logger.Init()
+	os.Exit(m.Run())
+}
 
 func TestACProposalImageEnforcesTwentyMiBLimit(t *testing.T) {
 	const limit = 20 * 1024 * 1024
