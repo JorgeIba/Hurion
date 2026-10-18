@@ -39,7 +39,7 @@ func HandleProposeAC(c *context.ContextMessage) {
 		Roles: member.Roles,
 	}
 
-	if err = c.Services.Solution.AddPendingACByPrincipal(c.Message.ID, principal, problemID); err != nil {
+	if _, err = c.Services.Solution.AddPendingACByPrincipal(c.Message.ID, principal, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

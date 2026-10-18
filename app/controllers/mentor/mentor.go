@@ -1,6 +1,7 @@
 package mentor
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/providers"
@@ -45,20 +47,13 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		return
 	}
 
-	// Now get the full pending confirmation data
-	pendingConfirmation, err := c.Services.Solution.GetPendingConfirmationByMessageID(messageID)
-	if err != nil {
-		logger.Log.Error(err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
-		)
-		return
-	}
-
 	switch c.MessageReaction.Emoji.Name {
 	case common.REACTION_NO:
-		err := c.Services.Solution.RejectACProposal(messageID)
+		pendingConfirmation, err := c.Services.Solution.RejectACProposal(messageID)
 		if err != nil {
+			if _, unavailable := errors.AsType[*serviceerr.NotFoundInfoError](err); unavailable {
+				return
+			}
 			logger.Log.Errorf("Something happened: %v", err)
 			c.Dispatcher.Send(
 				dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, messageErrUnexpected),
@@ -78,8 +73,11 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		)
 
 	case common.REACTION_YES:
-		err := c.Services.Solution.AcceptACProposal(messageID)
+		pendingConfirmation, err := c.Services.Solution.AcceptACProposal(messageID)
 		if err != nil {
+			if _, unavailable := errors.AsType[*serviceerr.NotFoundInfoError](err); unavailable {
+				return
+			}
 			logger.Log.Errorf("Something happened: %v", err)
 
 			c.Dispatcher.Send(

@@ -23,7 +23,7 @@
 Hurion transforms a Discord server into a full-scale classroom management system. It's built on a **stateless, role-based architecture** that maps a server's structure directly to its courses.
 
 ### 👤 For Students
-*   **Submit with Ease:** Use `!ac <id>` to propose a solved problem.
+*   **Submit with Ease:** Use `!ac <id>` or `/ac submit id:<id>` to propose a solved problem, with an optional screenshot.
 *   **Real-time Leaderboards:** Check standings and class scores with beautiful image-based tables.
 *   **Personal Tracking:** Keep a history of solved problems across different classes.
 

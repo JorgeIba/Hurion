@@ -40,6 +40,21 @@ func (m *MockDataStore) EXPECT() *MockDataStoreMockRecorder {
 	return m.recorder
 }
 
+// AcceptPendingConfirmation mocks base method.
+func (m *MockDataStore) AcceptPendingConfirmation(messageID string) (data.PendingConfirmation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AcceptPendingConfirmation", messageID)
+	ret0, _ := ret[0].(data.PendingConfirmation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AcceptPendingConfirmation indicates an expected call of AcceptPendingConfirmation.
+func (mr *MockDataStoreMockRecorder) AcceptPendingConfirmation(messageID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptPendingConfirmation", reflect.TypeOf((*MockDataStore)(nil).AcceptPendingConfirmation), messageID)
+}
+
 // AddAC mocks base method.
 func (m *MockDataStore) AddAC(userID string, problemID int64) error {
 	m.ctrl.T.Helper()
@@ -98,11 +113,12 @@ func (mr *MockDataStoreMockRecorder) AddClassroom(classroom any) *gomock.Call {
 }
 
 // AddPendingConfirmation mocks base method.
-func (m *MockDataStore) AddPendingConfirmation(confirmation data.PendingConfirmation) error {
+func (m *MockDataStore) AddPendingConfirmation(confirmation data.PendingConfirmation) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddPendingConfirmation", confirmation)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddPendingConfirmation indicates an expected call of AddPendingConfirmation.
@@ -586,11 +602,12 @@ func (mr *MockDataStoreMockRecorder) RemoveClassroomByRoomID(roomID any) *gomock
 }
 
 // RemovePendingConfirmation mocks base method.
-func (m *MockDataStore) RemovePendingConfirmation(messageID string) error {
+func (m *MockDataStore) RemovePendingConfirmation(messageID string) (data.PendingConfirmation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemovePendingConfirmation", messageID)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(data.PendingConfirmation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RemovePendingConfirmation indicates an expected call of RemovePendingConfirmation.

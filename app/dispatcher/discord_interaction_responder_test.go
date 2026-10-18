@@ -20,6 +20,10 @@ func (client failingDiscordInteractionClient) InteractionRespond(*discordgo.Inte
 	return client.err
 }
 
+func (client failingDiscordInteractionClient) InteractionResponseDelete(*discordgo.Interaction, ...discordgo.RequestOption) error {
+	return client.err
+}
+
 func (client failingDiscordInteractionClient) InteractionResponseEdit(*discordgo.Interaction, *discordgo.WebhookEdit, ...discordgo.RequestOption) (*discordgo.Message, error) {
 	return nil, client.err
 }
@@ -54,6 +58,17 @@ func TestDiscordInteractionResponderReturnsAndLogsEachDeliveryFailureOnce(t *tes
 		{
 			name: "private followup",
 			send: func() error { return responder.FollowupPrivately(interaction, "Could not verify permissions.") },
+		},
+		{
+			name: "delete original response",
+			send: func() error { return responder.DeleteResponse(interaction) },
+		},
+		{
+			name: "public followup",
+			send: func() error {
+				_, err := responder.Followup(interaction, &discordgo.WebhookParams{})
+				return err
+			},
 		},
 		{
 			name: "edit original response",

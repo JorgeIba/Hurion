@@ -3,10 +3,10 @@ package mentor
 import (
 	"crypto/rand"
 	"errors"
-	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
@@ -17,12 +17,13 @@ import (
 )
 
 type ACInteractionController struct {
-	services         *services.Services
-	validator        providers.DiscordValidator
-	fetcher          providers.DiscordFetcher
-	responder        dispatcher.InteractionResponder
-	attachments      *jsonTransport
-	validatedBatches *validatedACBatchCache
+	services             *services.Services
+	validator            providers.DiscordValidator
+	fetcher              providers.DiscordFetcher
+	responder            dispatcher.InteractionResponder
+	attachments          *jsonTransport
+	attachmentDownloader *interactiontransport.AttachmentDownloader
+	validatedBatches     *validatedACBatchCache
 }
 
 func NewACInteractionController(
@@ -31,13 +32,15 @@ func NewACInteractionController(
 	fetcher providers.DiscordFetcher,
 	responder dispatcher.InteractionResponder,
 ) *ACInteractionController {
+	downloader := interactiontransport.NewAttachmentDownloader(nil)
 	return &ACInteractionController{
-		services:         svcs,
-		validator:        validator,
-		fetcher:          fetcher,
-		responder:        responder,
-		attachments:      newJSONTransport(nil),
-		validatedBatches: newValidatedACBatchCache(nil),
+		services:             svcs,
+		validator:            validator,
+		fetcher:              fetcher,
+		responder:            responder,
+		attachments:          &jsonTransport{downloader: downloader},
+		attachmentDownloader: downloader,
+		validatedBatches:     newValidatedACBatchCache(nil),
 	}
 }
 

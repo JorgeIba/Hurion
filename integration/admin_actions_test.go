@@ -27,8 +27,8 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
 	studentID := "student_1"
 	env.SeedUser(t, studentID, "Student")
-	env.SeedAC(t, studentID, problemID)
 	env.SeedPendingConfirmation(t, "pending_1", studentID, problemID)
+	env.SeedAC(t, studentID, problemID)
 
 	// Stub Admin role
 	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {

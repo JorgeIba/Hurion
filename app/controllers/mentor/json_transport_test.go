@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +43,7 @@ func TestReadJSONFile(t *testing.T) {
 		{name: "download failure", size: 2, transportErr: errors.New("offline"), wantRequest: true, wantError: "download"},
 		{name: "truncated file", body: "[", size: 2, status: 200, wantRequest: true, wantError: "complete"},
 		{name: "body exceeds declared size", body: "[]extra", size: 2, status: 200, wantRequest: true, wantError: "complete"},
-		{name: "redirect rejected", size: 2, status: 302, wantRequest: true, wantError: "HTTP 302"},
+		{name: "redirect rejected", size: 2, status: 302, wantRequest: true, wantError: "URL"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -80,7 +79,44 @@ func TestReadJSONFile(t *testing.T) {
 				assert.Zero(t, calls)
 			}
 			assert.Zero(t, client.Timeout, "constructor must not mutate the shared client")
-			assert.Equal(t, 15*time.Second, reader.client.Timeout)
+		})
+	}
+}
+
+func TestReadJSONFileFollowsAllowedRedirectAndRetainsCompleteFileCheck(t *testing.T) {
+	for _, body := range []string{"[]", "["} {
+		t.Run(body, func(t *testing.T) {
+			t.Parallel()
+			calls := 0
+			reader := newJSONTransport(&http.Client{Transport: attachmentRoundTripper(func(request *http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return &http.Response{
+						StatusCode: http.StatusFound,
+						Header:     http.Header{"Location": []string{"https://media.discordapp.net/ephemeral-attachments/1/2/batch.json?ex=456&hm=signed"}},
+						Body:       io.NopCloser(strings.NewReader("")),
+						Request:    request,
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Request:    request,
+				}, nil
+			})})
+			contents, err := reader.readFile(&discordgo.MessageAttachment{
+				Filename: "batch.json",
+				URL:      "https://cdn.discordapp.com/attachments/1/2/batch.json?ex=123&hm=signed",
+				Size:     2,
+			})
+			assert.Equal(t, 2, calls)
+			if body == "[]" {
+				assert.NoError(t, err)
+				assert.Equal(t, body, contents)
+			} else {
+				assert.ErrorContains(t, err, "complete")
+				assert.Empty(t, contents)
+			}
 		})
 	}
 }

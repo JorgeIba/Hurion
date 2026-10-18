@@ -630,25 +630,32 @@ func (db *DB) GetClassByClassID(classID int64) (Class, error) {
 	return class, nil
 }
 
-func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) error {
+// AddPendingConfirmation creates or replaces a pending reference only while the AC
+// is not recorded. The condition and replacement share one atomic statement.
+func (db *DB) AddPendingConfirmation(confirmation PendingConfirmation) (bool, error) {
 	query := `
 		INSERT INTO pending_confirmations (message_id, user_id, problem_id)
-		VALUES (?, ?, ?)
+		SELECT ?, ?, ?
+		WHERE NOT EXISTS (
+		SELECT 1 FROM solved_problems WHERE user_id = ? AND problem_id = ?
+		)
 		ON CONFLICT (user_id, problem_id) DO UPDATE SET message_id = EXCLUDED.message_id;
 	`
-	_, err := db.conn.Exec(query, confirmation.MessageID, confirmation.UserID, confirmation.ProblemID)
+
+	result, err := db.conn.Exec(query, confirmation.MessageID, confirmation.UserID, confirmation.ProblemID, confirmation.UserID, confirmation.ProblemID)
 	if err != nil {
-		sqliteErr, ok := errors.AsType[sqlite3.Error](err)
-		if ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintForeignKey {
-			return dataerr.NewForeignKeyViolationError(
-				fmt.Sprintf("could not add pending confirmation: user %s or problem %d is missing", confirmation.UserID, confirmation.ProblemID),
-				err,
-			)
+		if sqliteErr, ok := errors.AsType[sqlite3.Error](err); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintForeignKey {
+			return false, dataerr.NewForeignKeyViolationError(fmt.Sprintf("could not add pending confirmation: user %s or problem %d is missing", confirmation.UserID, confirmation.ProblemID), err)
 		}
-		return dataerr.NewQueryError(fmt.Sprintf("could not add or update pending confirmation for message id %s, user id %s and problem %d", confirmation.MessageID, confirmation.UserID, confirmation.ProblemID), err)
+		return false, dataerr.NewQueryError(fmt.Sprintf("could not add pending confirmation %s", confirmation.MessageID), err)
 	}
 
-	return nil
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, dataerr.NewQueryError("could not read pending confirmation write result", err)
+	}
+
+	return rows > 0, nil
 }
 
 func (db *DB) ExistsPendingConfirmation(messageID string) (bool, error) {
@@ -683,15 +690,60 @@ func (db *DB) GetPendingConfirmation(messageID string) (string, int64, error) {
 	return userID, problemID, nil
 }
 
-func (db *DB) RemovePendingConfirmation(messageID string) error {
-	query := `
-		DELETE FROM pending_confirmations WHERE message_id = ?;
-	`
-	_, err := db.conn.Exec(query, messageID)
-	if err != nil {
-		return dataerr.NewQueryError(fmt.Sprintf("could not remove pending confirmation for message id %s", messageID), err)
+const consumePendingConfirmationSQL = `
+ DELETE FROM pending_confirmations WHERE message_id = ?
+ RETURNING user_id, problem_id;
+`
+
+func (db *DB) RemovePendingConfirmation(messageID string) (PendingConfirmation, error) {
+	pending := PendingConfirmation{MessageID: messageID}
+	err := db.conn.QueryRow(consumePendingConfirmationSQL, messageID).Scan(&pending.UserID, &pending.ProblemID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PendingConfirmation{}, dataerr.NewNotFoundError("pending confirmation is no longer available", err)
 	}
-	return nil
+
+	if err != nil {
+		return PendingConfirmation{}, dataerr.NewQueryError("could not remove pending confirmation", err)
+	}
+
+	return pending, nil
+}
+
+// AcceptPendingConfirmation consumes the pending reference and records the AC in
+// one transaction. A failed write restores the pending reference on rollback.
+func (db *DB) AcceptPendingConfirmation(messageID string) (PendingConfirmation, error) {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return PendingConfirmation{}, dataerr.NewQueryError("could not begin AC acceptance", err)
+	}
+	defer tx.Rollback()
+
+	pending := PendingConfirmation{MessageID: messageID}
+	err = tx.QueryRow(consumePendingConfirmationSQL, messageID).Scan(&pending.UserID, &pending.ProblemID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PendingConfirmation{}, dataerr.NewNotFoundError("pending confirmation is no longer available", err)
+	}
+
+	if err != nil {
+		return PendingConfirmation{}, dataerr.NewQueryError("could not consume pending confirmation", err)
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO solved_problems (user_id, problem_id, solved_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(user_id, problem_id) DO NOTHING;
+	`, pending.UserID, pending.ProblemID)
+
+	if err != nil {
+		return PendingConfirmation{}, dataerr.NewQueryError("could not record approved AC", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return PendingConfirmation{}, dataerr.NewQueryError("could not commit AC acceptance", err)
+	}
+
+	notifyDataChanged()
+	return pending, nil
 }
 
 func (db *DB) GetProblemByID(problemID int64) (Problem, error) {
