@@ -176,13 +176,16 @@ func (env *testEnv) SeedAC(t *testing.T, userID string, problemID int64) {
 // SeedPendingConfirmation inserts a pending confirmation into the database
 func (env *testEnv) SeedPendingConfirmation(t *testing.T, messageID, userID string, problemID int64) {
 	t.Helper()
-	err := env.DB.AddPendingConfirmation(data.PendingConfirmation{
+	written, err := env.DB.AddPendingConfirmation(data.PendingConfirmation{
 		MessageID: messageID,
 		UserID:    userID,
 		ProblemID: problemID,
 	})
 	if err != nil {
 		t.Fatalf("Failed to seed pending confirmation: %v", err)
+	}
+	if !written {
+		t.Fatal("Failed to seed pending confirmation: AC already recorded")
 	}
 }
 

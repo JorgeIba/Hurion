@@ -241,12 +241,13 @@ func TestWorkflow_ProblemAddRetainsDraftForDuplicateFailure(t *testing.T) {
 }
 
 type recordingDiscordInteractionClient struct {
-	t           *testing.T
-	responses   []interactionResponseCall
-	edits       []interactionResponseEditCall
-	followups   []*discordgo.WebhookParams
-	respondFunc func(*discordgo.InteractionResponse) error
-	editFunc    func(*discordgo.WebhookEdit) error
+	t                *testing.T
+	responses        []interactionResponseCall
+	edits            []interactionResponseEditCall
+	followups        []*discordgo.WebhookParams
+	deletedResponses []*discordgo.Interaction
+	respondFunc      func(*discordgo.InteractionResponse) error
+	editFunc         func(*discordgo.WebhookEdit) error
 }
 
 func (r *recordingDiscordInteractionClient) InteractionRespond(interaction *discordgo.Interaction, response *discordgo.InteractionResponse, _ ...discordgo.RequestOption) error {
@@ -263,6 +264,11 @@ func (r *recordingDiscordInteractionClient) InteractionResponseEdit(interaction 
 		return nil, r.editFunc(response)
 	}
 	return &discordgo.Message{Content: *response.Content}, nil
+}
+
+func (r *recordingDiscordInteractionClient) InteractionResponseDelete(interaction *discordgo.Interaction, _ ...discordgo.RequestOption) error {
+	r.deletedResponses = append(r.deletedResponses, interaction)
+	return nil
 }
 
 func (r *recordingDiscordInteractionClient) FollowupMessageCreate(_ *discordgo.Interaction, _ bool, response *discordgo.WebhookParams, _ ...discordgo.RequestOption) (*discordgo.Message, error) {

@@ -678,9 +678,14 @@ func TestClearClassContents(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.AddAC("u1", pID)
+				written, err := db.AddPendingConfirmation(PendingConfirmation{
+					MessageID: "m1",
+					UserID:    "u1",
+					ProblemID: pID,
+				})
 				require.NoError(t, err)
-				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				require.True(t, written)
+				err = db.AddAC("u1", pID)
 				require.NoError(t, err)
 			},
 			classID: 1,
@@ -1503,7 +1508,7 @@ func TestAddPendingConfirmation(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			err := db.AddPendingConfirmation(tt.confirmation)
+			_, err := db.AddPendingConfirmation(tt.confirmation)
 			tt.assertFunc(t, db, err)
 		})
 	}
@@ -1545,7 +1550,7 @@ func TestAddPendingConfirmationClassifiesForeignKeyFailuresAccurately(t *testing
 
 			tt.setup(t, db)
 
-			err := db.AddPendingConfirmation(tt.confirmation)
+			_, err := db.AddPendingConfirmation(tt.confirmation)
 			require.Error(t, err)
 			_, ok := errors.AsType[*dataerr.ForeignKeyViolationError](err)
 			assert.True(t, ok, "expected ForeignKeyViolationError in error chain")
@@ -1573,7 +1578,7 @@ func TestExistsPendingConfirmation(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				_, err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
 				require.NoError(t, err)
 			},
 			messageID: "m1",
@@ -1636,7 +1641,7 @@ func TestGetPendingConfirmation(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				_, err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
 				require.NoError(t, err)
 			},
 			messageID: "m1",
@@ -1699,7 +1704,7 @@ func TestRemovePendingConfirmation(t *testing.T) {
 				require.NoError(t, err)
 				err = db.EnsureUser(User{UserID: "u1", DisplayName: "n1"})
 				require.NoError(t, err)
-				err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
+				_, err = db.AddPendingConfirmation(PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: pID})
 				require.NoError(t, err)
 			},
 			messageID: "m1",
@@ -1733,7 +1738,7 @@ func TestRemovePendingConfirmation(t *testing.T) {
 				tt.setup(t, db)
 			}
 
-			err := db.RemovePendingConfirmation(tt.messageID)
+			_, err := db.RemovePendingConfirmation(tt.messageID)
 			tt.assertFunc(t, db, err)
 		})
 	}

@@ -37,7 +37,7 @@ func (service *SolutionService) AddACToUserID(userID string, problemID int64) er
 
 // AddACByPrincipal adds an AC for a user (Authenticated enrollment version).
 func (service *SolutionService) AddACByPrincipal(principal service_model.Principal, problemID int64) error {
-	if err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
+	if _, err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
 		return err
 	}
 	return service.AddACToUserID(principal.UserID, problemID)
@@ -57,29 +57,39 @@ func (service *SolutionService) UndoAC(userID string, problemID int64) error {
 	return nil
 }
 
-// AddPendingACByPrincipal adds a pending AC confirmation
-func (service *SolutionService) AddPendingACByPrincipal(messageID string, principal service_model.Principal, problemID int64) error {
-	if err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
-		return err
-	}
-	if err := service.validateACNotSolved(principal.UserID, problemID); err != nil {
-		return err
+// AddPendingACByPrincipal validates and creates or replaces a proposal. referenceID
+// is opaque to the service: either a prefix message ID or a slash interaction ID.
+func (service *SolutionService) AddPendingACByPrincipal(referenceID string, principal service_model.Principal, problemID int64) (service_model.Problem, error) {
+	prepared, err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal)
+	if err != nil {
+		return service_model.Problem{}, err
 	}
 
-	// Layer 2 Safeguard
+	if prepared.AlreadyRecorded {
+		return service_model.Problem{}, serviceerr.NewACAlreadyExistsError(fmt.Sprintf("user %s has already solved problem %d", principal.UserID, problemID), nil)
+	}
+
 	if err := service.Datastore.EnsureUser(data.User{UserID: principal.UserID, DisplayName: principal.DisplayName}); err != nil {
-		return serviceerr.MakeGeneralError(fmt.Errorf("failed to ensure user %s exists: %w", principal.UserID, err))
+		return service_model.Problem{}, serviceerr.MakeGeneralError(err)
 	}
 
-	if err := service.Datastore.AddPendingConfirmation(mapServicePendingConfirmationToDataPendingConfirmation(service_model.PendingConfirmation{
-		MessageID: messageID,
-		UserID:    principal.UserID,
-		ProblemID: problemID,
-	})); err != nil {
-		return serviceerr.MakeGeneralError(err)
+	written, err := service.Datastore.AddPendingConfirmation(mapServicePendingConfirmationToDataPendingConfirmation(
+		service_model.PendingConfirmation{
+			MessageID: referenceID,
+			UserID:    principal.UserID,
+			ProblemID: problemID,
+		}),
+	)
+
+	if err != nil {
+		return service_model.Problem{}, serviceerr.MakeGeneralError(err)
 	}
 
-	return nil
+	if !written {
+		return service_model.Problem{}, serviceerr.NewACAlreadyExistsError(fmt.Sprintf("user %s has already solved problem %d", principal.UserID, problemID), nil)
+	}
+
+	return prepared.Problem, nil
 }
 
 // ExistsPendingConfirmation checks if a pending confirmation exists for a message ID
@@ -107,27 +117,29 @@ func (service *SolutionService) GetPendingConfirmationByMessageID(messageID stri
 	return &service_model.PendingConfirmation{MessageID: messageID, UserID: userID, ProblemID: problemID}, nil
 }
 
-// AcceptACProposal accepts a pending AC proposal
-func (service *SolutionService) AcceptACProposal(messageID string) error {
-	pendingConfirmation, err := service.GetPendingConfirmationByMessageID(messageID)
+// AcceptACProposal returns the proposal only after its approval is committed.
+func (service *SolutionService) AcceptACProposal(referenceID string) (service_model.PendingConfirmation, error) {
+	pending, err := service.Datastore.AcceptPendingConfirmation(referenceID)
 	if err != nil {
-		return err
-	}
+		if dataerr.IsNotFound(err) {
+			return service_model.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("proposal was resolved or replaced", err)
+		}
 
-	if err := service.Datastore.RemovePendingConfirmation(messageID); err != nil {
-		return serviceerr.MakeGeneralError(err)
+		return service_model.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
 	}
-
-	// We trust the DB record.
-	return service.AddACToUserID(pendingConfirmation.UserID, pendingConfirmation.ProblemID)
+	return mapDataPendingConfirmationToServicePendingConfirmation(pending), nil
 }
 
-// RejectACProposal rejects a pending AC proposal
-func (service *SolutionService) RejectACProposal(messageID string) error {
-	if err := service.Datastore.RemovePendingConfirmation(messageID); err != nil {
-		return serviceerr.MakeGeneralError(err)
+// RejectACProposal returns the proposal that was actually removed.
+func (service *SolutionService) RejectACProposal(referenceID string) (service_model.PendingConfirmation, error) {
+	pending, err := service.Datastore.RemovePendingConfirmation(referenceID)
+	if err != nil {
+		if dataerr.IsNotFound(err) {
+			return service_model.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("proposal was resolved or replaced", err)
+		}
+		return service_model.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
 	}
-	return nil
+	return mapDataPendingConfirmationToServicePendingConfirmation(pending), nil
 }
 
 func (service *SolutionService) validateACNotSolved(userID string, problemID int64) error {
@@ -141,19 +153,19 @@ func (service *SolutionService) validateACNotSolved(userID string, problemID int
 	return nil
 }
 
-func (service *SolutionService) validateACAccess(params service_model.CreateACParams, student service_model.Principal) error {
+func (service *SolutionService) validateACAccess(params service_model.CreateACParams, student service_model.Principal) (service_model.PreparedAC, error) {
 	if params.UserID == "" || params.ProblemID <= 0 {
-		return serviceerr.NewValidationError("user ID and positive problem ID are required", nil)
+		return service_model.PreparedAC{}, serviceerr.NewValidationError("user ID and positive problem ID are required", nil)
 	}
 
 	// Load the same validation data used by batches for this single target.
 	target := data.ACKey{UserID: params.UserID, ProblemID: params.ProblemID}
 	validationDataByAC, err := service.Datastore.GetACValidationData([]data.ACKey{target})
 	if err != nil {
-		return serviceerr.MakeGeneralError(err)
+		return service_model.PreparedAC{}, serviceerr.MakeGeneralError(err)
 	}
-	_, err = prepareAC(params, student, validationDataByAC[target])
-	return err
+
+	return prepareAC(params, student, validationDataByAC[target])
 }
 
 // prepareAC validates one request using resolved validation data, without datastore reads.
@@ -166,15 +178,19 @@ func prepareAC(
 	if validationData.Problem == nil {
 		return service_model.PreparedAC{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d does not exist", params.ProblemID), nil)
 	}
+
 	if validationData.Class == nil {
 		return service_model.PreparedAC{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %d does not exist", validationData.Problem.ClassID), nil)
 	}
+
 	if student.UserID == "" {
 		return service_model.PreparedAC{}, serviceerr.NewInternalError("could not verify student "+params.UserID, nil)
 	}
+
 	if student.UserID != params.UserID {
 		return service_model.PreparedAC{}, serviceerr.NewInternalError("verified student identity mismatch", nil)
 	}
+
 	for _, roleID := range validationData.AccessRoleIDs {
 		if slices.Contains(student.Roles, roleID) {
 			return service_model.PreparedAC{

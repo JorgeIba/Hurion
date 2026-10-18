@@ -40,7 +40,9 @@ func ComponentAction(customID string) discordcommands.Action {
 	case discordcommands.ConfirmProblemEditBatch, discordcommands.CancelProblemEditBatch, discordcommands.ConfirmProblemBatch,
 		discordcommands.ConfirmACBatch,
 		discordcommands.CancelProblemBatch,
-		discordcommands.CancelACBatch:
+		discordcommands.CancelACBatch,
+		discordcommands.ApproveACProposal,
+		discordcommands.RejectACProposal:
 		return discordcommands.Action(route)
 	default:
 		return ""
@@ -160,6 +162,23 @@ func ParseProblemBatchConfirmID(customID string) (string, error) {
 func ParseACBatchConfirmID(customID string) (string, error) {
 	return parseBatchConfirmID(customID, discordcommands.ConfirmACBatch)
 }
+
+func ACProposalApproveID(pendingID string) string {
+	return string(discordcommands.ApproveACProposal) + batchActionSeparator + pendingID
+}
+
+func ACProposalRejectID(pendingID string) string {
+	return string(discordcommands.RejectACProposal) + batchActionSeparator + pendingID
+}
+
+func ParseACProposalApproveID(customID string) (string, error) {
+	return parseBatchActionID(customID, discordcommands.ApproveACProposal, "invalid AC proposal approval button")
+}
+
+func ParseACProposalRejectID(customID string) (string, error) {
+	return parseBatchActionID(customID, discordcommands.RejectACProposal, "invalid AC proposal rejection button")
+}
+
 func parseBatchConfirmID(customID string, action discordcommands.Action) (string, error) {
 	return parseBatchActionID(customID, action, "invalid batch action button")
 }

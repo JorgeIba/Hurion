@@ -10,13 +10,13 @@ The bot follows a layered architecture with clear separation of concerns:
 | **Command Routers** | The prefix router parses `!commands`; the interaction router dispatches slash commands, modals, and components. | `bot/commandrouter.go`, `bot/interactionrouter.go` |
 | **Event Context** | Carries each Discord event and its dependencies into the controller handling it. | `context/` |
 | **Reaction Router** | Handles emoji reactions for AC approvals and prefix-command confirmations. | `bot/reactionrouter.go` |
-| **Controllers** | Orchestrate permission checks, contextual lookups, calls to services, and Discord response delivery. Mentor slash workflows live under `controllers/mentor/`. | `controllers/` |
-| **Adapters and Interaction Transport** | Map request and response models and encode or decode Discord forms and component identifiers. | `controllers/adapters/`, `controllers/interactiontransport/` |
+| **Controllers** | Handle requests, coordinate identity and permission checks, adapt inputs, call services, and deliver results. Prefix and interaction handlers belong to this layer. | `controllers/` |
+| **Adapters and Interaction Transport** | Map transport values and errors, encode or decode Discord inputs and component identifiers, and prepare attachments through a shared downloader. | `controllers/adapters/`, `controllers/interactiontransport/` |
 | **Providers** | Verify Discord roles and interact with External APIs (`DiscordProvider`). | `providers/` |
-| **Services** | Apply business rules across user, enrollment, class, problem, solution, and score operations. `ProblemService` owns problem creation and patch batches; `SolutionService` owns AC batches. Both prepare and revalidate batches before writes. | `services/` |
-| **Data (Repository)** | Framework-agnostic database operations via the `DataStore` interface. | `data/` |
-| **Presentation** | Builds Discord embeds, form responses, batch previews and receipts, score images, and Excel exports. | `presentation/` |
-| **Dispatcher and Interaction Responder** | Deliver prefix-command responses and acknowledge, defer, follow up, or edit slash-command interaction responses. | `dispatcher/` |
+| **Services** | Own business rules and coordinate user, enrollment, class, problem, solution, and score operations independently of the command transport. | `services/` |
+| **Data (Repository)** | Persist and query domain data through `DataStore`. Constraints, conditional writes, and transactions protect consistency at write time. | `data/` |
+| **Presentation** | Build Discord messages and components, score images, and Excel/JSON exports from application results, without performing database operations or sending responses. | `presentation/` |
+| **Dispatcher and Interaction Responder** | Deliver channel messages and reactions, and acknowledge, create, edit, or delete interaction responses through the Discord client. | `dispatcher/` |
 | **Logger** | Structured logging via `logrus`. | `logger/` |
 | **Custom Errors** | Typed errors per layer: `dataerr`, `serviceerr`, `discorderr`, `controllerserr`, `presentationerr`. | `customerr/` |
 
@@ -40,6 +40,7 @@ graph TB
         EnrolledCtrl[Enrolled Controller]
         GeneralCtrl[General Controller]
         MentorInteractions[Mentor Interaction Controllers]
+        TransportAdapters[Adapters and Interaction Transport]
     end
 
     subgraph ProviderLayer["Provider Layer"]
@@ -56,19 +57,28 @@ graph TB
     end
 
     subgraph DataLayer["Data Layer"]
+        DataStore[DataStore Interface]
         Queries[Database Queries]
         DB[(SQLite)]
     end
 
     subgraph PresentationLayer["Presentation Layer"]
+        DiscordPresentation[Discord Messages and Components]
         ImageRenderer[Score Image Renderer]
         Excelizer[Excel Exporter]
+        JSONExport[JSON Exporters]
+    end
+
+    subgraph DeliveryLayer["Delivery Layer"]
+        Dispatcher[Message Dispatcher]
+        InteractionResponder[Interaction Responder]
     end
 
     %% Internal connections
     Discord --> Prefix
     Discord --> Interactions
     Discord --> Reactions
+    DataStore --> Queries
     Queries --> DB
 
     %% Flow between layers
@@ -76,26 +86,27 @@ graph TB
     Reactions --> Context
     Interactions --> Context
     Context --> ControllerLayer
-    Context --> MentorInteractions
-    MentorInteractions --> ProviderLayer
-    MentorInteractions --> ServiceLayer
     ControllerLayer --> ProviderLayer
     ControllerLayer --> ServiceLayer
     ControllerLayer --> PresentationLayer
-    ServiceLayer --> DataLayer
+    ControllerLayer --> DeliveryLayer
+    ServiceLayer --> DataStore
 ```
 
-## Discord slash workflows
+## Command Handling
 
-Slash command interactions use a separate router from prefix commands and reactions. Mentor controllers authorize the actor, adapt submitted form values, call application services, and send private interaction responses. `/problem add` and `/problem edit` use forms for individual changes; the edit workflow keeps the problem identity and recorded ACs.
+Prefix (`!`) and slash (`/`) command handlers are part of the controller layer. Their routers live in `bot/` and select the appropriate handler. Controllers adapt each transport to the same application-service and persistence pipeline; presentation and delivery use the representation appropriate to the request. For example, `!ac` and `/ac` share proposal creation and resolution services while using different inputs and responses.
 
-The JSON batch workflows use a prepare, preview, confirm sequence. Mentor controllers parse one typed batch and delegate validation and target resolution to `ProblemService` or `SolutionService` without writing. They retain the prepared snapshot in an expiring in-process cache. Confirm and Cancel buttons are bound to the submitting guild and actor. Confirmation checks current authority and revalidates the complete batch before execution. Problem creation and AC batches are persisted transactionally; problem edit batches apply patches in input order and can leave earlier entries applied if storage fails. A confirmed batch is consumed once and is not automatically retried. User-facing schemas and examples are in the [Mentor JSON Batch Guide](MENTOR_BATCHES.md); AI-authoring instructions are generated from [`web/llms.txt.template`](../web/llms.txt.template).
+Business validation belongs in services; transport parsing, external identity lookups, and response formatting belong at the boundaries. Data operations enforce conditions that must hold at write time and use transactions for changes that must succeed or fail together. Controllers present service outcomes after the operation completes.
+
+Command-specific workflows and input formats are documented in the [Command Reference](COMMANDS.md) and [Mentor JSON Batch Guide](MENTOR_BATCHES.md).
 
 ---
 
 ## Domain Concepts
 
 To ensure clarity across the system, the bot utilizes the following domain concepts:
+
 - **Enrolled User**: A user is considered "enrolled" or to have "access" to a class if they possess a Discord Role that has been linked to that class via the `class_access_roles` table (managed by `!link_roles`).
 - **Active Student**: A user who has solved at least 1 problem (AC) in a specific class. This drives the `!users` and `!score` logic.
 
@@ -103,7 +114,7 @@ To ensure clarity across the system, the bot utilizes the following domain conce
 
 ## Database Schema
 
-The bot uses **SQLite** with 7 tables. 
+The bot uses **SQLite** with 7 tables.
 
 ```mermaid
 erDiagram
@@ -139,6 +150,8 @@ erDiagram
         INTEGER class_id FK
         TEXT difficulty
         TEXT topic
+        TEXT priority
+        TIMESTAMP created_at
     }
     solved_problems {
         TEXT user_id PK, FK

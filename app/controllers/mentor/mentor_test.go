@@ -617,12 +617,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil).Times(2)
-				m.EXPECT().RemovePendingConfirmation("msg_123").Return(nil)
-
-				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
-				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, nil)
-				m.EXPECT().AddAC("123", int64(77)).Return(nil)
+				m.EXPECT().AcceptPendingConfirmation("msg_123").Return(data.PendingConfirmation{MessageID: "msg_123", UserID: "123", ProblemID: 77}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -639,8 +634,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil)
-				m.EXPECT().RemovePendingConfirmation("msg_123").Return(nil)
+				m.EXPECT().RemovePendingConfirmation("msg_123").Return(data.PendingConfirmation{MessageID: "msg_123", UserID: "123", ProblemID: 77}, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -669,7 +663,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				m.EXPECT().GetPendingConfirmation("msg_123").Return("", int64(0), fmt.Errorf("db error"))
+				m.EXPECT().AcceptPendingConfirmation("msg_123").Return(data.PendingConfirmation{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -684,12 +678,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil).Times(2)
-				m.EXPECT().RemovePendingConfirmation("msg_123").Return(nil)
-
-				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
-				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, nil)
-				m.EXPECT().AddAC("123", int64(77)).Return(fmt.Errorf("db error"))
+				m.EXPECT().AcceptPendingConfirmation("msg_123").Return(data.PendingConfirmation{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -716,8 +705,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
 				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil)
-				m.EXPECT().RemovePendingConfirmation("msg_123").Return(fmt.Errorf("db error"))
+				m.EXPECT().RemovePendingConfirmation("msg_123").Return(data.PendingConfirmation{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)

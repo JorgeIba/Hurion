@@ -15,6 +15,9 @@ type InteractionRouter func(*context.InteractionContext)
 
 var interactionCommandMap = map[string]map[string]InteractionRouter{
 	discordcommands.ACCommandName: {
+		discordcommands.ACSubmitCommandName: func(c *context.InteractionContext) {
+			c.ACController.HandleProposeACInteraction(c.Interaction)
+		},
 		discordcommands.ACAddBatchCommandName: func(c *context.InteractionContext) {
 			c.ACController.HandleAddACBatchInteraction(c.Interaction)
 		},
@@ -71,6 +74,12 @@ var interactionComponentMap = map[discordcommands.Action]InteractionRouter{
 	},
 	discordcommands.CancelACBatch: func(c *context.InteractionContext) {
 		c.ACController.HandleCancelACBatchInteraction(c.Interaction)
+	},
+	discordcommands.ApproveACProposal: func(c *context.InteractionContext) {
+		c.ACController.HandleApproveACProposalInteraction(c.Interaction)
+	},
+	discordcommands.RejectACProposal: func(c *context.InteractionContext) {
+		c.ACController.HandleRejectACProposalInteraction(c.Interaction)
 	},
 }
 

@@ -240,8 +240,7 @@ func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 					{UserID: "u1", ProblemID: 100}: {Problem: &data.Problem{ID: 100, ClassID: 10}, Class: &data.Class{ID: 10, ClassCode: "CS101"}, AccessRoleIDs: []string{"role_student"}},
 				}, nil)
 				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
-				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
-				m.EXPECT().AddPendingConfirmation(gomock.Any()).Return(nil)
+				m.EXPECT().AddPendingConfirmation(gomock.Any()).Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.NoError(t, err)
@@ -257,9 +256,8 @@ func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 			problemID: 100,
 			setupMock: func(m *mock_data.MockDataStore) {
 				m.EXPECT().GetACValidationData([]data.ACKey{{UserID: "u1", ProblemID: 100}}).Return(map[data.ACKey]data.ACValidationData{
-					{UserID: "u1", ProblemID: 100}: {Problem: &data.Problem{ID: 100, ClassID: 10}, Class: &data.Class{ID: 10, ClassCode: "CS101"}, AccessRoleIDs: []string{"role_student"}},
+					{UserID: "u1", ProblemID: 100}: {Problem: &data.Problem{ID: 100, ClassID: 10}, Class: &data.Class{ID: 10, ClassCode: "CS101"}, AccessRoleIDs: []string{"role_student"}, AlreadyRecorded: true},
 				}, nil)
-				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.Error(t, err)
@@ -321,8 +319,11 @@ func TestSolutionService_AddPendingACByPrincipal(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := NewServices(mockStore).Solution
-			err := svc.AddPendingACByPrincipal(tt.messageID, tt.principal, tt.problemID)
+			problem, err := svc.AddPendingACByPrincipal(tt.messageID, tt.principal, tt.problemID)
 			tt.assertFunc(t, err)
+			if err == nil {
+				assert.Equal(t, tt.problemID, problem.ID)
+			}
 		})
 	}
 }
@@ -435,32 +436,17 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 			name:      "success",
 			messageID: "m1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
-				m.EXPECT().RemovePendingConfirmation("m1").Return(nil)
-				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
-				m.EXPECT().HasUserSolvedProblem("u1", int64(100)).Return(false, nil)
-				m.EXPECT().AddAC("u1", int64(100)).Return(nil)
+				m.EXPECT().AcceptPendingConfirmation("m1").Return(data.PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 100}, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
 		},
 		{
-			name:      "error GetPendingConfirmationByMessageID",
+			name:      "error AcceptPendingConfirmation",
 			messageID: "m1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetPendingConfirmation("m1").Return("", int64(0), errors.New("db fail"))
-			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-			},
-		},
-		{
-			name:      "error RemovePendingConfirmation",
-			messageID: "m1",
-			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().GetPendingConfirmation("m1").Return("u1", int64(100), nil)
-				m.EXPECT().RemovePendingConfirmation("m1").Return(errors.New("db fail"))
+				m.EXPECT().AcceptPendingConfirmation("m1").Return(data.PendingConfirmation{}, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.Error(t, err)
@@ -477,7 +463,7 @@ func TestSolutionService_AcceptACProposal(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
-			err := svc.AcceptACProposal(tt.messageID)
+			_, err := svc.AcceptACProposal(tt.messageID)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -496,7 +482,7 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 			name:      "success",
 			messageID: "m1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().RemovePendingConfirmation("m1").Return(nil)
+				m.EXPECT().RemovePendingConfirmation("m1").Return(data.PendingConfirmation{MessageID: "m1", UserID: "u1", ProblemID: 100}, nil)
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.NoError(t, err)
@@ -506,7 +492,7 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 			name:      "error",
 			messageID: "m1",
 			setupMock: func(m *mock_data.MockDataStore) {
-				m.EXPECT().RemovePendingConfirmation("m1").Return(errors.New("db fail"))
+				m.EXPECT().RemovePendingConfirmation("m1").Return(data.PendingConfirmation{}, errors.New("db fail"))
 			},
 			assertFunc: func(t *testing.T, err error) {
 				assert.Error(t, err)
@@ -523,7 +509,7 @@ func TestSolutionService_RejectACProposal(t *testing.T) {
 			tt.setupMock(mockStore)
 
 			svc := &SolutionService{Datastore: mockStore}
-			err := svc.RejectACProposal(tt.messageID)
+			_, err := svc.RejectACProposal(tt.messageID)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -540,47 +526,109 @@ func TestIndividualAndBatchACValidationShareAccessRules(t *testing.T) {
 		{name: "no matching student role", roles: []string{"other"}, accessRoles: []string{"student"}},
 		{name: "class has no access roles", roles: []string{"student"}},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			store := mock_data.NewMockDataStore(gomock.NewController(t))
-			student := service_model.Principal{UserID: "123", DisplayName: "Ana", Roles: test.roles}
-			problem := data.Problem{ID: 42, ClassID: 10, Name: "Two Sum"}
-			class := data.Class{ID: 10, ClassCode: "basicos"}
-			store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}}).Return(map[data.ACKey]data.ACValidationData{
-				{UserID: "123", ProblemID: 42}: {Problem: &problem, Class: &class, AccessRoleIDs: test.accessRoles},
-			}, nil).Times(3)
-			if test.allowed {
-				store.EXPECT().EnsureUser(data.User{UserID: "123", DisplayName: "Unknown"}).Return(nil)
-				store.EXPECT().EnsureUser(data.User{UserID: "123", DisplayName: "Ana"}).Return(nil)
-				store.EXPECT().HasUserSolvedProblem("123", int64(42)).Return(false, nil).Times(2)
-				store.EXPECT().AddAC("123", int64(42)).Return(nil)
-				store.EXPECT().AddPendingConfirmation(data.PendingConfirmation{MessageID: "message", UserID: "123", ProblemID: 42}).Return(nil)
-			}
-			svcs := NewServices(store)
-			individualErr := svcs.Solution.AddACByPrincipal(student, 42)
-			pendingErr := svcs.Solution.AddPendingACByPrincipal("message", student, 42)
-			batch, issues, err := svcs.Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: " 00123 ", ProblemID: 42}}, map[string]service_model.Principal{"123": student})
-			require.NoError(t, err)
-			if !test.allowed {
-				assert.IsType(t, &serviceerr.UserNotEnrolledError{}, individualErr)
-				assert.IsType(t, &serviceerr.UserNotEnrolledError{}, pendingErr)
-				assert.Nil(t, batch)
-				require.Len(t, issues, 1)
-				assert.Equal(t, 1, issues[0].Entry)
-				assert.IsType(t, &serviceerr.UserNotEnrolledError{}, issues[0].Err)
-				assert.ErrorContains(t, issues[0].Err, "user 123 has no access to class basicos")
-				return
-			}
-			require.NoError(t, individualErr)
-			require.NoError(t, pendingErr)
-			require.Empty(t, issues)
-			require.Len(t, batch, 1)
-			assert.Equal(t, student.User, batch[0].User)
-			assert.Equal(t, int64(42), batch[0].Problem.ID)
-			assert.Equal(t, int64(10), batch[0].Class.ID)
-			assert.Equal(t, 1, batch[0].Entry)
-		})
+		for _, operation := range []string{"individual", "proposal", "batch"} {
+			t.Run(test.name+"/"+operation, func(t *testing.T) {
+				t.Parallel()
+				// These are alternative entry points from the same initial state, not
+				// successive writes against one student's recorded ACs.
+				store := mock_data.NewMockDataStore(gomock.NewController(t))
+				student := service_model.Principal{
+					User:  service_model.User{UserID: "123", DisplayName: "Ana"},
+					Roles: test.roles,
+				}
+				problem := data.Problem{ID: 42, ClassID: 10, Name: "Two Sum"}
+				class := data.Class{ID: 10, ClassCode: "basicos"}
+				store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 42}}).Return(map[data.ACKey]data.ACValidationData{
+					{UserID: "123", ProblemID: 42}: {Problem: &problem, Class: &class, AccessRoleIDs: test.accessRoles},
+				}, nil)
+				if test.allowed {
+					switch operation {
+					case "individual":
+						store.EXPECT().EnsureUser(data.User{UserID: "123", DisplayName: "Unknown"}).Return(nil)
+						store.EXPECT().HasUserSolvedProblem("123", int64(42)).Return(false, nil)
+						store.EXPECT().AddAC("123", int64(42)).Return(nil)
+					case "proposal":
+						store.EXPECT().EnsureUser(data.User{UserID: "123", DisplayName: "Ana"}).Return(nil)
+						store.EXPECT().AddPendingConfirmation(data.PendingConfirmation{
+							MessageID: "message",
+							UserID:    "123",
+							ProblemID: 42,
+						}).Return(true, nil)
+					}
+				}
+				service := NewServices(store).Solution
+				var err error
+				switch operation {
+				case "individual":
+					err = service.AddACByPrincipal(student, 42)
+				case "proposal":
+					var proposed service_model.Problem
+					proposed, err = service.AddPendingACByPrincipal("message", student, 42)
+					if test.allowed {
+						require.Equal(t, int64(42), proposed.ID)
+						require.Equal(t, "Two Sum", proposed.Name)
+					}
+				case "batch":
+					batch, issues, batchErr := service.PrepareCreationBatch(
+						[]service_model.CreateACParams{{UserID: " 00123 ", ProblemID: 42}},
+						map[string]service_model.Principal{"123": student},
+					)
+					require.NoError(t, batchErr)
+					if !test.allowed {
+						require.Nil(t, batch)
+						require.Len(t, issues, 1)
+						require.Equal(t, 1, issues[0].Entry)
+						err = issues[0].Err
+					} else {
+						require.Empty(t, issues)
+						require.Len(t, batch, 1)
+						require.Equal(t, student.User, batch[0].User)
+						require.Equal(t, int64(42), batch[0].Problem.ID)
+						require.Equal(t, int64(10), batch[0].Class.ID)
+						require.Equal(t, 1, batch[0].Entry)
+						require.False(t, batch[0].AlreadyRecorded)
+					}
+				}
+				if test.allowed {
+					require.NoError(t, err)
+				} else {
+					require.IsType(t, &serviceerr.UserNotEnrolledError{}, err)
+					require.ErrorContains(t, err, "user 123 has no access to class basicos")
+				}
+			})
+		}
 	}
+}
+
+func TestRecordedACPreventsSubsequentProposal(t *testing.T) {
+	t.Parallel()
+	db, err := data.NewDB(&data.DBConfig{DBPath: ":memory:", DBType: data.Test})
+	require.NoError(t, err)
+	t.Cleanup(db.CloseDB)
+	classID, err := db.CreateClass(data.Class{ClassCode: "basicos", Name: "Basicos"})
+	require.NoError(t, err)
+	problemID, err := db.AddProblem(data.Problem{
+		ClassID: classID,
+		Name:    "Two Sum",
+		URL:     "https://example.com/problem",
+	})
+	require.NoError(t, err)
+	require.NoError(t, db.AddClassAccessRole(data.ClassAccessRole{ClassCode: "basicos", RoleID: "student"}))
+	student := service_model.Principal{
+		User:  service_model.User{UserID: "123", DisplayName: "Ana"},
+		Roles: []string{"student"},
+	}
+	service := NewServices(db).Solution
+	require.NoError(t, service.AddACByPrincipal(student, problemID))
+	proposed, err := service.AddPendingACByPrincipal("new-proposal", student, problemID)
+	require.IsType(t, &serviceerr.ACAlreadyExistsError{}, err)
+	require.Empty(t, proposed)
+	pending, err := db.ExistsPendingConfirmation("new-proposal")
+	require.NoError(t, err)
+	require.False(t, pending)
+	solved, err := db.HasUserSolvedProblem(student.UserID, problemID)
+	require.NoError(t, err)
+	require.True(t, solved)
 }
 
 func TestIndividualACRejectsInvalidTargetsBeforeReads(t *testing.T) {
@@ -594,7 +642,8 @@ func TestIndividualACRejectsInvalidTargetsBeforeReads(t *testing.T) {
 			service := NewServices(store).Solution
 			student := service_model.Principal{UserID: input.UserID}
 			assert.IsType(t, &serviceerr.ValidationError{}, service.AddACByPrincipal(student, input.ProblemID))
-			assert.IsType(t, &serviceerr.ValidationError{}, service.AddPendingACByPrincipal("message", student, input.ProblemID))
+			_, pendingErr := service.AddPendingACByPrincipal("message", student, input.ProblemID)
+			assert.IsType(t, &serviceerr.ValidationError{}, pendingErr)
 		})
 	}
 }
@@ -608,7 +657,8 @@ func TestIndividualACRejectsMissingClassBeforeWrites(t *testing.T) {
 	service := NewServices(store).Solution
 	student := service_model.Principal{UserID: "u1", Roles: []string{"student"}}
 	assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, service.AddACByPrincipal(student, 42))
-	assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, service.AddPendingACByPrincipal("message", student, 42))
+	_, pendingErr := service.AddPendingACByPrincipal("message", student, 42)
+	assert.IsType(t, &serviceerr.ClassCodeNotFoundError{}, pendingErr)
 }
 
 func TestPrepareACBatchUsesStudentAndClassWithoutWrites(t *testing.T) {
@@ -879,4 +929,42 @@ func TestPrepareACBatchDoesNotReturnPartialSuccess(t *testing.T) {
 	assert.Nil(t, prepared)
 	require.Len(t, issues, 1)
 	assert.Equal(t, 2, issues[0].Entry)
+}
+
+func TestProposalRejectsACRecordedAfterValidation(t *testing.T) {
+	t.Parallel()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "student", ProblemID: 5}}).Return(map[data.ACKey]data.ACValidationData{
+		{UserID: "student", ProblemID: 5}: {Problem: &data.Problem{ID: 5, Name: "Two Sum", ClassID: 1}, Class: &data.Class{ID: 1}, AccessRoleIDs: []string{"student"}},
+	}, nil)
+	store.EXPECT().EnsureUser(gomock.Any()).Return(nil)
+	store.EXPECT().AddPendingConfirmation(data.PendingConfirmation{MessageID: "renewal", UserID: "student", ProblemID: 5}).Return(false, nil)
+	problem, err := NewServices(store).Solution.AddPendingACByPrincipal("renewal", service_model.Principal{UserID: "student", Roles: []string{"student"}}, 5)
+	require.Empty(t, problem)
+	require.IsType(t, &serviceerr.ACAlreadyExistsError{}, err)
+}
+
+func TestProposalResolutionMapsConsumedReferenceAbsence(t *testing.T) {
+	for _, approve := range []bool{true, false} {
+		t.Run(fmt.Sprint(approve), func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			missing := dataerr.NewNotFoundError("missing pending reference", nil)
+			if approve {
+				store.EXPECT().AcceptPendingConfirmation("old").Return(data.PendingConfirmation{}, missing)
+			} else {
+				store.EXPECT().RemovePendingConfirmation("old").Return(data.PendingConfirmation{}, missing)
+			}
+			svc := NewServices(store).Solution
+			var pending service_model.PendingConfirmation
+			var err error
+			if approve {
+				pending, err = svc.AcceptACProposal("old")
+			} else {
+				pending, err = svc.RejectACProposal("old")
+			}
+			require.Empty(t, pending)
+			require.IsType(t, &serviceerr.NotFoundInfoError{}, err)
+		})
+	}
 }
