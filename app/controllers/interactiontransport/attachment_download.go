@@ -1,6 +1,7 @@
 package interactiontransport
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,8 +28,9 @@ const (
 	messageAttachmentHTTPFailed     = "could not download the attachment (HTTP %d)"
 	messageAttachmentReadFailed     = "could not read the attachment: %w"
 	messageAttachmentEmpty          = "the attachment is empty"
-	messageAttachmentTooLarge       = "the attachment exceeds the download limit of %d bytes"
 )
+
+var errAttachmentTooLarge = errors.New("the attachment exceeds the download limit")
 
 // AttachmentDownloader applies one download policy to Discord attachments.
 type AttachmentDownloader struct {
@@ -97,7 +99,7 @@ func (downloader *AttachmentDownloader) Download(attachment *discordgo.MessageAt
 	}
 
 	if int64(len(contents)) > maxBytes {
-		return nil, fmt.Errorf(messageAttachmentTooLarge, maxBytes)
+		return nil, fmt.Errorf("%w of %d bytes", errAttachmentTooLarge, maxBytes)
 	}
 
 	return contents, nil

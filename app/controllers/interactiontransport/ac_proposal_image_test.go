@@ -2,7 +2,6 @@ package interactiontransport
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -43,7 +42,7 @@ func TestACProposalImageEnforcesTwentyMiBLimit(t *testing.T) {
 				require.ErrorContains(t, err, "20 MiB")
 				require.Zero(t, calls, "reject declared oversize before downloading")
 			} else if test.actual > limit {
-				require.ErrorContains(t, err, fmt.Sprint(limit))
+				require.EqualError(t, err, "The screenshot must be an image of 20 MiB or less.")
 				require.Equal(t, 1, calls)
 			} else {
 				require.NoError(t, err)

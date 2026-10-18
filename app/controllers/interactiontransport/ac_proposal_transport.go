@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -96,7 +97,11 @@ func DownloadACProposalImage(downloader *AttachmentDownloader, attachment *disco
 
 	image, err := downloader.Download(attachment, maxACProposalImageSize)
 	if err != nil {
-		return nil, "", "", err
+		logger.Log.Warnf("AC proposal screenshot download failed: %v", err)
+		if errors.Is(err, errAttachmentTooLarge) {
+			return nil, "", "", errors.New(messageACProposalImageSize)
+		}
+		return nil, "", "", errors.New(messageACProposalUnreadableScreenshot)
 	}
 
 	contentType := http.DetectContentType(image)
