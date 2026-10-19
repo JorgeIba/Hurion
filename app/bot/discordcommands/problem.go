@@ -12,6 +12,7 @@ const (
 	ProblemEditCommandName      = "edit"
 	ProblemAddBatchCommandName  = "add_batch"
 	ProblemEditBatchCommandName = "edit_batch"
+	ProblemIDOptionName         = "problem"
 )
 
 const (
@@ -49,10 +50,11 @@ func ProblemSlashCommand(classCodeMaxLength int) *discordgo.ApplicationCommand {
 				Description: "Edit an existing problem",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
-						Type:        discordgo.ApplicationCommandOptionString,
-						Name:        "problem",
-						Description: "Problem ID",
-						Required:    true,
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         ProblemIDOptionName,
+						Description:  "Problem ID (search by ID or name in this channel's class)",
+						Required:     true,
+						Autocomplete: true,
 					},
 					{
 						Type:        discordgo.ApplicationCommandOptionString,

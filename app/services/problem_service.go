@@ -27,6 +27,7 @@ type ProblemService interface {
 	ReplaceProblemByProblemID(params service_model.ReplaceProblemParams) error
 	PatchProblemByProblemID(params service_model.PatchProblemParams) error
 	GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error)
+	GetProblemsByClass(classCode string) ([]service_model.Problem, error)
 	GetProblemByID(problemID int64) (service_model.Problem, error)
 }
 
@@ -508,31 +509,38 @@ func (service *problemService) patchPreparedProblem(prepared service_model.Prepa
 	return nil
 }
 
-// GetProblemsGroupedByTopic retrieves all problems in a class grouped by topic
-func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error) {
-
+// GetProblemsByClass retrieves a class's problems ordered by ID.
+func (service *problemService) GetProblemsByClass(classCode string) ([]service_model.Problem, error) {
 	class, err := service.Datastore.GetClassByClassCode(classCode)
-	emptySlice := []service_model.ProblemsByTopic{}
 	if err != nil {
 		switch {
 		case dataerr.IsNotFound(err):
-			return emptySlice, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
+			return nil, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", classCode), err)
 		default:
-			return emptySlice, serviceerr.MakeGeneralError(err)
+			return nil, serviceerr.MakeGeneralError(err)
 		}
 	}
 
 	problemsData, err := service.Datastore.GetProblemsByClass(class.ID)
 	if err != nil {
-		return emptySlice, serviceerr.MakeGeneralError(err)
+		return nil, serviceerr.MakeGeneralError(err)
 	}
 
 	// Map data.Problem to Problem
 	problems := mapDataProblemsToServiceProblems(problemsData)
 
-	// First appearance sets each topic's position by its lowest problem ID.
 	helpers.SortProblemsByID(problems)
+	return problems, nil
+}
 
+// GetProblemsGroupedByTopic retrieves all problems in a class grouped by topic.
+func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error) {
+	problems, err := service.GetProblemsByClass(classCode)
+	if err != nil {
+		return []service_model.ProblemsByTopic{}, err
+	}
+
+	// First appearance sets each topic's position by its lowest problem ID.
 	// Group problems in map
 	topicMap := make(map[string][]service_model.Problem)
 	var topicOrder []string

@@ -2,8 +2,6 @@ package discordcommands
 
 import "github.com/bwmarrin/discordgo"
 
-const minimumProblemID float64 = 1
-
 const (
 	ACCommandName          = "ac"
 	ACAddBatchCommandName  = "add_batch"
@@ -32,11 +30,12 @@ func ACSlashCommand() *discordgo.ApplicationCommand {
 				Description: "Propose a solved problem for mentor approval",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
-						Type:        discordgo.ApplicationCommandOptionInteger,
-						Name:        ACProblemIDOptionName,
-						Description: "Problem ID",
-						Required:    true,
-						MinValue:    new(minimumProblemID),
+						// STRING allows searching by ID or name; suggestions carry only the ID.
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         ACProblemIDOptionName,
+						Description:  "Problem ID (search by ID or name in this channel's class)",
+						Required:     true,
+						Autocomplete: true,
 					},
 					{
 						Type:        discordgo.ApplicationCommandOptionAttachment,

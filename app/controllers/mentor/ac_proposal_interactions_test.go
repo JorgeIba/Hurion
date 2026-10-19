@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
@@ -13,6 +14,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/data"
+	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
@@ -59,12 +61,43 @@ func proposalCommand(referenceID string, problemID int64) *discordgo.Interaction
 				Type: discordgo.ApplicationCommandOptionSubCommand,
 				Options: []*discordgo.ApplicationCommandInteractionDataOption{{
 					Name:  discordcommands.ACProblemIDOptionName,
-					Type:  discordgo.ApplicationCommandOptionInteger,
-					Value: float64(problemID),
+					Type:  discordgo.ApplicationCommandOptionString,
+					Value: strconv.FormatInt(problemID, 10),
 				}},
 			}},
 		},
 	}}
+}
+
+func TestInvalidStringProblemIDStopsBeforePersistenceOrPublication(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name  string
+		value string
+	}{
+		{name: "name without selection", value: "Two Sum"},
+		{name: "decimal", value: "1.5"},
+		{name: "empty"},
+		{name: "integer overflow", value: "9223372036854775808"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store := mock_data.NewMockDataStore(gomock.NewController(t))
+			client := &proposalInteractionClient{}
+			controller := NewACInteractionController(services.NewServices(store), nil, nil, dispatcher.NewDiscordInteractionResponder(client))
+			event := proposalCommand("invalid-submission", 5)
+			event.ApplicationCommandData().Options[0].Options[0].Value = test.value
+			// No datastore expectations: invalid input must stop before any read/write.
+			controller.HandleProposeACInteraction(event)
+			require.Len(t, client.responses, 1)
+			require.Equal(t, discordgo.InteractionResponseChannelMessageWithSource, client.responses[0].Type)
+			require.Equal(t, discordgo.MessageFlagsEphemeral, client.responses[0].Data.Flags)
+			require.Equal(t, "Enter a valid positive problem ID.", client.responses[0].Data.Content)
+			require.Empty(t, client.followups)
+			require.Empty(t, client.edits)
+			require.Empty(t, client.deliveries)
+		})
+	}
 }
 
 func TestPrefixAndSlashProposalsShareRenewalIncludingPublicationFailures(t *testing.T) {

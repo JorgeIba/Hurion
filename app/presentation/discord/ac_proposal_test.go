@@ -26,15 +26,22 @@ func TestACProposalEvidenceAppearsOnceAndSurvivesResolution(t *testing.T) {
 				}, service_model.Problem{
 					ID:   5,
 					Name: "Two Sum",
+					URL:  "https://example.com/two-sum",
 				}, image, "image/png", "proof.png", "approve-reference", "reject-reference")
 				require.Len(t, card.Embeds, 1)
 				require.Nil(t, card.Embeds[0].Image, "the uploaded attachment must not also be embedded")
-				require.Contains(t, card.Embeds[0].Description, "Student")
-				require.Contains(t, card.Embeds[0].Description, "<@123456789012345678>")
-				require.Contains(t, card.Embeds[0].Description, "5 — Two Sum")
+				require.Equal(t, "AC?", card.Embeds[0].Title)
+				require.Equal(t, 0xFEE75C, card.Embeds[0].Color)
+				require.Equal(t, "<@123456789012345678> submitted an AC proposal for: **[5: Two Sum](https://example.com/two-sum)**", card.Embeds[0].Description)
 				row := card.Components[0].(discordgo.ActionsRow)
 				require.Equal(t, "approve-reference", row.Components[0].(discordgo.Button).CustomID)
 				require.Equal(t, "reject-reference", row.Components[1].(discordgo.Button).CustomID)
+				approve := row.Components[0].(discordgo.Button)
+				reject := row.Components[1].(discordgo.Button)
+				require.NotNil(t, approve.Emoji)
+				require.NotNil(t, reject.Emoji)
+				require.Equal(t, "✅", approve.Emoji.Name)
+				require.Equal(t, "✖️", reject.Emoji.Name)
 				message := &discordgo.Message{Embeds: card.Embeds}
 				if withImage {
 					require.Len(t, card.Files, 1)
@@ -55,13 +62,20 @@ func TestACProposalEvidenceAppearsOnceAndSurvivesResolution(t *testing.T) {
 				resolved := (*edit.Embeds)[0]
 				require.Nil(t, resolved.Image)
 				require.NotContains(t, resolved.Description, acProposalPendingText)
-				require.Contains(t, resolved.Description, "5 — Two Sum")
+				require.Contains(t, resolved.Description, "[5: Two Sum](https://example.com/two-sum)")
 				require.Contains(t, resolved.Description, "<@123456789012345678>")
 				require.Contains(t, resolved.Description, "Mentor")
 				status := "🗣️ Rejected"
+				title := "AC Rejected"
+				color := 0xED4245
 				if accepted {
 					status = "🎈 Approved"
+					title = "AC Approved"
+					color = 0x57F287
 				}
+				require.Equal(t, title, resolved.Title)
+				require.Equal(t, color, resolved.Color)
+				require.Equal(t, 0xFEE75C, message.Embeds[0].Color, "resolution must not mutate the original embed")
 				require.Contains(t, resolved.Description, status+" by")
 				require.Equal(t, originalDescription, message.Embeds[0].Description, "rendering must not mutate the source message")
 				if withImage {
