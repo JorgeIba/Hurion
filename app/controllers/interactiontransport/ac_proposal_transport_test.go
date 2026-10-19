@@ -21,7 +21,7 @@ func TestParseACProposalOptionsFromDiscordPayload(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(`{
 				"name":"ac",
 				"options":[{"name":"submit","type":1,"options":[
-					{"name":"id","type":4,"value":5}
+					{"name":"id","type":3,"value":"5"}
 				]}]
 			}`), &command))
 			var screenshot *discordgo.MessageAttachment
@@ -57,12 +57,16 @@ func TestParseACProposalOptionsRejectsInvalidInputWithoutPanic(t *testing.T) {
 		{name: "null subcommand", options: `[null]`},
 		{name: "wrong subcommand", options: `[{"name":"add_batch","type":1}]`},
 		{name: "missing ID", options: `[{"name":"submit","type":1,"options":[]}]`},
-		{name: "wrong option type", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":"5"}]}]`},
-		{name: "unexpected value type", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":4,"value":"5"}]}]`},
-		{name: "missing value", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":4}]}]`},
-		{name: "zero ID", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":4,"value":0}]}]`},
-		{name: "negative ID", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":4,"value":-1}]}]`},
-		{name: "unresolved screenshot", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":4,"value":5},{"name":"screenshot","type":11,"value":"missing"}]}]`},
+		{name: "wrong option type", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":4,"value":5}]}]`},
+		{name: "unexpected value type", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":5}]}]`},
+		{name: "missing value", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3}]}]`},
+		{name: "zero ID", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":"0"}]}]`},
+		{name: "negative ID", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":"-1"}]}]`},
+		{name: "name without selecting a suggestion", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":"Two Sum"}]}]`},
+		{name: "decimal ID", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":"1.5"}]}]`},
+		{name: "empty ID", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":""}]}]`},
+		{name: "ID outside int64 range", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":"9223372036854775808"}]}]`},
+		{name: "unresolved screenshot", options: `[{"name":"submit","type":1,"options":[{"name":"id","type":3,"value":"5"},{"name":"screenshot","type":11,"value":"missing"}]}]`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

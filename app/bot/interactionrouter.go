@@ -13,6 +13,29 @@ import (
 // delegate to controllers, which send their responses through the dispatcher.
 type InteractionRouter func(*context.InteractionContext)
 
+type autocompleteRouteKey struct {
+	command    string
+	subcommand string
+	option     string
+}
+
+var interactionAutocompleteMap = map[autocompleteRouteKey]InteractionRouter{
+	{
+		command:    discordcommands.ACCommandName,
+		subcommand: discordcommands.ACSubmitCommandName,
+		option:     discordcommands.ACProblemIDOptionName,
+	}: func(c *context.InteractionContext) {
+		c.AutocompleteController.HandleProblems(c.Interaction)
+	},
+	{
+		command:    discordcommands.ProblemCommandName,
+		subcommand: discordcommands.ProblemEditCommandName,
+		option:     discordcommands.ProblemIDOptionName,
+	}: func(c *context.InteractionContext) {
+		c.AutocompleteController.HandleProblems(c.Interaction)
+	},
+}
+
 var interactionCommandMap = map[string]map[string]InteractionRouter{
 	discordcommands.ACCommandName: {
 		discordcommands.ACSubmitCommandName: func(c *context.InteractionContext) {
@@ -85,6 +108,10 @@ var interactionComponentMap = map[discordcommands.Action]InteractionRouter{
 
 func hasInteractionRoute(event *discordgo.InteractionCreate) bool {
 	switch event.Type {
+	case discordgo.InteractionApplicationCommandAutocomplete:
+		route := autocompleteRoute(event)
+		_, ok := interactionAutocompleteMap[route]
+		return ok
 	case discordgo.InteractionApplicationCommand:
 		_, ok := interactionCommandMap[event.ApplicationCommandData().Name]
 		return ok
@@ -98,6 +125,24 @@ func hasInteractionRoute(event *discordgo.InteractionCreate) bool {
 		return ok
 	default:
 		return false
+	}
+}
+
+func autocompleteRoute(event *discordgo.InteractionCreate) autocompleteRouteKey {
+	command := event.ApplicationCommandData()
+	if len(command.Options) != 1 || command.Options[0] == nil || command.Options[0].Type != discordgo.ApplicationCommandOptionSubCommand {
+		return autocompleteRouteKey{}
+	}
+
+	focused := interactiontransport.FocusedAutocompleteOption(command.Options[0].Options)
+	if focused == nil {
+		return autocompleteRouteKey{}
+	}
+
+	return autocompleteRouteKey{
+		command:    command.Name,
+		subcommand: command.Options[0].Name,
+		option:     focused.Name,
 	}
 }
 
@@ -117,6 +162,13 @@ func routeInteractionCommand(c *context.InteractionContext) {
 	}
 
 	router(c)
+}
+
+func routeInteractionAutocomplete(c *context.InteractionContext) {
+	route := autocompleteRoute(c.Interaction)
+	if router, ok := interactionAutocompleteMap[route]; ok {
+		router(c)
+	}
 }
 
 func routeInteractionModalSubmit(c *context.InteractionContext) {

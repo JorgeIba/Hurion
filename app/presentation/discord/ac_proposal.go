@@ -11,17 +11,19 @@ import (
 )
 
 const (
-	acProposalColor             = 0xE5A23B
+	acProposalPendingColor  = 0xFEE75C
+	acProposalApprovedColor = 0x57F287
+	acProposalRejectedColor = 0xED4245
+	// Retained to remove the pending label when resolving cards posted before this layout.
 	acProposalPendingText       = "Pending mentor review"
-	acProposalDescriptionFormat = "%s (<@%s>) submitted an AC proposal for:\n**%d — %s**\n\n%s"
-	acProposalTitle             = "AC proposal"
-	acProposalApproveLabel      = "Approve"
-	acProposalRejectLabel       = "Reject"
+	acProposalDescriptionFormat = "<@%s> submitted an AC proposal for: **[%d: %s](%s)**"
+	acProposalTitle             = "AC?"
+	acProposalRejectEmoji       = "✖️"
 	acProposalUploadID          = "0"
 	acProposalRejectedByText    = " Rejected by "
 	acProposalApprovedByText    = " Approved by "
-	acProposalRejectedTitle     = "AC proposal rejected"
-	acProposalApprovedTitle     = "AC proposal approved"
+	acProposalRejectedTitle     = "AC Rejected"
+	acProposalApprovedTitle     = "AC Approved"
 )
 
 func BuildACProposalWebhookParams(
@@ -35,24 +37,24 @@ func BuildACProposalWebhookParams(
 ) *discordgo.WebhookParams {
 	description := fmt.Sprintf(
 		acProposalDescriptionFormat,
-		inlineCode(proposer.DisplayName), proposer.UserID, problem.ID, problem.Name, acProposalPendingText,
+		proposer.UserID, problem.ID, problem.Name, problem.URL,
 	)
 
 	card := &discordgo.WebhookParams{
 		Embeds: []*discordgo.MessageEmbed{{
 			Title:       acProposalTitle,
 			Description: description,
-			Color:       acProposalColor,
+			Color:       acProposalPendingColor,
 		}},
 		Components: []discordgo.MessageComponent{discordgo.ActionsRow{Components: []discordgo.MessageComponent{
 			discordgo.Button{
 				CustomID: approveID,
-				Label:    acProposalApproveLabel,
+				Emoji:    &discordgo.ComponentEmoji{Name: common.REACTION_YES},
 				Style:    discordgo.SuccessButton,
 			},
 			discordgo.Button{
 				CustomID: rejectID,
-				Label:    acProposalRejectLabel,
+				Emoji:    &discordgo.ComponentEmoji{Name: acProposalRejectEmoji},
 				Style:    discordgo.DangerButton,
 			},
 		}}},
@@ -74,9 +76,11 @@ func BuildACProposalWebhookParams(
 func BuildACProposalResolutionEdit(message *discordgo.Message, mentorName string, accepted bool) *discordgo.WebhookEdit {
 	status := common.REACTION_REJECTED + acProposalRejectedByText + inlineCode(mentorName)
 	title := acProposalRejectedTitle
+	color := acProposalRejectedColor
 	if accepted {
 		status = common.REACTION_ACCEPTED + acProposalApprovedByText + inlineCode(mentorName)
 		title = acProposalApprovedTitle
+		color = acProposalApprovedColor
 	}
 
 	components := []discordgo.MessageComponent{}
@@ -94,6 +98,7 @@ func BuildACProposalResolutionEdit(message *discordgo.Message, mentorName string
 		embeds := append([]*discordgo.MessageEmbed(nil), message.Embeds...)
 		updated := *embeds[0]
 		updated.Title = title
+		updated.Color = color
 		updated.Description = strings.TrimSuffix(updated.Description, "\n\n"+acProposalPendingText) + "\n\n" + status
 		embeds[0] = &updated
 		edit.Embeds = &embeds

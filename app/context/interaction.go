@@ -30,9 +30,14 @@ type ACInteractionController interface {
 	HandleRejectACProposalInteraction(*discordgo.InteractionCreate)
 }
 
+type AutocompleteController interface {
+	HandleProblems(*discordgo.InteractionCreate)
+}
+
 type InteractionContext struct {
-	Interaction       *discordgo.InteractionCreate
-	Dispatcher        dispatcher.InteractionResponder
-	ProblemController ProblemInteractionController
-	ACController      ACInteractionController
+	Interaction            *discordgo.InteractionCreate
+	Dispatcher             dispatcher.InteractionResponder
+	ProblemController      ProblemInteractionController
+	ACController           ACInteractionController
+	AutocompleteController AutocompleteController
 }

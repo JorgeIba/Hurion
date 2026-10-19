@@ -3,6 +3,7 @@ package interactiontransport
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/logger"
@@ -53,18 +54,17 @@ func ParseACProposalOptions(data discordgo.ApplicationCommandInteractionData) (i
 		}
 	}
 
-	if problemOption == nil || problemOption.Type != discordgo.ApplicationCommandOptionInteger {
+	if problemOption == nil || problemOption.Type != discordgo.ApplicationCommandOptionString {
 		return 0, nil, errors.New(messageACProposalInvalidProblemID)
 	}
 
-	// DiscordGo decodes INTEGER option values as float64. Check the representation
-	// before using its accessor, which panics on an unexpected value type.
-	if _, ok := problemOption.Value.(float64); !ok {
+	value, ok := problemOption.Value.(string)
+	if !ok {
 		return 0, nil, errors.New(messageACProposalInvalidProblemID)
 	}
 
-	problemID := problemOption.IntValue()
-	if problemID <= 0 {
+	problemID, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || problemID <= 0 {
 		return 0, nil, errors.New(messageACProposalInvalidProblemID)
 	}
 

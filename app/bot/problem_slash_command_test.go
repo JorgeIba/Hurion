@@ -36,7 +36,7 @@ func TestUpsertProblemSlashCommandCreatesGuildScopedProblemCommand(t *testing.T)
 	require.Len(t, edit.Options, 2)
 	assert.Equal(t, "problem", edit.Options[0].Name)
 	assert.True(t, edit.Options[0].Required)
-	assert.False(t, edit.Options[0].Autocomplete)
+	assert.True(t, edit.Options[0].Autocomplete)
 	assert.Equal(t, "class", edit.Options[1].Name)
 	assert.False(t, edit.Options[1].Required)
 

@@ -4,23 +4,26 @@ import (
 	"strings"
 
 	"github.com/JorgeIba/Hurion/app/context"
+	"github.com/JorgeIba/Hurion/app/controllers/autocomplete"
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
 
 type Bot struct {
-	messageSender        dispatcher.MessageSender
-	interactionResponder dispatcher.InteractionResponder
-	discordProvider      providers.DiscordProvider
-	services             *services.Services
-	testMode             bool
-	whitelistUsers       map[string]struct{}
-	whitelistRoles       map[string]struct{}
-	guildID              string
+	messageSender          dispatcher.MessageSender
+	interactionResponder   dispatcher.InteractionResponder
+	autocompleteController context.AutocompleteController
+	discordProvider        providers.DiscordProvider
+	services               *services.Services
+	testMode               bool
+	whitelistUsers         map[string]struct{}
+	whitelistRoles         map[string]struct{}
+	guildID                string
 }
 
 type BotConfig struct {
@@ -43,14 +46,15 @@ func NewBot(svcs *services.Services, provider providers.DiscordProvider, sender 
 	}
 
 	return &Bot{
-		messageSender:        sender,
-		interactionResponder: responder,
-		discordProvider:      provider,
-		services:             svcs,
-		testMode:             cfg.TestMode,
-		whitelistUsers:       userMap,
-		whitelistRoles:       roleMap,
-		guildID:              cfg.GuildID,
+		messageSender:          sender,
+		interactionResponder:   responder,
+		autocompleteController: autocomplete.NewProblemController(svcs, responder),
+		discordProvider:        provider,
+		services:               svcs,
+		testMode:               cfg.TestMode,
+		whitelistUsers:         userMap,
+		whitelistRoles:         roleMap,
+		guildID:                cfg.GuildID,
 	}
 }
 
@@ -234,7 +238,7 @@ func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.In
 
 		roles := bot.resolveUserRoles(event.Member, event.GuildID, userID)
 		if !bot.isWhitelisted(userID, roles) {
-			bot.interactionResponder.RespondPrivately(event.Interaction, "This development interaction is not enabled for your account.")
+			bot.respondUnavailableInteraction(event, "This development interaction is not enabled for your account.")
 			return
 		}
 	}
@@ -244,17 +248,20 @@ func (bot *Bot) HandleInteractionEvent(s *discordgo.Session, event *discordgo.In
 
 func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate, problemInteractionController context.ProblemInteractionController, acInteractionController context.ACInteractionController) {
 	if event.GuildID != bot.guildID {
-		bot.interactionResponder.RespondPrivately(event.Interaction, "This interaction is only available in the configured server.")
+		bot.respondUnavailableInteraction(event, "This interaction is only available in the configured server.")
 		return
 	}
 
 	c := &context.InteractionContext{
-		Interaction:       event,
-		Dispatcher:        bot.interactionResponder,
-		ProblemController: problemInteractionController,
-		ACController:      acInteractionController,
+		Interaction:            event,
+		Dispatcher:             bot.interactionResponder,
+		ProblemController:      problemInteractionController,
+		ACController:           acInteractionController,
+		AutocompleteController: bot.autocompleteController,
 	}
 	switch event.Type {
+	case discordgo.InteractionApplicationCommandAutocomplete:
+		routeInteractionAutocomplete(c)
 	case discordgo.InteractionApplicationCommand:
 		routeInteractionCommand(c)
 	case discordgo.InteractionModalSubmit:
@@ -262,4 +269,12 @@ func (bot *Bot) interactionHandler(event *discordgo.InteractionCreate, problemIn
 	case discordgo.InteractionMessageComponent:
 		routeInteractionComponent(c)
 	}
+}
+
+func (bot *Bot) respondUnavailableInteraction(event *discordgo.InteractionCreate, message string) {
+	if event.Type == discordgo.InteractionApplicationCommandAutocomplete {
+		bot.interactionResponder.Respond(event.Interaction, discord.BuildAutocompleteResponse(nil))
+		return
+	}
+	bot.interactionResponder.RespondPrivately(event.Interaction, message)
 }

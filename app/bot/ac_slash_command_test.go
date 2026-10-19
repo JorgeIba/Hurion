@@ -41,12 +41,10 @@ func TestUpsertACSlashCommand(t *testing.T) {
 				assert.Equal(t, discordgo.ApplicationCommandOptionSubCommand, propose.Type)
 				if assert.Len(t, propose.Options, 2) {
 					assert.Equal(t, "id", propose.Options[0].Name)
-					assert.Equal(t, discordgo.ApplicationCommandOptionInteger, propose.Options[0].Type)
-					assert.False(t, propose.Options[0].Autocomplete)
+					assert.Equal(t, discordgo.ApplicationCommandOptionString, propose.Options[0].Type)
+					assert.True(t, propose.Options[0].Autocomplete)
 					assert.True(t, propose.Options[0].Required)
-					if assert.NotNil(t, propose.Options[0].MinValue) {
-						assert.Equal(t, 1.0, *propose.Options[0].MinValue)
-					}
+					assert.Nil(t, propose.Options[0].MinValue)
 					assert.Equal(t, "screenshot", propose.Options[1].Name)
 					assert.Equal(t, discordgo.ApplicationCommandOptionAttachment, propose.Options[1].Type)
 					assert.False(t, propose.Options[1].Required)
