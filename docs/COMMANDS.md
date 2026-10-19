@@ -14,7 +14,8 @@ Available to all users.
 | `!help` | `!help [command]` | Show info for all commands or details for a specific command | No |
 | `!list` | `!list [class_code]` | Show problems for a class. Inferred from channel if `class_code` is missing. | No |
 | `!scores` | `!scores` | Show scores for **all classes** as image tables. | No |
-| `!score` | `!score [class_code]` | Show scores for a **specific class**. Inferred from channel if `class_code` is missing. | No |
+| `!score` | `!score [class_code]` | Get a link to the interactive scoreboard for a class. Inferred from channel if `class_code` is missing. | No |
+| `!score_image` | `!score_image [class_code]` | Generate and attach a static PNG score table for a class. Inferred from channel if `class_code` is missing. | No |
 | `!score_of` | `!score_of <@user> [class_code]` | Show a user's score in a class. Inferred from channel if `class_code` is missing. | No |
 | `!users` | `!users [class_code]` | List active users. Inferred from channel if `class_code` is missing. | No |
 | `!classes` | `!classes` | List all available classes. | No |
