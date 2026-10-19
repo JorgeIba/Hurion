@@ -35,9 +35,20 @@ func BuildACProposalWebhookParams(
 	approveID string,
 	rejectID string,
 ) *discordgo.WebhookParams {
+	// Escape Markdown so problem names cannot break the bold link label.
+	problemName := strings.NewReplacer(
+		`\`, `\\`,
+		`[`, `\[`,
+		`]`, `\]`,
+		`*`, `\*`,
+		`_`, `\_`,
+		`~`, `\~`,
+		"`", "\\`",
+	).Replace(problem.Name)
+
 	description := fmt.Sprintf(
 		acProposalDescriptionFormat,
-		proposer.UserID, problem.ID, problem.Name, problem.URL,
+		proposer.UserID, problem.ID, problemName, problem.URL,
 	)
 
 	card := &discordgo.WebhookParams{
