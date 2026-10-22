@@ -145,6 +145,59 @@ Add the service to `Services` through `NewServicesWithJudges`.
 
 Business rules stay here; the service knows nothing about Discord, cooldowns, or concurrency.
 
+### 3.3 Per-judge synchronization sequence
+
+The following diagram shows the successful execution paths for one judge. Failures return an error result to the controller. Each execution considers the problems in all classes accessible to the target member.
+
+```mermaid
+sequenceDiagram
+    participant C as Judge Controller
+    participant S as JudgeSyncService
+    participant DB as Data Store
+    participant R as JudgeRegistry
+    participant J as Judge Provider
+    participant API as External Judge API
+
+    C->>S: SyncJudge(target, judge)
+    S->>DB: Get linked judge account
+    DB-->>S: Verified handle
+    S->>DB: Get accessible classes from target roles
+    DB-->>S: Accessible classes
+    S->>DB: Get problems and solve states for those classes
+    DB-->>S: Problems with solve states
+
+    loop Each problem
+        S->>R: MatchProblem(problem URL)
+        R->>R: Try parsers until the first match
+        R-->>S: ProblemRef or no match
+        S->>S: Classify as other, already solved, or candidate
+    end
+
+    alt No unsolved candidates
+        S->>DB: RecordJudgeSync with no AC targets
+        DB->>DB: Update last_synced_at transactionally
+        DB-->>S: Sync recorded
+    else Unsolved candidates exist
+        S->>J: Submissions(handle, 0)
+        J->>API: Request full submission history
+        API-->>J: Submissions
+        J-->>S: Normalized submissions
+        S->>S: Match candidates against accepted submissions
+
+        S->>DB: RecordJudgeSync with accepted target pairs
+        Note over DB: Begin transaction
+        DB->>DB: Ensure user exists
+        DB->>DB: Insert new ACs and collect inserted pairs
+        DB->>DB: Delete pending proposals for all target pairs
+        DB->>DB: Update last_synced_at
+        DB->>DB: Commit transaction
+        DB-->>S: Actually inserted pairs
+        DB->>DB: Notify data observers after commit
+    end
+
+    S-->>C: New ACs, counts, or error
+```
+
 ## 4. Discord Layer
 
 ### 4.1 Command
@@ -185,6 +238,61 @@ Constants:
     - **Everything failed:** edit the private response with every failure reason.
 
 The handler must not return before every goroutine has finished, and it must recover panics inside the goroutines (report them as failures).
+
+#### Sync orchestration sequence
+
+The controller launches the available judges concurrently and aggregates their results. Only the handler goroutine sends progress updates and the final report to Discord.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant C as Judge Controller
+    participant D as Discord Provider
+    participant S as JudgeSyncService
+    participant G as Sync Gate
+
+    User->>C: /judge sync [judge] [user]
+    C-->>User: Defer an ephemeral response
+    C->>C: Authorize syncing the target member
+    C->>D: Resolve target member and roles
+    D-->>C: Target principal
+    C->>S: LinkedJudges(target)
+    S-->>C: Linked accounts
+    C->>C: Apply optional judge filter
+
+    loop Each selected judge
+        C->>G: Attempt to claim gate
+        G-->>C: Available, in flight, or cooling down
+    end
+
+    alt No judges available to run
+        C-->>User: Show reasons and retry instructions privately
+    else At least one judge available
+        loop Each available judge
+            C->>S: Launch SyncJudge in a goroutine
+        end
+
+        Note over C,S: Judges run concurrently with individual deadlines
+
+        loop Each result received through the channel
+            S-->>C: Judge result
+            alt Sync succeeded
+                C->>G: Set a five-minute cooldown
+            else Sync failed
+                C->>G: Release gate for immediate retry
+            end
+            C-->>User: Update ephemeral progress
+        end
+
+        alt At least one judge succeeded
+            C->>D: Create public follow-up with full report
+            D-->>C: Report posted
+            C->>D: Delete ephemeral progress response
+        else All judges failed
+            C-->>User: Show failure details privately
+        end
+    end
+```
 
 ### 4.3 Presentation (`app/presentation/discord/judge_sync.go`)
 
