@@ -47,6 +47,10 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		return
 	}
 
+	if err := authorizeProposal(c.DiscordValidator, c.Services, c.ExecutorGuildID, c.Executor.UserID, messageID); err != nil {
+		return
+	}
+
 	switch c.MessageReaction.Emoji.Name {
 	case common.REACTION_NO:
 		pendingConfirmation, err := c.Services.Solution.RejectACProposal(messageID)
@@ -133,6 +137,10 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
+	if err := requireMessageTargets(c, mentorTarget{problemID: problemID}); err != nil {
+		return
+	}
+
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
 
 	member, err := controllers_common.GetMemberSafe(c, userID)
@@ -203,6 +211,10 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
+	if err := requireMessageTargets(c, mentorTarget{problemID: problemID}); err != nil {
+		return
+	}
+
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
 
 	if err = c.Services.Solution.UndoAC(userID, problemID); err != nil {
@@ -269,6 +281,10 @@ func HandleAddProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
+	if err := requireMessageTargets(c, mentorTarget{classCode: classCode}); err != nil {
+		return
+	}
+
 	problemID, err := c.Services.Problem.CreateProblemIntoClass(service_model.CreateProblemParams{
 		Name:       problemName,
 		URL:        url,
@@ -321,6 +337,10 @@ func HandleRemoveProblem(c *context.ContextMessage) error {
 		c.Dispatcher.Send(
 			dispatcher.MakeSimpleMessage(c.Message.ChannelID, fmt.Sprintf("I couldn't parse `%s` as a problem ID, bro.", problemIDs)),
 		)
+		return err
+	}
+
+	if err := requireMessageTargets(c, mentorTarget{problemID: problemID}); err != nil {
 		return err
 	}
 
@@ -396,6 +416,10 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
+	if err := requireMessageTargets(c, mentorTarget{problemID: problemID, classCode: classCode}); err != nil {
+		return
+	}
+
 	if err = c.Services.Problem.ReplaceProblemByProblemID(service_model.ReplaceProblemParams{
 		ProblemID:  problemID,
 		Name:       problemName,
@@ -459,7 +483,7 @@ func checkIfUserIsMentor(c *context.ContextMessage) (bool, error) {
 		return false, fmt.Errorf("mentor commands can only be used in a server, not in DMs")
 	}
 
-	return c.DiscordValidator.IsMentor(c.ExecutorGuildID, c.Executor.UserID)
+	return canManageProblems(c.DiscordValidator, c.ExecutorGuildID, c.Executor.UserID)
 }
 
 func checkIfUserCanManageProblems(c *context.ContextMessage) (bool, error) {

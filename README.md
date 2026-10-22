@@ -76,6 +76,37 @@ Detailed guides for every part of the system:
 3.  **Launch (Standard):** `make run`
 4.  **Launch (Full Dev Mode):** `make run-dev` (enables `--seed` and `--exporter`)
 
+### Class-scoped mentor roles
+
+Classes inherit the global `mentor_role_id` unless they define `mentor_role_ids`.
+An explicit list **replaces** the global mentor role for that class; any listed
+role grants mentor access. An empty list (`mentor_role_ids: []`) allows only
+global administrators to manage that class. Student access still uses `role_ids`.
+
+```yaml
+mentor_role_id: "9999999991"
+classes:
+  - code: "advanced"
+    name: "Advanced Level 2026"
+    # Discord role huronesMentores++: replace this example with its real role ID.
+    mentor_role_ids: ["4444444444"]
+```
+
+Copy the ID of the `huronesMentores++` role from Discord (Developer Mode) into
+`config.yaml`; the bot checks IDs, never role names, and does not create roles.
+Omit `mentor_role_ids` on other classes to preserve their global mentor access.
+These permissions load at startup even without `--seed`; restart after edits.
+No database migration is needed. Classes created outside YAML inherit the global
+mentor role until configured otherwise.
+
+The policy covers problem creation, editing, deletion, AC grants, reversals and
+proposal decisions through text commands, slash commands, modals, buttons,
+reactions and batches. Existing problems use their stored class regardless of
+the channel. Moving a problem requires access to both classes. Every batch entry
+is authorized before any write, and confirmation rechecks current roles and
+problem classes. Administrators retain access to all classes; admin-only commands
+and ordinary student proposal/access rules are unchanged.
+
 ### Runtime Flags & Makefile Composition
 The bot's behavior is controlled by CLI flags composed via `make run FLAGS="..."`:
 

@@ -113,6 +113,8 @@ func main() {
 		sender = realSender
 	}
 
+	scopedProvider := providers.WithClassMentorRoles(provider, cfg.MentorRolesByClass())
+
 	// 7. Assemble the Bot
 	var responder dispatcher.InteractionResponder
 	if session != nil {
@@ -124,9 +126,9 @@ func main() {
 		WhitelistRoleIDs: cfg.WhitelistRoleIDs,
 		GuildID:          cfg.GuildID,
 	}
-	problemInteractionController := mentor.NewProblemInteractionController(svcs, provider, responder)
-	acInteractionController := mentor.NewACInteractionController(svcs, provider, provider, responder)
-	appBot := bot.NewBot(svcs, provider, sender, responder, botCfg)
+	problemInteractionController := mentor.NewProblemInteractionController(svcs, scopedProvider, responder)
+	acInteractionController := mentor.NewACInteractionController(svcs, scopedProvider, provider, responder)
+	appBot := bot.NewBot(svcs, scopedProvider, sender, responder, botCfg)
 
 	// 8. Execute Application Behavior
 	switch runCfg.Mode {

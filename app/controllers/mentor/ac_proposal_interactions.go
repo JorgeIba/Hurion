@@ -120,6 +120,11 @@ func (ctrl *ACInteractionController) handleACProposalDecision(event *discordgo.I
 		return
 	}
 
+	if err := authorizeProposal(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, referenceID); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
 	var pending service_model.PendingConfirmation
 	var err error
 	if accepted {

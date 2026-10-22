@@ -120,6 +120,11 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 		return
 	}
 
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, acBatchTargets(prepared)...); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
+
 	// Save the validated snapshot and show its preview.
 	key := validatedBatchCacheKey{
 		batchID: rand.Text(),
@@ -173,6 +178,11 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 		return
 	}
 	if err := ctrl.authorizeACInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, acBatchTargets(snapshot)...); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -240,7 +250,8 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
-	if _, available := ctrl.validatedBatches.loadValidatedBatch(key); !available {
+	snapshot, available := ctrl.validatedBatches.loadValidatedBatch(key)
+	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
@@ -251,6 +262,11 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 	}
 
 	if err := ctrl.authorizeACInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, acBatchTargets(snapshot)...); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}

@@ -63,6 +63,11 @@ func (ctrl *ProblemInteractionController) HandleAddProblemInteraction(event *dis
 		return
 	}
 
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{classCode: selectedClass.ClassCode}); err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+
 	key := createProblemDraftCacheKey{
 		guildID:   event.GuildID,
 		userID:    event.Member.User.ID,
@@ -110,6 +115,11 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		classCode: modal.ClassCode,
 	}
 	params := mapCreateProblemModalToCreateProblemParams(modal)
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{classCode: params.ClassCode}); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
+
 	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(params)
 	if err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorAddProblem, params.ClassCode, params.URL, params.Name)
@@ -147,6 +157,11 @@ func (ctrl *ProblemInteractionController) HandleEditProblemInteraction(event *di
 
 	destination, err := ctrl.resolveEditProblemClass(problem.ClassID, classCode)
 	if err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{problemID: problemID, classCode: destination.ClassCode}); err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -194,6 +209,11 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 
 	key := editProblemDraftCacheKey{guildID: event.GuildID, userID: event.Member.User.ID, problemID: modal.ProblemID, classCode: modal.ClassCode}
 	params := mapEditProblemModalToReplaceProblemParams(modal)
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{problemID: params.ProblemID, classCode: params.ClassCode}); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
 
 	if err := ctrl.services.Problem.ReplaceProblemByProblemID(params); err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorUpdateProblem, params.ProblemID, modal.ClassCode, params.Name)
@@ -264,6 +284,11 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 		return
 	}
 
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemBatchTargets(prepared)...); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
+
 	// Save the validated snapshot and show its preview.
 	key := validatedBatchCacheKey{
 		batchID: rand.Text(),
@@ -305,7 +330,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
-	_, available := ctrl.validatedBatches.loadValidatedBatch(key)
+	snapshot, available := ctrl.validatedBatches.loadValidatedBatch(key)
 	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
@@ -316,6 +341,11 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 		return
 	}
 	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemBatchTargets(snapshot)...); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -368,7 +398,8 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
 	// A forged or stale button must not update another actor's preview.
-	if _, available := ctrl.validatedBatches.loadValidatedBatch(key); !available {
+	snapshot, available := ctrl.validatedBatches.loadValidatedBatch(key)
+	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
@@ -379,6 +410,11 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 	}
 
 	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemBatchTargets(snapshot)...); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -449,6 +485,11 @@ func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInter
 		return
 	}
 
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemEditBatchTargets(prepared)...); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, err.Error())
+		return
+	}
+
 	// Save the validated snapshot and show its preview.
 	key := validatedBatchCacheKey{
 		batchID: rand.Text(),
@@ -492,7 +533,7 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
-	_, available := ctrl.validatedEditBatches.loadValidatedBatch(key)
+	snapshot, available := ctrl.validatedEditBatches.loadValidatedBatch(key)
 	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
@@ -504,6 +545,11 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 	}
 
 	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemEditBatchTargets(snapshot)...); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -555,7 +601,8 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemEditBatchInteractio
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
 	// A forged or stale button must not update another actor's preview.
-	if _, available := ctrl.validatedEditBatches.loadValidatedBatch(key); !available {
+	snapshot, available := ctrl.validatedEditBatches.loadValidatedBatch(key)
+	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
@@ -566,6 +613,11 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemEditBatchInteractio
 	}
 
 	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+		return
+	}
+
+	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemEditBatchTargets(snapshot)...); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
