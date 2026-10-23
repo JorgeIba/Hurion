@@ -1,6 +1,8 @@
 package services
 
 import (
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
+
 	"errors"
 	"testing"
 
@@ -54,7 +56,7 @@ func TestUserService_EnsureUser(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setup(mockStore)
 
-			svc := &UserService{Datastore: mockStore}
+			svc := &UserService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			err := svc.EnsureUser(tt.user)
 			tt.assertFunc(t, err)
 		})
@@ -126,8 +128,8 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &UserService{Datastore: mockStore}
-			err := svc.ExterminateUser(tt.userID)
+			svc := &UserService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			err := svc.ExterminateUser(authtest.Actor(), tt.userID)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -186,7 +188,7 @@ func TestUserService_GetUserByUserID(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &UserService{Datastore: mockStore}
+			svc := &UserService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			res, err := svc.GetUserByUserID(tt.userID)
 			tt.assertFunc(t, res, err)
 		})
@@ -250,7 +252,7 @@ func TestUserService_GetAccessibleClassesByRoles(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &UserService{Datastore: mockStore}
+			svc := &UserService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			res, err := svc.GetAccessibleClassesByRoles(tt.roles)
 			tt.assertFunc(t, res, err)
 		})
@@ -299,7 +301,7 @@ func TestUserService_GetClassesWhereUserIsActive(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &UserService{Datastore: mockStore}
+			svc := &UserService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			res, err := svc.GetClassesWhereUserIsActive(tt.userID)
 			tt.assertFunc(t, res, err)
 		})

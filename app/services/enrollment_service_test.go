@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -77,7 +78,7 @@ func TestEnrollmentService_GetListOfUsersByClassCode(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &EnrollmentService{Datastore: mockStore}
+			svc := &EnrollmentService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			res, err := svc.GetListOfUsersByClassCode(tt.classCode)
 			tt.assertFunc(t, res, err)
 		})
@@ -171,7 +172,7 @@ func TestEnrollmentService_UserWithRolesHasAccessClass(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tc.setupMock(mockStore)
 
-			svc := &EnrollmentService{Datastore: mockStore}
+			svc := &EnrollmentService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			allowed, err := svc.UserWithRolesHasAccessClass(tc.roles, tc.class)
 			tc.assertFunc(t, allowed, err)
 		})

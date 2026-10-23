@@ -10,10 +10,10 @@ The bot follows a layered architecture with clear separation of concerns:
 | **Command Routers** | The prefix router parses `!commands`; the interaction router dispatches slash commands, modals, and components. | `bot/commandrouter.go`, `bot/interactionrouter.go` |
 | **Event Context** | Carries each Discord event and its dependencies into the controller handling it. | `context/` |
 | **Reaction Router** | Handles emoji reactions for AC approvals and prefix-command confirmations. | `bot/reactionrouter.go` |
-| **Controllers** | Handle requests, coordinate identity and permission checks, adapt inputs, call services, and deliver results. Prefix and interaction handlers belong to this layer. | `controllers/` |
+| **Controllers** | Handle requests, establish actor identities, adapt inputs, call services, and present typed errors and results. Prefix and interaction handlers belong to this layer. | `controllers/` |
 | **Adapters and Interaction Transport** | Map transport values and errors, encode or decode Discord inputs and component identifiers, and prepare attachments through a shared downloader. | `controllers/adapters/`, `controllers/interactiontransport/` |
-| **Providers** | Verify Discord roles and interact with External APIs (`DiscordProvider`). | `providers/` |
-| **Services** | Own business rules and coordinate user, enrollment, class, problem, solution, and score operations independently of the command transport. | `services/` |
+| **Providers** | Interact with external APIs (`DiscordProvider`). `DiscordAuthorizer` implements the domain authorization contract using current roles. | `providers/` |
+| **Services** | Own business rules, require authorization, and coordinate user, enrollment, class, problem, solution, and score operations independently of the command transport. | `services/` |
 | **Data (Repository)** | Persist and query domain data through `DataStore`. Constraints, conditional writes, and transactions protect consistency at write time. | `data/` |
 | **Presentation** | Build Discord messages and components, score images, and Excel/JSON exports from application results, without performing database operations or sending responses. | `presentation/` |
 | **Dispatcher and Interaction Responder** | Deliver channel messages and reactions, and acknowledge, create, edit, or delete interaction responses through the Discord client. | `dispatcher/` |
@@ -196,3 +196,42 @@ For **AC proposals** (`!ac <problem_id>` by enrolled users):
 2. A **mentor** reacts:
    - **✅** → The AC is approved and recorded in `solved_problems`. The ✅/❌ reactions are replaced by 🎈 (**Accepted**).
    - **❌** → The proposal is rejected. The ✅/❌ reactions are replaced by 🗣️ (**Rejected**).
+
+
+## Authorization boundary
+
+`app/authorization` owns `Actor`, `Permission`, `Resource`, and the `Authorizer`
+interface. These types contain only domain identifiers. Services depend on this
+contract, while `providers.DiscordAuthorizer` implements it using live guild
+membership and configured global/class role IDs. No Discord objects enter the
+service layer. `DiscordProvider` handles external data and message operations;
+the former `DiscordValidator` contract and controller role checks are removed.
+
+Protected service methods take the executor explicitly, for example
+`UndoAC(actor, targetUserID, problemID)`. The actor comes from the authenticated
+message/interaction context and is never stored as mutable singleton state.
+`UndoAC` permits an owner's own removal without a mentor role; other-user removals
+require management permission for the problem's stored class. Administrator-only
+class, role, room, user-deletion and export operations require administrator
+permission in their services.
+
+Services resolve current source classes, destination classes and proposal targets
+before requesting authorization. Every batch entry is checked before writes, and
+confirmation repeats preparation with fresh permissions. Checks for distinct
+classes may be reused within one preparation only. UI intake checks are service
+calls too; opening a form or having an earlier preview never authorizes a write.
+
+Authorization denial produces `serviceerr.ForbiddenError`. Identity-provider
+failures and missing authorizer dependencies produce
+`serviceerr.AuthorizationUnavailableError`; controllers present safe messages
+through the shared error adapter. A missing dependency never grants access.
+
+Proposal approval/rejection passes the authorized class ID into a conditional
+repository write. If the problem moves after authorization, the proposal remains
+pending and no AC is granted. Approval consumes the reference and records the AC
+in one transaction; Discord calls occur before that transaction.
+
+Startup reconciliation uses `bootstrap.NewDatabaseReconciler`, whose trusted
+administrator authorizer is isolated from all services handling user requests.
+The normal services always receive `DiscordAuthorizer`, including mock-script
+mode. No permission tables or database migration are introduced.

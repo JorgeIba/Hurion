@@ -1,6 +1,7 @@
 package context
 
 import (
+	"github.com/JorgeIba/Hurion/app/authorization"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services"
@@ -11,7 +12,6 @@ import (
 type ContextMessage struct {
 	MessageReaction        *discordgo.MessageReactionAdd
 	Message                *discordgo.MessageCreate
-	DiscordValidator       providers.DiscordValidator
 	DiscordFetcher         providers.DiscordFetcher
 	DiscordMessageModifier providers.DiscordMessageModifier
 	Dispatcher             dispatcher.MessageSender
@@ -28,4 +28,9 @@ type ContextMessage struct {
 
 	// BotUserID identifies this bot account for validating bot-authored Discord messages.
 	BotUserID string
+}
+
+// Actor returns the executor identity established by the bot entry point.
+func (c *ContextMessage) Actor() authorization.Actor {
+	return authorization.Actor{GuildID: c.ExecutorGuildID, UserID: c.Executor.UserID}
 }

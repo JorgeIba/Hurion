@@ -2,14 +2,15 @@ package mentor
 
 import (
 	"errors"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/JorgeIba/Hurion/app/authorization/authtest"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
+
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -68,7 +69,7 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 						clock.now.Add(int64(5 * time.Minute))
 					}
 					mockCtrl := gomock.NewController(t)
-					validator := mock_providers.NewMockDiscordValidator(mockCtrl)
+					validator := authtest.NewMockRoleChecker(mockCtrl)
 					if !test.otherActor && !test.otherGuild && !test.otherKind && !test.missingMember && !test.malformed && !test.expired && !test.ackFails {
 						validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
 							if test.expireDuringCheck {
@@ -90,11 +91,11 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					responder := dispatcher.NewDiscordInteractionResponder(client)
 					var handle func(*discordgo.InteractionCreate)
 					if family.problem {
-						controller := NewProblemInteractionController(nil, validator, responder)
+						controller := NewProblemInteractionController(withTestInteractionAuthorization(nil, validator), responder)
 						controller.validatedBatches = problemCache
 						handle = controller.HandleCancelProblemBatchInteraction
 					} else {
-						controller := NewACInteractionController(nil, validator, nil, responder)
+						controller := NewACInteractionController(withTestInteractionAuthorization(nil, validator), nil, responder)
 						controller.validatedBatches = acCache
 						handle = controller.HandleCancelACBatchInteraction
 					}
@@ -108,12 +109,12 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					if test.otherKind {
 						if family.problem {
 							route = string(discordcommands.CancelACBatch)
-							controller := NewACInteractionController(nil, validator, nil, responder)
+							controller := NewACInteractionController(withTestInteractionAuthorization(nil, validator), nil, responder)
 							controller.validatedBatches = acCache
 							handle = controller.HandleCancelACBatchInteraction
 						} else {
 							route = string(discordcommands.CancelProblemBatch)
-							controller := NewProblemInteractionController(nil, validator, responder)
+							controller := NewProblemInteractionController(withTestInteractionAuthorization(nil, validator), responder)
 							controller.validatedBatches = problemCache
 							handle = controller.HandleCancelProblemBatchInteraction
 						}
@@ -178,7 +179,7 @@ func TestConcurrentBatchCancellationOnlyWinnerUpdatesPreview(t *testing.T) {
 	} {
 		t.Run(family.name, func(t *testing.T) {
 			t.Parallel()
-			validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
+			validator := authtest.NewMockRoleChecker(gomock.NewController(t))
 			// Both requests must pass the initial cache read before either can
 			// claim the batch. This reproduces the race without timing sleeps.
 			permissionChecks := make(chan struct{}, 2)
@@ -193,11 +194,11 @@ func TestConcurrentBatchCancellationOnlyWinnerUpdatesPreview(t *testing.T) {
 			key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 			var handle func(*discordgo.InteractionCreate)
 			if family.problem {
-				controller := NewProblemInteractionController(nil, validator, responder)
+				controller := NewProblemInteractionController(withTestInteractionAuthorization(nil, validator), responder)
 				require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
 				handle = controller.HandleCancelProblemBatchInteraction
 			} else {
-				controller := NewACInteractionController(nil, validator, nil, responder)
+				controller := NewACInteractionController(withTestInteractionAuthorization(nil, validator), nil, responder)
 				require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1}}))
 				handle = controller.HandleCancelACBatchInteraction
 			}
@@ -246,7 +247,7 @@ func TestDelayedCancellationAuthorizationFailurePreservesWinningReceipt(t *testi
 				}
 				t.Run(name, func(t *testing.T) {
 					t.Parallel()
-					validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
+					validator := authtest.NewMockRoleChecker(gomock.NewController(t))
 					slowCheckStarted := make(chan struct{})
 					winningClickDone := make(chan struct{})
 					// Start the slow request first and hold its permission result until the
@@ -268,11 +269,11 @@ func TestDelayedCancellationAuthorizationFailurePreservesWinningReceipt(t *testi
 					key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 					var handle func(*discordgo.InteractionCreate)
 					if family.problem {
-						controller := NewProblemInteractionController(nil, validator, responder)
+						controller := NewProblemInteractionController(withTestInteractionAuthorization(nil, validator), responder)
 						require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
 						handle = controller.HandleCancelProblemBatchInteraction
 					} else {
-						controller := NewACInteractionController(nil, validator, nil, responder)
+						controller := NewACInteractionController(withTestInteractionAuthorization(nil, validator), nil, responder)
 						require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1}}))
 						handle = controller.HandleCancelACBatchInteraction
 					}

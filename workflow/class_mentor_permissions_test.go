@@ -12,6 +12,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/providers"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,11 +23,12 @@ func setupScopedMentorWorkflow(t *testing.T) *workflowEnv {
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 	env.Discord.isMentorFunc = func(_, user string) (bool, error) { return slices.Contains(env.Discord.userRoles[user], "global"), nil }
 	env.Discord.isAdminFunc = func(_, user string) (bool, error) { return slices.Contains(env.Discord.userRoles[user], "admin"), nil }
-	scoped := providers.WithClassMentorRoles(env.Discord, map[string][]string{"advanced": {"advanced-mentor"}})
+	scoped := env.Discord
+	env.Services = services.NewServices(env.DB, providers.NewDiscordAuthorizer(scoped, "admin", "global", map[string][]string{"advanced": {"advanced-mentor"}}))
 	responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
 	env.Bot = appbot.NewBot(env.Services, scoped, env.Dispatcher, responder, appbot.BotConfig{GuildID: testGuildID})
-	env.ProblemController = mentor.NewProblemInteractionController(env.Services, scoped, responder)
-	env.ACController = mentor.NewACInteractionController(env.Services, scoped, scoped, responder)
+	env.ProblemController = mentor.NewProblemInteractionController(env.Services, responder)
+	env.ACController = mentor.NewACInteractionController(env.Services, scoped, responder)
 	env.seedClass(t, "basics", "Basics")
 	env.seedClass(t, "advanced", "Advanced")
 	env.seedClassroom(t, testChannelID, "basics")

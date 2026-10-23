@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
-	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
@@ -21,7 +21,6 @@ import (
 // ProblemInteractionController shares problem drafts across command and submit events.
 type ProblemInteractionController struct {
 	services             *services.Services
-	validator            providers.DiscordValidator
 	responder            dispatcher.InteractionResponder
 	attachments          *jsonTransport
 	validatedBatches     *validatedProblemBatchCache
@@ -30,10 +29,9 @@ type ProblemInteractionController struct {
 	editProblemDrafts    *editProblemDraftCache
 }
 
-func NewProblemInteractionController(svcs *services.Services, validator providers.DiscordValidator, responder dispatcher.InteractionResponder) *ProblemInteractionController {
+func NewProblemInteractionController(svcs *services.Services, responder dispatcher.InteractionResponder) *ProblemInteractionController {
 	return &ProblemInteractionController{
 		services:             svcs,
-		validator:            validator,
 		responder:            responder,
 		attachments:          newJSONTransport(nil),
 		validatedBatches:     newValidatedProblemBatchCache(nil),
@@ -63,8 +61,8 @@ func (ctrl *ProblemInteractionController) HandleAddProblemInteraction(event *dis
 		return
 	}
 
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{classCode: selectedClass.ClassCode}); err != nil {
-		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+	if err := ctrl.services.Problem.CheckManagement(interactionActor(event), 0, selectedClass.ClassCode); err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddProblem))
 		return
 	}
 
@@ -115,12 +113,8 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		classCode: modal.ClassCode,
 	}
 	params := mapCreateProblemModalToCreateProblemParams(modal)
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{classCode: params.ClassCode}); err != nil {
-		ctrl.editInteractionResponse(event.Interaction, err.Error())
-		return
-	}
 
-	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(params)
+	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(interactionActor(event), params)
 	if err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorAddProblem, params.ClassCode, params.URL, params.Name)
 		// Keep raw input after any failed write so corrections do not require
@@ -161,8 +155,8 @@ func (ctrl *ProblemInteractionController) HandleEditProblemInteraction(event *di
 		return
 	}
 
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{problemID: problemID, classCode: destination.ClassCode}); err != nil {
-		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
+	if err := ctrl.services.Problem.CheckManagement(interactionActor(event), problemID, destination.ClassCode); err != nil {
+		ctrl.responder.RespondPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddProblem))
 		return
 	}
 
@@ -210,12 +204,7 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 	key := editProblemDraftCacheKey{guildID: event.GuildID, userID: event.Member.User.ID, problemID: modal.ProblemID, classCode: modal.ClassCode}
 	params := mapEditProblemModalToReplaceProblemParams(modal)
 
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, mentorTarget{problemID: params.ProblemID, classCode: params.ClassCode}); err != nil {
-		ctrl.editInteractionResponse(event.Interaction, err.Error())
-		return
-	}
-
-	if err := ctrl.services.Problem.ReplaceProblemByProblemID(params); err != nil {
+	if err := ctrl.services.Problem.ReplaceProblemByProblemID(interactionActor(event), params); err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorUpdateProblem, params.ProblemID, modal.ClassCode, params.Name)
 		recoverDraft := ctrl.editProblemDrafts.saveFailedDraft(key, modal)
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatEditProblemError(content, modal.ProblemID, modal.ClassCode, recoverDraft))
@@ -269,7 +258,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 	}
 	// Adapt the input and validate the complete batch with the service.
 	inputs := mapProblemBatchInputToCreateProblemParams(entries)
-	prepared, domainIssues, err := ctrl.services.Problem.PrepareCreationBatch(inputs)
+	prepared, domainIssues, err := ctrl.services.Problem.PrepareCreationBatch(interactionActor(event), inputs)
 	if err != nil {
 		logger.Log.Errorf("Failed to validate problem batch: %v", err)
 		ctrl.editInteractionResponse(event.Interaction, "Could not validate the problem batch. No changes were applied. Try again.")
@@ -281,11 +270,6 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 			logger.Log.Warnf("Problem batch validation rejected: guild=%s actor=%s entry=%d error=%v", event.GuildID, event.Member.User.ID, issue.Entry, issue.Err)
 		}
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
-		return
-	}
-
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemBatchTargets(prepared)...); err != nil {
-		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
 
@@ -345,8 +329,8 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 		return
 	}
 
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemBatchTargets(snapshot)...); err != nil {
-		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+	if err := ctrl.services.Problem.CheckCreationBatchAccess(interactionActor(event), snapshot); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddProblem))
 		return
 	}
 
@@ -355,9 +339,11 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Problem.ExecuteCreationBatch(batch)
+	result, issues, err := ctrl.services.Problem.ExecuteCreationBatch(interactionActor(
 
-	// Present validation failures or the acknowledged execution outcome.
+		// Present validation failures or the acknowledged execution outcome.
+		event), batch)
+
 	var response *discordgo.WebhookEdit
 	if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
 		logger.Log.Errorf("Failed to revalidate problem batch %s: %v", batchID, err)
@@ -414,8 +400,8 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 		return
 	}
 
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemBatchTargets(snapshot)...); err != nil {
-		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+	if err := ctrl.services.Problem.CheckCreationBatchAccess(interactionActor(event), snapshot); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddProblem))
 		return
 	}
 
@@ -476,17 +462,12 @@ func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInter
 
 	// Adapt the input and validate the complete batch with the service.
 	inputs := mapProblemEditBatchInputToPatchProblemParams(entries)
-	prepared, domainIssues := ctrl.services.Problem.PrepareProblemPatchBatch(inputs)
+	prepared, domainIssues := ctrl.services.Problem.PrepareProblemPatchBatch(interactionActor(event), inputs)
 	if len(domainIssues) > 0 {
 		for _, issue := range domainIssues {
 			logger.Log.Warnf("Problem edit batch validation rejected: guild=%s actor=%s entry=%d error=%v", event.GuildID, event.Member.User.ID, issue.Entry, issue.Err)
 		}
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatBatchValidationErrors(mapProblemEditBatchValidationIssues(entries, mapBatchEntryErrors(domainIssues))))
-		return
-	}
-
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemEditBatchTargets(prepared)...); err != nil {
-		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
 
@@ -549,8 +530,8 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 		return
 	}
 
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemEditBatchTargets(snapshot)...); err != nil {
-		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+	if err := ctrl.services.Problem.CheckPatchBatchAccess(interactionActor(event), snapshot); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddProblem))
 		return
 	}
 
@@ -559,9 +540,11 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Problem.ExecuteProblemPatchBatch(batch)
+	result, issues, err := ctrl.services.Problem.ExecuteProblemPatchBatch(interactionActor(
 
-	// Present validation failures or the acknowledged execution outcome.
+		// Present validation failures or the acknowledged execution outcome.
+		event), batch)
+
 	var response *discordgo.WebhookEdit
 	if len(issues) > 0 {
 		locations := mapProblemEditBatchExecutionIssues(batch, issues)
@@ -617,8 +600,8 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemEditBatchInteractio
 		return
 	}
 
-	if err := authorizeMentorTargets(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, problemEditBatchTargets(snapshot)...); err != nil {
-		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
+	if err := ctrl.services.Problem.CheckPatchBatchAccess(interactionActor(event), snapshot); err != nil {
+		ctrl.responder.FollowupPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddProblem))
 		return
 	}
 
@@ -693,15 +676,12 @@ func (ctrl *ProblemInteractionController) authorizeProblemInteraction(event *dis
 		return errors.New("Problem commands require an identified server member.")
 	}
 
-	allowed, err := canManageProblems(ctrl.validator, event.GuildID, event.Member.User.ID)
+	err := ctrl.services.RequireAuthorization(interactionActor(event), authorization.MentorIntake)
 	if err != nil {
 		logger.Log.Errorf("Failed to verify interaction problem-management permissions: %v", err)
-		return errors.New(messageErrVerifying)
+		return errors.New(adapters.MapError(err, adapters.ActionMentorAddProblem))
 	}
 
-	if !allowed {
-		return errors.New(messageErrProblemPermissions)
-	}
 	return nil
 }
 

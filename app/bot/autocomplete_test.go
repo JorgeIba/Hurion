@@ -3,6 +3,7 @@ package bot
 import (
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
@@ -67,7 +68,7 @@ func TestAutocompleteRestrictionsReturnEmptySuggestionsWithoutReadingCatalog(t *
 				store := mock_data.NewMockDataStore(gomock.NewController(t))
 				responder := &autocompleteResponder{}
 				commands := &autocompleteCommandProbe{}
-				bot := NewBot(services.NewServices(store), nil, nil, responder, BotConfig{
+				bot := NewBot(services.NewServices(store, authtest.Allow{}), nil, nil, responder, BotConfig{
 					GuildID:          "guild",
 					TestMode:         test.testMode,
 					WhitelistUserIDs: []string{"another-user"},

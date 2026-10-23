@@ -3,6 +3,7 @@ package services
 import (
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -26,7 +27,7 @@ func TestNewServices(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 
-			services := NewServices(mockStore)
+			services := NewServices(mockStore, authtest.Allow{})
 
 			assert.NotNil(t, services)
 

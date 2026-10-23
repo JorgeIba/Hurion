@@ -3,6 +3,8 @@ package services
 import (
 	"fmt"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
+
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -11,7 +13,8 @@ import (
 
 // EnrollmentService handles user enrollment into classes
 type EnrollmentService struct {
-	Datastore data.DataStore
+	Authorizer authorization.Authorizer
+	Datastore  data.DataStore
 }
 
 // GetListOfUsersByClassCode retrieves all active users in a class (users with at least one solve)
@@ -62,4 +65,17 @@ func (service *EnrollmentService) UserWithRolesHasAccessClass(roles []string, cl
 	}
 
 	return false, nil
+}
+
+// RequireClassAccess applies the administrator bypass and ordinary class access policy.
+func (service *EnrollmentService) RequireClassAccess(actor authorization.Actor, class service_model.Class) error {
+	roles, err := service.Datastore.GetClassAccessRolesByClassCode(class.ClassCode)
+	if err != nil {
+		return serviceerr.MakeGeneralError(err)
+	}
+	ids := make([]string, len(roles))
+	for i, role := range roles {
+		ids[i] = role.RoleID
+	}
+	return requireAuthorization(service.Authorizer, actor, authorization.AccessClass, authorization.Resource{ClassCode: class.ClassCode, AccessRoleIDs: ids})
 }

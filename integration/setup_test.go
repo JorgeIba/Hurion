@@ -3,6 +3,7 @@ package integration
 import (
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -39,16 +40,14 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 	require.NoError(t, err, "failed to initialize in-memory DB")
 	t.Cleanup(db.CloseDB)
 
-	// Initialize services
-	svc := services.NewServices(db)
-
-	// Initialize Stub Providers (Quiet by default)
 	stub := &StubDiscordProvider{}
+	svc := services.NewServices(db, authtest.Roles{Checker: stub})
+
 	fakeDispatcher := &FakeDispatcher{}
 
 	// Construct ContextMessage
 	ctx := &context.ContextMessage{
-		DiscordValidator:       stub,
+
 		DiscordFetcher:         stub,
 		DiscordMessageModifier: stub,
 		Dispatcher:             fakeDispatcher,
@@ -103,10 +102,10 @@ func (env *testEnv) NewContext(userID, displayName, guildID string, args []strin
 				Author:    &discordgo.User{ID: userID, Username: displayName},
 			},
 		},
-		Args:                   args,
-		Executor:               service_model.User{UserID: userID, DisplayName: displayName},
-		ExecutorGuildID:        guildID,
-		DiscordValidator:       env.Validator,
+		Args:            args,
+		Executor:        service_model.User{UserID: userID, DisplayName: displayName},
+		ExecutorGuildID: guildID,
+
 		DiscordFetcher:         env.Fetcher,
 		DiscordMessageModifier: env.Modifier,
 		Dispatcher:             env.Dispatcher,

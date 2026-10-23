@@ -12,6 +12,7 @@ package mock_services
 import (
 	reflect "reflect"
 
+	authorization "github.com/JorgeIba/Hurion/app/authorization"
 	service_model "github.com/JorgeIba/Hurion/app/services/service_model"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -40,25 +41,67 @@ func (m *MockProblemService) EXPECT() *MockProblemServiceMockRecorder {
 	return m.recorder
 }
 
-// CreateProblemIntoClass mocks base method.
-func (m *MockProblemService) CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error) {
+// CheckCreationBatchAccess mocks base method.
+func (m *MockProblemService) CheckCreationBatchAccess(arg0 authorization.Actor, arg1 []service_model.PreparedProblem) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateProblemIntoClass", params)
+	ret := m.ctrl.Call(m, "CheckCreationBatchAccess", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckCreationBatchAccess indicates an expected call of CheckCreationBatchAccess.
+func (mr *MockProblemServiceMockRecorder) CheckCreationBatchAccess(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCreationBatchAccess", reflect.TypeOf((*MockProblemService)(nil).CheckCreationBatchAccess), arg0, arg1)
+}
+
+// CheckManagement mocks base method.
+func (m *MockProblemService) CheckManagement(arg0 authorization.Actor, arg1 int64, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckManagement", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckManagement indicates an expected call of CheckManagement.
+func (mr *MockProblemServiceMockRecorder) CheckManagement(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckManagement", reflect.TypeOf((*MockProblemService)(nil).CheckManagement), arg0, arg1, arg2)
+}
+
+// CheckPatchBatchAccess mocks base method.
+func (m *MockProblemService) CheckPatchBatchAccess(arg0 authorization.Actor, arg1 []service_model.PreparedProblemPatch) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckPatchBatchAccess", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckPatchBatchAccess indicates an expected call of CheckPatchBatchAccess.
+func (mr *MockProblemServiceMockRecorder) CheckPatchBatchAccess(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckPatchBatchAccess", reflect.TypeOf((*MockProblemService)(nil).CheckPatchBatchAccess), arg0, arg1)
+}
+
+// CreateProblemIntoClass mocks base method.
+func (m *MockProblemService) CreateProblemIntoClass(actor authorization.Actor, params service_model.CreateProblemParams) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateProblemIntoClass", actor, params)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateProblemIntoClass indicates an expected call of CreateProblemIntoClass.
-func (mr *MockProblemServiceMockRecorder) CreateProblemIntoClass(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) CreateProblemIntoClass(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProblemIntoClass", reflect.TypeOf((*MockProblemService)(nil).CreateProblemIntoClass), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProblemIntoClass", reflect.TypeOf((*MockProblemService)(nil).CreateProblemIntoClass), actor, params)
 }
 
 // ExecuteCreationBatch mocks base method.
-func (m *MockProblemService) ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error) {
+func (m *MockProblemService) ExecuteCreationBatch(actor authorization.Actor, batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecuteCreationBatch", batch)
+	ret := m.ctrl.Call(m, "ExecuteCreationBatch", actor, batch)
 	ret0, _ := ret[0].(service_model.ProblemCreateBatchResult)
 	ret1, _ := ret[1].([]service_model.BatchEntryError)
 	ret2, _ := ret[2].(error)
@@ -66,15 +109,15 @@ func (m *MockProblemService) ExecuteCreationBatch(batch []service_model.Prepared
 }
 
 // ExecuteCreationBatch indicates an expected call of ExecuteCreationBatch.
-func (mr *MockProblemServiceMockRecorder) ExecuteCreationBatch(batch any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) ExecuteCreationBatch(actor, batch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteCreationBatch", reflect.TypeOf((*MockProblemService)(nil).ExecuteCreationBatch), batch)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteCreationBatch", reflect.TypeOf((*MockProblemService)(nil).ExecuteCreationBatch), actor, batch)
 }
 
 // ExecuteProblemPatchBatch mocks base method.
-func (m *MockProblemService) ExecuteProblemPatchBatch(batch []service_model.PreparedProblemPatch) (service_model.ProblemPatchBatchResult, []service_model.BatchEntryError, error) {
+func (m *MockProblemService) ExecuteProblemPatchBatch(actor authorization.Actor, batch []service_model.PreparedProblemPatch) (service_model.ProblemPatchBatchResult, []service_model.BatchEntryError, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecuteProblemPatchBatch", batch)
+	ret := m.ctrl.Call(m, "ExecuteProblemPatchBatch", actor, batch)
 	ret0, _ := ret[0].(service_model.ProblemPatchBatchResult)
 	ret1, _ := ret[1].([]service_model.BatchEntryError)
 	ret2, _ := ret[2].(error)
@@ -82,9 +125,9 @@ func (m *MockProblemService) ExecuteProblemPatchBatch(batch []service_model.Prep
 }
 
 // ExecuteProblemPatchBatch indicates an expected call of ExecuteProblemPatchBatch.
-func (mr *MockProblemServiceMockRecorder) ExecuteProblemPatchBatch(batch any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) ExecuteProblemPatchBatch(actor, batch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteProblemPatchBatch", reflect.TypeOf((*MockProblemService)(nil).ExecuteProblemPatchBatch), batch)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteProblemPatchBatch", reflect.TypeOf((*MockProblemService)(nil).ExecuteProblemPatchBatch), actor, batch)
 }
 
 // GetProblemByID mocks base method.
@@ -133,38 +176,38 @@ func (mr *MockProblemServiceMockRecorder) GetProblemsGroupedByTopic(classCode an
 }
 
 // PatchProblemByProblemID mocks base method.
-func (m *MockProblemService) PatchProblemByProblemID(params service_model.PatchProblemParams) error {
+func (m *MockProblemService) PatchProblemByProblemID(actor authorization.Actor, params service_model.PatchProblemParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PatchProblemByProblemID", params)
+	ret := m.ctrl.Call(m, "PatchProblemByProblemID", actor, params)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PatchProblemByProblemID indicates an expected call of PatchProblemByProblemID.
-func (mr *MockProblemServiceMockRecorder) PatchProblemByProblemID(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) PatchProblemByProblemID(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PatchProblemByProblemID", reflect.TypeOf((*MockProblemService)(nil).PatchProblemByProblemID), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PatchProblemByProblemID", reflect.TypeOf((*MockProblemService)(nil).PatchProblemByProblemID), actor, params)
 }
 
 // PrepareCreation mocks base method.
-func (m *MockProblemService) PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error) {
+func (m *MockProblemService) PrepareCreation(actor authorization.Actor, params service_model.CreateProblemParams) (service_model.PreparedProblem, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareCreation", params)
+	ret := m.ctrl.Call(m, "PrepareCreation", actor, params)
 	ret0, _ := ret[0].(service_model.PreparedProblem)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareCreation indicates an expected call of PrepareCreation.
-func (mr *MockProblemServiceMockRecorder) PrepareCreation(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) PrepareCreation(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCreation", reflect.TypeOf((*MockProblemService)(nil).PrepareCreation), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCreation", reflect.TypeOf((*MockProblemService)(nil).PrepareCreation), actor, params)
 }
 
 // PrepareCreationBatch mocks base method.
-func (m *MockProblemService) PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error) {
+func (m *MockProblemService) PrepareCreationBatch(actor authorization.Actor, params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareCreationBatch", params)
+	ret := m.ctrl.Call(m, "PrepareCreationBatch", actor, params)
 	ret0, _ := ret[0].([]service_model.PreparedProblem)
 	ret1, _ := ret[1].([]service_model.BatchEntryError)
 	ret2, _ := ret[2].(error)
@@ -172,80 +215,80 @@ func (m *MockProblemService) PrepareCreationBatch(params []service_model.CreateP
 }
 
 // PrepareCreationBatch indicates an expected call of PrepareCreationBatch.
-func (mr *MockProblemServiceMockRecorder) PrepareCreationBatch(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) PrepareCreationBatch(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCreationBatch", reflect.TypeOf((*MockProblemService)(nil).PrepareCreationBatch), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCreationBatch", reflect.TypeOf((*MockProblemService)(nil).PrepareCreationBatch), actor, params)
 }
 
 // PrepareProblemPatch mocks base method.
-func (m *MockProblemService) PrepareProblemPatch(params service_model.PatchProblemParams) (service_model.PreparedProblemPatch, error) {
+func (m *MockProblemService) PrepareProblemPatch(actor authorization.Actor, params service_model.PatchProblemParams) (service_model.PreparedProblemPatch, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareProblemPatch", params)
+	ret := m.ctrl.Call(m, "PrepareProblemPatch", actor, params)
 	ret0, _ := ret[0].(service_model.PreparedProblemPatch)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareProblemPatch indicates an expected call of PrepareProblemPatch.
-func (mr *MockProblemServiceMockRecorder) PrepareProblemPatch(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) PrepareProblemPatch(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemPatch", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemPatch), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemPatch", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemPatch), actor, params)
 }
 
 // PrepareProblemPatchBatch mocks base method.
-func (m *MockProblemService) PrepareProblemPatchBatch(params []service_model.PatchProblemParams) ([]service_model.PreparedProblemPatch, []service_model.BatchEntryError) {
+func (m *MockProblemService) PrepareProblemPatchBatch(actor authorization.Actor, params []service_model.PatchProblemParams) ([]service_model.PreparedProblemPatch, []service_model.BatchEntryError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareProblemPatchBatch", params)
+	ret := m.ctrl.Call(m, "PrepareProblemPatchBatch", actor, params)
 	ret0, _ := ret[0].([]service_model.PreparedProblemPatch)
 	ret1, _ := ret[1].([]service_model.BatchEntryError)
 	return ret0, ret1
 }
 
 // PrepareProblemPatchBatch indicates an expected call of PrepareProblemPatchBatch.
-func (mr *MockProblemServiceMockRecorder) PrepareProblemPatchBatch(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) PrepareProblemPatchBatch(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemPatchBatch", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemPatchBatch), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemPatchBatch", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemPatchBatch), actor, params)
 }
 
 // PrepareProblemReplacement mocks base method.
-func (m *MockProblemService) PrepareProblemReplacement(params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error) {
+func (m *MockProblemService) PrepareProblemReplacement(actor authorization.Actor, params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareProblemReplacement", params)
+	ret := m.ctrl.Call(m, "PrepareProblemReplacement", actor, params)
 	ret0, _ := ret[0].(service_model.PreparedProblemReplacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareProblemReplacement indicates an expected call of PrepareProblemReplacement.
-func (mr *MockProblemServiceMockRecorder) PrepareProblemReplacement(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) PrepareProblemReplacement(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemReplacement", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemReplacement), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemReplacement", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemReplacement), actor, params)
 }
 
 // RemoveProblemFromClass mocks base method.
-func (m *MockProblemService) RemoveProblemFromClass(problemID int64) error {
+func (m *MockProblemService) RemoveProblemFromClass(actor authorization.Actor, problemID int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveProblemFromClass", problemID)
+	ret := m.ctrl.Call(m, "RemoveProblemFromClass", actor, problemID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveProblemFromClass indicates an expected call of RemoveProblemFromClass.
-func (mr *MockProblemServiceMockRecorder) RemoveProblemFromClass(problemID any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) RemoveProblemFromClass(actor, problemID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveProblemFromClass", reflect.TypeOf((*MockProblemService)(nil).RemoveProblemFromClass), problemID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveProblemFromClass", reflect.TypeOf((*MockProblemService)(nil).RemoveProblemFromClass), actor, problemID)
 }
 
 // ReplaceProblemByProblemID mocks base method.
-func (m *MockProblemService) ReplaceProblemByProblemID(params service_model.ReplaceProblemParams) error {
+func (m *MockProblemService) ReplaceProblemByProblemID(actor authorization.Actor, params service_model.ReplaceProblemParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplaceProblemByProblemID", params)
+	ret := m.ctrl.Call(m, "ReplaceProblemByProblemID", actor, params)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReplaceProblemByProblemID indicates an expected call of ReplaceProblemByProblemID.
-func (mr *MockProblemServiceMockRecorder) ReplaceProblemByProblemID(params any) *gomock.Call {
+func (mr *MockProblemServiceMockRecorder) ReplaceProblemByProblemID(actor, params any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceProblemByProblemID", reflect.TypeOf((*MockProblemService)(nil).ReplaceProblemByProblemID), params)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceProblemByProblemID", reflect.TypeOf((*MockProblemService)(nil).ReplaceProblemByProblemID), actor, params)
 }

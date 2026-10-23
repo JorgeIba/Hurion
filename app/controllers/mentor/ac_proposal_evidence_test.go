@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
@@ -48,7 +48,7 @@ func TestACProposalEvidenceTravelsFromSubmissionThroughApproval(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.NoError(t, db.AddClassAccessRole(data.ClassAccessRole{ClassCode: "ac", RoleID: "student"}))
-			svcs := services.NewServices(db)
+			svcs := services.NewServices(db, authtest.Allow{})
 			_, err = svcs.Solution.AddPendingACByPrincipal("original", service_model.Principal{
 				User:  service_model.User{UserID: "student", DisplayName: "Student"},
 				Roles: []string{"student"},
@@ -60,7 +60,7 @@ func TestACProposalEvidenceTravelsFromSubmissionThroughApproval(t *testing.T) {
 			}
 			downloads := 0
 			client := &proposalInteractionClient{}
-			controller := NewACInteractionController(svcs, nil, nil, dispatcher.NewDiscordInteractionResponder(client))
+			controller := NewACInteractionController(withTestInteractionAuthorization(svcs, nil), nil, dispatcher.NewDiscordInteractionResponder(client))
 			controller.attachmentDownloader = interactiontransport.NewAttachmentDownloader(&http.Client{Transport: batchFileTransport(func(request *http.Request) (*http.Response, error) {
 				downloads++
 				require.Len(t, client.responses, 1, "acknowledge before downloading")
@@ -120,9 +120,9 @@ func TestACProposalEvidenceTravelsFromSubmissionThroughApproval(t *testing.T) {
 			require.True(t, dataerr.IsNotFound(err))
 			_, _, err = db.GetPendingConfirmation("with-evidence")
 			require.NoError(t, err)
-			validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
+			validator := authtest.NewMockRoleChecker(gomock.NewController(t))
 			validator.EXPECT().IsMentor("guild", "mentor").Return(true, nil)
-			controller.validator = validator
+			controller.services = withTestInteractionAuthorization(controller.services, validator)
 			approveID := card.Components[0].(discordgo.ActionsRow).Components[0].(discordgo.Button).CustomID
 			controller.HandleApproveACProposalInteraction(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				ID:      "approve-evidence",

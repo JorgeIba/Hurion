@@ -352,7 +352,7 @@ func TestIntegration_Admin_UnauthorizedAccess(t *testing.T) {
 			handler: func(c *context.ContextMessage) {
 				admin.HandleClearClass(c)
 			},
-			args: []string{"!clear_class", "some_class"},
+			args: []string{"!clear_class", "protected_class"},
 		},
 		{
 			name: "Exterminate unauthorized",

@@ -13,14 +13,6 @@ type DiscordGoSession interface {
 	State() *discordgo.State
 }
 
-// DiscordValidator focuses on permission checks.
-//
-//go:generate go tool mockgen -destination=mock_providers/mock_validator.go -package=mock_providers . DiscordValidator
-type DiscordValidator interface {
-	IsAdmin(guildID, userID string) (bool, error)
-	IsMentor(guildID, userID string) (bool, error)
-}
-
 // DiscordFetcher focuses on fetching Discord data.
 //
 //go:generate go tool mockgen -destination=mock_providers/mock_fetcher.go -package=mock_providers . DiscordFetcher
@@ -38,7 +30,6 @@ type DiscordMessageModifier interface {
 	RemoveBotReaction(channelID, messageID, emojiID string) error
 }
 type DiscordProvider interface {
-	DiscordValidator
 	DiscordFetcher
 	DiscordMessageModifier
 	BotUserID() string

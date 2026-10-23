@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
@@ -113,9 +114,9 @@ func TestRunScript_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
+	fakeProvider := NewFakeDiscordProvider()
 	fakeSender := &mockMessageSender{}
-	svcs := services.NewServices(db)
+	svcs := services.NewServices(db, authtest.Allow{})
 
 	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
 	runner := NewRunner(appBot, fakeProvider, "guild_1")
@@ -148,9 +149,9 @@ func TestRunScript_ParseFailure(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
+	fakeProvider := NewFakeDiscordProvider()
 	fakeSender := &mockMessageSender{}
-	svcs := services.NewServices(db)
+	svcs := services.NewServices(db, authtest.Allow{})
 	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
 	runner := NewRunner(appBot, fakeProvider, "guild_1")
 
@@ -191,7 +192,7 @@ func TestRunScript_ValidationFailures(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	svcs := services.NewServices(db)
+	svcs := services.NewServices(db, authtest.Allow{})
 	fakeSender := &mockMessageSender{}
 
 	t.Run("command without executor_id fails validation", func(t *testing.T) {
@@ -203,7 +204,7 @@ func TestRunScript_ValidationFailures(t *testing.T) {
 		err := os.WriteFile(scriptPath, []byte(scriptContent), 0644)
 		require.NoError(t, err)
 
-		fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
+		fakeProvider := NewFakeDiscordProvider()
 		appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
 		runner := NewRunner(appBot, fakeProvider, "guild_1")
 

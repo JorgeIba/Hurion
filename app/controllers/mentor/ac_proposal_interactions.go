@@ -120,17 +120,12 @@ func (ctrl *ACInteractionController) handleACProposalDecision(event *discordgo.I
 		return
 	}
 
-	if err := authorizeProposal(ctrl.validator, ctrl.services, event.GuildID, event.Member.User.ID, referenceID); err != nil {
-		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
-		return
-	}
-
 	var pending service_model.PendingConfirmation
 	var err error
 	if accepted {
-		pending, err = ctrl.services.Solution.AcceptACProposal(referenceID)
+		pending, err = ctrl.services.Solution.AcceptACProposal(interactionActor(event), referenceID)
 	} else {
-		pending, err = ctrl.services.Solution.RejectACProposal(referenceID)
+		pending, err = ctrl.services.Solution.RejectACProposal(interactionActor(event), referenceID)
 	}
 
 	if err != nil {
@@ -138,6 +133,11 @@ func (ctrl *ACInteractionController) handleACProposalDecision(event *discordgo.I
 			ctrl.responder.FollowupPrivately(event.Interaction, messageACProposalUnavailable)
 			return
 		}
+		if _, changed := errors.AsType[*serviceerr.AuthorizationTargetChangedError](err); changed {
+			ctrl.responder.FollowupPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddAC))
+			return
+		}
+
 		logger.Log.Errorf("Failed to decide AC proposal %s: %v", referenceID, err)
 		ctrl.responder.FollowupPrivately(event.Interaction, messageACProposalDecisionFailed)
 		return

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
@@ -99,7 +100,7 @@ func TestScoreService_GetRawScoreByClassCode(t *testing.T) {
 			mockProbSvc := mock_services.NewMockProblemService(ctrl)
 			tt.setupMock(mockStore, mockProbSvc)
 
-			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
+			svc := &services.ScoreService{Authorizer: authtest.Allow{}, Datastore: mockStore, ProblemService: mockProbSvc}
 			res, err := svc.GetRawScoreByClassCode(tt.classCode)
 			tt.assertFunc(t, res, err)
 		})
@@ -196,7 +197,7 @@ func TestScoreService_GetScoreByClassCode(t *testing.T) {
 			mockProbSvc := mock_services.NewMockProblemService(ctrl)
 			tt.setupMock(mockStore, mockProbSvc)
 
-			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
+			svc := &services.ScoreService{Authorizer: authtest.Allow{}, Datastore: mockStore, ProblemService: mockProbSvc}
 			res, err := svc.GetScoreByClassCode(tt.classCode)
 			tt.assertFunc(t, res, err)
 		})
@@ -318,7 +319,7 @@ func TestScoreService_GetNeighborsScoreForUserID(t *testing.T) {
 			mockProbSvc := mock_services.NewMockProblemService(ctrl)
 			tt.setupMock(mockStore, mockProbSvc)
 
-			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
+			svc := &services.ScoreService{Authorizer: authtest.Allow{}, Datastore: mockStore, ProblemService: mockProbSvc}
 			res, err := svc.GetNeighborsScoreForUserID(tt.userID, tt.classCode)
 			tt.assertFunc(t, res, err)
 		})
@@ -390,7 +391,7 @@ func TestScoreService_GetScoreAllClasses(t *testing.T) {
 			mockProbSvc := mock_services.NewMockProblemService(ctrl)
 			tt.setupMock(mockStore, mockProbSvc)
 
-			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
+			svc := &services.ScoreService{Authorizer: authtest.Allow{}, Datastore: mockStore, ProblemService: mockProbSvc}
 			res, err := svc.GetScoreAllClasses()
 			tt.assertFunc(t, res, err)
 		})
@@ -476,8 +477,8 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 			mockProbSvc := mock_services.NewMockProblemService(ctrl)
 			tt.setupMock(mockStore, mockProbSvc)
 
-			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
-			u, p, s, err := svc.GetClassExportData(tt.classCode)
+			svc := &services.ScoreService{Authorizer: authtest.Allow{}, Datastore: mockStore, ProblemService: mockProbSvc}
+			u, p, s, err := svc.GetClassExportData(authtest.Actor(), tt.classCode)
 			tt.assertFunc(t, u, p, s, err)
 		})
 	}

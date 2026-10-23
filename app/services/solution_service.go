@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
+
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -13,12 +15,20 @@ import (
 
 // SolutionService handles AC (accepted solution) operations
 type SolutionService struct {
-	Datastore data.DataStore
+	Authorizer authorization.Authorizer
+	Datastore  data.DataStore
 }
 
 // AddACToUserID adds an AC (accepted solution) for a user.
-// This is a trusted method (no enrollment check).
-func (service *SolutionService) AddACToUserID(userID string, problemID int64) error {
+// Mentor/admin authorization is required; enrollment checks are handled by AddACByPrincipal.
+func (service *SolutionService) AddACToUserID(actor authorization.Actor, userID string, problemID int64) error {
+	if err := authorizeProblem(service.Authorizer, service.Datastore, actor, authorization.ManageACs, problemID, userID); err != nil {
+		return err
+	}
+	return service.addAC(userID, problemID)
+}
+
+func (service *SolutionService) addAC(userID string, problemID int64) error {
 	// Layer 2 Safeguard: Ensure user exists before linking foreign keys
 	if err := service.Datastore.EnsureUser(data.User{UserID: userID, DisplayName: "Unknown"}); err != nil {
 		return serviceerr.MakeGeneralError(fmt.Errorf("failed to ensure user %s exists: %w", userID, err))
@@ -36,15 +46,23 @@ func (service *SolutionService) AddACToUserID(userID string, problemID int64) er
 }
 
 // AddACByPrincipal adds an AC for a user (Authenticated enrollment version).
-func (service *SolutionService) AddACByPrincipal(principal service_model.Principal, problemID int64) error {
-	if _, err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal); err != nil {
+func (service *SolutionService) AddACByPrincipal(actor authorization.Actor, principal service_model.Principal, problemID int64) error {
+	prepared, err := service.validateACAccess(service_model.CreateACParams{UserID: principal.UserID, ProblemID: problemID}, principal)
+	if err != nil {
 		return err
 	}
-	return service.AddACToUserID(principal.UserID, problemID)
+	if err := requireAuthorization(service.Authorizer, actor, authorization.ManageACs, authorization.Resource{ClassCode: prepared.Class.ClassCode, OwnerUserID: principal.UserID}); err != nil {
+		return err
+	}
+	return service.addAC(principal.UserID, problemID)
 }
 
 // UndoAC removes an AC for a user.
-func (service *SolutionService) UndoAC(userID string, problemID int64) error {
+func (service *SolutionService) UndoAC(actor authorization.Actor, userID string, problemID int64) error {
+	if err := service.CheckUndoAccess(actor, userID, problemID); err != nil {
+		return err
+	}
+
 	if hasUserSolvedAlready, err := service.Datastore.HasUserSolvedProblem(userID, problemID); err != nil {
 		return serviceerr.MakeGeneralError(fmt.Errorf("error checking if user %s has solved problem %d: %w", userID, problemID, err))
 	} else if !hasUserSolvedAlready {
@@ -118,9 +136,24 @@ func (service *SolutionService) GetPendingConfirmationByMessageID(messageID stri
 }
 
 // AcceptACProposal returns the proposal only after its approval is committed.
-func (service *SolutionService) AcceptACProposal(referenceID string) (service_model.PendingConfirmation, error) {
-	pending, err := service.Datastore.AcceptPendingConfirmation(referenceID)
+func (service *SolutionService) AcceptACProposal(actor authorization.Actor, referenceID string) (service_model.PendingConfirmation, error) {
+	proposal, err := service.GetPendingConfirmationByMessageID(referenceID)
 	if err != nil {
+		return service_model.PendingConfirmation{}, err
+	}
+	problem, err := service.Datastore.GetProblemByID(proposal.ProblemID)
+	if err != nil {
+		return service_model.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
+	}
+	if err := authorizeProblemClass(service.Authorizer, service.Datastore, actor, authorization.ManageACs, problem.ClassID, proposal.UserID); err != nil {
+		return service_model.PendingConfirmation{}, err
+	}
+
+	pending, err := service.Datastore.AcceptPendingConfirmationInClass(referenceID, problem.ClassID)
+	if err != nil {
+		if dataerr.IsRowConflict(err) {
+			return service_model.PendingConfirmation{}, serviceerr.NewAuthorizationTargetChangedError(err)
+		}
 		if dataerr.IsNotFound(err) {
 			return service_model.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("proposal was resolved or replaced", err)
 		}
@@ -131,9 +164,24 @@ func (service *SolutionService) AcceptACProposal(referenceID string) (service_mo
 }
 
 // RejectACProposal returns the proposal that was actually removed.
-func (service *SolutionService) RejectACProposal(referenceID string) (service_model.PendingConfirmation, error) {
-	pending, err := service.Datastore.RemovePendingConfirmation(referenceID)
+func (service *SolutionService) RejectACProposal(actor authorization.Actor, referenceID string) (service_model.PendingConfirmation, error) {
+	proposal, err := service.GetPendingConfirmationByMessageID(referenceID)
 	if err != nil {
+		return service_model.PendingConfirmation{}, err
+	}
+	problem, err := service.Datastore.GetProblemByID(proposal.ProblemID)
+	if err != nil {
+		return service_model.PendingConfirmation{}, serviceerr.MakeGeneralError(err)
+	}
+	if err := authorizeProblemClass(service.Authorizer, service.Datastore, actor, authorization.ManageACs, problem.ClassID, proposal.UserID); err != nil {
+		return service_model.PendingConfirmation{}, err
+	}
+
+	pending, err := service.Datastore.RemovePendingConfirmationInClass(referenceID, problem.ClassID)
+	if err != nil {
+		if dataerr.IsRowConflict(err) {
+			return service_model.PendingConfirmation{}, serviceerr.NewAuthorizationTargetChangedError(err)
+		}
 		if dataerr.IsNotFound(err) {
 			return service_model.PendingConfirmation{}, serviceerr.NewNotFoundInfoError("proposal was resolved or replaced", err)
 		}
@@ -207,10 +255,12 @@ func prepareAC(
 // PrepareCreationBatch validates the complete batch with grouped datastore reads.
 // Student identities and role snapshots are resolved by the caller. Existing ACs
 // are marked for preview, while repeated entries remain in their submitted order.
-func (service *SolutionService) PrepareCreationBatch(
+func (service *SolutionService) PrepareCreationBatch(actor authorization.Actor,
 	inputs []service_model.CreateACParams,
 	studentsByID map[string]service_model.Principal,
 ) ([]service_model.PreparedAC, []service_model.BatchEntryError, error) {
+	checks := newBatchPermissions(service.Authorizer, actor, authorization.ManageACs)
+
 	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}, nil
 	}
@@ -252,6 +302,10 @@ func (service *SolutionService) PrepareCreationBatch(
 			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: entryErrors[index]})
 			continue
 		}
+		if err := checks.class(prepared[index].Class.ClassCode); err != nil {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: err})
+			continue
+		}
 		prepared[index].Entry = index + 1
 	}
 	if len(issues) > 0 {
@@ -262,7 +316,7 @@ func (service *SolutionService) PrepareCreationBatch(
 
 // ExecuteCreationBatch revalidates all entries before one atomic datastore write.
 // No concurrent changes are assumed between validation and execution.
-func (service *SolutionService) ExecuteCreationBatch(batch []service_model.PreparedAC, studentsByID map[string]service_model.Principal) (service_model.ACBatchResult, []service_model.BatchEntryError, error) {
+func (service *SolutionService) ExecuteCreationBatch(actor authorization.Actor, batch []service_model.PreparedAC, studentsByID map[string]service_model.Principal) (service_model.ACBatchResult, []service_model.BatchEntryError, error) {
 	var result service_model.ACBatchResult
 	if err := helpers.ValidateBatchSize(len(batch)); err != nil {
 		return result, []service_model.BatchEntryError{{Err: err}}, nil
@@ -274,7 +328,7 @@ func (service *SolutionService) ExecuteCreationBatch(batch []service_model.Prepa
 		inputs[index] = service_model.CreateACParams{UserID: entry.User.UserID, ProblemID: entry.Problem.ID}
 	}
 
-	prepared, issues, err := service.PrepareCreationBatch(inputs, studentsByID)
+	prepared, issues, err := service.PrepareCreationBatch(actor, inputs, studentsByID)
 	if err != nil {
 		return result, nil, serviceerr.NewBatchPreparationError("could not revalidate AC batch", err)
 	}
@@ -310,4 +364,30 @@ func (service *SolutionService) ExecuteCreationBatch(batch []service_model.Prepa
 	result.Recorded = insertedCount
 	result.AlreadyRecorded = len(prepared) - insertedCount
 	return result, nil, nil
+}
+
+// CheckCreationBatchAccess rechecks current targets before cancelling a preview.
+func (service *SolutionService) CheckCreationBatchAccess(actor authorization.Actor, batch []service_model.PreparedAC) error {
+	for _, entry := range batch {
+		if entry.Problem.ID <= 0 {
+			continue
+		}
+		if err := authorizeProblem(service.Authorizer, service.Datastore, actor, authorization.ManageACs, entry.Problem.ID, entry.User.UserID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CheckManagement authorizes a resolved problem before resolving a target student's transport identity.
+func (service *SolutionService) CheckManagement(actor authorization.Actor, problemID int64) error {
+	return authorizeProblem(service.Authorizer, service.Datastore, actor, authorization.ManageACs, problemID, "")
+}
+
+// CheckUndoAccess uses ownership for self-service and the stored problem class for other users.
+func (service *SolutionService) CheckUndoAccess(actor authorization.Actor, userID string, problemID int64) error {
+	if actor.UserID == userID {
+		return requireAuthorization(service.Authorizer, actor, authorization.UndoAC, authorization.Resource{OwnerUserID: userID})
+	}
+	return authorizeProblem(service.Authorizer, service.Datastore, actor, authorization.UndoAC, problemID, userID)
 }

@@ -105,7 +105,15 @@ reactions and batches. Existing problems use their stored class regardless of
 the channel. Moving a problem requires access to both classes. Every batch entry
 is authorized before any write, and confirmation rechecks current roles and
 problem classes. Administrators retain access to all classes; admin-only commands
-and ordinary student proposal/access rules are unchanged.
+and ordinary student proposal/access rules are unchanged. Students can still
+remove their own ACs; removing another user's AC requires class mentor or admin
+permission.
+
+Services enforce these rules through the injected `authorization.Authorizer`
+contract. `DiscordAuthorizer` reads current Discord roles; controllers provide
+the authenticated `Actor` and present typed service errors. Protected methods
+require an actor even when called without a controller. `--seed` uses an isolated
+bootstrap path and does not grant system privileges to Discord event services.
 
 ### Runtime Flags & Makefile Composition
 The bot's behavior is controlled by CLI flags composed via `make run FLAGS="..."`:

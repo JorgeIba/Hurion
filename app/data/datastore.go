@@ -25,6 +25,8 @@ type QueryDatastore interface {
 }
 
 type UpdateDataStore interface {
+	AcceptPendingConfirmationInClass(string, int64) (PendingConfirmation, error)
+	RemovePendingConfirmationInClass(string, int64) (PendingConfirmation, error)
 	EnsureUser(user User) error
 	AddClassroom(classroom Classroom) error
 	RemoveClassroomByRoomID(roomID string) error
@@ -40,8 +42,6 @@ type UpdateDataStore interface {
 	DeleteClass(classID int64) error
 	CreateClass(class Class) (int64, error)
 	AddPendingConfirmation(confirmation PendingConfirmation) (bool, error)
-	AcceptPendingConfirmation(messageID string) (PendingConfirmation, error)
-	RemovePendingConfirmation(messageID string) (PendingConfirmation, error)
 	ReplaceProblemByProblemID(problemID int64, problem Problem) error
 	PatchProblemByProblemID(problemID int64, patch ProblemPatch) error
 	ExterminateUser(userID string) error

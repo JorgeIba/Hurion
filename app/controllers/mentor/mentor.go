@@ -13,7 +13,6 @@ import (
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
-	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 )
 
@@ -38,24 +37,18 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		return
 	}
 
-	// Check whether the actor can decide AC proposals.
-	if allowed, err := checkIfUserCanManageACs(c); err != nil {
-		logger.Log.Errorf("Error checking AC permissions: %v", err)
-		return
-	} else if !allowed {
-		logger.Log.Errorln(messageErrACPermissions)
-		return
-	}
-
-	if err := authorizeProposal(c.DiscordValidator, c.Services, c.ExecutorGuildID, c.Executor.UserID, messageID); err != nil {
-		return
-	}
-
 	switch c.MessageReaction.Emoji.Name {
 	case common.REACTION_NO:
-		pendingConfirmation, err := c.Services.Solution.RejectACProposal(messageID)
+		pendingConfirmation, err := c.Services.Solution.RejectACProposal(c.Actor(), messageID)
 		if err != nil {
 			if _, unavailable := errors.AsType[*serviceerr.NotFoundInfoError](err); unavailable {
+				return
+			}
+			if _, denied := errors.AsType[*serviceerr.ForbiddenError](err); denied {
+				return
+			}
+			if _, changed := errors.AsType[*serviceerr.AuthorizationTargetChangedError](err); changed {
+				c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, adapters.MapError(err, adapters.ActionMentorAddAC)))
 				return
 			}
 			logger.Log.Errorf("Something happened: %v", err)
@@ -77,9 +70,16 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 		)
 
 	case common.REACTION_YES:
-		pendingConfirmation, err := c.Services.Solution.AcceptACProposal(messageID)
+		pendingConfirmation, err := c.Services.Solution.AcceptACProposal(c.Actor(), messageID)
 		if err != nil {
 			if _, unavailable := errors.AsType[*serviceerr.NotFoundInfoError](err); unavailable {
+				return
+			}
+			if _, denied := errors.AsType[*serviceerr.ForbiddenError](err); denied {
+				return
+			}
+			if _, changed := errors.AsType[*serviceerr.AuthorizationTargetChangedError](err); changed {
+				c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.MessageReaction.ChannelID, adapters.MapError(err, adapters.ActionMentorAddAC)))
 				return
 			}
 			logger.Log.Errorf("Something happened: %v", err)
@@ -104,20 +104,6 @@ func HandlePendingConfirmation(c *context.ContextMessage) {
 }
 
 func HandleAddAC(c *context.ContextMessage) {
-	if allowed, err := checkIfUserCanManageACs(c); err != nil {
-		logger.Log.Errorf("Error checking AC permissions: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
-		)
-		return
-	} else if !allowed {
-		logger.Log.Errorln(messageErrACPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrACPermissions),
-		)
-		return
-	}
-
 	userParam, problemIDs := c.Args[1], c.Args[2]
 	userID, ok := controllers_common.ParseUserID(userParam)
 	if !ok {
@@ -137,7 +123,8 @@ func HandleAddAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err := requireMessageTargets(c, mentorTarget{problemID: problemID}); err != nil {
+	if err := c.Services.Solution.CheckManagement(c.Actor(), problemID); err != nil {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddAC, userID, problemID)))
 		return
 	}
 
@@ -158,7 +145,7 @@ func HandleAddAC(c *context.ContextMessage) {
 		Roles: member.Roles,
 	}
 
-	if err := c.Services.Solution.AddACByPrincipal(principal, problemID); err != nil {
+	if err := c.Services.Solution.AddACByPrincipal(c.Actor(), principal, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -179,20 +166,6 @@ func HandleAddAC(c *context.ContextMessage) {
 }
 
 func HandleUndoAC(c *context.ContextMessage) {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
-		)
-		return
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
-		)
-		return
-	}
-
 	userParam, problemIDs := c.Args[1], c.Args[2]
 	userID, ok := controllers_common.ParseUserID(userParam)
 	if !ok {
@@ -211,13 +184,14 @@ func HandleUndoAC(c *context.ContextMessage) {
 		return
 	}
 
-	if err := requireMessageTargets(c, mentorTarget{problemID: problemID}); err != nil {
+	if err := c.Services.Solution.CheckUndoAccess(c.Actor(), userID, problemID); err != nil {
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorAddAC, userID, problemID)))
 		return
 	}
 
 	displayName := controllers_common.ResolveDisplayName(c, c.ExecutorGuildID, userID)
 
-	if err = c.Services.Solution.UndoAC(userID, problemID); err != nil {
+	if err = c.Services.Solution.UndoAC(c.Actor(), userID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -237,20 +211,6 @@ func HandleUndoAC(c *context.ContextMessage) {
 }
 
 func HandleAddProblem(c *context.ContextMessage) {
-	if allowed, err := checkIfUserCanManageProblems(c); err != nil {
-		logger.Log.Errorf("Failed to verify problem-management permissions: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
-		)
-		return
-	} else if !allowed {
-		logger.Log.Errorln(messageErrProblemPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrProblemPermissions),
-		)
-		return
-	}
-
 	// Parse: !add_problem <class_code> <url> <difficulty or -> <topic or -> <priority or -> <ProblemName...>
 	// Args[0] = command, Args[1] = class_code, Args[2] = url, Args[3] = difficulty, Args[4] = topic, Args[5] = priority, Args[6+] = name
 	classCode := c.Args[1]
@@ -281,11 +241,7 @@ func HandleAddProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
-	if err := requireMessageTargets(c, mentorTarget{classCode: classCode}); err != nil {
-		return
-	}
-
-	problemID, err := c.Services.Problem.CreateProblemIntoClass(service_model.CreateProblemParams{
+	problemID, err := c.Services.Problem.CreateProblemIntoClass(c.Actor(), service_model.CreateProblemParams{
 		Name:       problemName,
 		URL:        url,
 		ClassCode:  classCode,
@@ -316,20 +272,6 @@ func HandleAddProblem(c *context.ContextMessage) {
 }
 
 func HandleRemoveProblem(c *context.ContextMessage) error {
-	if IsMentor, err := checkIfUserIsMentor(c); err != nil {
-		logger.Log.Errorf("Error checking if author is mentor: %v\n", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
-		)
-		return err
-	} else if !IsMentor {
-		logger.Log.Errorln(messageErrNotPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrNotPermissions),
-		)
-		return fmt.Errorf("user is not a mentor")
-	}
-
 	problemIDs := c.Args[1]
 	problemID, err := strconv.ParseInt(problemIDs, 10, 64)
 	if err != nil {
@@ -340,11 +282,7 @@ func HandleRemoveProblem(c *context.ContextMessage) error {
 		return err
 	}
 
-	if err := requireMessageTargets(c, mentorTarget{problemID: problemID}); err != nil {
-		return err
-	}
-
-	if err = c.Services.Problem.RemoveProblemFromClass(problemID); err != nil {
+	if err = c.Services.Problem.RemoveProblemFromClass(c.Actor(), problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -364,20 +302,6 @@ func HandleRemoveProblem(c *context.ContextMessage) error {
 }
 
 func HandleUpdateProblem(c *context.ContextMessage) {
-	if allowed, err := checkIfUserCanManageProblems(c); err != nil {
-		logger.Log.Errorf("Failed to verify problem-management permissions: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrVerifying),
-		)
-		return
-	} else if !allowed {
-		logger.Log.Errorln(messageErrProblemPermissions)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, messageErrProblemPermissions),
-		)
-		return
-	}
-
 	problemIDStr := c.Args[1]
 	classCode := c.Args[2]
 	url := c.Args[3]
@@ -416,11 +340,7 @@ func HandleUpdateProblem(c *context.ContextMessage) {
 	// Parse topic
 	topic := parseTopic(topicStr)
 
-	if err := requireMessageTargets(c, mentorTarget{problemID: problemID, classCode: classCode}); err != nil {
-		return
-	}
-
-	if err = c.Services.Problem.ReplaceProblemByProblemID(service_model.ReplaceProblemParams{
+	if err = c.Services.Problem.ReplaceProblemByProblemID(c.Actor(), service_model.ReplaceProblemParams{
 		ProblemID:  problemID,
 		Name:       problemName,
 		ClassCode:  classCode,
@@ -472,56 +392,4 @@ func parsePriority(input string) (*string, error) {
 		return nil, err
 	}
 	return &code, nil
-}
-
-func checkIfUserIsMentor(c *context.ContextMessage) (bool, error) {
-	if c.Executor.UserID == "" {
-		return false, fmt.Errorf("no executor user ID available")
-	}
-
-	if c.ExecutorGuildID == "" {
-		return false, fmt.Errorf("mentor commands can only be used in a server, not in DMs")
-	}
-
-	return canManageProblems(c.DiscordValidator, c.ExecutorGuildID, c.Executor.UserID)
-}
-
-func checkIfUserCanManageProblems(c *context.ContextMessage) (bool, error) {
-	if c.Executor.UserID == "" {
-		return false, fmt.Errorf("no executor user ID available")
-	}
-	if c.ExecutorGuildID == "" {
-		return false, fmt.Errorf("problem commands can only be used in a server, not in DMs")
-	}
-	return canManageProblems(c.DiscordValidator, c.ExecutorGuildID, c.Executor.UserID)
-}
-
-func checkIfUserCanManageACs(c *context.ContextMessage) (bool, error) {
-	if c.Executor.UserID == "" {
-		return false, fmt.Errorf("no executor user ID available")
-	}
-	if c.ExecutorGuildID == "" {
-		return false, fmt.Errorf("AC commands can only be used in a server, not in DMs")
-	}
-	return canManageACs(c.DiscordValidator, c.ExecutorGuildID, c.Executor.UserID)
-}
-
-// canManageACs permits mentors and admins to grant or decide ACs.
-// A failed role lookup stops authorization.
-func canManageACs(validator providers.DiscordValidator, guildID, userID string) (bool, error) {
-	isMentor, err := validator.IsMentor(guildID, userID)
-	if err != nil || isMentor {
-		return isMentor, err
-	}
-	return validator.IsAdmin(guildID, userID)
-}
-
-// canManageProblems permits either configured role. A failed role lookup stops
-// authorization; admin is checked only after a successful negative mentor check.
-func canManageProblems(validator providers.DiscordValidator, guildID, userID string) (bool, error) {
-	isMentor, err := validator.IsMentor(guildID, userID)
-	if err != nil || isMentor {
-		return isMentor, err
-	}
-	return validator.IsAdmin(guildID, userID)
 }

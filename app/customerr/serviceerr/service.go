@@ -3,6 +3,8 @@ package serviceerr
 import (
 	"errors"
 	"fmt"
+
+	"github.com/JorgeIba/Hurion/app/authorization"
 )
 
 // ServiceErrorInterface defines the behavior of a domain-level error.
@@ -181,4 +183,37 @@ func NewBatchPreparationError(message string, err error) *BatchPreparationError 
 		Message:      message,
 		WrappedError: err,
 	}
+}
+
+// ForbiddenError is a domain authorization denial safe for presentation.
+type ForbiddenError struct{ ServiceError }
+
+func NewForbiddenError(permission authorization.Permission, classCode string) *ForbiddenError {
+	message := "The mentor or admin role is required."
+	switch permission {
+	case authorization.Admin:
+		message = "The admin role is required (is not admin)."
+	case authorization.AccessClass:
+		message = fmt.Sprintf("You do not have access to class `%s`.", classCode)
+	default:
+		if classCode != "" {
+			message = fmt.Sprintf("The mentor or admin role for class `%s` is required. No changes were applied.", classCode)
+		}
+	}
+
+	return &ForbiddenError{ServiceError{Code: 403, Message: message}}
+}
+
+// AuthorizationUnavailableError identifies a failed permission lookup rather than a denial.
+type AuthorizationUnavailableError struct{ ServiceError }
+
+func NewAuthorizationUnavailableError(cause error) *AuthorizationUnavailableError {
+	return &AuthorizationUnavailableError{ServiceError{Code: 503, Message: "There was a problem verifying permissions.", WrappedError: cause}}
+}
+
+// AuthorizationTargetChangedError asks the caller to retry against the current resource.
+type AuthorizationTargetChangedError struct{ ServiceError }
+
+func NewAuthorizationTargetChangedError(cause error) *AuthorizationTargetChangedError {
+	return &AuthorizationTargetChangedError{ServiceError{Code: 409, Message: "The problem's class changed while checking permissions. No changes were applied; please try again.", WrappedError: cause}}
 }

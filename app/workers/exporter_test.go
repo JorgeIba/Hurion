@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/batchschema"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
@@ -63,7 +64,7 @@ func TestScoreboardExporterWorker_ExportAll_WritesClassesJSON(t *testing.T) {
 	mockStore.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{}, nil)
 	mockProblemSvc.EXPECT().GetProblemsGroupedByTopic("basicos").Return([]service_model.ProblemsByTopic{}, nil)
 
-	classSvc := services.NewClassService(mockStore)
+	classSvc := services.NewClassService(mockStore, authtest.Allow{})
 	scoreSvc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProblemSvc}
 
 	worker := NewScoreboardExporterWorker(classSvc, scoreSvc, store)

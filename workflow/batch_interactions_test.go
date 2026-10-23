@@ -3,10 +3,12 @@ package workflow
 import (
 	"errors"
 	"fmt"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"strings"
 	"testing"
+
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
@@ -72,7 +74,12 @@ func TestWorkflow_BatchCommandsOpenFormsAndValidateWithoutWrites(t *testing.T) {
 				assert.Contains(t, *env.Responder.edits[0].response.Content, test.want)
 				assert.Empty(t, env.Responder.edits[0].response.AllowedMentions.Parse)
 			}
-			assert.Equal(t, 2, checks, "authorize at open and submit")
+			var entries int
+			expectedChecks := 2
+			if _, err := fmt.Sscanf(test.want, "Entries: %d", &entries); err == nil {
+				expectedChecks++
+			}
+			assert.Equal(t, expectedChecks, checks, "authorize intake and every prepared entry")
 			problems, err := env.DB.GetProblemsByClass(classID)
 			assert.NoError(t, err)
 			if test.command == "problem" {
@@ -181,9 +188,9 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 			client := &recordingDiscordInteractionClient{t: t}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
 			if test.name == "problem" {
-				env.ProblemController = mentor.NewProblemInteractionController(env.Services, env.Discord, responder)
+				env.ProblemController = mentor.NewProblemInteractionController(env.Services, responder)
 			} else {
-				env.ACController = mentor.NewACInteractionController(env.Services, env.Discord, env.Discord, responder)
+				env.ACController = mentor.NewACInteractionController(env.Services, env.Discord, responder)
 			}
 			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
@@ -259,7 +266,7 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 			env.Discord.fetchMemberFunc = func(_, _ string) (*discordgo.Member, error) { return nil, errors.New("private Discord HTTP failure") }
 			if test.alreadyRecorded {
 				env.seedUser(t, "123", "Student")
-				assert.NoError(t, env.Services.Solution.AddACToUserID("123", problemID))
+				assert.NoError(t, env.Services.Solution.AddACToUserID(authtest.Actor(), "123", problemID))
 			}
 			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
