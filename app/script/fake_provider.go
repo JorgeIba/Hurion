@@ -2,24 +2,21 @@ package script
 
 import (
 	"fmt"
+
 	"github.com/bwmarrin/discordgo"
 )
 
 // FakeDiscordProvider is a mock implementation of DiscordProvider
 // used for the offline and script runner modes. It bypasses real Discord API calls.
 type FakeDiscordProvider struct {
-	UserRoles    map[string][]string
-	Usernames    map[string]string
-	AdminRoleID  string
-	MentorRoleID string
+	UserRoles map[string][]string
+	Usernames map[string]string
 }
 
-func NewFakeDiscordProvider(adminRoleID, mentorRoleID string) *FakeDiscordProvider {
+func NewFakeDiscordProvider() *FakeDiscordProvider {
 	return &FakeDiscordProvider{
-		UserRoles:    make(map[string][]string),
-		Usernames:    make(map[string]string),
-		AdminRoleID:  adminRoleID,
-		MentorRoleID: mentorRoleID,
+		UserRoles: make(map[string][]string),
+		Usernames: make(map[string]string),
 	}
 }
 
@@ -35,28 +32,6 @@ func (f *FakeDiscordProvider) SetUsername(userID, username string) {
 		f.Usernames = make(map[string]string)
 	}
 	f.Usernames[userID] = username
-}
-
-// -- DiscordValidator --
-
-func (f *FakeDiscordProvider) IsAdmin(guildID, userID string) (bool, error) {
-	roles := f.UserRoles[userID]
-	for _, role := range roles {
-		if role == f.AdminRoleID {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (f *FakeDiscordProvider) IsMentor(guildID, userID string) (bool, error) {
-	roles := f.UserRoles[userID]
-	for _, role := range roles {
-		if role == f.MentorRoleID {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // -- DiscordFetcher --

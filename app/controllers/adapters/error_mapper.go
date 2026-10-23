@@ -200,6 +200,17 @@ var templates = map[Action]map[ErrorKind]string{
 
 // MapError maps service-layer errors to user-friendly messages by action.
 func MapError(err error, action Action, args ...any) string {
+	if changed, ok := errors.AsType[*serviceerr.AuthorizationTargetChangedError](err); ok {
+		return changed.Message
+	}
+
+	if denied, ok := errors.AsType[*serviceerr.ForbiddenError](err); ok {
+		return denied.Message
+	}
+	if _, ok := errors.AsType[*serviceerr.AuthorizationUnavailableError](err); ok {
+		return "There was a problem verifying permissions."
+	}
+
 	if err == nil {
 		return defaultFallbackMessage
 	}

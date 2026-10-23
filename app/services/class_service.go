@@ -3,6 +3,8 @@ package services
 import (
 	"fmt"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
+
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -10,17 +12,21 @@ import (
 )
 
 type ClassService struct {
-	Datastore data.DataStore
+	Authorizer authorization.Authorizer
+	Datastore  data.DataStore
 }
 
-func NewClassService(ds data.DataStore) *ClassService {
+func NewClassService(ds data.DataStore, authorizer authorization.Authorizer) *ClassService {
 	return &ClassService{
-		Datastore: ds,
+		Datastore: ds, Authorizer: authorizer,
 	}
 }
 
 // CreateClass creates a new class
-func (service *ClassService) CreateClass(classCode, className string) (int64, error) {
+func (service *ClassService) CreateClass(actor authorization.Actor, classCode, className string) (int64, error) {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return 0, err
+	}
 	if err := service_model.ValidateClassCodeLength(classCode); err != nil {
 		return 0, serviceerr.NewValidationError("invalid class code", err)
 	}
@@ -39,7 +45,10 @@ func (service *ClassService) CreateClass(classCode, className string) (int64, er
 }
 
 // ClearClassContentsByClassCode deletes all problems and score-driving data from a class while preserving the class itself.
-func (service *ClassService) ClearClassContentsByClassCode(classCode string) error {
+func (service *ClassService) ClearClassContentsByClassCode(actor authorization.Actor, classCode string) error {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return err
+	}
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
@@ -57,7 +66,10 @@ func (service *ClassService) ClearClassContentsByClassCode(classCode string) err
 }
 
 // DeleteClassByClassCode deletes a class by its class code.
-func (service *ClassService) DeleteClassByClassCode(classCode string) error {
+func (service *ClassService) DeleteClassByClassCode(actor authorization.Actor, classCode string) error {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return err
+	}
 	class, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {
@@ -139,7 +151,10 @@ func (service *ClassService) GetClassByClassID(classID int64) (service_model.Cla
 
 // RegisterClassroom assigns a room to a class.
 // It validates that the room is not already registered to a different class.
-func (service *ClassService) RegisterClassroom(classroom service_model.Classroom) error {
+func (service *ClassService) RegisterClassroom(actor authorization.Actor, classroom service_model.Classroom) error {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return err
+	}
 	// Check if class exists
 	if _, err := service.Datastore.GetClassByClassCode(classroom.ClassCode); err != nil {
 		switch {
@@ -174,7 +189,10 @@ func (service *ClassService) RegisterClassroom(classroom service_model.Classroom
 }
 
 // RemoveClassroom unlinks a room from its class.
-func (service *ClassService) RemoveClassroom(roomID string) error {
+func (service *ClassService) RemoveClassroom(actor authorization.Actor, roomID string) error {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return err
+	}
 	if err := service.Datastore.RemoveClassroomByRoomID(roomID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
@@ -192,7 +210,10 @@ func (service *ClassService) GetClassrooms(classCode string) ([]service_model.Cl
 }
 
 // AssignAccessRole links a role identifier to a class for permission checks.
-func (service *ClassService) AssignAccessRole(role service_model.ClassAccessRole) error {
+func (service *ClassService) AssignAccessRole(actor authorization.Actor, role service_model.ClassAccessRole) error {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return err
+	}
 	// Verify class exists
 	if _, err := service.Datastore.GetClassByClassCode(role.ClassCode); err != nil {
 		switch {
@@ -210,7 +231,10 @@ func (service *ClassService) AssignAccessRole(role service_model.ClassAccessRole
 }
 
 // RevokeAccessRole unlinks a role from a class.
-func (service *ClassService) RevokeAccessRole(role service_model.ClassAccessRole) error {
+func (service *ClassService) RevokeAccessRole(actor authorization.Actor, role service_model.ClassAccessRole) error {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return err
+	}
 	if err := service.Datastore.RemoveClassAccessRole(mapServiceRoleToDataRole(role)); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}

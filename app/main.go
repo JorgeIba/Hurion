@@ -52,9 +52,40 @@ func main() {
 	}
 	defer db.CloseDB()
 
-	svcs := services.NewServices(db)
 	token := os.Getenv("DISCORD_BOT_TOKEN")
 
+	// 3. Hydrate the RunConfig
+	runCfg, err := bootstrap.NewRunConfig(*mockDiscordFlag, *scriptFlag)
+	if err != nil {
+		log.Fatalf("Configuration error: %v", err)
+	}
+	logger.Log.Infof("Booting Discord Bot in mode: %s", runCfg.Mode)
+
+	// 4. Determine Provider (Offline Mock vs Online Real)
+	var session *discordgo.Session
+	var provider providers.DiscordProvider
+
+	if runCfg.UsesMockProvider() {
+		provider = script.NewFakeDiscordProvider()
+	} else {
+		if token == "" {
+			log.Fatalf("DISCORD_BOT_TOKEN environment variable is required when not running offline")
+		}
+		session, err = discordgo.New("Bot " + token)
+		if err != nil {
+			log.Fatalf("Failed to create discord session: %v", err)
+		}
+		provider = providers.NewProviderDiscord(providers.NewDiscordGoSessionAdapter(session))
+	}
+
+	// 5. Inject authorization and run isolated startup reconciliation.
+	authorizer := providers.NewDiscordAuthorizer(provider, cfg.AdminRoleID, cfg.MentorRoleID, cfg.MentorRolesByClass())
+	svcs := services.NewServices(db, authorizer)
+	if *seedFlag {
+		if err := bootstrap.NewDatabaseReconciler(db).Reconcile(cfg); err != nil {
+			log.Fatalf("Reconciliation failed: %v", err)
+		}
+	}
 	// Start background worker only if --exporter flag is set
 	if *exporterFlag {
 		const defaultExportsDir = "./data/exports"
@@ -68,38 +99,6 @@ func main() {
 		data.RegisterDataChangeCallback(func() {
 			exporterWorker.Trigger()
 		})
-	}
-
-	// 3. Hydrate the RunConfig
-	runCfg, err := bootstrap.NewRunConfig(*mockDiscordFlag, *scriptFlag)
-	if err != nil {
-		log.Fatalf("Configuration error: %v", err)
-	}
-	logger.Log.Infof("Booting Discord Bot in mode: %s", runCfg.Mode)
-
-	// 4. Optional Seeding
-	if *seedFlag {
-		reconciler := bootstrap.NewReconciler(svcs.Class)
-		if err := reconciler.Reconcile(cfg); err != nil {
-			log.Fatalf("Reconciliation failed: %v", err)
-		}
-	}
-
-	// 5. Determine Provider (Offline Mock vs Online Real)
-	var session *discordgo.Session
-	var provider providers.DiscordProvider
-
-	if runCfg.UsesMockProvider() {
-		provider = script.NewFakeDiscordProvider(cfg.AdminRoleID, cfg.MentorRoleID)
-	} else {
-		if token == "" {
-			log.Fatalf("DISCORD_BOT_TOKEN environment variable is required when not running offline")
-		}
-		session, err = discordgo.New("Bot " + token)
-		if err != nil {
-			log.Fatalf("Failed to create discord session: %v", err)
-		}
-		provider = providers.NewProviderDiscord(providers.NewDiscordGoSessionAdapter(session), cfg.AdminRoleID, cfg.MentorRoleID)
 	}
 
 	// 6. Determine Message Sender (Console vs Discord)
@@ -124,8 +123,8 @@ func main() {
 		WhitelistRoleIDs: cfg.WhitelistRoleIDs,
 		GuildID:          cfg.GuildID,
 	}
-	problemInteractionController := mentor.NewProblemInteractionController(svcs, provider, responder)
-	acInteractionController := mentor.NewACInteractionController(svcs, provider, provider, responder)
+	problemInteractionController := mentor.NewProblemInteractionController(svcs, responder)
+	acInteractionController := mentor.NewACInteractionController(svcs, provider, responder)
 	appBot := bot.NewBot(svcs, provider, sender, responder, botCfg)
 
 	// 8. Execute Application Behavior

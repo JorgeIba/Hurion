@@ -2,12 +2,13 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
-	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
-	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"strings"
 	"testing"
 	"unicode/utf16"
+
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -125,7 +126,7 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 	problems, err := env.DB.GetProblemsByClass(classID)
 	require.NoError(t, err)
 	assert.Empty(t, problems)
-	assert.Equal(t, 2, checks)
+	assert.Equal(t, 3, checks)
 }
 
 func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *testing.T) {
@@ -196,7 +197,8 @@ func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
 	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
 	modal.Name, modal.URL = strings.Repeat("🚀", 1500), "https://example.com/problem"
 	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
-	problemService.EXPECT().CreateProblemIntoClass(service_model.CreateProblemParams{
+	problemService.EXPECT().CheckManagement(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	problemService.EXPECT().CreateProblemIntoClass(gomock.Any(), service_model.CreateProblemParams{
 		ClassCode:  modal.ClassCode,
 		Name:       modal.Name,
 		URL:        modal.URL,
@@ -226,7 +228,8 @@ func TestWorkflow_ProblemAddRetainsDraftForDuplicateFailure(t *testing.T) {
 		Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Binary search "),
 	}
 	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
-	problemService.EXPECT().CreateProblemIntoClass(service_model.CreateProblemParams{
+	problemService.EXPECT().CheckManagement(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	problemService.EXPECT().CreateProblemIntoClass(gomock.Any(), service_model.CreateProblemParams{
 		ClassCode:  modal.ClassCode,
 		Name:       modal.Name,
 		URL:        modal.URL,
@@ -345,7 +348,10 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 				Type: discordgo.InteractionModalSubmit, Data: data, Member: command.Member,
 			}}
 			if test.channelClass != "" {
-				require.NoError(t, env.Services.Class.RemoveClassroom(testChannelID))
+				require.NoError(t, env.DB.
+					RemoveClassroomByRoomID(
+
+						testChannelID))
 				env.seedClassroom(t, testChannelID, "basicos_2")
 			}
 
@@ -382,7 +388,7 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 			assert.Contains(t, *receipt.response.Content, fmt.Sprintf("Problem `%d`", problem.ID))
 			assert.Contains(t, *receipt.response.Content, problemName)
 			if test.adminOnly {
-				assert.Equal(t, 2, adminChecks, "admin authority is checked both on open and submit")
+				assert.Equal(t, 4, adminChecks, "admin authority is checked both on open and submit")
 			} else {
 				assert.Zero(t, adminChecks, "mentors do not require another role lookup")
 			}
@@ -502,7 +508,7 @@ func TestWorkflow_ProblemSubmitAcknowledgesBeforePermissionLookupAndKeepsSaveWhe
 	require.NoError(t, err)
 	require.Len(t, problems, 1)
 	assert.Equal(t, "Two Sum", problems[0].Name)
-	assert.Equal(t, 1, checks, "repeated delivery must not proceed past the failed acknowledgement")
+	assert.Equal(t, 2, checks, "repeated delivery must not proceed past the failed acknowledgement")
 	require.Len(t, env.Responder.edits, 1, "a failed receipt does not cause a write or delivery loop")
 	assert.Contains(t, *env.Responder.edits[0].response.Content, fmt.Sprintf("Problem `%d`", problems[0].ID))
 }
@@ -514,7 +520,9 @@ func TestWorkflow_ProblemSubmitReportsClassRemovedAfterFormOpenedWithoutSaving(t
 	classID := env.seedClass(t, "basicos_1", "Basicos")
 	modal := env.openProblemForm(t, "mentor_1", "basicos_1")
 	modal.Name, modal.URL = "Two Sum", "https://example.com/problem"
-	require.NoError(t, env.Services.Class.DeleteClassByClassCode("basicos_1"))
+	require.NoError(t, env.deleteFixtureClass(
+
+		"basicos_1"))
 	env.submitProblemForm(t, "mentor_1", modal)
 	require.Len(t, env.Responder.edits, 1)
 	assert.Contains(t, *env.Responder.edits[0].response.Content, "Class code `basicos_1` not found")

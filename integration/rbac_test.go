@@ -31,7 +31,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 			return false, nil
 		}
 
-		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "url", "Easy", "Arrays", "-", "New Problem"})
+		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "https://example.com/problem", "Easy", "Arrays", "-", "New Problem"})
 		mentor.HandleAddProblem(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()

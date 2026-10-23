@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -75,7 +76,7 @@ func TestProblemService_GetProblemsByClass(t *testing.T) {
 			t.Parallel()
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			test.setupMock(store)
-			problems, err := NewProblemService(store).GetProblemsByClass("basicos")
+			problems, err := NewProblemService(store, authtest.Allow{}).GetProblemsByClass("basicos")
 			test.assertFunc(t, problems, err)
 		})
 	}

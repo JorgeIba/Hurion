@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
+
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -14,6 +16,7 @@ import (
 
 // ScoreService handles score calculation and ranking operations
 type ScoreService struct {
+	Authorizer     authorization.Authorizer
 	Datastore      data.DataStore
 	ProblemService ProblemService
 }
@@ -163,7 +166,10 @@ func (service *ScoreService) GetScoreAllClasses() ([]service_model.ClassScore, e
 
 // GetClassExportData retrieves all data needed for exporting a class
 // Returns users, problems grouped by topic, and score
-func (service *ScoreService) GetClassExportData(classCode string) ([]service_model.User, []service_model.ProblemsByTopic, service_model.Score, error) {
+func (service *ScoreService) GetClassExportData(actor authorization.Actor, classCode string) ([]service_model.User, []service_model.ProblemsByTopic, service_model.Score, error) {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return nil, nil, service_model.Score{}, err
+	}
 	classData, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {

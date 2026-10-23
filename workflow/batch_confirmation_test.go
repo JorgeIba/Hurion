@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
+
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
@@ -88,7 +90,7 @@ func TestWorkflow_BatchConfirmationWritesOnceAndReportsActualResults(t *testing.
 				env.Discord.setDisplayName("123", "Preview Name")
 				entry = fmt.Sprintf(`{"user_id":"123","problem_id":%d}`, problemID)
 				if test.alreadyRecorded {
-					require.NoError(t, env.Services.Solution.AddACToUserID("123", problemID))
+					require.NoError(t, env.Services.Solution.AddACToUserID(authtest.Actor(), "123", problemID))
 				}
 			}
 			input := "[" + entry + "]"
@@ -218,9 +220,9 @@ func TestWorkflow_ProblemBatchRevalidationReadFailureReportsNoWrites(t *testing.
 	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
 	classID := env.seedClass(t, "basicos", "Basicos")
 	store := &failProblemBatchRevalidationStore{DataStore: env.DB}
-	svcs := services.NewServices(store)
+	svcs := services.NewServices(store, authtest.Allow{})
 	responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
-	env.ProblemController = mentor.NewProblemInteractionController(svcs, env.Discord, responder)
+	env.ProblemController = mentor.NewProblemInteractionController(svcs, responder)
 
 	preview := submitBatchPreview(t, env, "problem", `[{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}]`)
 	require.Equal(t, 1, store.classLookups, "preview preparation resolves the class once")
@@ -272,10 +274,10 @@ func TestWorkflow_BatchStorageFailureReportsProgressWithoutRetrying(t *testing.T
 			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
 			classID := env.seedClass(t, "basicos", "Basicos")
 			store := &uncertainBatchStore{DataStore: env.DB}
-			svcs := services.NewServices(store)
+			svcs := services.NewServices(store, authtest.Allow{})
 			responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
-			env.ProblemController = mentor.NewProblemInteractionController(svcs, env.Discord, responder)
-			env.ACController = mentor.NewACInteractionController(svcs, env.Discord, env.Discord, responder)
+			env.ProblemController = mentor.NewProblemInteractionController(svcs, responder)
+			env.ACController = mentor.NewACInteractionController(svcs, env.Discord, responder)
 			input := `[{"class":"basicos","name":"One","url":"https://example.com/one","topic":"Arrays"},{"class":"basicos","name":"Two","url":"https://example.com/two","topic":"Arrays"},{"class":"basicos","name":"Three","url":"https://example.com/three","topic":"Arrays"}]`
 			var problemID int64
 			if command == "ac" {
@@ -422,7 +424,7 @@ func TestWorkflow_ACBatchUsesCurrentRecordedStateAtConfirmation(t *testing.T) {
 			env.seedClassAccessRole(t, "basicos", "student")
 			env.setRoles("123", []string{"student"})
 			if initiallyRecorded {
-				require.NoError(t, env.Services.Solution.AddACToUserID("123", id))
+				require.NoError(t, env.Services.Solution.AddACToUserID(authtest.Actor(), "123", id))
 			}
 			preview := submitBatchPreview(t, env, "ac", fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, id))
 			recorded, already := 0, 1
@@ -430,7 +432,7 @@ func TestWorkflow_ACBatchUsesCurrentRecordedStateAtConfirmation(t *testing.T) {
 				require.NoError(t, env.DB.RemoveAC("123", id))
 				recorded, already = 1, 0
 			} else {
-				require.NoError(t, env.Services.Solution.AddACToUserID("123", id))
+				require.NoError(t, env.Services.Solution.AddACToUserID(authtest.Actor(), "123", id))
 			}
 			env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
 			require.Len(t, env.Responder.edits, 2)
@@ -464,7 +466,7 @@ func TestWorkflow_ACBatchReadFailureReportsNoWrites(t *testing.T) {
 			env.seedClassAccessRole(t, "basicos", "student")
 			env.setRoles("123", []string{"student"})
 			store := &failingACValidationStore{DataStore: env.DB, failReads: phase == "preview"}
-			env.ACController = mentor.NewACInteractionController(services.NewServices(store), env.Discord, env.Discord, dispatcher.NewDiscordInteractionResponder(env.Responder))
+			env.ACController = mentor.NewACInteractionController(services.NewServices(store, authtest.Allow{}), env.Discord, dispatcher.NewDiscordInteractionResponder(env.Responder))
 			input := fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, id)
 			if phase == "preview" {
 				env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -21,7 +22,9 @@ func TestClassServiceEnforcesClassCodeLimitForCreationAndSelection(t *testing.T)
 		name string
 		call func(*ClassService, string) (int64, error)
 	}{
-		{name: "create", call: func(s *ClassService, code string) (int64, error) { return s.CreateClass(code, "Algorithms") }},
+		{name: "create", call: func(s *ClassService, code string) (int64, error) {
+			return s.CreateClass(authtest.Actor(), code, "Algorithms")
+		}},
 		{name: "select class", call: func(s *ClassService, code string) (int64, error) {
 			class, err := s.GetClassByClassCode(code)
 			return class.ID, err
@@ -51,7 +54,7 @@ func TestClassServiceEnforcesClassCodeLimitForCreationAndSelection(t *testing.T)
 							store.EXPECT().GetClassByClassCode(test.code).Return(data.Class{ID: 7, ClassCode: test.code}, nil)
 						}
 					}
-					id, err := operation.call(NewClassService(store), test.code)
+					id, err := operation.call(NewClassService(store, authtest.Allow{}), test.code)
 					if test.valid {
 						require.NoError(t, err)
 						assert.Equal(t, int64(7), id)
@@ -129,8 +132,8 @@ func TestClassService_CreateClass(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
-			id, err := svc.CreateClass(tt.classCode, tt.className)
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			id, err := svc.CreateClass(authtest.Actor(), tt.classCode, tt.className)
 			tt.assertFunc(t, id, err)
 		})
 	}
@@ -212,8 +215,8 @@ func TestClassService_ClearClassContentsByClassCode(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
-			err := svc.ClearClassContentsByClassCode(tt.classCode)
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			err := svc.ClearClassContentsByClassCode(authtest.Actor(), tt.classCode)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -295,8 +298,8 @@ func TestClassService_DeleteClassByClassCode(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
-			err := svc.DeleteClassByClassCode(tt.classCode)
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			err := svc.DeleteClassByClassCode(authtest.Actor(), tt.classCode)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -345,7 +348,7 @@ func TestClassService_GetAllClasses(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			res, err := svc.GetAllClasses()
 			tt.assertFunc(t, res, err)
 		})
@@ -404,7 +407,7 @@ func TestClassService_GetClassByClassCode(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			class, err := svc.GetClassByClassCode(tt.classCode)
 			tt.assertFunc(t, class, err)
 		})
@@ -467,7 +470,7 @@ func TestClassService_GetClassIDByClassCode(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			id, err := svc.GetClassIDByClassCode(tt.classCode)
 			tt.assertFunc(t, id, err)
 		})
@@ -526,7 +529,7 @@ func TestClassService_GetClassByClassID(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			class, err := svc.GetClassByClassID(tt.classID)
 			tt.assertFunc(t, class, err)
 		})
@@ -598,8 +601,8 @@ func TestClassService_RegisterClassroom(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
-			err := svc.RegisterClassroom(tt.classroom)
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			err := svc.RegisterClassroom(authtest.Actor(), tt.classroom)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -655,8 +658,8 @@ func TestClassService_RemoveClassroom(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
-			err := svc.RemoveClassroom(tt.roomID)
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			err := svc.RemoveClassroom(authtest.Actor(), tt.roomID)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -692,7 +695,7 @@ func TestClassService_GetClassrooms(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			res, err := svc.GetClassrooms(tt.classCode)
 			tt.assertFunc(t, res, err)
 		})
@@ -729,8 +732,8 @@ func TestClassService_AssignAccessRole(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
-			err := svc.AssignAccessRole(tt.role)
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			err := svc.AssignAccessRole(authtest.Actor(), tt.role)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -765,8 +768,8 @@ func TestClassService_RevokeAccessRole(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
-			err := svc.RevokeAccessRole(tt.role)
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
+			err := svc.RevokeAccessRole(authtest.Actor(), tt.role)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -802,7 +805,7 @@ func TestClassService_GetAccessRoles(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			res, err := svc.GetAccessRoles(tt.classCode)
 			tt.assertFunc(t, res, err)
 		})
@@ -855,7 +858,7 @@ func TestClassService_HasAccessRole(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			exists, err := svc.HasAccessRole(tt.classCode, tt.roleID)
 			tt.assertFunc(t, exists, err)
 		})
@@ -917,7 +920,7 @@ func TestClassService_GetClassCodeFromRoom(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &ClassService{Datastore: mockStore}
+			svc := &ClassService{Datastore: mockStore, Authorizer: authtest.Allow{}}
 			classCode, found, err := svc.GetClassCodeFromRoom(tt.roomID)
 			tt.assertFunc(t, classCode, found, err)
 		})

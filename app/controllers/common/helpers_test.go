@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
+	"github.com/JorgeIba/Hurion/app/authorization/mock_authorization"
+
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/customerr/controllerserr"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
@@ -107,7 +111,7 @@ func TestResolveClassContext(t *testing.T) {
 
 			ctx := &context.ContextMessage{
 				Args:     tc.args,
-				Services: services.NewServices(mockStore),
+				Services: services.NewServices(mockStore, authtest.Allow{}),
 				Message:  &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: tc.channelID}},
 			}
 
@@ -227,7 +231,7 @@ func TestResolveClassCodeArg(t *testing.T) {
 
 			ctx := &context.ContextMessage{
 				Args:     tc.args,
-				Services: services.NewServices(mockStore),
+				Services: services.NewServices(mockStore, authtest.Allow{}),
 				Message:  &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: tc.channelID}},
 			}
 
@@ -239,127 +243,31 @@ func TestResolveClassCodeArg(t *testing.T) {
 
 func TestRequireClassAccess(t *testing.T) {
 	t.Parallel()
-
-	tests := []struct {
-		name       string
-		executorID string
-		guildID    string
-		class      service_model.Class
-		setupMock  func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore)
-		assertFunc func(t *testing.T, allowed bool, err error)
+	for _, tt := range []struct {
+		name     string
+		decision error
+		allowed  bool
 	}{
-		{
-			name:       "success - admin bypass",
-			executorID: "admin_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "admin_1").Return(true, nil)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, allowed)
-			},
-		},
-		{
-			name:       "success - user has access role",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(&discordgo.Member{User: &discordgo.User{ID: "user_1"}, Roles: []string{"role_mentor"}}, nil)
-				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
-					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
-					nil,
-				)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, allowed)
-			},
-		},
-		{
-			name:       "success - user does not have access role",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(&discordgo.Member{User: &discordgo.User{ID: "user_1"}, Roles: []string{"role_student"}}, nil)
-				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
-					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
-					nil,
-				)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.False(t, allowed)
-			},
-		},
-		{
-			name:       "success - fallback to live fetch works",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				// 1. Cache Miss
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("cache miss"))
-				// 2. API Success
-				fetcher.EXPECT().FetchMember(gomock.Any(), "user_1").Return(&discordgo.Member{User: &discordgo.User{ID: "user_1"}, Roles: []string{"role_mentor"}}, nil)
-				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
-					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
-					nil,
-				)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, allowed)
-			},
-		},
-		{
-			name:       "error - cached and live fetch both fail",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				// 1. Cache Miss
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("cache miss"))
-				// 2. API Fail
-				fetcher.EXPECT().FetchMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("api fail"))
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.Error(t, err)
-				assert.False(t, allowed)
-				assert.IsType(t, &controllerserr.InternalError{}, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		tc := tt
-		t.Run(tc.name, func(t *testing.T) {
+		{name: "allowed by service policy", allowed: true},
+		{name: "denied by service policy", decision: authorization.ErrDenied},
+		{name: "identity source unavailable", decision: fmt.Errorf("Discord unavailable")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
-			mockValidator := mock_providers.NewMockDiscordValidator(ctrl)
-			tc.setupMock(mockFetcher, mockValidator, mockStore)
-
-			ctx := &context.ContextMessage{
-				Executor:         service_model.User{UserID: tc.executorID},
-				ExecutorGuildID:  tc.guildID,
-				Services:         services.NewServices(mockStore),
-				DiscordFetcher:   mockFetcher,
-				DiscordValidator: mockValidator,
+			store := mock_data.NewMockDataStore(ctrl)
+			authorizer := mock_authorization.NewMockAuthorizer(ctrl)
+			store.EXPECT().GetClassAccessRolesByClassCode("basics").Return([]data.ClassAccessRole{{ClassCode: "basics", RoleID: "student"}}, nil)
+			actor := authorization.Actor{GuildID: "guild", UserID: "user"}
+			authorizer.EXPECT().Authorize(actor, authorization.AccessClass, authorization.Resource{ClassCode: "basics", AccessRoleIDs: []string{"student"}}).Return(tt.decision)
+			ctx := &context.ContextMessage{Executor: service_model.User{UserID: actor.UserID}, ExecutorGuildID: actor.GuildID, Services: services.NewServices(store, authorizer)}
+			allowed, err := RequireClassAccess(ctx, service_model.Class{ClassCode: "basics"})
+			assert.Equal(t, tt.allowed, allowed)
+			if tt.decision == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
 			}
-
-			allowed, err := RequireClassAccess(ctx, tc.class)
-			tc.assertFunc(t, allowed, err)
 		})
 	}
 }
@@ -445,7 +353,7 @@ func TestSyncParticipants(t *testing.T) {
 				Args:            tc.args,
 				Executor:        tc.executor,
 				ExecutorGuildID: "guild_1",
-				Services:        services.NewServices(mockStore),
+				Services:        services.NewServices(mockStore, authtest.Allow{}),
 				DiscordFetcher:  mockFetcher,
 			}
 

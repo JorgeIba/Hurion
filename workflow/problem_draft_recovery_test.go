@@ -3,9 +3,10 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"strings"
 	"testing"
+
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
@@ -22,7 +23,7 @@ func TestWorkflow_ExplicitControllerPreservesDraftAcrossBotInstances(t *testing.
 	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
 	env.seedClass(t, "basicos_1", "Basicos")
 	responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
-	env.ProblemController = mentor.NewProblemInteractionController(env.Services, env.Discord, responder)
+	env.ProblemController = mentor.NewProblemInteractionController(env.Services, responder)
 	env.Bot = appbot.NewBot(env.Services, env.Discord, env.Dispatcher, responder, cfg)
 
 	failed := env.openProblemForm(t, "mentor_1", "basicos_1")

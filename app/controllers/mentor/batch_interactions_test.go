@@ -2,13 +2,14 @@ package mentor
 
 import (
 	"errors"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
@@ -91,10 +92,10 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			mockCtrl := gomock.NewController(t)
-			validator := mock_providers.NewMockDiscordValidator(mockCtrl)
+			validator := authtest.NewMockRoleChecker(mockCtrl)
 			fetcher := mock_providers.NewMockDiscordFetcher(mockCtrl)
 			store := mock_data.NewMockDataStore(mockCtrl)
-			svcs := services.NewServices(store)
+			svcs := services.NewServices(store, authtest.Allow{})
 			if strings.HasPrefix(test.want, "Entries:") {
 				if test.route == string(discordcommands.ProblemBatch) {
 					store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
@@ -141,11 +142,11 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 			}}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
 			if route == string(discordcommands.ProblemBatch) {
-				controller := NewProblemInteractionController(svcs, validator, responder)
+				controller := NewProblemInteractionController(withTestInteractionAuthorization(svcs, validator), responder)
 				controller.attachments = reader
 				controller.HandleCreateProblemBatchModalSubmitInteraction(event)
 			} else {
-				controller := NewACInteractionController(svcs, validator, fetcher, responder)
+				controller := NewACInteractionController(withTestInteractionAuthorization(svcs, validator), fetcher, responder)
 				controller.attachments = reader
 				controller.HandleCreateACBatchModalSubmitInteraction(event)
 			}

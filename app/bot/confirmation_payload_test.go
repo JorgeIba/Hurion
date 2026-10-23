@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/common"
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
@@ -318,7 +319,7 @@ func TestConfirmationYesUsesCapturedArgsAfterRoomRelink(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mock_data.NewMockDataStore(ctrl)
 	mockSender := mock_dispatcher.NewMockMessageSender(ctrl)
-	mockValidator := mock_providers.NewMockDiscordValidator(ctrl)
+	mockValidator := authtest.NewMockRoleChecker(ctrl)
 	mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
 	mockModifier := mock_providers.NewMockDiscordMessageModifier(ctrl)
 
@@ -397,7 +398,7 @@ func TestConfirmationYesErrorsWhenCanonicalArgsAreMissingOrInvalid(t *testing.T)
 			ctrl := gomock.NewController(t)
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockSender := mock_dispatcher.NewMockMessageSender(ctrl)
-			mockValidator := mock_providers.NewMockDiscordValidator(ctrl)
+			mockValidator := authtest.NewMockRoleChecker(ctrl)
 			mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
 			mockModifier := mock_providers.NewMockDiscordMessageModifier(ctrl)
 
@@ -429,7 +430,7 @@ func confirmationPayloadContext(store data.DataStore, sender dispatcher.MessageS
 		}},
 		Args:            args,
 		Dispatcher:      sender,
-		Services:        services.NewServices(store),
+		Services:        services.NewServices(store, authtest.Allow{}),
 		Executor:        service_model.User{UserID: "admin_1", DisplayName: "Admin User"},
 		ExecutorGuildID: "guild_1",
 	}
@@ -438,7 +439,7 @@ func confirmationPayloadContext(store data.DataStore, sender dispatcher.MessageS
 func confirmationReactionContext(
 	store data.DataStore,
 	sender dispatcher.MessageSender,
-	validator *mock_providers.MockDiscordValidator,
+	validator *authtest.MockRoleChecker,
 	fetcher *mock_providers.MockDiscordFetcher,
 	modifier *mock_providers.MockDiscordMessageModifier,
 	emoji string,
@@ -451,11 +452,11 @@ func confirmationReactionContext(
 			GuildID:   "guild_1",
 			Emoji:     discordgo.Emoji{Name: emoji},
 		}},
-		DiscordValidator:       validator,
+
 		DiscordFetcher:         fetcher,
 		DiscordMessageModifier: modifier,
 		Dispatcher:             sender,
-		Services:               services.NewServices(store),
+		Services:               services.NewServices(store, authtest.Roles{Checker: validator}),
 		Executor:               service_model.User{UserID: "admin_1", DisplayName: "Admin User"},
 		ExecutorGuildID:        "guild_1",
 		BotUserID:              "bot_1",

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/controllers/enrolled"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
@@ -84,7 +85,7 @@ func TestInvalidStringProblemIDStopsBeforePersistenceOrPublication(t *testing.T)
 			t.Parallel()
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			client := &proposalInteractionClient{}
-			controller := NewACInteractionController(services.NewServices(store), nil, nil, dispatcher.NewDiscordInteractionResponder(client))
+			controller := NewACInteractionController(withTestInteractionAuthorization(services.NewServices(store, authtest.Allow{}), nil), nil, dispatcher.NewDiscordInteractionResponder(client))
 			event := proposalCommand("invalid-submission", 5)
 			event.ApplicationCommandData().Options[0].Options[0].Value = test.value
 			// No datastore expectations: invalid input must stop before any read/write.
@@ -126,8 +127,10 @@ func TestPrefixAndSlashProposalsShareRenewalIncludingPublicationFailures(t *test
 			})
 			require.NoError(t, err)
 			require.NoError(t, db.AddClassAccessRole(data.ClassAccessRole{ClassCode: "ac", RoleID: "student"}))
-			svcs := services.NewServices(db)
-			// Both transports must obtain the problem through SolutionService.
+			svcs := services.NewServices(db, authtest.
+				// Both transports must obtain the problem through SolutionService.
+				Allow{})
+
 			svcs.Problem = nil
 			fetcher := mock_providers.NewMockDiscordFetcher(gomock.NewController(t))
 			fetcher.EXPECT().GetCachedMember("guild", "student").Return(&discordgo.Member{User: &discordgo.User{ID: "student"}, Roles: []string{"student"}}, nil).Times(2)
@@ -140,7 +143,7 @@ func TestPrefixAndSlashProposalsShareRenewalIncludingPublicationFailures(t *test
 				publicationErr: test.publicationErr,
 				deletionErr:    test.deletionErr,
 			}
-			controller := NewACInteractionController(svcs, nil, nil, dispatcher.NewDiscordInteractionResponder(client))
+			controller := NewACInteractionController(withTestInteractionAuthorization(svcs, nil), nil, dispatcher.NewDiscordInteractionResponder(client))
 			controller.HandleProposeACInteraction(proposalCommand("slash-reference", problemID))
 			_, _, err = db.GetPendingConfirmation("prefix-original")
 			require.True(t, dataerr.IsNotFound(err))
@@ -243,7 +246,7 @@ func TestACProposalButtonsRespectAuthorityAndCurrentReference(t *testing.T) {
 					_, err = failureDB.Exec(query)
 					require.NoError(t, err)
 				}
-				validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
+				validator := authtest.NewMockRoleChecker(gomock.NewController(t))
 				var permissionErr error
 				if scenario == "permission lookup failed" {
 					permissionErr = errors.New("role lookup unavailable")
@@ -261,7 +264,7 @@ func TestACProposalButtonsRespectAuthorityAndCurrentReference(t *testing.T) {
 				if scenario == "public update failed" {
 					client.editErr = errors.New("Discord could not update the public card")
 				}
-				controller := NewACInteractionController(services.NewServices(db), validator, nil, dispatcher.NewDiscordInteractionResponder(client))
+				controller := NewACInteractionController(withTestInteractionAuthorization(services.NewServices(db, authtest.Allow{}), validator), nil, dispatcher.NewDiscordInteractionResponder(client))
 				customID := interactiontransport.ACProposalRejectID("proposal-reference")
 				if approve {
 					customID = interactiontransport.ACProposalApproveID("proposal-reference")

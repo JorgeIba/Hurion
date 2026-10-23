@@ -114,22 +114,8 @@ func GetMemberPrincipals(fetcher providers.DiscordFetcher, guildID string, userI
 
 // RequireClassAccess verifies if the user has permission to access a class.
 func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (bool, error) {
-	// Admin Bypass
-	isAdmin, err := c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.Executor.UserID)
-	if err != nil {
-		return false, controllerserr.NewInternalError("error verifying admin status", err)
-	}
-	if isAdmin {
-		return true, nil
-	}
-
-	// Get member roles
-	member, err := GetMemberSafe(c, c.Executor.UserID)
-	if err != nil {
-		return false, err
-	}
-
-	return c.Services.Enrollment.UserWithRolesHasAccessClass(member.Roles, class)
+	err := c.Services.Enrollment.RequireClassAccess(c.Actor(), class)
+	return err == nil, err
 }
 
 // SyncParticipants scans the command arguments for user participants and ensures they exist in the DB.

@@ -696,9 +696,38 @@ const consumePendingConfirmationSQL = `
 `
 
 func (db *DB) RemovePendingConfirmation(messageID string) (PendingConfirmation, error) {
+	return db.removePendingConfirmation(messageID, 0)
+}
+
+// RemovePendingConfirmationInClass consumes a proposal only if its problem is still in the authorized class.
+func (db *DB) RemovePendingConfirmationInClass(messageID string, classID int64) (PendingConfirmation, error) {
+	if classID <= 0 {
+		return PendingConfirmation{}, dataerr.NewNotFoundError("authorized class is required", nil)
+	}
+	return db.removePendingConfirmation(messageID, classID)
+}
+
+func (db *DB) removePendingConfirmation(messageID string, classID int64) (PendingConfirmation, error) {
 	pending := PendingConfirmation{MessageID: messageID}
-	err := db.conn.QueryRow(consumePendingConfirmationSQL, messageID).Scan(&pending.UserID, &pending.ProblemID)
+	query := consumePendingConfirmationSQL
+	args := []any{messageID}
+	if classID > 0 {
+		query = consumePendingConfirmationInClassSQL
+		args = append(args, classID)
+	}
+	err := db.conn.QueryRow(query, args...).Scan(&pending.UserID, &pending.ProblemID)
 	if errors.Is(err, sql.ErrNoRows) {
+		if classID > 0 {
+			var stillPending bool
+			lookupErr := db.conn.QueryRow("SELECT EXISTS(SELECT 1 FROM pending_confirmations WHERE message_id = ?)", messageID).Scan(&stillPending)
+			if lookupErr != nil {
+				return PendingConfirmation{}, dataerr.NewQueryError("could not verify pending proposal", lookupErr)
+			}
+			if stillPending {
+				return PendingConfirmation{}, dataerr.NewRowConflictError("proposal problem class changed", nil)
+			}
+		}
+
 		return PendingConfirmation{}, dataerr.NewNotFoundError("pending confirmation is no longer available", err)
 	}
 
@@ -712,6 +741,18 @@ func (db *DB) RemovePendingConfirmation(messageID string) (PendingConfirmation, 
 // AcceptPendingConfirmation consumes the pending reference and records the AC in
 // one transaction. A failed write restores the pending reference on rollback.
 func (db *DB) AcceptPendingConfirmation(messageID string) (PendingConfirmation, error) {
+	return db.acceptPendingConfirmation(messageID, 0)
+}
+
+// AcceptPendingConfirmationInClass consumes a proposal only if its problem is still in the authorized class.
+func (db *DB) AcceptPendingConfirmationInClass(messageID string, classID int64) (PendingConfirmation, error) {
+	if classID <= 0 {
+		return PendingConfirmation{}, dataerr.NewNotFoundError("authorized class is required", nil)
+	}
+	return db.acceptPendingConfirmation(messageID, classID)
+}
+
+func (db *DB) acceptPendingConfirmation(messageID string, classID int64) (PendingConfirmation, error) {
 	tx, err := db.conn.Begin()
 	if err != nil {
 		return PendingConfirmation{}, dataerr.NewQueryError("could not begin AC acceptance", err)
@@ -719,8 +760,25 @@ func (db *DB) AcceptPendingConfirmation(messageID string) (PendingConfirmation, 
 	defer tx.Rollback()
 
 	pending := PendingConfirmation{MessageID: messageID}
-	err = tx.QueryRow(consumePendingConfirmationSQL, messageID).Scan(&pending.UserID, &pending.ProblemID)
+	query := consumePendingConfirmationSQL
+	args := []any{messageID}
+	if classID > 0 {
+		query = consumePendingConfirmationInClassSQL
+		args = append(args, classID)
+	}
+	err = tx.QueryRow(query, args...).Scan(&pending.UserID, &pending.ProblemID)
 	if errors.Is(err, sql.ErrNoRows) {
+		if classID > 0 {
+			var stillPending bool
+			lookupErr := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM pending_confirmations WHERE message_id = ?)", messageID).Scan(&stillPending)
+			if lookupErr != nil {
+				return PendingConfirmation{}, dataerr.NewQueryError("could not verify pending proposal", lookupErr)
+			}
+			if stillPending {
+				return PendingConfirmation{}, dataerr.NewRowConflictError("proposal problem class changed", nil)
+			}
+		}
+
 		return PendingConfirmation{}, dataerr.NewNotFoundError("pending confirmation is no longer available", err)
 	}
 
@@ -1122,3 +1180,10 @@ func (db *DB) GetACValidationData(targets []ACKey) (map[ACKey]ACValidationData, 
 	}
 	return validationDataByAC, nil
 }
+
+const consumePendingConfirmationInClassSQL = `
+ DELETE FROM pending_confirmations
+ WHERE message_id = ? AND EXISTS (
+ SELECT 1 FROM problems WHERE problems.id = pending_confirmations.problem_id AND problems.class_id = ?
+ ) RETURNING user_id, problem_id;
+`

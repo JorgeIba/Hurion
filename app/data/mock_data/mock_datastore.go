@@ -40,19 +40,19 @@ func (m *MockDataStore) EXPECT() *MockDataStoreMockRecorder {
 	return m.recorder
 }
 
-// AcceptPendingConfirmation mocks base method.
-func (m *MockDataStore) AcceptPendingConfirmation(messageID string) (data.PendingConfirmation, error) {
+// AcceptPendingConfirmationInClass mocks base method.
+func (m *MockDataStore) AcceptPendingConfirmationInClass(arg0 string, arg1 int64) (data.PendingConfirmation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AcceptPendingConfirmation", messageID)
+	ret := m.ctrl.Call(m, "AcceptPendingConfirmationInClass", arg0, arg1)
 	ret0, _ := ret[0].(data.PendingConfirmation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AcceptPendingConfirmation indicates an expected call of AcceptPendingConfirmation.
-func (mr *MockDataStoreMockRecorder) AcceptPendingConfirmation(messageID any) *gomock.Call {
+// AcceptPendingConfirmationInClass indicates an expected call of AcceptPendingConfirmationInClass.
+func (mr *MockDataStoreMockRecorder) AcceptPendingConfirmationInClass(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptPendingConfirmation", reflect.TypeOf((*MockDataStore)(nil).AcceptPendingConfirmation), messageID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptPendingConfirmationInClass", reflect.TypeOf((*MockDataStore)(nil).AcceptPendingConfirmationInClass), arg0, arg1)
 }
 
 // AddAC mocks base method.
@@ -601,19 +601,19 @@ func (mr *MockDataStoreMockRecorder) RemoveClassroomByRoomID(roomID any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveClassroomByRoomID", reflect.TypeOf((*MockDataStore)(nil).RemoveClassroomByRoomID), roomID)
 }
 
-// RemovePendingConfirmation mocks base method.
-func (m *MockDataStore) RemovePendingConfirmation(messageID string) (data.PendingConfirmation, error) {
+// RemovePendingConfirmationInClass mocks base method.
+func (m *MockDataStore) RemovePendingConfirmationInClass(arg0 string, arg1 int64) (data.PendingConfirmation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemovePendingConfirmation", messageID)
+	ret := m.ctrl.Call(m, "RemovePendingConfirmationInClass", arg0, arg1)
 	ret0, _ := ret[0].(data.PendingConfirmation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RemovePendingConfirmation indicates an expected call of RemovePendingConfirmation.
-func (mr *MockDataStoreMockRecorder) RemovePendingConfirmation(messageID any) *gomock.Call {
+// RemovePendingConfirmationInClass indicates an expected call of RemovePendingConfirmationInClass.
+func (mr *MockDataStoreMockRecorder) RemovePendingConfirmationInClass(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingConfirmation", reflect.TypeOf((*MockDataStore)(nil).RemovePendingConfirmation), messageID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingConfirmationInClass", reflect.TypeOf((*MockDataStore)(nil).RemovePendingConfirmationInClass), arg0, arg1)
 }
 
 // RemoveProblemByID mocks base method.

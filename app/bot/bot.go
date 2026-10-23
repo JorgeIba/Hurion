@@ -144,7 +144,6 @@ func (bot *Bot) messageHandler(m *discordgo.MessageCreate) {
 
 	context := &context.ContextMessage{
 		Message:                m,
-		DiscordValidator:       bot.discordProvider,
 		DiscordFetcher:         bot.discordProvider,
 		DiscordMessageModifier: bot.discordProvider,
 		Args:                   args,
@@ -199,7 +198,6 @@ func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
 
 	context := &context.ContextMessage{
 		MessageReaction:        r,
-		DiscordValidator:       bot.discordProvider,
 		DiscordFetcher:         bot.discordProvider,
 		DiscordMessageModifier: bot.discordProvider,
 		Services:               bot.services,

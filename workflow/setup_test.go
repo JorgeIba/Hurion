@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
+
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -54,12 +56,13 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	require.NoError(t, err, "failed to initialize workflow test DB")
 	t.Cleanup(db.CloseDB)
 
-	svcs := services.NewServices(db)
 	discord := newStubDiscordProvider()
+	svcs := services.NewServices(db, authtest.Roles{Checker: discord})
+
 	sender := &fakeSender{}
 	client := &recordingDiscordInteractionClient{t: t}
 	responder := dispatcher.NewDiscordInteractionResponder(client)
-	problemInteractionController := mentor.NewProblemInteractionController(svcs, discord, responder)
+	problemInteractionController := mentor.NewProblemInteractionController(svcs, responder)
 	session := &discordgo.Session{
 		State: &discordgo.State{
 			Ready: discordgo.Ready{
@@ -70,7 +73,7 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 
 	return &workflowEnv{
 		ProblemController: problemInteractionController,
-		ACController:      mentor.NewACInteractionController(svcs, discord, discord, responder),
+		ACController:      mentor.NewACInteractionController(svcs, discord, responder),
 		Bot:               appbot.NewBot(svcs, discord, sender, responder, cfg),
 		DB:                db,
 		Services:          svcs,
@@ -372,4 +375,13 @@ func newConfirmationMessage(id, replyTo string, args []string, originalAuthorID 
 			Author:    &discordgo.User{ID: originalAuthorID},
 		},
 	}
+}
+
+// deleteFixtureClass simulates an unrelated administrator changing storage.
+func (env *workflowEnv) deleteFixtureClass(code string) error {
+	class, err := env.DB.GetClassByClassCode(code)
+	if err != nil {
+		return err
+	}
+	return env.DB.DeleteClass(class.ID)
 }

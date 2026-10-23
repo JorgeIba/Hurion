@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
 	"github.com/JorgeIba/Hurion/app/customerr/controllerserr"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -21,7 +22,7 @@ func TestErrorChainPreservesControllerServiceDataAndSQLCause(t *testing.T) {
 	}
 	defer db.CloseDB()
 
-	classService := services.NewClassService(db)
+	classService := services.NewClassService(db, authtest.Allow{})
 	_, serviceError := classService.GetClassByClassCode("missing")
 	if serviceError == nil {
 		t.Fatal("expected missing class error")

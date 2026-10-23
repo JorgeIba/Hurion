@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
+
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -15,17 +17,20 @@ import (
 //
 //go:generate go tool mockgen -destination=mock_services/mock_problem_service.go -package=mock_services . ProblemService
 type ProblemService interface {
-	PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error)
-	PrepareCreationBatch(params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error)
-	ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error)
-	PrepareProblemReplacement(params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error)
-	PrepareProblemPatch(params service_model.PatchProblemParams) (service_model.PreparedProblemPatch, error)
-	PrepareProblemPatchBatch(params []service_model.PatchProblemParams) ([]service_model.PreparedProblemPatch, []service_model.BatchEntryError)
-	ExecuteProblemPatchBatch(batch []service_model.PreparedProblemPatch) (service_model.ProblemPatchBatchResult, []service_model.BatchEntryError, error)
-	CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error)
-	RemoveProblemFromClass(problemID int64) error
-	ReplaceProblemByProblemID(params service_model.ReplaceProblemParams) error
-	PatchProblemByProblemID(params service_model.PatchProblemParams) error
+	CheckManagement(authorization.Actor, int64, string) error
+	CheckCreationBatchAccess(authorization.Actor, []service_model.PreparedProblem) error
+	CheckPatchBatchAccess(authorization.Actor, []service_model.PreparedProblemPatch) error
+	PrepareCreation(actor authorization.Actor, params service_model.CreateProblemParams) (service_model.PreparedProblem, error)
+	PrepareCreationBatch(actor authorization.Actor, params []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error)
+	ExecuteCreationBatch(actor authorization.Actor, batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error)
+	PrepareProblemReplacement(actor authorization.Actor, params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error)
+	PrepareProblemPatch(actor authorization.Actor, params service_model.PatchProblemParams) (service_model.PreparedProblemPatch, error)
+	PrepareProblemPatchBatch(actor authorization.Actor, params []service_model.PatchProblemParams) ([]service_model.PreparedProblemPatch, []service_model.BatchEntryError)
+	ExecuteProblemPatchBatch(actor authorization.Actor, batch []service_model.PreparedProblemPatch) (service_model.ProblemPatchBatchResult, []service_model.BatchEntryError, error)
+	CreateProblemIntoClass(actor authorization.Actor, params service_model.CreateProblemParams) (int64, error)
+	RemoveProblemFromClass(actor authorization.Actor, problemID int64) error
+	ReplaceProblemByProblemID(actor authorization.Actor, params service_model.ReplaceProblemParams) error
+	PatchProblemByProblemID(actor authorization.Actor, params service_model.PatchProblemParams) error
 	GetProblemsGroupedByTopic(classCode string) ([]service_model.ProblemsByTopic, error)
 	GetProblemsByClass(classCode string) ([]service_model.Problem, error)
 	GetProblemByID(problemID int64) (service_model.Problem, error)
@@ -33,11 +38,12 @@ type ProblemService interface {
 
 // problemService handles problem management operations
 type problemService struct {
-	Datastore data.DataStore
+	Authorizer authorization.Authorizer
+	Datastore  data.DataStore
 }
 
-func NewProblemService(datastore data.DataStore) ProblemService {
-	return &problemService{Datastore: datastore}
+func NewProblemService(datastore data.DataStore, authorizer authorization.Authorizer) ProblemService {
+	return &problemService{Datastore: datastore, Authorizer: authorizer}
 }
 
 // GetProblemByID retrieves a problem by its unique ID
@@ -56,8 +62,8 @@ func (service *problemService) GetProblemByID(problemID int64) (service_model.Pr
 }
 
 // CreateProblemIntoClass creates a new problem in a class
-func (service *problemService) CreateProblemIntoClass(params service_model.CreateProblemParams) (int64, error) {
-	prepared, err := service.PrepareCreation(params)
+func (service *problemService) CreateProblemIntoClass(actor authorization.Actor, params service_model.CreateProblemParams) (int64, error) {
+	prepared, err := service.PrepareCreation(actor, params)
 	if err != nil {
 		return 0, err
 	}
@@ -80,7 +86,7 @@ func (service *problemService) createPreparedProblem(prepared service_model.Prep
 
 // PrepareCreation normalizes values and resolves the destination without writing.
 // The snapshot must be revalidated before deferred execution.
-func (service *problemService) PrepareCreation(params service_model.CreateProblemParams) (service_model.PreparedProblem, error) {
+func (service *problemService) PrepareCreation(actor authorization.Actor, params service_model.CreateProblemParams) (service_model.PreparedProblem, error) {
 	var prepared service_model.PreparedProblem
 	params, err := service_model.NormalizeAndValidateCreateProblemParams(params)
 	if err != nil {
@@ -97,11 +103,16 @@ func (service *problemService) PrepareCreation(params service_model.CreateProble
 		}
 	}
 
+	if err := requireAuthorization(service.Authorizer, actor, authorization.ManageProblems, authorization.Resource{ClassCode: class.ClassCode}); err != nil {
+		return prepared, err
+	}
 	return service_model.PreparedProblem{Params: params, Class: mapDataClassToServiceClass(class)}, nil
 }
 
 // PrepareCreationBatch validates all values and resolves their distinct classes in one read.
-func (service *problemService) PrepareCreationBatch(inputs []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error) {
+func (service *problemService) PrepareCreationBatch(actor authorization.Actor, inputs []service_model.CreateProblemParams) ([]service_model.PreparedProblem, []service_model.BatchEntryError, error) {
+	checks := newBatchPermissions(service.Authorizer, actor, authorization.ManageProblems)
+
 	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}, nil
 	}
@@ -153,6 +164,10 @@ func (service *problemService) PrepareCreationBatch(inputs []service_model.Creat
 			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("classCode %s doesn't match with any classID", input.ClassCode), nil)})
 			continue
 		}
+		if err := checks.class(class.ClassCode); err != nil {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: err})
+			continue
+		}
 		prepared[index] = service_model.PreparedProblem{Entry: index + 1, Params: input, Class: mapDataClassToServiceClass(class)}
 	}
 
@@ -165,7 +180,7 @@ func (service *problemService) PrepareCreationBatch(inputs []service_model.Creat
 }
 
 // ExecuteCreationBatch revalidates every entry before the first write.
-func (service *problemService) ExecuteCreationBatch(batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error) {
+func (service *problemService) ExecuteCreationBatch(actor authorization.Actor, batch []service_model.PreparedProblem) (service_model.ProblemCreateBatchResult, []service_model.BatchEntryError, error) {
 	var result service_model.ProblemCreateBatchResult
 	if err := helpers.ValidateBatchSize(len(batch)); err != nil {
 		return result, []service_model.BatchEntryError{{Err: err}}, nil
@@ -178,7 +193,7 @@ func (service *problemService) ExecuteCreationBatch(batch []service_model.Prepar
 	}
 
 	// Revalidate the inputs and resolve their current destination classes.
-	prepared, issues, err := service.PrepareCreationBatch(inputs)
+	prepared, issues, err := service.PrepareCreationBatch(actor, inputs)
 	if err != nil {
 		return result, nil, serviceerr.NewBatchPreparationError("could not revalidate problem batch", err)
 	}
@@ -212,11 +227,13 @@ func (service *problemService) ExecuteCreationBatch(batch []service_model.Prepar
 }
 
 // RemoveProblemFromClass removes a problem from a class
-func (service *problemService) RemoveProblemFromClass(problemID int64) error {
-	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
+func (service *problemService) RemoveProblemFromClass(actor authorization.Actor, problemID int64) error {
+	problem, err := service.GetProblemByID(problemID)
+	if err != nil {
 		return err
-	} else if !isValidProblem {
-		return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+	}
+	if err := authorizeProblemClass(service.Authorizer, service.Datastore, actor, authorization.ManageProblems, problem.ClassID, ""); err != nil {
+		return err
 	}
 
 	if _, err := service.Datastore.RemoveProblemByID(problemID); err != nil {
@@ -227,16 +244,18 @@ func (service *problemService) RemoveProblemFromClass(problemID int64) error {
 }
 
 // PrepareProblemReplacement validates replacement values and resolves the target without writing.
-func (service *problemService) PrepareProblemReplacement(params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error) {
+func (service *problemService) PrepareProblemReplacement(actor authorization.Actor, params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error) {
 	params, err := service_model.NormalizeAndValidateReplaceProblemParams(params)
 	if err != nil {
 		return service_model.PreparedProblemReplacement{}, serviceerr.NewValidationError("invalid problem values", err)
 	}
 	problemID := params.ProblemID
-	if isValidProblem, err := helpers.ExistsProblem(service.Datastore, problemID); err != nil {
+	problem, err := service.GetProblemByID(problemID)
+	if err != nil {
 		return service_model.PreparedProblemReplacement{}, err
-	} else if !isValidProblem {
-		return service_model.PreparedProblemReplacement{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), nil)
+	}
+	if err := authorizeProblemClass(service.Authorizer, service.Datastore, actor, authorization.ManageProblems, problem.ClassID, ""); err != nil {
+		return service_model.PreparedProblemReplacement{}, err
 	}
 
 	class, err := service.Datastore.GetClassByClassCode(params.ClassCode)
@@ -250,12 +269,15 @@ func (service *problemService) PrepareProblemReplacement(params service_model.Re
 		return service_model.PreparedProblemReplacement{}, serviceerr.NewValidationError("invalid class code", err)
 	}
 
+	if err := requireAuthorization(service.Authorizer, actor, authorization.ManageProblems, authorization.Resource{ClassCode: class.ClassCode}); err != nil {
+		return service_model.PreparedProblemReplacement{}, err
+	}
 	return service_model.PreparedProblemReplacement{Params: params, Class: mapDataClassToServiceClass(class)}, nil
 }
 
 // ReplaceProblemByProblemID replaces a problem's editable values.
-func (service *problemService) ReplaceProblemByProblemID(params service_model.ReplaceProblemParams) error {
-	prepared, err := service.PrepareProblemReplacement(params)
+func (service *problemService) ReplaceProblemByProblemID(actor authorization.Actor, params service_model.ReplaceProblemParams) error {
+	prepared, err := service.PrepareProblemReplacement(actor, params)
 	if err != nil {
 		return err
 	}
@@ -285,13 +307,14 @@ func (service *problemService) replacePreparedProblem(prepared service_model.Pre
 
 // PrepareProblemPatch validates the supplied fields, verifies the target, and
 // resolves a destination class only when the patch explicitly changes it.
-func (service *problemService) PrepareProblemPatch(params service_model.PatchProblemParams) (service_model.PreparedProblemPatch, error) {
+func (service *problemService) PrepareProblemPatch(actor authorization.Actor, params service_model.PatchProblemParams) (service_model.PreparedProblemPatch, error) {
 	params, err := service_model.NormalizeAndValidatePatchProblemParams(params)
 	if err != nil {
 		return service_model.PreparedProblemPatch{}, serviceerr.NewValidationError("invalid problem values", err)
 	}
 
-	if _, err := service.Datastore.GetProblemByID(params.ProblemID); err != nil {
+	problem, err := service.Datastore.GetProblemByID(params.ProblemID)
+	if err != nil {
 		switch {
 		case dataerr.IsNotFound(err):
 			return service_model.PreparedProblemPatch{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", params.ProblemID), err)
@@ -300,6 +323,9 @@ func (service *problemService) PrepareProblemPatch(params service_model.PatchPro
 		}
 	}
 
+	if err := authorizeProblemClass(service.Authorizer, service.Datastore, actor, authorization.ManageProblems, problem.ClassID, ""); err != nil {
+		return service_model.PreparedProblemPatch{}, err
+	}
 	prepared := service_model.PreparedProblemPatch{Params: params}
 	if !params.ClassCode.Set {
 		return prepared, nil
@@ -315,13 +341,18 @@ func (service *problemService) PrepareProblemPatch(params service_model.PatchPro
 	if err := service_model.ValidateClassCodeLength(class.ClassCode); err != nil {
 		return service_model.PreparedProblemPatch{}, serviceerr.NewValidationError("invalid class code", err)
 	}
+	if err := requireAuthorization(service.Authorizer, actor, authorization.ManageProblems, authorization.Resource{ClassCode: class.ClassCode}); err != nil {
+		return service_model.PreparedProblemPatch{}, err
+	}
 	prepared.Class = mapDataClassToServiceClass(class)
 	return prepared, nil
 }
 
 // PrepareProblemPatchBatch validates all supplied fields and resolves targets and
 // explicitly requested destination classes with one read per set.
-func (service *problemService) PrepareProblemPatchBatch(inputs []service_model.PatchProblemParams) ([]service_model.PreparedProblemPatch, []service_model.BatchEntryError) {
+func (service *problemService) PrepareProblemPatchBatch(actor authorization.Actor, inputs []service_model.PatchProblemParams) ([]service_model.PreparedProblemPatch, []service_model.BatchEntryError) {
+	checks := newBatchPermissions(service.Authorizer, actor, authorization.ManageProblems)
+
 	if err := helpers.ValidateBatchSize(len(inputs)); err != nil {
 		return nil, []service_model.BatchEntryError{{Err: err}}
 	}
@@ -418,6 +449,10 @@ func (service *problemService) PrepareProblemPatchBatch(inputs []service_model.P
 		if _, found := problemsByID[input.ProblemID]; !found {
 			continue
 		}
+		if err := checks.classID(service.Datastore, problemsByID[input.ProblemID].ClassID); err != nil {
+			issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: err})
+			continue
+		}
 		entry := service_model.PreparedProblemPatch{Entry: index + 1, Params: input}
 		if input.ClassCode.Set {
 			class, found := classesByCode[input.ClassCode.Value]
@@ -432,6 +467,10 @@ func (service *problemService) PrepareProblemPatchBatch(inputs []service_model.P
 				issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: serviceerr.NewValidationError("invalid class code", err)})
 				continue
 			}
+			if err := checks.class(class.ClassCode); err != nil {
+				issues = append(issues, service_model.BatchEntryError{Entry: index + 1, Err: err})
+				continue
+			}
 			entry.Class = mapDataClassToServiceClass(class)
 		}
 		prepared[index] = entry
@@ -444,7 +483,7 @@ func (service *problemService) PrepareProblemPatchBatch(inputs []service_model.P
 }
 
 // ExecuteProblemPatchBatch revalidates every patch before applying the first write.
-func (service *problemService) ExecuteProblemPatchBatch(batch []service_model.PreparedProblemPatch) (service_model.ProblemPatchBatchResult, []service_model.BatchEntryError, error) {
+func (service *problemService) ExecuteProblemPatchBatch(actor authorization.Actor, batch []service_model.PreparedProblemPatch) (service_model.ProblemPatchBatchResult, []service_model.BatchEntryError, error) {
 	var result service_model.ProblemPatchBatchResult
 	if err := helpers.ValidateBatchSize(len(batch)); err != nil {
 		return result, []service_model.BatchEntryError{{Err: err}}, nil
@@ -454,7 +493,7 @@ func (service *problemService) ExecuteProblemPatchBatch(batch []service_model.Pr
 	for index, entry := range batch {
 		inputs[index] = entry.Params
 	}
-	prepared, issues := service.PrepareProblemPatchBatch(inputs)
+	prepared, issues := service.PrepareProblemPatchBatch(actor, inputs)
 	if len(issues) > 0 {
 		return result, issues, nil
 	}
@@ -478,8 +517,8 @@ func (service *problemService) ExecuteProblemPatchBatch(batch []service_model.Pr
 }
 
 // PatchProblemByProblemID changes only fields supplied in the patch.
-func (service *problemService) PatchProblemByProblemID(params service_model.PatchProblemParams) error {
-	prepared, err := service.PrepareProblemPatch(params)
+func (service *problemService) PatchProblemByProblemID(actor authorization.Actor, params service_model.PatchProblemParams) error {
+	prepared, err := service.PrepareProblemPatch(actor, params)
 	if err != nil {
 		return err
 	}
@@ -563,4 +602,41 @@ func (service *problemService) GetProblemsGroupedByTopic(classCode string) ([]se
 	}
 
 	return grouped, nil
+}
+
+// CheckManagement checks current source and explicit destination for a form.
+func (service *problemService) CheckManagement(actor authorization.Actor, problemID int64, classCode string) error {
+	if problemID != 0 {
+		if err := authorizeProblem(service.Authorizer, service.Datastore, actor, authorization.ManageProblems, problemID, ""); err != nil {
+			return err
+		}
+	}
+	if classCode != "" {
+		return requireAuthorization(service.Authorizer, actor, authorization.ManageProblems, authorization.Resource{ClassCode: classCode})
+	}
+	return nil
+}
+
+// CheckCreationBatchAccess rechecks a preview before cancellation without writes.
+func (service *problemService) CheckCreationBatchAccess(actor authorization.Actor, batch []service_model.PreparedProblem) error {
+	for _, entry := range batch {
+		if err := service.CheckManagement(actor, 0, entry.Params.ClassCode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CheckPatchBatchAccess uses current source classes, never cached preview classes.
+func (service *problemService) CheckPatchBatchAccess(actor authorization.Actor, batch []service_model.PreparedProblemPatch) error {
+	for _, entry := range batch {
+		destination := ""
+		if entry.Params.ClassCode.Set {
+			destination = entry.Params.ClassCode.Value
+		}
+		if err := service.CheckManagement(actor, entry.Params.ProblemID, destination); err != nil {
+			return err
+		}
+	}
+	return nil
 }

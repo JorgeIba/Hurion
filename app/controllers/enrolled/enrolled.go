@@ -73,7 +73,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	user := c.Executor
-	if err = c.Services.Solution.UndoAC(user.UserID, problemID); err != nil {
+	if err = c.Services.Solution.UndoAC(c.Actor(), user.UserID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

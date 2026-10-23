@@ -3,6 +3,8 @@ package services
 import (
 	"fmt"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
+
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -11,7 +13,8 @@ import (
 
 // UserService handles user management operations
 type UserService struct {
-	Datastore data.DataStore
+	Authorizer authorization.Authorizer
+	Datastore  data.DataStore
 }
 
 // EnsureUser ensures that a user with the given ID and display name exists in the database
@@ -25,7 +28,10 @@ func (service *UserService) EnsureUser(user service_model.User) error {
 }
 
 // ExterminateUser removes all data for a userID
-func (service *UserService) ExterminateUser(userID string) error {
+func (service *UserService) ExterminateUser(actor authorization.Actor, userID string) error {
+	if err := requireAuthorization(service.Authorizer, actor, authorization.Admin, authorization.Resource{}); err != nil {
+		return err
+	}
 	// First check if user exists
 	if _, err := service.GetUserByUserID(userID); err != nil {
 		return err

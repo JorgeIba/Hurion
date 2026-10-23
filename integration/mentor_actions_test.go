@@ -268,7 +268,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleAddProblem(c)
 			},
-			args: []string{"!add_problem", "class_1", "url", "Easy", "Topic", "-", "Name"},
+			args: []string{"!add_problem", "protected_class", "https://example.com/problem", "Easy", "Topic", "-", "Name"},
 		},
 		{
 			name: "RemoveProblem unauthorized",
@@ -283,7 +283,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleUpdateProblem(c)
 			},
-			args: []string{"!update_problem", "1", "class_1", "url", "Easy", "Topic", "-", "Name"},
+			args: []string{"!update_problem", "1", "protected_class", "https://example.com/problem", "Easy", "Topic", "-", "Name"},
 		},
 	}
 
@@ -314,7 +314,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			assert.NotEmpty(t, sentMsgs)
 			permissionMessage := tt.permissionMessage
 			if permissionMessage == "" {
-				permissionMessage = "is not mentor"
+				permissionMessage = "mentor or admin"
 			}
 			assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, permissionMessage)
 

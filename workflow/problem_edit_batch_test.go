@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	authtest "github.com/JorgeIba/Hurion/app/authorization/authtest"
+
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
@@ -248,6 +250,11 @@ func TestWorkflow_EditBatchRevalidatesAllTargetsBeforeWriting(t *testing.T) {
 			after, err := env.DB.GetProblemByID(first)
 			require.NoError(t, err)
 			assert.Equal(t, before, after)
+			if change == "deleted target" {
+				require.Len(t, env.Responder.edits, 1)
+				require.NotEmpty(t, env.Responder.followups)
+				return
+			}
 			require.Len(t, env.Responder.edits, 2)
 			assert.Contains(t, *env.Responder.edits[1].response.Content, "No changes were applied")
 			assert.Empty(t, *env.Responder.edits[1].response.Components)
@@ -290,7 +297,9 @@ type uncertainProblemUpdateStore struct {
 
 func (store *uncertainProblemUpdateStore) PatchProblemByProblemID(id int64, patch data.ProblemPatch) error {
 	store.writes++
-	err := store.DataStore.PatchProblemByProblemID(id, patch)
+	err := store.DataStore.PatchProblemByProblemID(
+
+		id, patch)
 	if err == nil && store.writes == 2 {
 		return errors.New("lost acknowledgement")
 	}
@@ -303,7 +312,7 @@ func TestWorkflow_EditBatchStorageFailureStopsLaterWritesAndReportsProgress(t *t
 	class := env.seedClass(t, "source", "Source")
 	ids := []int64{env.seedProblem(t, "One", "https://example.com/one", class, "easy", "Arrays"), env.seedProblem(t, "Two", "https://example.com/two", class, "easy", "Arrays"), env.seedProblem(t, "Three", "https://example.com/three", class, "easy", "Arrays")}
 	store := &uncertainProblemUpdateStore{DataStore: env.DB}
-	env.ProblemController = mentor.NewProblemInteractionController(services.NewServices(store), env.Discord, dispatcher.NewDiscordInteractionResponder(env.Responder))
+	env.ProblemController = mentor.NewProblemInteractionController(services.NewServices(store, authtest.Allow{}), dispatcher.NewDiscordInteractionResponder(env.Responder))
 	input := fmt.Sprintf(`[{"problem_id":%d,"class":"source","name":"Changed 1","url":"https://example.com/new1"},{"problem_id":%d,"class":"source","name":"Changed 2","url":"https://example.com/new2"},{"problem_id":%d,"class":"source","name":"Changed 3","url":"https://example.com/new3"}]`, ids[0], ids[1], ids[2])
 	preview := submitBatchCommandPreview(t, env, "problem", "edit_batch", input)
 	event := batchButtonEvent(t, preview, "Confirm")
