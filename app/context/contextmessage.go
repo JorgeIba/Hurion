@@ -11,7 +11,6 @@ import (
 type ContextMessage struct {
 	MessageReaction        *discordgo.MessageReactionAdd
 	Message                *discordgo.MessageCreate
-	DiscordValidator       providers.DiscordValidator
 	DiscordFetcher         providers.DiscordFetcher
 	DiscordMessageModifier providers.DiscordMessageModifier
 	Dispatcher             dispatcher.MessageSender

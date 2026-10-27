@@ -10,9 +10,9 @@ The bot follows a layered architecture with clear separation of concerns:
 | **Command Routers** | The prefix router parses `!commands`; the interaction router dispatches slash commands, modals, and components. | `bot/commandrouter.go`, `bot/interactionrouter.go` |
 | **Event Context** | Carries each Discord event and its dependencies into the controller handling it. | `context/` |
 | **Reaction Router** | Handles emoji reactions for AC approvals and prefix-command confirmations. | `bot/reactionrouter.go` |
-| **Controllers** | Handle requests, coordinate identity and permission checks, adapt inputs, call services, and deliver results. Prefix and interaction handlers belong to this layer. | `controllers/` |
+| **Controllers** | Handle requests, establish actor identity, adapt inputs, call services, and deliver results. Prefix and interaction handlers belong to this layer. | `controllers/` |
 | **Adapters and Interaction Transport** | Map transport values and errors, encode or decode Discord inputs and component identifiers, and prepare attachments through a shared downloader. | `controllers/adapters/`, `controllers/interactiontransport/` |
-| **Providers** | Verify Discord roles and interact with External APIs (`DiscordProvider`). | `providers/` |
+| **Providers** | Fetch Discord membership and interact with external APIs (`DiscordProvider`). | `providers/` |
 | **Services** | Own business rules and coordinate user, enrollment, class, problem, solution, and score operations independently of the command transport. | `services/` |
 | **Data (Repository)** | Persist and query domain data through `DataStore`. Constraints, conditional writes, and transactions protect consistency at write time. | `data/` |
 | **Presentation** | Build Discord messages and components, score images, and Excel/JSON exports from application results, without performing database operations or sending responses. | `presentation/` |
@@ -97,7 +97,7 @@ graph TB
 
 Prefix (`!`) and slash (`/`) command handlers are part of the controller layer. Their routers live in `bot/` and select the appropriate handler. Controllers adapt each transport to the same application-service and persistence pipeline; presentation and delivery use the representation appropriate to the request. For example, `!ac` and `/ac` share proposal creation and resolution services while using different inputs and responses.
 
-Business validation belongs in services; transport parsing, external identity lookups, and response formatting belong at the boundaries. Data operations enforce conditions that must hold at write time and use transactions for changes that must succeed or fail together. Controllers present service outcomes after the operation completes.
+Business validation belongs in services; transport parsing, external identity lookups, and response formatting belong at the boundaries. Protected services enforce authorization through `services.Authorizer`. The authorization implementation decides permissions from current role IDs supplied by `DiscordRoleSource`; it checks all affected classes using one membership lookup. Startup reconciliation uses the same services with a process actor allowed only to create classes and link configuration resources. Data operations enforce conditions that must hold at write time and use transactions for changes that must succeed or fail together. Controllers present service outcomes after the operation completes.
 
 Command-specific workflows and input formats are documented in the [Command Reference](COMMANDS.md) and [Mentor JSON Batch Guide](MENTOR_BATCHES.md).
 

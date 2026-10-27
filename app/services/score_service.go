@@ -14,6 +14,7 @@ import (
 
 // ScoreService handles score calculation and ranking operations
 type ScoreService struct {
+	Authorizer     Authorizer
 	Datastore      data.DataStore
 	ProblemService ProblemService
 }
@@ -155,6 +156,7 @@ func (service *ScoreService) GetScoreAllClasses() ([]service_model.ClassScore, e
 		if result := cmp.Compare(left.ClassName, right.ClassName); result != 0 {
 			return result
 		}
+
 		return cmp.Compare(left.ClassCode, right.ClassCode)
 	})
 
@@ -163,7 +165,15 @@ func (service *ScoreService) GetScoreAllClasses() ([]service_model.ClassScore, e
 
 // GetClassExportData retrieves all data needed for exporting a class
 // Returns users, problems grouped by topic, and score
-func (service *ScoreService) GetClassExportData(classCode string) ([]service_model.User, []service_model.ProblemsByTopic, service_model.Score, error) {
+func (service *ScoreService) GetClassExportData(actor service_model.Actor, classCode string) ([]service_model.User, []service_model.ProblemsByTopic, service_model.Score, error) {
+	if err := validateAuthorizationInputs(service.Authorizer, actor); err != nil {
+		return nil, nil, service_model.Score{}, err
+	}
+
+	if err := requirePermission(service.Authorizer.CanExportClass(actor)); err != nil {
+		return nil, nil, service_model.Score{}, err
+	}
+
 	classData, err := service.Datastore.GetClassByClassCode(classCode)
 	if err != nil {
 		switch {

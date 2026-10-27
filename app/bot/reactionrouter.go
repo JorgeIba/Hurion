@@ -76,7 +76,6 @@ func handleConfirmationYes(c *context.ContextMessage) {
 	// Create new context with original message data
 	originalContext := &context.ContextMessage{
 		Message:                &discordgo.MessageCreate{Message: originalMsg},
-		DiscordValidator:       c.DiscordValidator,
 		DiscordFetcher:         c.DiscordFetcher,
 		DiscordMessageModifier: c.DiscordMessageModifier,
 		Services:               c.Services,

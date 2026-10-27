@@ -11,7 +11,8 @@ import (
 
 // UserService handles user management operations
 type UserService struct {
-	Datastore data.DataStore
+	Authorizer Authorizer
+	Datastore  data.DataStore
 }
 
 // EnsureUser ensures that a user with the given ID and display name exists in the database
@@ -25,7 +26,15 @@ func (service *UserService) EnsureUser(user service_model.User) error {
 }
 
 // ExterminateUser removes all data for a userID
-func (service *UserService) ExterminateUser(userID string) error {
+func (service *UserService) ExterminateUser(actor service_model.Actor, userID string) error {
+	if err := validateAuthorizationInputs(service.Authorizer, actor); err != nil {
+		return err
+	}
+
+	if err := requirePermission(service.Authorizer.CanDeleteUser(actor)); err != nil {
+		return err
+	}
+
 	// First check if user exists
 	if _, err := service.GetUserByUserID(userID); err != nil {
 		return err
@@ -34,6 +43,7 @@ func (service *UserService) ExterminateUser(userID string) error {
 	if err := service.Datastore.ExterminateUser(userID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
+
 	return nil
 }
 
@@ -48,6 +58,7 @@ func (service *UserService) GetUserByUserID(userID string) (service_model.User, 
 			return service_model.User{}, serviceerr.MakeGeneralError(err)
 		}
 	}
+
 	return mapDataUserToServiceUser(user), nil
 }
 
@@ -67,5 +78,6 @@ func (service *UserService) GetClassesWhereUserIsActive(userID string) ([]servic
 	if err != nil {
 		return nil, serviceerr.MakeGeneralError(fmt.Errorf("error fetching classes where user %s is active: %w", userID, err))
 	}
+
 	return mapDataClassesToServiceClasses(classes), nil
 }

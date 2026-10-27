@@ -61,9 +61,7 @@ func TestIntegration_ExcelExport_SmokeTest(t *testing.T) {
 	env.SeedUser(t, "student_1", "Student")
 
 	// Stub Admin role
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!export", classCode})
 

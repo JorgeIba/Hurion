@@ -40,33 +40,19 @@ func (m *MockClassServiceInterface) EXPECT() *MockClassServiceInterfaceMockRecor
 	return m.recorder
 }
 
-// AssignAccessRole mocks base method.
-func (m *MockClassServiceInterface) AssignAccessRole(role service_model.ClassAccessRole) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignAccessRole", role)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AssignAccessRole indicates an expected call of AssignAccessRole.
-func (mr *MockClassServiceInterfaceMockRecorder) AssignAccessRole(role any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignAccessRole", reflect.TypeOf((*MockClassServiceInterface)(nil).AssignAccessRole), role)
-}
-
 // CreateClass mocks base method.
-func (m *MockClassServiceInterface) CreateClass(classCode, className string) (int64, error) {
+func (m *MockClassServiceInterface) CreateClass(actor service_model.Actor, classCode, className string) (int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateClass", classCode, className)
+	ret := m.ctrl.Call(m, "CreateClass", actor, classCode, className)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateClass indicates an expected call of CreateClass.
-func (mr *MockClassServiceInterfaceMockRecorder) CreateClass(classCode, className any) *gomock.Call {
+func (mr *MockClassServiceInterfaceMockRecorder) CreateClass(actor, classCode, className any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClass", reflect.TypeOf((*MockClassServiceInterface)(nil).CreateClass), classCode, className)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClass", reflect.TypeOf((*MockClassServiceInterface)(nil).CreateClass), actor, classCode, className)
 }
 
 // GetClassByClassCode mocks base method.
@@ -84,47 +70,32 @@ func (mr *MockClassServiceInterfaceMockRecorder) GetClassByClassCode(classCode a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassByClassCode", reflect.TypeOf((*MockClassServiceInterface)(nil).GetClassByClassCode), classCode)
 }
 
-// GetClassCodeFromRoom mocks base method.
-func (m *MockClassServiceInterface) GetClassCodeFromRoom(roomID string) (string, bool, error) {
+// LinkClassAccessRole mocks base method.
+func (m *MockClassServiceInterface) LinkClassAccessRole(actor service_model.Actor, role service_model.ClassAccessRole) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetClassCodeFromRoom", roomID)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetClassCodeFromRoom indicates an expected call of GetClassCodeFromRoom.
-func (mr *MockClassServiceInterfaceMockRecorder) GetClassCodeFromRoom(roomID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassCodeFromRoom", reflect.TypeOf((*MockClassServiceInterface)(nil).GetClassCodeFromRoom), roomID)
-}
-
-// HasAccessRole mocks base method.
-func (m *MockClassServiceInterface) HasAccessRole(classCode, roleID string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasAccessRole", classCode, roleID)
+	ret := m.ctrl.Call(m, "LinkClassAccessRole", actor, role)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// HasAccessRole indicates an expected call of HasAccessRole.
-func (mr *MockClassServiceInterfaceMockRecorder) HasAccessRole(classCode, roleID any) *gomock.Call {
+// LinkClassAccessRole indicates an expected call of LinkClassAccessRole.
+func (mr *MockClassServiceInterfaceMockRecorder) LinkClassAccessRole(actor, role any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasAccessRole", reflect.TypeOf((*MockClassServiceInterface)(nil).HasAccessRole), classCode, roleID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkClassAccessRole", reflect.TypeOf((*MockClassServiceInterface)(nil).LinkClassAccessRole), actor, role)
 }
 
-// RegisterClassroom mocks base method.
-func (m *MockClassServiceInterface) RegisterClassroom(classroom service_model.Classroom) error {
+// LinkClassroom mocks base method.
+func (m *MockClassServiceInterface) LinkClassroom(actor service_model.Actor, classroom service_model.Classroom) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterClassroom", classroom)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "LinkClassroom", actor, classroom)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// RegisterClassroom indicates an expected call of RegisterClassroom.
-func (mr *MockClassServiceInterfaceMockRecorder) RegisterClassroom(classroom any) *gomock.Call {
+// LinkClassroom indicates an expected call of LinkClassroom.
+func (mr *MockClassServiceInterfaceMockRecorder) LinkClassroom(actor, classroom any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterClassroom", reflect.TypeOf((*MockClassServiceInterface)(nil).RegisterClassroom), classroom)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkClassroom", reflect.TypeOf((*MockClassServiceInterface)(nil).LinkClassroom), actor, classroom)
 }

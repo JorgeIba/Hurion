@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
 	"github.com/JorgeIba/Hurion/app/bootstrap"
 	"github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
@@ -52,8 +53,56 @@ func main() {
 	}
 	defer db.CloseDB()
 
-	svcs := services.NewServices(db)
 	token := os.Getenv("DISCORD_BOT_TOKEN")
+
+	// 3. Hydrate the RunConfig
+	runCfg, err := bootstrap.NewRunConfig(*mockDiscordFlag, *scriptFlag)
+	if err != nil {
+		log.Fatalf("Configuration error: %v", err)
+	}
+	logger.Log.Infof("Booting Discord Bot in mode: %s", runCfg.Mode)
+
+	// 5. Determine Provider (Offline Mock vs Online Real)
+	var session *discordgo.Session
+	var provider providers.DiscordProvider
+
+	if runCfg.UsesMockProvider() {
+		provider = script.NewFakeDiscordProvider()
+	} else {
+		if token == "" {
+			log.Fatalf("DISCORD_BOT_TOKEN environment variable is required when not running offline")
+		}
+		session, err = discordgo.New("Bot " + token)
+		if err != nil {
+			log.Fatalf("Failed to create discord session: %v", err)
+		}
+		provider = providers.NewProviderDiscord(providers.NewDiscordGoSessionAdapter(session))
+	}
+
+	// 6. Determine Message Sender (Console vs Discord)
+	var sender dispatcher.MessageSender
+	if runCfg.UsesConsoleSender() {
+		sender = dispatcher.NewConsoleMessageSender()
+	} else {
+		realSender := dispatcher.NewDispatcher(session, 5)
+		realSender.Start()
+		defer realSender.Stop()
+		sender = realSender
+	}
+
+	guildID := cfg.GuildID
+	if runCfg.Mode == bootstrap.ModeMockScript && guildID == "" {
+		guildID = "guild_1"
+	}
+	roleSource := authorization.NewDiscordRoleSource(provider, guildID)
+	authorizer := authorization.New(
+		roleSource,
+		cfg.AdminRoleID,
+		cfg.MentorRoleID,
+		cfg.MentorRolesByClass(),
+	)
+
+	svcs := services.NewServices(db, authorizer)
 
 	// Start background worker only if --exporter flag is set
 	if *exporterFlag {
@@ -70,47 +119,12 @@ func main() {
 		})
 	}
 
-	// 3. Hydrate the RunConfig
-	runCfg, err := bootstrap.NewRunConfig(*mockDiscordFlag, *scriptFlag)
-	if err != nil {
-		log.Fatalf("Configuration error: %v", err)
-	}
-	logger.Log.Infof("Booting Discord Bot in mode: %s", runCfg.Mode)
-
 	// 4. Optional Seeding
 	if *seedFlag {
-		reconciler := bootstrap.NewReconciler(svcs.Class)
+		reconciler := bootstrap.NewReconciler(svcs.Class, services.ConfigReconcilerActor())
 		if err := reconciler.Reconcile(cfg); err != nil {
 			log.Fatalf("Reconciliation failed: %v", err)
 		}
-	}
-
-	// 5. Determine Provider (Offline Mock vs Online Real)
-	var session *discordgo.Session
-	var provider providers.DiscordProvider
-
-	if runCfg.UsesMockProvider() {
-		provider = script.NewFakeDiscordProvider(cfg.AdminRoleID, cfg.MentorRoleID)
-	} else {
-		if token == "" {
-			log.Fatalf("DISCORD_BOT_TOKEN environment variable is required when not running offline")
-		}
-		session, err = discordgo.New("Bot " + token)
-		if err != nil {
-			log.Fatalf("Failed to create discord session: %v", err)
-		}
-		provider = providers.NewProviderDiscord(providers.NewDiscordGoSessionAdapter(session), cfg.AdminRoleID, cfg.MentorRoleID)
-	}
-
-	// 6. Determine Message Sender (Console vs Discord)
-	var sender dispatcher.MessageSender
-	if runCfg.UsesConsoleSender() {
-		sender = dispatcher.NewConsoleMessageSender()
-	} else {
-		realSender := dispatcher.NewDispatcher(session, 5)
-		realSender.Start()
-		defer realSender.Stop()
-		sender = realSender
 	}
 
 	// 7. Assemble the Bot
@@ -122,10 +136,10 @@ func main() {
 		TestMode:         cfg.TestMode,
 		WhitelistUserIDs: cfg.WhitelistUserIDs,
 		WhitelistRoleIDs: cfg.WhitelistRoleIDs,
-		GuildID:          cfg.GuildID,
+		GuildID:          guildID,
 	}
-	problemInteractionController := mentor.NewProblemInteractionController(svcs, provider, responder)
-	acInteractionController := mentor.NewACInteractionController(svcs, provider, provider, responder)
+	problemInteractionController := mentor.NewProblemInteractionController(svcs, responder)
+	acInteractionController := mentor.NewACInteractionController(svcs, provider, responder)
 	appBot := bot.NewBot(svcs, provider, sender, responder, botCfg)
 
 	// 8. Execute Application Behavior

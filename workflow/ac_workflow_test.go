@@ -46,7 +46,7 @@ func TestWorkflow_AdminCanGrantAndDecideACs(t *testing.T) {
 			problemID := env.seedProblem(t, "Two Sum", "https://example.com/two-sum", classID, "Easy", "Arrays")
 			env.seedClassAccessRole(t, "basicos_1", "role_enrolled")
 			env.setRoles("111222333444555666", []string{"role_enrolled"})
-			env.Discord.isAdminFunc = func(guildID, userID string) (bool, error) { return userID == "admin_1", nil }
+			env.setRoles("admin_1", []string{"admin_role"})
 			if test.reaction == "" {
 				env.sendMessage(t, "admin_1", "Admin One", "!ac <@111222333444555666> "+strconv.FormatInt(problemID, 10))
 			} else {
@@ -73,9 +73,7 @@ func TestWorkflow_ACProposal_MentorApproval_GrantsProblemAndMarksProposalAccepte
 	problemID := env.seedProblem(t, "Two Sum", "https://example.com/two-sum", classID, "Easy", "Arrays")
 	env.seedClassAccessRole(t, "basicos_1", "role_enrolled")
 	env.setRoles("student_1", []string{"role_enrolled"})
-	env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == "mentor_1", nil
-	}
+	env.setRoles("mentor_1", []string{"mentor_role"})
 
 	env.sendMessage(t, "student_1", "Student One", "!ac "+strconv.FormatInt(problemID, 10))
 	beforeReactionMessages := len(env.Dispatcher.Messages())
@@ -104,9 +102,7 @@ func TestWorkflow_ACProposal_MentorRejection_RemovesPendingWithoutGrantingProble
 	problemID := env.seedProblem(t, "Two Sum", "https://example.com/two-sum", classID, "Easy", "Arrays")
 	env.seedClassAccessRole(t, "basicos_1", "role_enrolled")
 	env.setRoles("student_1", []string{"role_enrolled"})
-	env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == "mentor_1", nil
-	}
+	env.setRoles("mentor_1", []string{"mentor_role"})
 
 	env.sendMessage(t, "student_1", "Student One", "!ac "+strconv.FormatInt(problemID, 10))
 	beforeReactionMessages := len(env.Dispatcher.Messages())
@@ -134,9 +130,7 @@ func TestWorkflow_ACProposal_NonMentorReaction_IsIgnoredAndLeavesProposalPending
 	problemID := env.seedProblem(t, "Two Sum", "https://example.com/two-sum", classID, "Easy", "Arrays")
 	env.seedClassAccessRole(t, "basicos_1", "role_enrolled")
 	env.setRoles("student_1", []string{"role_enrolled"})
-	env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == "mentor_1", nil
-	}
+	env.setRoles("mentor_1", []string{"mentor_role"})
 
 	env.sendMessage(t, "student_1", "Student One", "!ac "+strconv.FormatInt(problemID, 10))
 	beforeReactionMessages := len(env.Dispatcher.Messages())
@@ -146,7 +140,7 @@ func TestWorkflow_ACProposal_NonMentorReaction_IsIgnoredAndLeavesProposalPending
 	env.assertPendingConfirmation(t, "msg_student_1", "student_1", problemID)
 	env.assertProblemNotSolved(t, "student_1", problemID)
 	env.assertUserExists(t, "random_1", "Random User")
-	assert.Len(t, env.Dispatcher.Messages(), beforeReactionMessages, "non-mentor reactions should not dispatch an approval or rejection update")
+	assert.Len(t, env.Dispatcher.Messages(), beforeReactionMessages, "non-mentor reactions must not dispatch an approval or rejection update")
 }
 
 func TestWorkflow_UndoAC_RemovesSolvedProblemAndReportsSuccess(t *testing.T) {
@@ -181,9 +175,7 @@ func TestWorkflow_MentorDirectAC_GrantsProblemAndAcknowledgesWithAcceptedReactio
 	env.seedClassAccessRole(t, "basicos_1", "role_enrolled")
 	env.Discord.setDisplayName("111222333444555666", "Student One")
 	env.setRoles("111222333444555666", []string{"role_enrolled"})
-	env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == "mentor_1", nil
-	}
+	env.setRoles("mentor_1", []string{"mentor_role"})
 
 	env.sendMessage(t, "mentor_1", "Mentor One", "!ac <@111222333444555666> "+strconv.FormatInt(problemID, 10))
 
@@ -206,9 +198,7 @@ func TestWorkflow_MentorDirectUndoAC_RemovesSolvedProblemAndMentionsTargetUser(t
 	env.seedUser(t, "111222333444555666", "Student One")
 	require.NoError(t, env.DB.AddAC("111222333444555666", problemID))
 	env.Discord.setDisplayName("111222333444555666", "Student One")
-	env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == "mentor_1", nil
-	}
+	env.setRoles("mentor_1", []string{"mentor_role"})
 
 	env.sendMessage(t, "mentor_1", "Mentor One", "!undo_ac <@111222333444555666> "+strconv.FormatInt(problemID, 10))
 

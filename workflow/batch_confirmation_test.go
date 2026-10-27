@@ -77,7 +77,7 @@ func TestWorkflow_BatchConfirmationWritesOnceAndReportsActualResults(t *testing.
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			entry := `{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}`
 			var problemID int64
@@ -88,7 +88,7 @@ func TestWorkflow_BatchConfirmationWritesOnceAndReportsActualResults(t *testing.
 				env.Discord.setDisplayName("123", "Preview Name")
 				entry = fmt.Sprintf(`{"user_id":"123","problem_id":%d}`, problemID)
 				if test.alreadyRecorded {
-					require.NoError(t, env.Services.Solution.AddACToUserID("123", problemID))
+					require.NoError(t, env.Services.Solution.GrantACWithoutEnrollmentCheck(services.UserActor("mentor"), "123", problemID))
 				}
 			}
 			input := "[" + entry + "]"
@@ -150,7 +150,7 @@ func TestWorkflow_BatchConfirmationRevalidatesBeforeAnyWrite(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			otherClassID := env.seedClass(t, "other", "Other")
 			input := `[{"class":"basicos","name":"Valid","url":"https://example.com/valid","topic":"Arrays"},{"class":"other","name":"Invalid after preview","url":"https://example.com/other","topic":"Arrays"}]`
@@ -215,12 +215,12 @@ func (store *failProblemBatchRevalidationStore) AddProblemsBatch(problems []data
 func TestWorkflow_ProblemBatchRevalidationReadFailureReportsNoWrites(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	classID := env.seedClass(t, "basicos", "Basicos")
 	store := &failProblemBatchRevalidationStore{DataStore: env.DB}
-	svcs := services.NewServices(store)
+	svcs := services.NewServices(store, env.authorization())
 	responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
-	env.ProblemController = mentor.NewProblemInteractionController(svcs, env.Discord, responder)
+	env.ProblemController = mentor.NewProblemInteractionController(svcs, responder)
 
 	preview := submitBatchPreview(t, env, "problem", `[{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}]`)
 	require.Equal(t, 1, store.classLookups, "preview preparation resolves the class once")
@@ -269,13 +269,13 @@ func TestWorkflow_BatchStorageFailureReportsProgressWithoutRetrying(t *testing.T
 		t.Run(command, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			store := &uncertainBatchStore{DataStore: env.DB}
-			svcs := services.NewServices(store)
+			svcs := services.NewServices(store, env.authorization())
 			responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
-			env.ProblemController = mentor.NewProblemInteractionController(svcs, env.Discord, responder)
-			env.ACController = mentor.NewACInteractionController(svcs, env.Discord, env.Discord, responder)
+			env.ProblemController = mentor.NewProblemInteractionController(svcs, responder)
+			env.ACController = mentor.NewACInteractionController(svcs, env.Discord, responder)
 			input := `[{"class":"basicos","name":"One","url":"https://example.com/one","topic":"Arrays"},{"class":"basicos","name":"Two","url":"https://example.com/two","topic":"Arrays"},{"class":"basicos","name":"Three","url":"https://example.com/three","topic":"Arrays"}]`
 			var problemID int64
 			if command == "ac" {
@@ -329,8 +329,7 @@ func TestWorkflow_ConfirmationCanRetryAfterFailureBeforeClaim(t *testing.T) {
 			t.Run(command+"/"+failure, func(t *testing.T) {
 				t.Parallel()
 				env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-				allowed := true
-				env.Discord.isMentorFunc = func(string, string) (bool, error) { return allowed, nil }
+				env.setRoles("mentor", []string{"mentor_role"})
 				classID := env.seedClass(t, "basicos", "Basicos")
 				input := `[{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}]`
 				var problemID int64
@@ -343,15 +342,45 @@ func TestWorkflow_ConfirmationCanRetryAfterFailureBeforeClaim(t *testing.T) {
 				preview := submitBatchPreview(t, env, command, input)
 				switch failure {
 				case "permissions":
-					allowed = false
+					env.setRoles("mentor", nil)
 				case "acknowledgement":
 					env.Responder.respondFunc = func(*discordgo.InteractionResponse) error { return errors.New("ack failed") }
 				case "student resolution":
-					env.Discord.getCachedMemberFunc = func(string, string) (*discordgo.Member, error) { return nil, errors.New("cache miss") }
-					env.Discord.fetchMemberFunc = func(string, string) (*discordgo.Member, error) { return nil, errors.New("Discord unavailable") }
+					env.Discord.getCachedMemberFunc = func(_, userID string) (*discordgo.Member, error) {
+						if userID == "mentor" {
+							return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: env.Discord.userRoles[userID]}, nil
+						}
+						return nil, errors.New("cache miss")
+					}
+					env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+						if userID == "mentor" {
+							return env.Discord.GetCachedMember(guildID, userID)
+						}
+						return nil, errors.New("Discord unavailable")
+					}
 				}
 				event := batchButtonEvent(t, preview, "Confirm")
 				env.handleInteractionEvent(event)
+				if failure == "permissions" {
+					require.Len(t, env.Responder.edits, 2, "service authorization fails after claiming confirmation")
+					assert.Contains(t, *env.Responder.edits[1].response.Content, "No changes were applied")
+					problems, err := env.DB.GetProblemsByClass(classID)
+					require.NoError(t, err)
+					if command == "problem" {
+						assert.Empty(t, problems)
+					} else {
+						env.assertProblemNotSolved(t, "123", problemID)
+					}
+					env.setRoles("mentor", []string{"mentor_role"})
+					env.handleInteractionEvent(event)
+					assert.Len(t, env.Responder.edits, 2, "claimed preview cannot execute again")
+					require.NotEmpty(t, env.Responder.responses)
+					assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "available")
+					newPreview := submitBatchPreview(t, env, command, input)
+					env.handleInteractionEvent(batchButtonEvent(t, newPreview, "Confirm"))
+					assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "Batch completed")
+					return
+				}
 				assert.Len(t, env.Responder.edits, 1, "failure before claim must preserve the preview")
 				if failure != "acknowledgement" {
 					require.Len(t, env.Responder.followups, 1)
@@ -364,7 +393,7 @@ func TestWorkflow_ConfirmationCanRetryAfterFailureBeforeClaim(t *testing.T) {
 				} else {
 					env.assertProblemNotSolved(t, "123", problemID)
 				}
-				allowed = true
+				env.setRoles("mentor", []string{"mentor_role"})
 				env.Responder.respondFunc = nil
 				env.Discord.getCachedMemberFunc = nil
 				env.Discord.fetchMemberFunc = nil
@@ -386,7 +415,7 @@ func TestWorkflow_ConfirmationCanRetryAfterFailureBeforeClaim(t *testing.T) {
 func TestWorkflow_ACBatchRejectsMovedProblemBeforeAnyWrite(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	original := env.seedClass(t, "original", "Original")
 	destination := env.seedClass(t, "destination", "Destination")
 	first := env.seedProblem(t, "First", "https://example.com/first", original, "easy", "Arrays")
@@ -416,13 +445,13 @@ func TestWorkflow_ACBatchUsesCurrentRecordedStateAtConfirmation(t *testing.T) {
 		t.Run(fmt.Sprintf("initially recorded=%t", initiallyRecorded), func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			id := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
 			env.seedClassAccessRole(t, "basicos", "student")
 			env.setRoles("123", []string{"student"})
 			if initiallyRecorded {
-				require.NoError(t, env.Services.Solution.AddACToUserID("123", id))
+				require.NoError(t, env.Services.Solution.GrantACWithoutEnrollmentCheck(services.UserActor("mentor"), "123", id))
 			}
 			preview := submitBatchPreview(t, env, "ac", fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, id))
 			recorded, already := 0, 1
@@ -430,7 +459,7 @@ func TestWorkflow_ACBatchUsesCurrentRecordedStateAtConfirmation(t *testing.T) {
 				require.NoError(t, env.DB.RemoveAC("123", id))
 				recorded, already = 1, 0
 			} else {
-				require.NoError(t, env.Services.Solution.AddACToUserID("123", id))
+				require.NoError(t, env.Services.Solution.GrantACWithoutEnrollmentCheck(services.UserActor("mentor"), "123", id))
 			}
 			env.handleInteractionEvent(batchButtonEvent(t, preview, "Confirm"))
 			require.Len(t, env.Responder.edits, 2)
@@ -458,13 +487,13 @@ func TestWorkflow_ACBatchReadFailureReportsNoWrites(t *testing.T) {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			id := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
 			env.seedClassAccessRole(t, "basicos", "student")
 			env.setRoles("123", []string{"student"})
 			store := &failingACValidationStore{DataStore: env.DB, failReads: phase == "preview"}
-			env.ACController = mentor.NewACInteractionController(services.NewServices(store), env.Discord, env.Discord, dispatcher.NewDiscordInteractionResponder(env.Responder))
+			env.ACController = mentor.NewACInteractionController(services.NewServices(store, env.authorization()), env.Discord, dispatcher.NewDiscordInteractionResponder(env.Responder))
 			input := fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, id)
 			if phase == "preview" {
 				env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{

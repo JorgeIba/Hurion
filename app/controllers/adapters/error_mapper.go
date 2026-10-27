@@ -26,6 +26,8 @@ const (
 	ActionCreateClass
 	ActionExterminateUser
 	ActionExportClass
+	ActionLinkRoles
+	ActionLinkRooms
 	ActionGetClassRoles
 	ActionGetClassRooms
 
@@ -56,6 +58,7 @@ const (
 	errorKindDuplicateProblem
 	errorKindConflict
 	errorKindNotFound
+	errorKindPermissionDenied
 	errorKindInternal
 	errorKindDefault
 
@@ -97,27 +100,43 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while listing classes for user.",
 	},
 	ActionClearClass: {
+		errorKindPermissionDenied:  "Bro has not enough permissions (is not admin).",
 		errorKindClassCodeNotFound: "Class code `%s` not found",
 		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!clear_class basicos_1`) or run this command inside a class channel.",
 		errorKindDefault:           "Unexpected error while clearing class data.",
 	},
 	ActionExterminateClass: {
+		errorKindPermissionDenied:  "Bro has not enough permissions (is not admin).",
 		errorKindClassCodeNotFound: "Class code `%s` not found",
 		errorKindDefault:           "Unexpected error while exterminating class.",
 	},
 	ActionCreateClass: {
-		errorKindConflict: "Class code `%s` already exists",
-		errorKindDefault:  "Unexpected error while creating class.",
+		errorKindPermissionDenied: "Bro has not enough permissions (is not admin).",
+		errorKindConflict:         "Class code `%s` already exists",
+		errorKindDefault:          "Unexpected error while creating class.",
 	},
 	ActionExterminateUser: {
+		errorKindPermissionDenied:  "Bro has not enough permissions (is not admin).",
 		errorKindUserNotFound:      "User <@%s> not found in the system",
 		errorKindUserMissingFromDB: "System Error: User <@%s> not found in database. Contact Admin.",
 		errorKindDefault:           "Unexpected error while exterminating user.",
 	},
 	ActionExportClass: {
+		errorKindPermissionDenied:  "Bro has not enough permissions (is not admin).",
 		errorKindClassCodeNotFound: "Class code `%s` not found",
 		errorKindDefault:           "Unexpected error while retrieving class data.",
 	},
+	ActionLinkRoles: {
+		errorKindClassCodeNotFound: "Class code `%s` not found.",
+		errorKindPermissionDenied:  "Bro has not enough permissions (is not admin).",
+		errorKindDefault:           "Unexpected error while linking class roles.",
+	},
+	ActionLinkRooms: {
+		errorKindClassCodeNotFound: "Class code `%s` not found.",
+		errorKindPermissionDenied:  "Bro has not enough permissions (is not admin).",
+		errorKindDefault:           "Unexpected error while linking class rooms.",
+	},
+
 	ActionGetClassRoles: {
 		errorKindClassCodeNotFound: "Class code `%s` not found",
 		errorKindNotFound:          "I couldn't identify the class, bro. Try specifying the class code (e.g., `!get_roles basicos_1`) or run this command inside a class channel.",
@@ -129,12 +148,14 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while getting class rooms.",
 	},
 	ActionMentorRegisterUser: {
+		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
 		errorKindDefault:           "Unexpected error while mentor-registering user.",
 	},
 	ActionMentorDeregisterUser: {
+		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found for user `%[1]s`",
 		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to class `%[2]s`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
@@ -142,6 +163,7 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while mentor-deregistering user.",
 	},
 	ActionMentorAddAC: {
+		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
 		errorKindProblemNotFound:   "Problem id `%[2]d` not found for user `%[1]s`",
 		errorKindUserNotEnrolled:   "User `%[1]s` doesn't have access to the class of problem `%[2]d`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
@@ -150,6 +172,7 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while adding AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorUndoAC: {
+		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
 		errorKindProblemNotFound:   "Problem id `%[2]d` not found for user `%[1]s`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
@@ -157,20 +180,24 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindDefault:           "Unexpected error while undoing AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorAddProblem: {
+		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
 		errorKindClassCodeNotFound: "Class code `%[1]s` not found while adding `%[3]s`.",
 		errorKindDuplicateProblem:  "Problem `%[3]s` already exists on class `%[1]s` (with URL `%[2]s`)",
 		errorKindConflict:          "Problem `%[3]s` already exists on class `%[1]s` with URL `%[2]s`",
 		errorKindDefault:           "Unexpected error while adding problem.",
 	},
 	ActionMentorRemoveProblem: {
-		errorKindProblemNotFound: "Problem id `%d` not found",
-		errorKindDefault:         "Unexpected error while removing problem.",
+		errorKindPermissionDenied: "The mentor or admin role is required for the affected classes. No changes were applied.",
+		errorKindProblemNotFound:  "Problem id `%d` not found",
+		errorKindDefault:          "Unexpected error while removing problem.",
 	},
 	ActionMentorUpdateProblemClass: {
+		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
 		errorKindClassCodeNotFound: "Class code `%s` not found",
 		errorKindDefault:           "Unexpected error while moving problem to class.",
 	},
 	ActionMentorUpdateProblem: {
+		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
 		errorKindProblemNotFound:   "Problem with ID: `%[1]d` not found.",
 		errorKindClassCodeNotFound: "Class code `%[2]s` not found while updating problem `%[1]d`.",
 		errorKindDuplicateProblem:  "Problem `%[3]s` already exists in class `%[2]s`",
@@ -231,6 +258,8 @@ func MapError(err error, action Action, args ...any) string {
 
 func getErrorKindFromError(err error) ErrorKind {
 	switch {
+	case hasErrorType[*serviceerr.PermissionDeniedError](err):
+		return errorKindPermissionDenied
 	case hasErrorType[*dataerr.UserMissingFromDatabaseError](err):
 		return errorKindUserMissingFromDB
 	case hasErrorType[*serviceerr.UserNotEnrolledError](err):

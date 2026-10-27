@@ -66,9 +66,7 @@ func TestIntegration_AC_Accept(t *testing.T) {
 	env.SeedPendingConfirmation(t, messageID, student.UserID, problemID)
 
 	// Mock mentor permission
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
+	env.SeedRoleToUser(mentorUser.UserID, "mentor_role")
 
 	reactionCtx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", nil)
 	reactionCtx.MessageReaction = &discordgo.MessageReactionAdd{
@@ -115,9 +113,7 @@ func TestIntegration_AC_Reject(t *testing.T) {
 	env.SeedPendingConfirmation(t, messageID, student.UserID, problemID)
 
 	// Mock mentor permission
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
+	env.SeedRoleToUser(mentorUser.UserID, "mentor_role")
 
 	reactionCtx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", nil)
 	reactionCtx.MessageReaction = &discordgo.MessageReactionAdd{

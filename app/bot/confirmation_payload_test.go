@@ -15,6 +15,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -318,7 +319,7 @@ func TestConfirmationYesUsesCapturedArgsAfterRoomRelink(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mock_data.NewMockDataStore(ctrl)
 	mockSender := mock_dispatcher.NewMockMessageSender(ctrl)
-	mockValidator := mock_providers.NewMockDiscordValidator(ctrl)
+	mockValidator := mock_services.NewMockAuthorizer(ctrl)
 	mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
 	mockModifier := mock_providers.NewMockDiscordMessageModifier(ctrl)
 
@@ -337,7 +338,7 @@ func TestConfirmationYesUsesCapturedArgsAfterRoomRelink(t *testing.T) {
 	confirmationMsg, originalMsg := confirmationMessagesForArgs(capturedArgs)
 	mockFetcher.EXPECT().FetchMessage("channel_1", "confirmation_1").Return(confirmationMsg, nil).Times(2)
 	mockFetcher.EXPECT().FetchMessage("channel_1", "original_1").Return(originalMsg, nil)
-	mockValidator.EXPECT().IsAdmin("guild_1", "admin_1").Return(true, nil)
+	mockValidator.EXPECT().CanClearClass(services.UserActor("admin_1")).Return(true, nil)
 	mockStore.EXPECT().GetClassByClassCode("class_a").Return(data.Class{ID: 1, ClassCode: "class_a"}, nil)
 	mockStore.EXPECT().GetClassByClassCode("class_a").Return(data.Class{ID: 1, ClassCode: "class_a"}, nil)
 	mockStore.EXPECT().ClearClassContents(int64(1)).Return(nil)
@@ -397,7 +398,7 @@ func TestConfirmationYesErrorsWhenCanonicalArgsAreMissingOrInvalid(t *testing.T)
 			ctrl := gomock.NewController(t)
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			mockSender := mock_dispatcher.NewMockMessageSender(ctrl)
-			mockValidator := mock_providers.NewMockDiscordValidator(ctrl)
+			mockValidator := mock_services.NewMockAuthorizer(ctrl)
 			mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
 			mockModifier := mock_providers.NewMockDiscordMessageModifier(ctrl)
 
@@ -429,7 +430,7 @@ func confirmationPayloadContext(store data.DataStore, sender dispatcher.MessageS
 		}},
 		Args:            args,
 		Dispatcher:      sender,
-		Services:        services.NewServices(store),
+		Services:        services.NewServices(store, nil),
 		Executor:        service_model.User{UserID: "admin_1", DisplayName: "Admin User"},
 		ExecutorGuildID: "guild_1",
 	}
@@ -438,7 +439,7 @@ func confirmationPayloadContext(store data.DataStore, sender dispatcher.MessageS
 func confirmationReactionContext(
 	store data.DataStore,
 	sender dispatcher.MessageSender,
-	validator *mock_providers.MockDiscordValidator,
+	validator *mock_services.MockAuthorizer,
 	fetcher *mock_providers.MockDiscordFetcher,
 	modifier *mock_providers.MockDiscordMessageModifier,
 	emoji string,
@@ -451,11 +452,10 @@ func confirmationReactionContext(
 			GuildID:   "guild_1",
 			Emoji:     discordgo.Emoji{Name: emoji},
 		}},
-		DiscordValidator:       validator,
 		DiscordFetcher:         fetcher,
 		DiscordMessageModifier: modifier,
 		Dispatcher:             sender,
-		Services:               services.NewServices(store),
+		Services:               services.NewServices(store, validator),
 		Executor:               service_model.User{UserID: "admin_1", DisplayName: "Admin User"},
 		ExecutorGuildID:        "guild_1",
 		BotUserID:              "bot_1",

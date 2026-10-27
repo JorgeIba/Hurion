@@ -8,6 +8,7 @@ import (
 
 	"github.com/JorgeIba/Hurion/app/common"
 	"github.com/JorgeIba/Hurion/app/context"
+	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
@@ -15,6 +16,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/helpers"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -54,7 +56,6 @@ func makeCommandContext(
 	guildID string,
 	messageID string,
 	svc *services.Services,
-	validator *mock_providers.MockDiscordValidator,
 	fetcher *mock_providers.MockDiscordFetcher,
 	out chan dispatcher.MessageResponse,
 ) *context.ContextMessage {
@@ -64,13 +65,12 @@ func makeCommandContext(
 	}
 
 	return &context.ContextMessage{
-		Args:             args,
-		Executor:         service_model.User{UserID: executorID},
-		ExecutorGuildID:  guildID,
-		Services:         svc,
-		DiscordValidator: validator,
-		DiscordFetcher:   fetcher,
-		Dispatcher:       &dispatcher.Dispatcher{Output: out},
+		Args:            args,
+		Executor:        service_model.User{UserID: executorID},
+		ExecutorGuildID: guildID,
+		Services:        svc,
+		DiscordFetcher:  fetcher,
+		Dispatcher:      &dispatcher.Dispatcher{Output: out},
 		Message: &discordgo.MessageCreate{Message: &discordgo.Message{
 			ID:        messageID,
 			ChannelID: "chan_123",
@@ -83,18 +83,16 @@ func makeReactionContext(
 	guildID string,
 	emoji string,
 	svc *services.Services,
-	validator *mock_providers.MockDiscordValidator,
 	fetcher *mock_providers.MockDiscordFetcher,
 	out chan dispatcher.MessageResponse,
 ) *context.ContextMessage {
 
 	return &context.ContextMessage{
-		Executor:         service_model.User{UserID: executorID},
-		ExecutorGuildID:  guildID,
-		Services:         svc,
-		DiscordValidator: validator,
-		DiscordFetcher:   fetcher,
-		Dispatcher:       &dispatcher.Dispatcher{Output: out},
+		Executor:        service_model.User{UserID: executorID},
+		ExecutorGuildID: guildID,
+		Services:        svc,
+		DiscordFetcher:  fetcher,
+		Dispatcher:      &dispatcher.Dispatcher{Output: out},
 		MessageReaction: &discordgo.MessageReactionAdd{MessageReaction: &discordgo.MessageReaction{
 			MessageID: "msg_123",
 			ChannelID: "chan_123",
@@ -112,7 +110,7 @@ func TestHandleAddAC(t *testing.T) {
 		args       []string
 		executorID string
 		guildID    string
-		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
+		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
@@ -120,19 +118,16 @@ func TestHandleAddAC(t *testing.T) {
 			args:       []string{"!ac", "<@123>", "100"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
-				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 
 				m.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 100}}).Return(map[data.ACKey]data.ACValidationData{
 					{UserID: "123", ProblemID: 100}: {Problem: &data.Problem{ID: 100, ClassID: 10}, Class: &data.Class{ID: 10, ClassCode: "CS101"}, AccessRoleIDs: []string{"role_student"}},
 				}, nil)
 
-				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
-				m.EXPECT().HasUserSolvedProblem("123", int64(100)).Return(false, nil)
 				m.EXPECT().AddAC("123", int64(100)).Return(nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123", Username: "Student"}, Roles: []string{"role_student"}}, nil).Times(2)
+				m.EXPECT().EnsureUser(data.User{UserID: "123", DisplayName: "Unknown"}).Return(nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "CS101").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -144,8 +139,7 @@ func TestHandleAddAC(t *testing.T) {
 			args:       []string{"!ac", "<@123>", "not_an_int"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -157,12 +151,10 @@ func TestHandleAddAC(t *testing.T) {
 			args:       []string{"!ac", "<@123>", "100"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
-				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 
 				m.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 100}}).Return(nil, fmt.Errorf("db error"))
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123", Username: "Student"}, Roles: []string{"role_student"}}, nil).Times(2)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -174,12 +166,14 @@ func TestHandleAddAC(t *testing.T) {
 			args:       []string{"!ac", "<@123>", "100"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(false, fmt.Errorf("discord error"))
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetACValidationData(gomock.Any()).Return(map[data.ACKey]data.ACValidationData{{UserID: "123", ProblemID: 100}: {Problem: &data.Problem{ID: 100, ClassID: 1}, Class: &data.Class{ID: 1, ClassCode: "CS101"}, AccessRoleIDs: []string{"student"}}}, nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123", Username: "Student"}, Roles: []string{"student"}}, nil).Times(2)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "CS101").Return(false, fmt.Errorf("discord error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Equal(t, messageErrVerifying, msg.Content)
+				assert.Equal(t, "Unexpected internal error bro.", msg.Content)
 			},
 		},
 	}
@@ -190,14 +184,14 @@ func TestHandleAddAC(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
+			mockVal := mock_services.NewMockAuthorizer(ctrl)
 			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
-			svc := services.NewServices(mockStore)
+			svc := services.NewServices(mockStore, mockVal)
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 
-			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "msg_123", svc, mockVal, mockFetch, out)
+			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "msg_123", svc, mockFetch, out)
 			ctx.Dispatcher = disp
 			HandleAddAC(ctx)
 			if tt.assertFunc != nil {
@@ -215,7 +209,7 @@ func TestHandleUndoAC(t *testing.T) {
 		args       []string
 		executorID string
 		guildID    string
-		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
+		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
@@ -223,13 +217,13 @@ func TestHandleUndoAC(t *testing.T) {
 			args:       []string{"!undo_ac", "<@123>", "77"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
-				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
-				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(true, nil)
 				m.EXPECT().RemoveAC("123", int64(77)).Return(nil)
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123", Username: "Student"}}, nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -241,12 +235,12 @@ func TestHandleUndoAC(t *testing.T) {
 			args:       []string{"!undo_ac", "<@123>", "77"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"role_student"}}, nil).AnyTimes()
-				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
-				m.EXPECT().EnsureUser(gomock.Any()).Return(nil).AnyTimes()
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, fmt.Errorf("db error"))
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123", Username: "Student"}}, nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -258,12 +252,15 @@ func TestHandleUndoAC(t *testing.T) {
 			args:       []string{"!undo_ac", "<@123>", "77"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(false, fmt.Errorf("discord error"))
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123", Username: "Student"}}, nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(false, fmt.Errorf("discord error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Equal(t, messageErrVerifying, msg.Content)
+				assert.Equal(t, "Unexpected internal error bro.", msg.Content)
 			},
 		},
 		{
@@ -271,8 +268,7 @@ func TestHandleUndoAC(t *testing.T) {
 			args:       []string{"!undo_ac", "<@123>", "not_an_int"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -287,14 +283,14 @@ func TestHandleUndoAC(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
+			mockVal := mock_services.NewMockAuthorizer(ctrl)
 			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
-			svc := services.NewServices(mockStore)
+			svc := services.NewServices(mockStore, mockVal)
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 
-			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "msg_123", svc, mockVal, mockFetch, out)
+			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "msg_123", svc, mockFetch, out)
 			ctx.Dispatcher = disp
 			HandleUndoAC(ctx)
 			if tt.assertFunc != nil {
@@ -312,7 +308,7 @@ func TestHandleAddProblem(t *testing.T) {
 		args       []string
 		executorID string
 		guildID    string
-		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
+		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
@@ -320,10 +316,7 @@ func TestHandleAddProblem(t *testing.T) {
 			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "recommended", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
-				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
 				m.EXPECT().AddProblem(gomock.Any()).DoAndReturn(func(p data.Problem) (int64, error) {
 					assert.Equal(t, "Two Sum", p.Name)
@@ -335,6 +328,7 @@ func TestHandleAddProblem(t *testing.T) {
 					}
 					return 100, nil
 				})
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "basicos_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -346,8 +340,7 @@ func TestHandleAddProblem(t *testing.T) {
 			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Insane", "Loops", "-", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -359,8 +352,7 @@ func TestHandleAddProblem(t *testing.T) {
 			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "maybe", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -372,10 +364,7 @@ func TestHandleAddProblem(t *testing.T) {
 			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "-", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
-				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -388,12 +377,13 @@ func TestHandleAddProblem(t *testing.T) {
 			args:       []string{"!add_problem", "basicos_1", "https://url.com", "Easy", "Loops", "-", "Two", "Sum"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(false, fmt.Errorf("discord error"))
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "basicos_1").Return(false, fmt.Errorf("discord error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Equal(t, messageErrVerifying, msg.Content)
+				assert.Equal(t, "Unexpected internal error bro.", msg.Content)
 			},
 		},
 	}
@@ -404,14 +394,14 @@ func TestHandleAddProblem(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
+			mockVal := mock_services.NewMockAuthorizer(ctrl)
 			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
-			svc := services.NewServices(mockStore)
+			svc := services.NewServices(mockStore, mockVal)
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 
-			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "", svc, mockVal, mockFetch, out)
+			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "", svc, mockFetch, out)
 			ctx.Dispatcher = disp
 			HandleAddProblem(ctx)
 			if tt.assertFunc != nil {
@@ -429,7 +419,7 @@ func TestHandleRemoveProblem(t *testing.T) {
 		args       []string
 		executorID string
 		guildID    string
-		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
+		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 		wantErr    bool
 	}{
@@ -438,10 +428,11 @@ func TestHandleRemoveProblem(t *testing.T) {
 			args:       []string{"!remove_problem", "123"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				m.EXPECT().GetProblemByID(int64(123)).Return(data.Problem{ID: 123}, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetProblemByID(int64(123)).Return(data.Problem{ID: 123, ClassID: 1}, nil)
 				m.EXPECT().RemoveProblemByID(int64(123)).Return(int64(1), nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -453,8 +444,7 @@ func TestHandleRemoveProblem(t *testing.T) {
 			args:       []string{"!remove_problem", "123"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().GetProblemByID(int64(123)).Return(data.Problem{}, fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -468,8 +458,7 @@ func TestHandleRemoveProblem(t *testing.T) {
 			args:       []string{"!remove_problem", "not_an_int"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -482,12 +471,14 @@ func TestHandleRemoveProblem(t *testing.T) {
 			args:       []string{"!remove_problem", "123"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(false, fmt.Errorf("discord error"))
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetProblemByID(int64(123)).Return(data.Problem{ID: 123, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(false, fmt.Errorf("discord error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Equal(t, messageErrVerifying, msg.Content)
+				assert.Equal(t, "Unexpected internal error bro.", msg.Content)
 			},
 			wantErr: true,
 		},
@@ -499,14 +490,14 @@ func TestHandleRemoveProblem(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
+			mockVal := mock_services.NewMockAuthorizer(ctrl)
 			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
-			svc := services.NewServices(mockStore)
+			svc := services.NewServices(mockStore, mockVal)
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 
-			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "", svc, mockVal, mockFetch, out)
+			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "", svc, mockFetch, out)
 			ctx.Dispatcher = disp
 			err := HandleRemoveProblem(ctx)
 
@@ -523,81 +514,6 @@ func TestHandleRemoveProblem(t *testing.T) {
 	}
 }
 
-func TestCheckIfUserIsMentor(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		executorID string
-		guildID    string
-		setupMock  func(v *mock_providers.MockDiscordValidator)
-		want       bool
-		wantErr    bool
-	}{
-		{
-			name:       "missing executor user ID",
-			executorID: "",
-			guildID:    "guild_123",
-			setupMock:  func(v *mock_providers.MockDiscordValidator) {},
-			want:       false,
-			wantErr:    true,
-		},
-		{
-			name:       "DM execution (missing guild ID)",
-			executorID: "user_123",
-			guildID:    "",
-			setupMock:  func(v *mock_providers.MockDiscordValidator) {},
-			want:       false,
-			wantErr:    true,
-		},
-		{
-			name:       "validator error",
-			executorID: "user_123",
-			guildID:    "guild_123",
-			setupMock: func(v *mock_providers.MockDiscordValidator) {
-				v.EXPECT().IsMentor("guild_123", "user_123").Return(false, fmt.Errorf("discord error"))
-			},
-			want:    false,
-			wantErr: true,
-		},
-		{
-			name:       "is mentor",
-			executorID: "mentor_123",
-			guildID:    "guild_123",
-			setupMock: func(v *mock_providers.MockDiscordValidator) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-			},
-			want:    true,
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
-			tt.setupMock(mockVal)
-
-			ctx := &context.ContextMessage{
-				Executor:         service_model.User{UserID: tt.executorID},
-				ExecutorGuildID:  tt.guildID,
-				DiscordValidator: mockVal,
-			}
-
-			got, err := checkIfUserIsMentor(ctx)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestHandlePendingConfirmation(t *testing.T) {
 	t.Parallel()
 
@@ -606,7 +522,7 @@ func TestHandlePendingConfirmation(t *testing.T) {
 		emoji      string
 		executorID string
 		guildID    string
-		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
+		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
@@ -614,10 +530,12 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			emoji:      common.REACTION_YES,
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().AcceptPendingConfirmation("msg_123").Return(data.PendingConfirmation{MessageID: "msg_123", UserID: "123", ProblemID: 77}, nil)
+				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -631,10 +549,12 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			emoji:      common.REACTION_NO,
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().RemovePendingConfirmation("msg_123").Return(data.PendingConfirmation{MessageID: "msg_123", UserID: "123", ProblemID: 77}, nil)
+				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -648,8 +568,8 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			emoji:      common.REACTION_YES,
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(false, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetPendingConfirmation("msg_123").Return("", int64(0), &dataerr.NotFoundError{})
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				assert.Equal(t, 0, len(out))
@@ -660,10 +580,12 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			emoji:      common.REACTION_YES,
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().AcceptPendingConfirmation("msg_123").Return(data.PendingConfirmation{}, fmt.Errorf("db error"))
+				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -675,10 +597,12 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			emoji:      common.REACTION_YES,
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().AcceptPendingConfirmation("msg_123").Return(data.PendingConfirmation{}, fmt.Errorf("db error"))
+				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -686,15 +610,16 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			},
 		},
 		{
-			name:       "exists check error",
+			name:       "proposal lookup error",
 			emoji:      common.REACTION_YES,
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(false, fmt.Errorf("db error"))
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetPendingConfirmation("msg_123").Return("", int64(0), fmt.Errorf("db error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
-				assert.Equal(t, 0, len(out))
+				msg := awaitMessage(t, out)
+				assert.Equal(t, messageErrUnexpected, msg.Content)
 			},
 		},
 		{
@@ -702,10 +627,12 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			emoji:      common.REACTION_NO,
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				m.EXPECT().ExistsPendingConfirmation("msg_123").Return(true, nil)
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 				m.EXPECT().RemovePendingConfirmation("msg_123").Return(data.PendingConfirmation{}, fmt.Errorf("db error"))
+				m.EXPECT().GetPendingConfirmation("msg_123").Return("123", int64(77), nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -720,13 +647,13 @@ func TestHandlePendingConfirmation(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
+			mockVal := mock_services.NewMockAuthorizer(ctrl)
 			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
-			svc := services.NewServices(mockStore)
+			svc := services.NewServices(mockStore, mockVal)
 			out := make(chan dispatcher.MessageResponse, 1)
 
-			ctx := makeReactionContext(tt.executorID, tt.guildID, tt.emoji, svc, mockVal, mockFetch, out)
+			ctx := makeReactionContext(tt.executorID, tt.guildID, tt.emoji, svc, mockFetch, out)
 			HandlePendingConfirmation(ctx)
 			if tt.assertFunc != nil {
 				tt.assertFunc(t, out)
@@ -743,7 +670,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 		args       []string
 		executorID string
 		guildID    string
-		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher)
+		setupMock  func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher)
 		assertFunc func(t *testing.T, out chan dispatcher.MessageResponse)
 	}{
 		{
@@ -751,18 +678,17 @@ func TestHandleUpdateProblem(t *testing.T) {
 			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "essential", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
-				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, Priority: helpers.PtrStr("recommended")}, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 2, ClassCode: "basicos_1"}, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 1, Priority: helpers.PtrStr("recommended")}, nil)
 				m.EXPECT().ReplaceProblemByProblemID(int64(100), gomock.Any()).DoAndReturn(func(_ int64, updated data.Problem) error {
 					if assert.NotNil(t, updated.Priority) {
 						assert.Equal(t, "essential", *updated.Priority)
 					}
 					return nil
 				})
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1", "basicos_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -774,11 +700,8 @@ func TestHandleUpdateProblem(t *testing.T) {
 			args:       []string{"!update_problem", "100", "invalid_class", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
-				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 1}, nil)
 				m.EXPECT().GetClassByClassCode("invalid_class").Return(data.Class{}, fmt.Errorf("class not found"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
@@ -791,16 +714,15 @@ func TestHandleUpdateProblem(t *testing.T) {
 			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
-				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1, ClassCode: "basicos_1"}, nil)
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 2, ClassCode: "basicos_1"}, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 1}, nil)
 				m.EXPECT().ReplaceProblemByProblemID(int64(100), gomock.Any()).DoAndReturn(func(_ int64, updated data.Problem) error {
 					assert.Nil(t, updated.Priority)
 					return nil
 				})
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1", "basicos_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -812,12 +734,15 @@ func TestHandleUpdateProblem(t *testing.T) {
 			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(false, fmt.Errorf("discord error"))
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 2, ClassCode: "basicos_1"}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1", "basicos_1").Return(false, fmt.Errorf("discord error"))
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
-				assert.Equal(t, messageErrVerifying, msg.Content)
+				assert.Equal(t, "Unexpected internal error bro.", msg.Content)
 			},
 		},
 		{
@@ -825,8 +750,7 @@ func TestHandleUpdateProblem(t *testing.T) {
 			args:       []string{"!update_problem", "not_an_int", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -838,13 +762,12 @@ func TestHandleUpdateProblem(t *testing.T) {
 			args:       []string{"!update_problem", "100", "basicos_1", "https://new-url.com", "Medium", "Strings", "-", "New", "Name"},
 			executorID: "mentor_123",
 			guildID:    "guild_123",
-			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_providers.MockDiscordValidator, f *mock_providers.MockDiscordFetcher) {
-				v.EXPECT().IsMentor("guild_123", "mentor_123").Return(true, nil)
-				f.EXPECT().GetCachedMember("guild_123", gomock.Any()).Return(nil, fmt.Errorf("cache miss")).AnyTimes()
-				m.EXPECT().GetUserByUserID(gomock.Any()).Return(data.User{UserID: "123", DisplayName: "Resolved Name"}, nil).AnyTimes()
-				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 1}, nil)
-				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100}, nil)
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				m.EXPECT().GetClassByClassCode("basicos_1").Return(data.Class{ID: 2, ClassCode: "basicos_1"}, nil)
+				m.EXPECT().GetProblemByID(int64(100)).Return(data.Problem{ID: 100, ClassID: 1}, nil)
 				m.EXPECT().ReplaceProblemByProblemID(int64(100), gomock.Any()).Return(fmt.Errorf("db error"))
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1", "basicos_1").Return(true, nil)
 			},
 			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
 				msg := awaitMessage(t, out)
@@ -859,14 +782,14 @@ func TestHandleUpdateProblem(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockVal := mock_providers.NewMockDiscordValidator(ctrl)
+			mockVal := mock_services.NewMockAuthorizer(ctrl)
 			mockFetch := newMockDiscordFetcher(ctrl)
 			tt.setupMock(t, mockStore, mockVal, mockFetch)
-			svc := services.NewServices(mockStore)
+			svc := services.NewServices(mockStore, mockVal)
 			out := make(chan dispatcher.MessageResponse, 1)
 			disp := &dispatcher.Dispatcher{Output: out}
 
-			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "", svc, mockVal, mockFetch, out)
+			ctx := makeCommandContext(tt.args, tt.executorID, tt.guildID, "", svc, mockFetch, out)
 			ctx.Dispatcher = disp
 			HandleUpdateProblem(ctx)
 			if tt.assertFunc != nil {

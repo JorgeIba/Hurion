@@ -231,3 +231,46 @@ func TestTemplates_AllActionsHaveDefault(t *testing.T) {
 		})
 	}
 }
+
+func TestPermissionDeniedUsesActionTemplateInsteadOfServiceMessage(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name   string
+		action Action
+		want   string
+	}{
+		{"admin class", ActionCreateClass, "Bro has not enough permissions (is not admin)."},
+		{"admin role link", ActionLinkRoles, "Bro has not enough permissions (is not admin)."},
+		{"admin room link", ActionLinkRooms, "Bro has not enough permissions (is not admin)."},
+		{"mentor problem", ActionMentorAddProblem, "The mentor or admin role is required for the affected classes. No changes were applied."},
+		{"mentor AC", ActionMentorAddAC, "The mentor or admin role is required for the affected classes. No changes were applied."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			denied := serviceerr.NewPermissionDeniedError()
+			denied.Message = "internal permission diagnostic that must not reach the user"
+
+			assert.Equal(t, test.want, MapError(denied, test.action))
+			wrapped := serviceerr.NewBatchPreparationError("batch preparation failed", denied)
+			assert.Equal(t, test.want, MapError(wrapped, test.action))
+		})
+	}
+}
+
+func TestLinkErrorsIdentifyMissingClass(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name   string
+		action Action
+	}{
+		{name: "roles", action: ActionLinkRoles},
+		{name: "rooms", action: ActionLinkRooms},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := serviceerr.NewClassCodeNotFoundError("internal diagnostic", nil)
+			assert.Equal(t, "Class code `missing` not found.", MapError(err, tt.action, "missing"))
+		})
+	}
+}

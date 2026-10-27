@@ -12,7 +12,6 @@ import (
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
-	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
@@ -21,7 +20,6 @@ import (
 // ProblemInteractionController shares problem drafts across command and submit events.
 type ProblemInteractionController struct {
 	services             *services.Services
-	validator            providers.DiscordValidator
 	responder            dispatcher.InteractionResponder
 	attachments          *jsonTransport
 	validatedBatches     *validatedProblemBatchCache
@@ -30,10 +28,9 @@ type ProblemInteractionController struct {
 	editProblemDrafts    *editProblemDraftCache
 }
 
-func NewProblemInteractionController(svcs *services.Services, validator providers.DiscordValidator, responder dispatcher.InteractionResponder) *ProblemInteractionController {
+func NewProblemInteractionController(svcs *services.Services, responder dispatcher.InteractionResponder) *ProblemInteractionController {
 	return &ProblemInteractionController{
 		services:             svcs,
-		validator:            validator,
 		responder:            responder,
 		attachments:          newJSONTransport(nil),
 		validatedBatches:     newValidatedProblemBatchCache(nil),
@@ -46,9 +43,9 @@ func NewProblemInteractionController(svcs *services.Services, validator provider
 // HandleAddProblemInteraction opens a form for the explicit class or the channel's class.
 func (ctrl *ProblemInteractionController) HandleAddProblemInteraction(event *discordgo.InteractionCreate) {
 	// Opening a modal must be the initial response within Discord's three-second
-	// deadline. Permission verification calls Discord; it and the class lookup
-	// must finish within that window because a modal cannot follow a deferred reply.
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	// deadline. The class lookup must finish within that window because a modal
+	// cannot follow a deferred reply. Management permission is checked on submit.
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -93,7 +90,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
 		return
 	}
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
@@ -110,7 +107,8 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		classCode: modal.ClassCode,
 	}
 	params := mapCreateProblemModalToCreateProblemParams(modal)
-	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(params)
+
+	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(services.UserActor(event.Member.User.ID), params)
 	if err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorAddProblem, params.ClassCode, params.URL, params.Name)
 		// Keep raw input after any failed write so corrections do not require
@@ -128,7 +126,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 // HandleEditProblemInteraction opens the current problem or a failed draft for the selected destination.
 func (ctrl *ProblemInteractionController) HandleEditProblemInteraction(event *discordgo.InteractionCreate) {
 	// Opening a modal must be the initial response; lookups cannot be deferred.
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -181,7 +179,7 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
 		return
 	}
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
@@ -195,7 +193,7 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 	key := editProblemDraftCacheKey{guildID: event.GuildID, userID: event.Member.User.ID, problemID: modal.ProblemID, classCode: modal.ClassCode}
 	params := mapEditProblemModalToReplaceProblemParams(modal)
 
-	if err := ctrl.services.Problem.ReplaceProblemByProblemID(params); err != nil {
+	if err := ctrl.services.Problem.ReplaceProblemByProblemID(services.UserActor(event.Member.User.ID), params); err != nil {
 		content := adapters.MapError(err, adapters.ActionMentorUpdateProblem, params.ProblemID, modal.ClassCode, params.Name)
 		recoverDraft := ctrl.editProblemDrafts.saveFailedDraft(key, modal)
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatEditProblemError(content, modal.ProblemID, modal.ClassCode, recoverDraft))
@@ -207,7 +205,7 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 
 // HandleAddProblemBatchInteraction opens the JSON intake form for problems.
 func (ctrl *ProblemInteractionController) HandleAddProblemBatchInteraction(event *discordgo.InteractionCreate) {
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -216,11 +214,11 @@ func (ctrl *ProblemInteractionController) HandleAddProblemBatchInteraction(event
 
 // HandleCreateProblemBatchModalSubmitInteraction validates without writing.
 func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
-	// Acknowledge the submission and authorize the actor.
+	// Acknowledge the submission and validate the actor identity.
 	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
 		return
 	}
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
@@ -249,10 +247,14 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemBatchModalSubmitInt
 	}
 	// Adapt the input and validate the complete batch with the service.
 	inputs := mapProblemBatchInputToCreateProblemParams(entries)
-	prepared, domainIssues, err := ctrl.services.Problem.PrepareCreationBatch(inputs)
+	prepared, domainIssues, err := ctrl.services.Problem.PrepareCreationBatch(services.UserActor(event.Member.User.ID), inputs)
 	if err != nil {
 		logger.Log.Errorf("Failed to validate problem batch: %v", err)
-		ctrl.editInteractionResponse(event.Interaction, "Could not validate the problem batch. No changes were applied. Try again.")
+		if _, denied := errors.AsType[*serviceerr.PermissionDeniedError](err); denied {
+			ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddProblem))
+		} else {
+			ctrl.editInteractionResponse(event.Interaction, "Could not validate the problem batch. No changes were applied. Try again.")
+		}
 		return
 	}
 
@@ -311,11 +313,11 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 		return
 	}
 
-	// Acknowledge the click and verify current authority.
+	// Acknowledge the click and validate the actor identity.
 	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
 		return
 	}
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -325,11 +327,13 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemBatchInteraction(e
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Problem.ExecuteCreationBatch(batch)
+	result, issues, err := ctrl.services.Problem.ExecuteCreationBatch(services.UserActor(event.Member.User.ID), batch)
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit
-	if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
+	if _, denied := errors.AsType[*serviceerr.PermissionDeniedError](err); denied {
+		response = discord.BuildBatchValidationFailure(adapters.MapError(err, adapters.ActionMentorAddProblem))
+	} else if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
 		logger.Log.Errorf("Failed to revalidate problem batch %s: %v", batchID, err)
 		response = discord.BuildBatchValidationFailure("Could not validate the problem batch. No changes were applied. Submit the batch again.")
 	} else if len(issues) > 0 {
@@ -368,17 +372,18 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
 	// A forged or stale button must not update another actor's preview.
-	if _, available := ctrl.validatedBatches.loadValidatedBatch(key); !available {
+	_, available := ctrl.validatedBatches.loadValidatedBatch(key)
+	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
 
-	// Acknowledge the click and verify current authority.
+	// Acknowledge the click and validate the actor identity.
 	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
 		return
 	}
 
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -392,7 +397,7 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemBatchInteraction(ev
 }
 
 func (ctrl *ProblemInteractionController) HandleEditProblemBatchInteraction(event *discordgo.InteractionCreate) {
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -402,12 +407,12 @@ func (ctrl *ProblemInteractionController) HandleEditProblemBatchInteraction(even
 
 // HandleEditProblemBatchModalSubmitInteraction validates without writing.
 func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
-	// Acknowledge the submission and authorize the actor.
+	// Acknowledge the submission and validate the actor identity.
 	if err := ctrl.deferProblemInteractionResponse(event.Interaction); err != nil {
 		return
 	}
 
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
@@ -440,7 +445,17 @@ func (ctrl *ProblemInteractionController) HandleEditProblemBatchModalSubmitInter
 
 	// Adapt the input and validate the complete batch with the service.
 	inputs := mapProblemEditBatchInputToPatchProblemParams(entries)
-	prepared, domainIssues := ctrl.services.Problem.PrepareProblemPatchBatch(inputs)
+	prepared, domainIssues, err := ctrl.services.Problem.PrepareProblemPatchBatch(services.UserActor(event.Member.User.ID), inputs)
+	if err != nil {
+		logger.Log.Errorf("Failed to validate problem edit batch: %v", err)
+		if _, denied := errors.AsType[*serviceerr.PermissionDeniedError](err); denied {
+			ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionMentorUpdateProblem))
+		} else {
+			ctrl.editInteractionResponse(event.Interaction, "Could not validate the problem edit batch. No changes were applied. Try again.")
+		}
+		return
+	}
+
 	if len(domainIssues) > 0 {
 		for _, issue := range domainIssues {
 			logger.Log.Warnf("Problem edit batch validation rejected: guild=%s actor=%s entry=%d error=%v", event.GuildID, event.Member.User.ID, issue.Entry, issue.Err)
@@ -498,12 +513,12 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 		return
 	}
 
-	// Acknowledge the click and verify current authority.
+	// Acknowledge the click and validate the actor identity.
 	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
 		return
 	}
 
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -513,11 +528,16 @@ func (ctrl *ProblemInteractionController) HandleConfirmProblemEditBatchInteracti
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Problem.ExecuteProblemPatchBatch(batch)
+	result, issues, err := ctrl.services.Problem.ExecuteProblemPatchBatch(services.UserActor(event.Member.User.ID), batch)
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit
-	if len(issues) > 0 {
+	if _, denied := errors.AsType[*serviceerr.PermissionDeniedError](err); denied {
+		response = discord.BuildBatchValidationFailure(adapters.MapError(err, adapters.ActionMentorUpdateProblem))
+	} else if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
+		logger.Log.Errorf("Failed to revalidate problem edit batch %s: %v", batchID, err)
+		response = discord.BuildBatchValidationFailure("Could not validate the problem edit batch. No changes were applied. Submit the batch again.")
+	} else if len(issues) > 0 {
 		locations := mapProblemEditBatchExecutionIssues(batch, issues)
 		response = discord.BuildBatchValidationFailure(discord.FormatBatchValidationErrors(locations))
 	} else {
@@ -555,17 +575,18 @@ func (ctrl *ProblemInteractionController) HandleCancelProblemEditBatchInteractio
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
 	// A forged or stale button must not update another actor's preview.
-	if _, available := ctrl.validatedEditBatches.loadValidatedBatch(key); !available {
+	_, available := ctrl.validatedEditBatches.loadValidatedBatch(key)
+	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
 
-	// Acknowledge the click and verify current authority.
+	// Acknowledge the click and validate the actor identity.
 	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
 		return
 	}
 
-	if err := ctrl.authorizeProblemInteraction(event); err != nil {
+	if err := ctrl.validateProblemActor(event); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -636,20 +657,11 @@ func (ctrl *ProblemInteractionController) resolveEditProblemClass(currentClassID
 	return selectedClass, nil
 }
 
-func (ctrl *ProblemInteractionController) authorizeProblemInteraction(event *discordgo.InteractionCreate) error {
+func (ctrl *ProblemInteractionController) validateProblemActor(event *discordgo.InteractionCreate) error {
 	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
 		return errors.New("Problem commands require an identified server member.")
 	}
 
-	allowed, err := canManageProblems(ctrl.validator, event.GuildID, event.Member.User.ID)
-	if err != nil {
-		logger.Log.Errorf("Failed to verify interaction problem-management permissions: %v", err)
-		return errors.New(messageErrVerifying)
-	}
-
-	if !allowed {
-		return errors.New(messageErrProblemPermissions)
-	}
 	return nil
 }
 

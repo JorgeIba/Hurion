@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 
+	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
@@ -18,7 +19,6 @@ import (
 
 type ACInteractionController struct {
 	services             *services.Services
-	validator            providers.DiscordValidator
 	fetcher              providers.DiscordFetcher
 	responder            dispatcher.InteractionResponder
 	attachments          *jsonTransport
@@ -28,14 +28,12 @@ type ACInteractionController struct {
 
 func NewACInteractionController(
 	svcs *services.Services,
-	validator providers.DiscordValidator,
 	fetcher providers.DiscordFetcher,
 	responder dispatcher.InteractionResponder,
 ) *ACInteractionController {
 	downloader := interactiontransport.NewAttachmentDownloader(nil)
 	return &ACInteractionController{
 		services:             svcs,
-		validator:            validator,
 		fetcher:              fetcher,
 		responder:            responder,
 		attachments:          &jsonTransport{downloader: downloader},
@@ -46,7 +44,7 @@ func NewACInteractionController(
 
 // HandleAddACBatchInteraction opens the JSON intake form for explicit student ACs.
 func (ctrl *ACInteractionController) HandleAddACBatchInteraction(event *discordgo.InteractionCreate) {
-	if err := ctrl.authorizeACInteraction(event); err != nil {
+	if err := ctrl.validateACActor(event); err != nil {
 		ctrl.responder.RespondPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -55,12 +53,12 @@ func (ctrl *ACInteractionController) HandleAddACBatchInteraction(event *discordg
 
 // HandleCreateACBatchModalSubmitInteraction validates without writing.
 func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(event *discordgo.InteractionCreate) {
-	// Acknowledge the submission and authorize the actor.
+	// Acknowledge the submission and validate the actor identity.
 	if err := ctrl.deferACInteractionResponse(event.Interaction); err != nil {
 		return
 	}
 
-	if err := ctrl.authorizeACInteraction(event); err != nil {
+	if err := ctrl.validateACActor(event); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, err.Error())
 		return
 	}
@@ -91,13 +89,13 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 		return
 	}
 
-	// Adapt the input and resolve Discord principals.
+	// Adapt the input and resolve Discord usersWithRoles.
 	inputs := mapACBatchInputToCreateACParams(entries)
 	userIDs := make([]string, len(entries))
 	for index, entry := range entries {
 		userIDs[index] = service_model.NormalizeACUserID(entry.UserID)
 	}
-	students, err := controllers_common.GetMemberPrincipals(ctrl.fetcher, event.GuildID, userIDs)
+	students, err := controllers_common.GetMembersWithRoles(ctrl.fetcher, event.GuildID, userIDs)
 
 	if err != nil {
 		logger.Log.Errorf("Failed to resolve AC batch students: %v", err)
@@ -106,10 +104,14 @@ func (ctrl *ACInteractionController) HandleCreateACBatchModalSubmitInteraction(e
 	}
 
 	// Validate the complete batch with the service.
-	prepared, domainIssues, err := ctrl.services.Solution.PrepareCreationBatch(inputs, students)
+	prepared, domainIssues, err := ctrl.services.Solution.PrepareCreationBatch(services.UserActor(event.Member.User.ID), inputs, students)
 	if err != nil {
 		logger.Log.Errorf("Failed to validate AC batch: %v", err)
-		ctrl.editInteractionResponse(event.Interaction, "Could not validate the AC batch. No changes were applied. Try again.")
+		if _, denied := errors.AsType[*serviceerr.PermissionDeniedError](err); denied {
+			ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddAC))
+		} else {
+			ctrl.editInteractionResponse(event.Interaction, "Could not validate the AC batch. No changes were applied. Try again.")
+		}
 		return
 	}
 	if len(domainIssues) > 0 {
@@ -168,11 +170,11 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 		return
 	}
 
-	// Acknowledge the click and verify current authority.
+	// Acknowledge the click and validate the actor identity.
 	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
 		return
 	}
-	if err := ctrl.authorizeACInteraction(event); err != nil {
+	if err := ctrl.validateACActor(event); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -182,7 +184,7 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 	for index, entry := range snapshot {
 		userIDs[index] = entry.User.UserID
 	}
-	students, err := controllers_common.GetMemberPrincipals(ctrl.fetcher, event.GuildID, userIDs)
+	students, err := controllers_common.GetMembersWithRoles(ctrl.fetcher, event.GuildID, userIDs)
 	if err != nil {
 		logger.Log.Errorf("Failed to resolve AC batch students before confirmation: %v", err)
 		ctrl.responder.FollowupPrivately(event.Interaction, "Could not resolve a batch student from Discord. Try confirming again.")
@@ -194,11 +196,13 @@ func (ctrl *ACInteractionController) HandleConfirmACBatchInteraction(event *disc
 	if !claimed {
 		return
 	}
-	result, issues, err := ctrl.services.Solution.ExecuteCreationBatch(batch, students)
+	result, issues, err := ctrl.services.Solution.ExecuteCreationBatch(services.UserActor(event.Member.User.ID), batch, students)
 
 	// Present validation failures or the acknowledged execution outcome.
 	var response *discordgo.WebhookEdit
-	if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
+	if _, denied := errors.AsType[*serviceerr.PermissionDeniedError](err); denied {
+		response = discord.BuildBatchValidationFailure(adapters.MapError(err, adapters.ActionMentorAddAC))
+	} else if _, preparationFailed := errors.AsType[*serviceerr.BatchPreparationError](err); preparationFailed {
 		logger.Log.Errorf("Failed to revalidate AC batch %s: %v", batchID, err)
 		response = discord.BuildBatchValidationFailure("Could not validate the AC batch. No changes were applied. Submit the batch again.")
 	} else if len(issues) > 0 {
@@ -240,17 +244,18 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 
 	// Find an unexpired batch owned by this member and guild.
 	key := validatedBatchCacheKey{batchID: batchID, guildID: event.GuildID, userID: event.Member.User.ID}
-	if _, available := ctrl.validatedBatches.loadValidatedBatch(key); !available {
+	_, available := ctrl.validatedBatches.loadValidatedBatch(key)
+	if !available {
 		ctrl.responder.RespondPrivately(event.Interaction, discord.BatchUnavailableMessage)
 		return
 	}
 
-	// Acknowledge the click and verify current authority.
+	// Acknowledge the click and validate the actor identity.
 	if err := ctrl.responder.Respond(event.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate}); err != nil {
 		return
 	}
 
-	if err := ctrl.authorizeACInteraction(event); err != nil {
+	if err := ctrl.validateACActor(event); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -276,17 +281,9 @@ func (ctrl *ACInteractionController) editInteractionResponse(interaction *discor
 	})
 }
 
-func (ctrl *ACInteractionController) authorizeACInteraction(event *discordgo.InteractionCreate) error {
+func (ctrl *ACInteractionController) validateACActor(event *discordgo.InteractionCreate) error {
 	if event.Member == nil || event.Member.User == nil || event.Member.User.ID == "" {
 		return errors.New("AC commands require an identified server member.")
-	}
-	allowed, err := canManageACs(ctrl.validator, event.GuildID, event.Member.User.ID)
-	if err != nil {
-		logger.Log.Errorf("Failed to verify interaction AC-management permissions: %v", err)
-		return errors.New(messageErrVerifying)
-	}
-	if !allowed {
-		return errors.New(messageErrACPermissions)
 	}
 	return nil
 }

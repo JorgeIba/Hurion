@@ -3,6 +3,7 @@ package integration
 import (
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -19,7 +20,6 @@ type testEnv struct {
 	Ctx        *context.ContextMessage
 	DB         *data.DB
 	Services   *services.Services
-	Validator  *StubDiscordProvider
 	Fetcher    *StubDiscordProvider
 	Modifier   *StubDiscordProvider
 	Dispatcher *FakeDispatcher
@@ -40,15 +40,16 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 	t.Cleanup(db.CloseDB)
 
 	// Initialize services
-	svc := services.NewServices(db)
 
 	// Initialize Stub Providers (Quiet by default)
 	stub := &StubDiscordProvider{}
 	fakeDispatcher := &FakeDispatcher{}
 
+	stubAuth := authorization.New(authorization.NewDiscordRoleSource(stub, "guild_1"), "admin_role", "mentor_role", nil)
+	svc := services.NewServices(db, stubAuth)
+
 	// Construct ContextMessage
 	ctx := &context.ContextMessage{
-		DiscordValidator:       stub,
 		DiscordFetcher:         stub,
 		DiscordMessageModifier: stub,
 		Dispatcher:             fakeDispatcher,
@@ -58,7 +59,6 @@ func setupIntegrationEnv(t *testing.T) *testEnv {
 		Ctx:        ctx,
 		DB:         db,
 		Services:   svc,
-		Validator:  stub,
 		Fetcher:    stub,
 		Modifier:   stub,
 		Dispatcher: fakeDispatcher,
@@ -106,7 +106,6 @@ func (env *testEnv) NewContext(userID, displayName, guildID string, args []strin
 		Args:                   args,
 		Executor:               service_model.User{UserID: userID, DisplayName: displayName},
 		ExecutorGuildID:        guildID,
-		DiscordValidator:       env.Validator,
 		DiscordFetcher:         env.Fetcher,
 		DiscordMessageModifier: env.Modifier,
 		Dispatcher:             env.Dispatcher,

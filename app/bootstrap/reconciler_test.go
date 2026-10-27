@@ -7,6 +7,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/bootstrap/mock_bootstrap"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -16,185 +17,100 @@ func TestReconciler_Reconcile(t *testing.T) {
 	logger.Init()
 	t.Parallel()
 
-	notFoundClassErr := &serviceerr.ClassCodeNotFoundError{}
+	actor := services.ConfigReconcilerActor()
+	class := service_model.Class{ClassCode: "c1", Name: "Class 1"}
+	room := service_model.Classroom{ClassCode: "c1", RoomID: "room1"}
+	role := service_model.ClassAccessRole{ClassCode: "c1", RoleID: "role1"}
+	cfg := Config{Classes: []ClassConfig{{
+		Code: "c1", Name: "Class 1", RoomIDs: []string{"room1"}, RoleIDs: []string{"role1"},
+	}}}
 
 	tests := []struct {
-		name       string
-		cfg        Config
-		setupMock  func(*mock_bootstrap.MockClassServiceInterface)
-		assertFunc func(*testing.T, error)
+		name      string
+		setupMock func(*mock_bootstrap.MockClassServiceInterface)
+		wantError string
 	}{
 		{
-			name: "success - all missing, creates everything",
-			cfg: Config{
-				Classes: []ClassConfig{
-					{
-						Code:    "c1",
-						Name:    "Class 1",
-						RoomIDs: []string{"room1"},
-						RoleIDs: []string{"role1"},
-					},
-				},
-			},
+			name: "creates missing class and links resources",
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
-				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{}, notFoundClassErr)
-				m.EXPECT().CreateClass("c1", "Class 1").Return(int64(1), nil)
-
-				m.EXPECT().GetClassCodeFromRoom("room1").Return("", false, nil)
-				m.EXPECT().RegisterClassroom(service_model.Classroom{
-					ClassCode: "c1",
-					RoomID:    "room1",
-				}).Return(nil)
-
-				m.EXPECT().HasAccessRole("c1", "role1").Return(false, nil)
-				m.EXPECT().AssignAccessRole(service_model.ClassAccessRole{
-					ClassCode: "c1",
-					RoleID:    "role1",
-				}).Return(nil)
-			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.NoError(t, err)
+				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{}, serviceerr.NewClassCodeNotFoundError("missing", nil))
+				m.EXPECT().CreateClass(actor, "c1", "Class 1").Return(int64(1), nil)
+				m.EXPECT().LinkClassroom(actor, room).Return(true, nil)
+				m.EXPECT().LinkClassAccessRole(actor, role).Return(true, nil)
 			},
 		},
 		{
-			name: "success - everything already exists, skips everything",
-			cfg: Config{
-				Classes: []ClassConfig{
-					{
-						Code:    "c1",
-						Name:    "Class 1",
-						RoomIDs: []string{"room1"},
-						RoleIDs: []string{"role1"},
-					},
-				},
-			},
+			name: "services report existing links without rewriting",
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
-				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{ClassCode: "c1"}, nil)
-
-				m.EXPECT().GetClassCodeFromRoom("room1").Return("c1", true, nil)
-
-				m.EXPECT().HasAccessRole("c1", "role1").Return(true, nil)
-			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.NoError(t, err)
+				m.EXPECT().GetClassByClassCode("c1").Return(class, nil)
+				m.EXPECT().LinkClassroom(actor, room).Return(false, nil)
+				m.EXPECT().LinkClassAccessRole(actor, role).Return(false, nil)
 			},
 		},
 		{
-			name: "error - room linked to different class",
-			cfg: Config{
-				Classes: []ClassConfig{
-					{
-						Code:    "c1",
-						Name:    "Class 1",
-						RoomIDs: []string{"room1"},
-					},
-				},
-			},
+			name: "class lookup failure stops reconciliation",
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
-				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{ClassCode: "c1"}, nil)
-				m.EXPECT().GetClassCodeFromRoom("room1").Return("other_class", true, nil)
+				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{}, serviceerr.NewInternalError("database unavailable", nil))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "room \"room1\" is already linked to a different class")
-			},
+			wantError: "failed to check class",
 		},
 		{
-			name: "error - create class fails (db error)",
-			cfg: Config{
-				Classes: []ClassConfig{
-					{
-						Code: "c1",
-						Name: "Class 1",
-					},
-				},
-			},
+			name: "class creation failure stops before links",
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
-				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{}, notFoundClassErr)
-				m.EXPECT().CreateClass("c1", "Class 1").Return(int64(0), errors.New("db error"))
+				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{}, serviceerr.NewClassCodeNotFoundError("missing", nil))
+				m.EXPECT().CreateClass(actor, "c1", "Class 1").Return(int64(0), errors.New("database unavailable"))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "failed to create class")
-			},
+			wantError: "failed to create class",
 		},
 		{
-			name: "error - link room fails",
-			cfg: Config{
-				Classes: []ClassConfig{
-					{
-						Code:    "c1",
-						Name:    "Class 1",
-						RoomIDs: []string{"room1"},
-					},
-				},
-			},
+			name: "service rejects room owned by another class",
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
-				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{ClassCode: "c1"}, nil)
-				m.EXPECT().GetClassCodeFromRoom("room1").Return("", false, nil)
-				m.EXPECT().RegisterClassroom(gomock.Any()).Return(errors.New("db error"))
+				m.EXPECT().GetClassByClassCode("c1").Return(class, nil)
+				m.EXPECT().LinkClassroom(actor, room).Return(false, serviceerr.NewConflictError("room belongs to another class", nil))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "failed to link room")
-			},
+			wantError: "room belongs to another class",
 		},
 		{
-			name: "error - link role fails",
-			cfg: Config{
-				Classes: []ClassConfig{
-					{
-						Code:    "c1",
-						Name:    "Class 1",
-						RoleIDs: []string{"role1"},
-					},
-				},
-			},
+			name: "room failure stops before role links",
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
-				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{ClassCode: "c1"}, nil)
-				m.EXPECT().HasAccessRole("c1", "role1").Return(false, nil)
-				m.EXPECT().AssignAccessRole(gomock.Any()).Return(errors.New("db error"))
+				m.EXPECT().GetClassByClassCode("c1").Return(class, nil)
+				m.EXPECT().LinkClassroom(actor, room).Return(false, errors.New("database unavailable"))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "failed to link role")
-			},
+			wantError: "failed to link room",
 		},
 		{
-			name: "error - check role fails",
-			cfg: Config{
-				Classes: []ClassConfig{
-					{
-						Code:    "c1",
-						Name:    "Class 1",
-						RoleIDs: []string{"role1"},
-					},
-				},
-			},
+			name: "role failure is reported",
 			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
-				m.EXPECT().GetClassByClassCode("c1").Return(service_model.Class{ClassCode: "c1"}, nil)
-				m.EXPECT().HasAccessRole("c1", "role1").Return(false, errors.New("db error"))
+				m.EXPECT().GetClassByClassCode("c1").Return(class, nil)
+				m.EXPECT().LinkClassroom(actor, room).Return(true, nil)
+				m.EXPECT().LinkClassAccessRole(actor, role).Return(false, errors.New("database unavailable"))
 			},
-			assertFunc: func(t *testing.T, err error) {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "failed to check role")
+			wantError: "failed to link role",
+		},
+		{
+			name: "service permission denial stops before writes",
+			setupMock: func(m *mock_bootstrap.MockClassServiceInterface) {
+				m.EXPECT().GetClassByClassCode("c1").Return(class, nil)
+				m.EXPECT().LinkClassroom(actor, room).Return(false, serviceerr.NewPermissionDeniedError())
 			},
+			wantError: "permission denied",
 		},
 	}
 
 	for _, tt := range tests {
-		tc := tt
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
 			mockClassSvc := mock_bootstrap.NewMockClassServiceInterface(ctrl)
-			tc.setupMock(mockClassSvc)
+			tt.setupMock(mockClassSvc)
 
-			r := NewReconciler(mockClassSvc)
-			err := r.Reconcile(tc.cfg)
-			tc.assertFunc(t, err)
+			err := NewReconciler(mockClassSvc, actor).Reconcile(cfg)
+
+			if tt.wantError != "" {
+				assert.ErrorContains(t, err, tt.wantError)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

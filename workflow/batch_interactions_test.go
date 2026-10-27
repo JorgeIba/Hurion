@@ -3,14 +3,15 @@ package workflow
 import (
 	"errors"
 	"fmt"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/JorgeIba/Hurion/app/services"
 	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +42,11 @@ func TestWorkflow_BatchCommandsOpenFormsAndValidateWithoutWrites(t *testing.T) {
 				input = strings.ReplaceAll(input, `"problem_id":42`, fmt.Sprintf(`"problem_id":%d`, problemID))
 			}
 			checks := 0
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
+			env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+				checks++
+				return env.Discord.GetCachedMember(guildID, userID)
+			}
 			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				Type: discordgo.InteractionApplicationCommand, GuildID: testGuildID, Member: member,
@@ -72,7 +77,11 @@ func TestWorkflow_BatchCommandsOpenFormsAndValidateWithoutWrites(t *testing.T) {
 				assert.Contains(t, *env.Responder.edits[0].response.Content, test.want)
 				assert.Empty(t, env.Responder.edits[0].response.AllowedMentions.Parse)
 			}
-			assert.Equal(t, 2, checks, "authorize at open and submit")
+			expectedChecks := 0
+			if strings.HasPrefix(test.want, "Entries:") {
+				expectedChecks++
+			}
+			assert.Equal(t, expectedChecks, checks, "check entry at open/submit and targets before preview")
 			problems, err := env.DB.GetProblemsByClass(classID)
 			assert.NoError(t, err)
 			if test.command == "problem" {
@@ -96,22 +105,30 @@ func TestWorkflow_BatchInteractionsHonorAuthorityAndBotGates(t *testing.T) {
 		admin, denied, missingMember, testMode, submit, ackFails bool
 		want                                                     string
 	}{
-		{name: "mentor denied", command: "problem", denied: true, want: "mentor or admin"},
-		{name: "AC denied", command: "ac", denied: true, want: "mentor or admin"},
+		{name: "mentor denied", command: "problem", denied: true, want: "No changes were applied"},
+		{name: "AC denied", command: "ac", denied: true, want: "No changes were applied"},
 		{name: "missing member", command: "ac", missingMember: true, want: "identified server member"},
 		{name: "wrong server", command: "ac", guild: "other", want: "configured server"},
 		{name: "test mode whitelist", command: "ac", testMode: true, want: "not enabled"},
 		{name: "admin opens AC form", command: "ac", admin: true},
 		{name: "admin opens problem form", command: "problem", admin: true},
-		{name: "authority revoked before submit", command: "ac", denied: true, submit: true, want: "mentor or admin"},
+		{name: "authority revoked before submit", command: "ac", denied: true, submit: true, want: "No changes were applied"},
 		{name: "failed ack stops processing", command: "ac", submit: true, ackFails: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID, TestMode: test.testMode})
 			checks := 0
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return !test.denied && !test.admin, nil }
-			env.Discord.isAdminFunc = func(_, _ string) (bool, error) { return test.admin, nil }
+			if !test.denied && !test.admin {
+				env.setRoles("mentor", []string{"mentor_role"})
+			}
+			env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+				checks++
+				return env.Discord.GetCachedMember(guildID, userID)
+			}
+			if test.admin {
+				env.setRoles("mentor", []string{"admin_role"})
+			}
 			guild := test.guild
 			if guild == "" {
 				guild = testGuildID
@@ -124,7 +141,14 @@ func TestWorkflow_BatchInteractionsHonorAuthorityAndBotGates(t *testing.T) {
 			kind := discordgo.InteractionApplicationCommand
 			if test.submit {
 				kind = discordgo.InteractionModalSubmit
-				data = discordgo.ModalSubmitInteractionData{CustomID: string(discordcommands.ACBatch)}
+				classID := env.seedClass(t, "basicos", "Basicos")
+				id := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
+				env.seedClassAccessRole(t, "basicos", "student")
+				env.setRoles("123", []string{"student"})
+				data = discordgo.ModalSubmitInteractionData{CustomID: string(discordcommands.ACBatch), Components: []discordgo.MessageComponent{
+					&discordgo.Label{Component: &discordgo.TextInput{CustomID: "json", Value: fmt.Sprintf(`[{"user_id":"123","problem_id":%d}]`, id)}},
+					&discordgo.Label{Component: &discordgo.FileUpload{CustomID: "file"}},
+				}}
 			}
 			if test.ackFails {
 				env.Responder.respondFunc = func(*discordgo.InteractionResponse) error { return errors.New("ack failed") }
@@ -138,6 +162,12 @@ func TestWorkflow_BatchInteractionsHonorAuthorityAndBotGates(t *testing.T) {
 				assert.Zero(t, checks)
 				return
 			}
+			if test.denied && !test.submit {
+				assert.Equal(t, discordgo.InteractionResponseModal, env.Responder.responses[0].response.Type)
+				assert.Zero(t, checks, "opening an untargeted form grants no permission")
+				return
+			}
+
 			if test.admin {
 				assert.Equal(t, discordgo.InteractionResponseModal, env.Responder.responses[0].response.Type)
 				return
@@ -169,7 +199,7 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			input := test.input
 			if test.name == "ac" {
@@ -181,9 +211,9 @@ func TestWorkflow_BatchCommandsUseInjectedControllers(t *testing.T) {
 			client := &recordingDiscordInteractionClient{t: t}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
 			if test.name == "problem" {
-				env.ProblemController = mentor.NewProblemInteractionController(env.Services, env.Discord, responder)
+				env.ProblemController = mentor.NewProblemInteractionController(env.Services, responder)
 			} else {
-				env.ACController = mentor.NewACInteractionController(env.Services, env.Discord, env.Discord, responder)
+				env.ACController = mentor.NewACInteractionController(env.Services, env.Discord, responder)
 			}
 			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
@@ -239,13 +269,16 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			problemID := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
 			input := strings.ReplaceAll(test.input, `"problem_id":1}`, fmt.Sprintf(`"problem_id":%d}`, problemID))
 			env.seedClassAccessRole(t, "basicos", "student")
 			lookups := 0
 			env.Discord.getCachedMemberFunc = func(_, userID string) (*discordgo.Member, error) {
+				if userID == "mentor" {
+					return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: []string{"mentor_role"}}, nil
+				}
 				lookups++
 				if test.lookupFails {
 					return nil, errors.New("private Discord cache failure")
@@ -256,10 +289,15 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 				}
 				return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: roles}, nil
 			}
-			env.Discord.fetchMemberFunc = func(_, _ string) (*discordgo.Member, error) { return nil, errors.New("private Discord HTTP failure") }
+			env.Discord.fetchMemberFunc = func(_, userID string) (*discordgo.Member, error) {
+				if userID == "mentor" {
+					return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: []string{"mentor_role"}}, nil
+				}
+				return nil, errors.New("private Discord HTTP failure")
+			}
 			if test.alreadyRecorded {
 				env.seedUser(t, "123", "Student")
-				assert.NoError(t, env.Services.Solution.AddACToUserID("123", problemID))
+				assert.NoError(t, env.Services.Solution.GrantACWithoutEnrollmentCheck(services.UserActor("mentor"), "123", problemID))
 			}
 			member := &discordgo.Member{User: &discordgo.User{ID: "mentor"}}
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
@@ -342,16 +380,22 @@ func TestWorkflow_ACBatchRejectsInvalidInputBeforeStudentLookups(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			problemID := env.seedProblem(t, "Existing", "https://example.com/existing", classID, "easy", "Arrays")
 			env.seedClassAccessRole(t, "basicos", "student")
 			cachedLookups, httpLookups := 0, 0
-			env.Discord.getCachedMemberFunc = func(_, _ string) (*discordgo.Member, error) {
+			env.Discord.getCachedMemberFunc = func(_, userID string) (*discordgo.Member, error) {
+				if userID == "mentor" {
+					return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: []string{"mentor_role"}}, nil
+				}
 				cachedLookups++
 				return nil, errors.New("unexpected student lookup")
 			}
-			env.Discord.fetchMemberFunc = func(_, _ string) (*discordgo.Member, error) {
+			env.Discord.fetchMemberFunc = func(_, userID string) (*discordgo.Member, error) {
+				if userID == "mentor" {
+					return &discordgo.Member{User: &discordgo.User{ID: userID}, Roles: []string{"mentor_role"}}, nil
+				}
 				httpLookups++
 				return nil, errors.New("unexpected student lookup")
 			}
@@ -418,7 +462,7 @@ func TestWorkflow_BatchPreviewAndCancellationApplyNoWrites(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos", "Basicos")
 			input := `[{"class":"basicos","name":"New","url":"https://example.com/new","topic":"Arrays"}]`
 			var problemID int64
@@ -518,7 +562,11 @@ func TestWorkflow_BatchCancelButtonsHonorBotGates(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID, TestMode: test.testMode})
 			checks := 0
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
+			env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+				checks++
+				return env.Discord.GetCachedMember(guildID, userID)
+			}
 			env.handleInteractionEvent(&discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				Type: discordgo.InteractionMessageComponent, GuildID: test.guild, Member: &discordgo.Member{User: &discordgo.User{ID: "mentor"}},
 				Data: discordgo.MessageComponentInteractionData{CustomID: test.customID, ComponentType: discordgo.ButtonComponent},

@@ -12,6 +12,7 @@ package mock_providers
 import (
 	reflect "reflect"
 
+	discordgo "github.com/bwmarrin/discordgo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,32 +40,89 @@ func (m *MockDiscordProvider) EXPECT() *MockDiscordProviderMockRecorder {
 	return m.recorder
 }
 
-// IsAdmin mocks base method.
-func (m *MockDiscordProvider) IsAdmin(guildID, userID string) (bool, error) {
+// BotUserID mocks base method.
+func (m *MockDiscordProvider) BotUserID() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsAdmin", guildID, userID)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "BotUserID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// BotUserID indicates an expected call of BotUserID.
+func (mr *MockDiscordProviderMockRecorder) BotUserID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BotUserID", reflect.TypeOf((*MockDiscordProvider)(nil).BotUserID))
+}
+
+// EditEmbed mocks base method.
+func (m *MockDiscordProvider) EditEmbed(channelID, messageID string, embed *discordgo.MessageEmbed) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EditEmbed", channelID, messageID, embed)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EditEmbed indicates an expected call of EditEmbed.
+func (mr *MockDiscordProviderMockRecorder) EditEmbed(channelID, messageID, embed any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EditEmbed", reflect.TypeOf((*MockDiscordProvider)(nil).EditEmbed), channelID, messageID, embed)
+}
+
+// FetchMember mocks base method.
+func (m *MockDiscordProvider) FetchMember(guildID, userID string) (*discordgo.Member, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchMember", guildID, userID)
+	ret0, _ := ret[0].(*discordgo.Member)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsAdmin indicates an expected call of IsAdmin.
-func (mr *MockDiscordProviderMockRecorder) IsAdmin(guildID, userID any) *gomock.Call {
+// FetchMember indicates an expected call of FetchMember.
+func (mr *MockDiscordProviderMockRecorder) FetchMember(guildID, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAdmin", reflect.TypeOf((*MockDiscordProvider)(nil).IsAdmin), guildID, userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchMember", reflect.TypeOf((*MockDiscordProvider)(nil).FetchMember), guildID, userID)
 }
 
-// IsMentor mocks base method.
-func (m *MockDiscordProvider) IsMentor(guildID, userID string) (bool, error) {
+// FetchMessage mocks base method.
+func (m *MockDiscordProvider) FetchMessage(channelID, messageID string) (*discordgo.Message, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsMentor", guildID, userID)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "FetchMessage", channelID, messageID)
+	ret0, _ := ret[0].(*discordgo.Message)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsMentor indicates an expected call of IsMentor.
-func (mr *MockDiscordProviderMockRecorder) IsMentor(guildID, userID any) *gomock.Call {
+// FetchMessage indicates an expected call of FetchMessage.
+func (mr *MockDiscordProviderMockRecorder) FetchMessage(channelID, messageID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMentor", reflect.TypeOf((*MockDiscordProvider)(nil).IsMentor), guildID, userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchMessage", reflect.TypeOf((*MockDiscordProvider)(nil).FetchMessage), channelID, messageID)
+}
+
+// GetCachedMember mocks base method.
+func (m *MockDiscordProvider) GetCachedMember(guildID, userID string) (*discordgo.Member, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCachedMember", guildID, userID)
+	ret0, _ := ret[0].(*discordgo.Member)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCachedMember indicates an expected call of GetCachedMember.
+func (mr *MockDiscordProviderMockRecorder) GetCachedMember(guildID, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedMember", reflect.TypeOf((*MockDiscordProvider)(nil).GetCachedMember), guildID, userID)
+}
+
+// RemoveBotReaction mocks base method.
+func (m *MockDiscordProvider) RemoveBotReaction(channelID, messageID, emojiID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveBotReaction", channelID, messageID, emojiID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveBotReaction indicates an expected call of RemoveBotReaction.
+func (mr *MockDiscordProviderMockRecorder) RemoveBotReaction(channelID, messageID, emojiID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveBotReaction", reflect.TypeOf((*MockDiscordProvider)(nil).RemoveBotReaction), channelID, messageID, emojiID)
 }

@@ -46,6 +46,8 @@ classes:
   # Accessible by: Only the Advanced role
   - code: "advanced"
     name: "Advanced Level 2026"
+    # Optional: replaces the global mentor role for this class. Use the real Discord role ID.
+    # mentor_role_id: "4444444444"
     room_ids:
       - "3333333334" # advanced-general
       - "3333333335" # advanced-followup

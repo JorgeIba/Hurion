@@ -8,6 +8,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -126,8 +127,10 @@ func TestUserService_ExterminateUser(t *testing.T) {
 			mockStore := mock_data.NewMockDataStore(ctrl)
 			tt.setupMock(mockStore)
 
-			svc := &UserService{Datastore: mockStore}
-			err := svc.ExterminateUser(tt.userID)
+			auth := mock_services.NewMockAuthorizer(ctrl)
+			auth.EXPECT().CanDeleteUser(UserActor("actor")).Return(true, nil)
+			svc := &UserService{Datastore: mockStore, Authorizer: auth}
+			err := svc.ExterminateUser(UserActor("actor"), tt.userID)
 			tt.assertFunc(t, err)
 		})
 	}
@@ -302,6 +305,45 @@ func TestUserService_GetClassesWhereUserIsActive(t *testing.T) {
 			svc := &UserService{Datastore: mockStore}
 			res, err := svc.GetClassesWhereUserIsActive(tt.userID)
 			tt.assertFunc(t, res, err)
+		})
+	}
+}
+
+func TestUserService_RejectsUnauthorizedActorBeforeAccessingData(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name              string
+		lookupErr         error
+		missingActor      bool
+		missingAuthorizer bool
+	}{
+		{name: "denied"},
+		{name: "lookup failed", lookupErr: errors.New("role lookup unavailable")},
+		{name: "missing actor", missingActor: true},
+		{name: "missing authorizer", missingAuthorizer: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			store := mock_data.NewMockDataStore(ctrl)
+			auth := mock_services.NewMockAuthorizer(ctrl)
+			actor := UserActor("admin")
+			service := &UserService{Datastore: store, Authorizer: auth}
+			if tt.missingActor {
+				actor = service_model.Actor{}
+			} else if tt.missingAuthorizer {
+				service.Authorizer = nil
+			} else {
+				auth.EXPECT().CanDeleteUser(actor).Return(false, tt.lookupErr)
+			}
+
+			err := service.ExterminateUser(actor, "student")
+			if tt.lookupErr != nil || tt.missingAuthorizer || tt.missingActor {
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			} else {
+				assert.IsType(t, &serviceerr.PermissionDeniedError{}, err)
+			}
 		})
 	}
 }

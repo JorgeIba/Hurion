@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
@@ -16,15 +17,16 @@ import (
 func TestIntegration_ExecuteProblemBatchCreatesOrderedRepeatedProblems(t *testing.T) {
 	t.Parallel()
 	env := setupIntegrationEnv(t)
+	env.SeedRoleToUser("batch-mentor", "mentor_role")
 	firstClass := env.SeedClass(t, "basicos", "Basics")
 	secondClass := env.SeedClass(t, "avanzados", "Advanced")
 	repeated := service_model.CreateProblemParams{ClassCode: "basicos", Name: "Repeated", URL: "https://example.com/repeated"}
-	prepared, issues, err := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
+	prepared, issues, err := env.Services.Problem.PrepareCreationBatch(services.UserActor("batch-mentor"), []service_model.CreateProblemParams{
 		repeated, {ClassCode: "avanzados", Name: "Other", URL: "https://example.com/other"}, repeated,
 	})
 	require.NoError(t, err)
 	require.Empty(t, issues)
-	result, issues, err := env.Services.Problem.ExecuteCreationBatch(prepared)
+	result, issues, err := env.Services.Problem.ExecuteCreationBatch(services.UserActor("batch-mentor"), prepared)
 	require.NoError(t, err)
 	require.Empty(t, issues)
 	require.Len(t, result.CreatedProblemIDs, 3)
@@ -41,16 +43,17 @@ func TestIntegration_ExecuteProblemBatchCreatesOrderedRepeatedProblems(t *testin
 func TestIntegration_ExecuteProblemBatchValidatesEveryTargetBeforeWrites(t *testing.T) {
 	t.Parallel()
 	env := setupIntegrationEnv(t)
+	env.SeedRoleToUser("batch-mentor", "mentor_role")
 	validClass := env.SeedClass(t, "basicos", "Basics")
 	removedClass := env.SeedClass(t, "removed", "Removed")
-	prepared, issues, err := env.Services.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{
+	prepared, issues, err := env.Services.Problem.PrepareCreationBatch(services.UserActor("batch-mentor"), []service_model.CreateProblemParams{
 		{ClassCode: "basicos", Name: "Valid", URL: "https://example.com/valid"},
 		{ClassCode: "removed", Name: "Gone", URL: "https://example.com/gone"},
 	})
 	require.NoError(t, err)
 	require.Empty(t, issues)
 	require.NoError(t, env.DB.DeleteClass(removedClass))
-	result, issues, err := env.Services.Problem.ExecuteCreationBatch(prepared)
+	result, issues, err := env.Services.Problem.ExecuteCreationBatch(services.UserActor("batch-mentor"), prepared)
 	require.NoError(t, err)
 	assert.Empty(t, result.CreatedProblemIDs)
 	require.Len(t, issues, 1)
@@ -63,6 +66,7 @@ func TestIntegration_ExecuteProblemBatchValidatesEveryTargetBeforeWrites(t *test
 func TestIntegration_ExecuteProblemPatchBatchUpdatesOnlySpecifiedFields(t *testing.T) {
 	t.Parallel()
 	env := setupIntegrationEnv(t)
+	env.SeedRoleToUser("batch-mentor", "mentor_role")
 	sourceClassID := env.SeedClass(t, "basicos", "Basics")
 	destinationClassID := env.SeedClass(t, "avanzados", "Advanced")
 	difficulty, topic, priority := "easy", "Arrays", "recommended"
@@ -95,10 +99,11 @@ func TestIntegration_ExecuteProblemPatchBatchUpdatesOnlySpecifiedFields(t *testi
 	assert.Equal(t, inputs, decodedInputs)
 	inputs = decodedInputs
 
-	prepared, issues := env.Services.Problem.PrepareProblemPatchBatch(inputs)
+	prepared, issues, err := env.Services.Problem.PrepareProblemPatchBatch(services.UserActor("batch-mentor"), inputs)
+	assert.NoError(t, err)
 	require.Empty(t, issues)
 	require.Len(t, prepared, 1)
-	result, issues, err := env.Services.Problem.ExecuteProblemPatchBatch(prepared)
+	result, issues, err := env.Services.Problem.ExecuteProblemPatchBatch(services.UserActor("batch-mentor"), prepared)
 	require.NoError(t, err)
 	require.Empty(t, issues)
 	assert.Equal(t, []int64{problemID}, result.PatchedProblemIDs)
@@ -126,16 +131,17 @@ func TestIntegration_ExecuteACBatchRechecksSolvesAndCountsRepeatedEntries(t *tes
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			env := setupIntegrationEnv(t)
+			env.SeedRoleToUser("batch-mentor", "mentor_role")
 			classID := env.SeedClass(t, "basicos", "Basics")
 			problemID := env.SeedProblem(t, "Problem", "https://example.com", classID, "easy", "Arrays")
 			env.SeedClassAccessRole(t, "basicos", "student")
-			students := map[string]service_model.Principal{"123": {UserID: "123", Roles: []string{"student"}}}
+			students := map[string]service_model.UserWithRoles{"123": {UserID: "123", Roles: []string{"student"}}}
 			if scenario == "solve removed after preview" {
 				require.NoError(t, env.DB.EnsureUser(data.User{UserID: "123", DisplayName: "Ana"}))
 				require.NoError(t, env.DB.AddAC("123", problemID))
 			}
 			input := service_model.CreateACParams{UserID: "123", ProblemID: problemID}
-			prepared, issues, err := env.Services.Solution.PrepareCreationBatch([]service_model.CreateACParams{input, input}, students)
+			prepared, issues, err := env.Services.Solution.PrepareCreationBatch(services.UserActor("batch-mentor"), []service_model.CreateACParams{input, input}, students)
 			require.NoError(t, err)
 			require.Empty(t, issues)
 			if scenario == "solve added after preview" {
@@ -144,7 +150,7 @@ func TestIntegration_ExecuteACBatchRechecksSolvesAndCountsRepeatedEntries(t *tes
 			} else if scenario == "solve removed after preview" {
 				require.NoError(t, env.DB.RemoveAC("123", problemID))
 			}
-			result, issues, err := env.Services.Solution.ExecuteCreationBatch(prepared, students)
+			result, issues, err := env.Services.Solution.ExecuteCreationBatch(services.UserActor("batch-mentor"), prepared, students)
 			require.NoError(t, err)
 			require.Empty(t, issues)
 			if scenario == "solve added after preview" {
@@ -165,22 +171,23 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			env := setupIntegrationEnv(t)
+			env.SeedRoleToUser("batch-mentor", "mentor_role")
 			classID := env.SeedClass(t, "basicos", "Basics")
 			firstProblem := env.SeedProblem(t, "First", "https://example.com/first", classID, "easy", "Arrays")
 			secondProblem := env.SeedProblem(t, "Second", "https://example.com/second", classID, "easy", "Arrays")
 			env.SeedClassAccessRole(t, "basicos", "student")
-			students := map[string]service_model.Principal{
+			students := map[string]service_model.UserWithRoles{
 				"123": {UserID: "123", Roles: []string{"student"}},
 				"456": {UserID: "456", Roles: []string{"student"}},
 			}
-			prepared, issues, err := env.Services.Solution.PrepareCreationBatch([]service_model.CreateACParams{
+			prepared, issues, err := env.Services.Solution.PrepareCreationBatch(services.UserActor("batch-mentor"), []service_model.CreateACParams{
 				{UserID: "123", ProblemID: firstProblem}, {UserID: "456", ProblemID: secondProblem},
 			}, students)
 			require.NoError(t, err)
 			require.Empty(t, issues)
 			switch scenario {
 			case "role revoked":
-				students["456"] = service_model.Principal{UserID: "456", Roles: []string{"other"}}
+				students["456"] = service_model.UserWithRoles{UserID: "456", Roles: []string{"other"}}
 			case "student unresolved":
 				delete(students, "456")
 			case "access role removed":
@@ -196,7 +203,7 @@ func TestIntegration_ExecuteACBatchRevalidatesAllStudentsAndTargetsBeforeWrites(
 				problem.ClassID = otherClass
 				require.NoError(t, env.DB.ReplaceProblemByProblemID(secondProblem, problem))
 			}
-			result, issues, err := env.Services.Solution.ExecuteCreationBatch(prepared, students)
+			result, issues, err := env.Services.Solution.ExecuteCreationBatch(services.UserActor("batch-mentor"), prepared, students)
 			require.NoError(t, err)
 			assert.Zero(t, result.Recorded)
 			assert.Zero(t, result.AlreadyRecorded)
@@ -249,16 +256,17 @@ func TestIntegration_ExecuteBatchRollsBackOnStorageFailure(t *testing.T) {
 		t.Run(family, func(t *testing.T) {
 			t.Parallel()
 			env := setupIntegrationEnv(t)
+			env.SeedRoleToUser("batch-mentor", "mentor_role")
 			classID := env.SeedClass(t, "basicos", "Basics")
 			failure := errors.New("storage unavailable")
 			store := &failingBatchStore{DataStore: env.DB, failure: failure}
-			svcs := services.NewServices(store)
+			svcs := services.NewServices(store, authorization.New(authorization.NewDiscordRoleSource(env.Fetcher, "guild_1"), "admin_role", "mentor_role", nil))
 			if family == "problem" {
 				input := service_model.CreateProblemParams{ClassCode: "basicos", Name: "Repeated", URL: "https://example.com"}
-				prepared, issues, err := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{input, input, input})
+				prepared, issues, err := svcs.Problem.PrepareCreationBatch(services.UserActor("batch-mentor"), []service_model.CreateProblemParams{input, input, input})
 				require.NoError(t, err)
 				require.Empty(t, issues)
-				result, issues, err := svcs.Problem.ExecuteCreationBatch(prepared)
+				result, issues, err := svcs.Problem.ExecuteCreationBatch(services.UserActor("batch-mentor"), prepared)
 				require.ErrorIs(t, err, failure)
 				assert.Contains(t, err.Error(), "entry 2")
 				assert.Empty(t, issues)
@@ -270,16 +278,16 @@ func TestIntegration_ExecuteBatchRollsBackOnStorageFailure(t *testing.T) {
 			} else {
 				problemID := env.SeedProblem(t, "Problem", "https://example.com", classID, "easy", "Arrays")
 				env.SeedClassAccessRole(t, "basicos", "student")
-				students := map[string]service_model.Principal{}
+				students := map[string]service_model.UserWithRoles{}
 				var inputs []service_model.CreateACParams
 				for _, userID := range []string{"123", "456", "789"} {
-					students[userID] = service_model.Principal{UserID: userID, Roles: []string{"student"}}
+					students[userID] = service_model.UserWithRoles{UserID: userID, Roles: []string{"student"}}
 					inputs = append(inputs, service_model.CreateACParams{UserID: userID, ProblemID: problemID})
 				}
-				prepared, issues, err := svcs.Solution.PrepareCreationBatch(inputs, students)
+				prepared, issues, err := svcs.Solution.PrepareCreationBatch(services.UserActor("batch-mentor"), inputs, students)
 				require.NoError(t, err)
 				require.Empty(t, issues)
-				result, issues, err := svcs.Solution.ExecuteCreationBatch(prepared, students)
+				result, issues, err := svcs.Solution.ExecuteCreationBatch(services.UserActor("batch-mentor"), prepared, students)
 				require.ErrorIs(t, err, failure)
 				assert.Contains(t, err.Error(), "AC batch")
 				assert.Empty(t, issues)

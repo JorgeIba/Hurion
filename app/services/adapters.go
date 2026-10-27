@@ -206,13 +206,6 @@ func mapServiceClassToDataClass(c service_model.Class) data.Class {
 	}
 }
 
-func mapServiceClassroomToDataClassroom(r service_model.Classroom) data.Classroom {
-	return data.Classroom{
-		RoomID:    r.RoomID,
-		ClassCode: r.ClassCode,
-	}
-}
-
 func mapServiceRoleToDataRole(r service_model.ClassAccessRole) data.ClassAccessRole {
 	return data.ClassAccessRole{
 		RoleID:    r.RoleID,

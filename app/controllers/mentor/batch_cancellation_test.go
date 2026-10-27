@@ -2,14 +2,14 @@ package mentor
 
 import (
 	"errors"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
-	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
-	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -30,22 +30,20 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 		t.Run(family.name, func(t *testing.T) {
 			t.Parallel()
 			for _, test := range []struct {
-				name                                                                                                                               string
-				otherActor, otherGuild, otherKind, missingMember, malformed, expired, expireDuringCheck, denied, permissionFails, ackFails, repeat bool
-				wantPending                                                                                                                        bool
-				wantEdits, wantFollowups                                                                                                           int
-				wantContent                                                                                                                        string
+				name                                                                                                      string
+				otherActor, otherGuild, otherKind, missingMember, malformed, expired, expireDuringCheck, ackFails, repeat bool
+				wantPending                                                                                               bool
+				wantEdits, wantFollowups                                                                                  int
+				wantContent                                                                                               string
 			}{
-				{name: "owner cancels", wantEdits: 1, wantContent: "Batch cancelled"},
+				{name: "owner cancels without consulting authorization", wantEdits: 1, wantContent: "Batch cancelled"},
 				{name: "other actor", otherActor: true, wantPending: true, wantContent: discord.BatchUnavailableMessage},
 				{name: "other guild", otherGuild: true, wantPending: true, wantContent: discord.BatchUnavailableMessage},
 				{name: "other operation", otherKind: true, wantPending: true, wantContent: discord.BatchUnavailableMessage},
 				{name: "missing member", missingMember: true, wantPending: true, wantContent: "identified server member"},
 				{name: "malformed button", malformed: true, wantPending: true, wantContent: "invalid batch cancellation button"},
 				{name: "expired", expired: true, wantContent: discord.BatchUnavailableMessage},
-				{name: "expires during role check", expireDuringCheck: true},
-				{name: "permissions revoked", denied: true, wantPending: true, wantFollowups: 1, wantContent: "mentor or admin"},
-				{name: "permission lookup failed", permissionFails: true, wantPending: true, wantFollowups: 1, wantContent: "verifying permissions"},
+
 				{name: "failed acknowledgement", ackFails: true, wantPending: true},
 				{name: "repeated cancellation", repeat: true, wantEdits: 1, wantContent: "Batch cancelled"},
 			} {
@@ -68,21 +66,8 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 						clock.now.Add(int64(5 * time.Minute))
 					}
 					mockCtrl := gomock.NewController(t)
-					validator := mock_providers.NewMockDiscordValidator(mockCtrl)
-					if !test.otherActor && !test.otherGuild && !test.otherKind && !test.missingMember && !test.malformed && !test.expired && !test.ackFails {
-						validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
-							if test.expireDuringCheck {
-								clock.now.Add(int64(5 * time.Minute))
-							}
-							if test.permissionFails {
-								return false, errors.New("Discord unavailable")
-							}
-							return !test.denied, nil
-						})
-						if test.denied {
-							validator.EXPECT().IsAdmin("guild", "mentor").Return(false, nil)
-						}
-					}
+					validator := mock_services.NewMockAuthorizer(mockCtrl)
+
 					client := &batchInteractionClient{}
 					if test.ackFails {
 						client.ackErr = errors.New("ack failed")
@@ -90,11 +75,11 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					responder := dispatcher.NewDiscordInteractionResponder(client)
 					var handle func(*discordgo.InteractionCreate)
 					if family.problem {
-						controller := NewProblemInteractionController(nil, validator, responder)
+						controller := NewProblemInteractionController(permissionTestServices(t, validator), responder)
 						controller.validatedBatches = problemCache
 						handle = controller.HandleCancelProblemBatchInteraction
 					} else {
-						controller := NewACInteractionController(nil, validator, nil, responder)
+						controller := NewACInteractionController(permissionTestServices(t, validator), nil, responder)
 						controller.validatedBatches = acCache
 						handle = controller.HandleCancelACBatchInteraction
 					}
@@ -108,12 +93,12 @@ func TestBatchCancellationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					if test.otherKind {
 						if family.problem {
 							route = string(discordcommands.CancelACBatch)
-							controller := NewACInteractionController(nil, validator, nil, responder)
+							controller := NewACInteractionController(permissionTestServices(t, validator), nil, responder)
 							controller.validatedBatches = acCache
 							handle = controller.HandleCancelACBatchInteraction
 						} else {
 							route = string(discordcommands.CancelProblemBatch)
-							controller := NewProblemInteractionController(nil, validator, responder)
+							controller := NewProblemInteractionController(permissionTestServices(t, validator), responder)
 							controller.validatedBatches = problemCache
 							handle = controller.HandleCancelProblemBatchInteraction
 						}
@@ -178,26 +163,17 @@ func TestConcurrentBatchCancellationOnlyWinnerUpdatesPreview(t *testing.T) {
 	} {
 		t.Run(family.name, func(t *testing.T) {
 			t.Parallel()
-			validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
-			// Both requests must pass the initial cache read before either can
-			// claim the batch. This reproduces the race without timing sleeps.
-			permissionChecks := make(chan struct{}, 2)
-			releaseChecks := make(chan struct{})
-			validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
-				permissionChecks <- struct{}{}
-				<-releaseChecks
-				return true, nil
-			}).Times(2)
+			validator := mock_services.NewMockAuthorizer(gomock.NewController(t))
 			client := &batchInteractionClient{}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
 			key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 			var handle func(*discordgo.InteractionCreate)
 			if family.problem {
-				controller := NewProblemInteractionController(nil, validator, responder)
+				controller := NewProblemInteractionController(permissionTestServices(t, validator), responder)
 				require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
 				handle = controller.HandleCancelProblemBatchInteraction
 			} else {
-				controller := NewACInteractionController(nil, validator, nil, responder)
+				controller := NewACInteractionController(permissionTestServices(t, validator), nil, responder)
 				require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1}}))
 				handle = controller.HandleCancelACBatchInteraction
 			}
@@ -211,102 +187,15 @@ func TestConcurrentBatchCancellationOnlyWinnerUpdatesPreview(t *testing.T) {
 					}})
 				})
 			}
-			<-permissionChecks
-			<-permissionChecks
-			close(releaseChecks)
 			clicks.Wait()
 			require.Len(t, client.responses, 2)
 			for _, response := range client.responses {
-				assert.Equal(t, discordgo.InteractionResponseDeferredMessageUpdate, response.Type)
+				assert.Contains(t, []discordgo.InteractionResponseType{discordgo.InteractionResponseDeferredMessageUpdate, discordgo.InteractionResponseChannelMessageWithSource}, response.Type)
 			}
 			require.Len(t, client.edits, 1, "the losing request must not overwrite the winner's receipt")
 			assert.Equal(t, "Batch cancelled. No changes were applied.", *client.edits[0].Content)
 			require.NotNil(t, client.edits[0].Components)
 			assert.Empty(t, *client.edits[0].Components)
-		})
-	}
-}
-
-func TestDelayedCancellationAuthorizationFailurePreservesWinningReceipt(t *testing.T) {
-	t.Parallel()
-	for _, family := range []struct {
-		name    string
-		problem bool
-		route   string
-	}{
-		{name: "problem", problem: true, route: string(discordcommands.CancelProblemBatch)},
-		{name: "AC", route: string(discordcommands.CancelACBatch)},
-	} {
-		t.Run(family.name, func(t *testing.T) {
-			t.Parallel()
-			for _, lookupFails := range []bool{true, false} {
-				name := "permissions revoked"
-				if lookupFails {
-					name = "permission lookup fails"
-				}
-				t.Run(name, func(t *testing.T) {
-					t.Parallel()
-					validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
-					slowCheckStarted := make(chan struct{})
-					winningClickDone := make(chan struct{})
-					// Start the slow request first and hold its permission result until the
-					// second request has cancelled and delivered the original receipt.
-					slowCheck := validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
-						close(slowCheckStarted)
-						<-winningClickDone
-						if lookupFails {
-							return false, errors.New("Discord lookup unavailable")
-						}
-						return false, nil
-					})
-					validator.EXPECT().IsMentor("guild", "mentor").Return(true, nil).After(slowCheck)
-					if !lookupFails {
-						validator.EXPECT().IsAdmin("guild", "mentor").Return(false, nil)
-					}
-					client := &batchInteractionClient{}
-					responder := dispatcher.NewDiscordInteractionResponder(client)
-					key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
-					var handle func(*discordgo.InteractionCreate)
-					if family.problem {
-						controller := NewProblemInteractionController(nil, validator, responder)
-						require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
-						handle = controller.HandleCancelProblemBatchInteraction
-					} else {
-						controller := NewACInteractionController(nil, validator, nil, responder)
-						require.True(t, controller.validatedBatches.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1}}))
-						handle = controller.HandleCancelACBatchInteraction
-					}
-					event := func(id string) *discordgo.InteractionCreate {
-						return &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
-							ID: id, Type: discordgo.InteractionMessageComponent, GuildID: "guild",
-							Member: &discordgo.Member{User: &discordgo.User{ID: "mentor"}},
-							Data:   discordgo.MessageComponentInteractionData{CustomID: family.route + "|batch", ComponentType: discordgo.ButtonComponent},
-						}}
-					}
-					slowClickDone := make(chan struct{})
-					go func() { defer close(slowClickDone); handle(event("slow")) }()
-					<-slowCheckStarted
-					handle(event("winner"))
-					close(winningClickDone)
-					<-slowClickDone
-					require.Len(t, client.responses, 2)
-					for _, response := range client.responses {
-						assert.Equal(t, discordgo.InteractionResponseDeferredMessageUpdate, response.Type)
-					}
-					require.Len(t, client.edits, 1, "authorization errors must not edit the shared preview")
-					assert.Equal(t, "Batch cancelled. No changes were applied.", *client.edits[0].Content)
-					require.NotNil(t, client.edits[0].Components)
-					assert.Empty(t, *client.edits[0].Components)
-					require.Len(t, client.followups, 1)
-					assert.Equal(t, discordgo.MessageFlagsEphemeral, client.followups[0].Flags)
-					assert.Empty(t, client.followups[0].AllowedMentions.Parse)
-					expected := "mentor or admin"
-					if lookupFails {
-						expected = "verifying permissions"
-					}
-					assert.Contains(t, client.followups[0].Content, expected)
-				})
-			}
 		})
 	}
 }

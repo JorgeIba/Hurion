@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/JorgeIba/Hurion/app/customerr/dataerr"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/services"
@@ -477,8 +478,50 @@ func TestScoreService_GetClassExportData(t *testing.T) {
 			tt.setupMock(mockStore, mockProbSvc)
 
 			svc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProbSvc}
-			u, p, s, err := svc.GetClassExportData(tt.classCode)
+			auth := mock_services.NewMockAuthorizer(ctrl)
+			auth.EXPECT().CanExportClass(services.UserActor("actor")).Return(true, nil)
+			svc.Authorizer = auth
+			u, p, s, err := svc.GetClassExportData(services.UserActor("actor"), tt.classCode)
 			tt.assertFunc(t, u, p, s, err)
+		})
+	}
+}
+
+func TestScoreService_RejectsUnauthorizedActorBeforeAccessingData(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name              string
+		lookupErr         error
+		missingActor      bool
+		missingAuthorizer bool
+	}{
+		{name: "denied"},
+		{name: "lookup failed", lookupErr: errors.New("role lookup unavailable")},
+		{name: "missing actor", missingActor: true},
+		{name: "missing authorizer", missingAuthorizer: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			store := mock_data.NewMockDataStore(ctrl)
+			auth := mock_services.NewMockAuthorizer(ctrl)
+			actor := services.UserActor("admin")
+			service := &services.ScoreService{Datastore: store, Authorizer: auth}
+			if tt.missingActor {
+				actor = service_model.Actor{}
+			} else if tt.missingAuthorizer {
+				service.Authorizer = nil
+			} else {
+				auth.EXPECT().CanExportClass(actor).Return(false, tt.lookupErr)
+			}
+
+			_, _, _, err := service.GetClassExportData(actor, "class")
+			if tt.lookupErr != nil || tt.missingAuthorizer || tt.missingActor {
+				assert.IsType(t, &serviceerr.InternalError{}, err)
+			} else {
+				assert.IsType(t, &serviceerr.PermissionDeniedError{}, err)
+			}
 		})
 	}
 }

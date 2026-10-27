@@ -2,18 +2,19 @@ package mentor
 
 import (
 	"errors"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -84,18 +85,19 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 		{name: "empty file", want: "non-empty"},
 		{name: "failed acknowledgement", ackFails: true},
 		{name: "failed problem acknowledgement", route: string(discordcommands.ProblemBatch), ackFails: true},
-		{name: "permission revoked", denied: true, want: "mentor or admin"},
-		{name: "problem permission revoked", route: string(discordcommands.ProblemBatch), denied: true, want: "mentor or admin"},
-		{name: "permission lookup failure", permissionErr: errors.New("Discord unavailable"), want: "verifying permissions"},
+		{name: "permission revoked", denied: true, want: "mentor or admin", body: `[{"user_id":"123","problem_id":42}]`, status: 200, wantDownload: true},
+		{name: "problem permission revoked", route: string(discordcommands.ProblemBatch), denied: true, want: "mentor or admin", body: `[{"class":"basicos","name":"New","url":"https://example.com","topic":"Arrays"}]`, status: 200, wantDownload: true},
+		{name: "permission lookup failure", permissionErr: errors.New("Discord unavailable"), want: "Could not validate the AC batch", body: `[{"user_id":"123","problem_id":42}]`, status: 200, wantDownload: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			mockCtrl := gomock.NewController(t)
-			validator := mock_providers.NewMockDiscordValidator(mockCtrl)
+			validator := mock_services.NewMockAuthorizer(mockCtrl)
 			fetcher := mock_providers.NewMockDiscordFetcher(mockCtrl)
 			store := mock_data.NewMockDataStore(mockCtrl)
-			svcs := services.NewServices(store)
-			if strings.HasPrefix(test.want, "Entries:") {
+			svcs := services.NewServices(store, validator)
+			validPreview := strings.HasPrefix(test.want, "Entries:") || test.denied || test.permissionErr != nil
+			if validPreview {
 				if test.route == string(discordcommands.ProblemBatch) {
 					store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{{ID: 10, ClassCode: "basicos"}}, nil)
 				} else {
@@ -104,11 +106,8 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 
 				}
 			}
-			if !test.ackFails {
-				validator.EXPECT().IsMentor("guild", "mentor").Return(!test.denied, test.permissionErr)
-				if test.denied {
-					validator.EXPECT().IsAdmin("guild", "mentor").Return(false, nil)
-				}
+			if validPreview && !test.ackFails {
+				validator.EXPECT().CanManageClasses(services.UserActor("mentor"), gomock.Any()).Return(!test.denied, test.permissionErr)
 			}
 			client := &batchInteractionClient{}
 			if test.ackFails {
@@ -141,11 +140,11 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 			}}
 			responder := dispatcher.NewDiscordInteractionResponder(client)
 			if route == string(discordcommands.ProblemBatch) {
-				controller := NewProblemInteractionController(svcs, validator, responder)
+				controller := NewProblemInteractionController(svcs, responder)
 				controller.attachments = reader
 				controller.HandleCreateProblemBatchModalSubmitInteraction(event)
 			} else {
-				controller := NewACInteractionController(svcs, validator, fetcher, responder)
+				controller := NewACInteractionController(svcs, fetcher, responder)
 				controller.attachments = reader
 				controller.HandleCreateACBatchModalSubmitInteraction(event)
 			}

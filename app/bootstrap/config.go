@@ -12,10 +12,11 @@ const DefaultConfigPath = "config.yaml"
 
 // ClassConfig represents the configuration for a single class.
 type ClassConfig struct {
-	Code    string   `mapstructure:"code"`
-	Name    string   `mapstructure:"name"`
-	RoomIDs []string `mapstructure:"room_ids"`
-	RoleIDs []string `mapstructure:"role_ids"`
+	Code         string   `mapstructure:"code"`
+	Name         string   `mapstructure:"name"`
+	RoomIDs      []string `mapstructure:"room_ids"`
+	RoleIDs      []string `mapstructure:"role_ids"`
+	MentorRoleID string   `mapstructure:"mentor_role_id"`
 }
 
 // Validate ensures the class configuration is internally consistent.
@@ -87,10 +88,23 @@ func LoadConfig(configPath string) (Config, error) {
 	}
 
 	cfg.GuildID = strings.TrimSpace(cfg.GuildID)
+	cfg.AdminRoleID = strings.TrimSpace(cfg.AdminRoleID)
+	cfg.MentorRoleID = strings.TrimSpace(cfg.MentorRoleID)
 
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
 	return cfg, nil
+}
+
+// MentorRolesByClass returns explicit role overrides loaded at startup.
+func (c Config) MentorRolesByClass() map[string]string {
+	overrides := make(map[string]string)
+	for _, class := range c.Classes {
+		if role := strings.TrimSpace(class.MentorRoleID); role != "" {
+			overrides[strings.TrimSpace(class.Code)] = role
+		}
+	}
+	return overrides
 }

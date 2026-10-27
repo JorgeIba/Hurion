@@ -2,6 +2,7 @@ package enrolled
 
 import (
 	"fmt"
+	"github.com/JorgeIba/Hurion/app/services"
 	"strconv"
 
 	"github.com/JorgeIba/Hurion/app/common"
@@ -34,12 +35,12 @@ func HandleProposeAC(c *context.ContextMessage) {
 		return
 	}
 	member.DisplayName = user.DisplayName
-	principal := service_model.Principal{
+	userWithRoles := service_model.UserWithRoles{
 		User:  member.User,
 		Roles: member.Roles,
 	}
 
-	if _, err = c.Services.Solution.AddPendingACByPrincipal(c.Message.ID, principal, problemID); err != nil {
+	if _, err = c.Services.Solution.ProposeAC(c.Message.ID, userWithRoles, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -73,7 +74,7 @@ func HandleUndoAC(c *context.ContextMessage) {
 	}
 
 	user := c.Executor
-	if err = c.Services.Solution.UndoAC(user.UserID, problemID); err != nil {
+	if err = c.Services.Solution.UndoAC(services.UserActor(c.Executor.UserID), user.UserID, problemID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(

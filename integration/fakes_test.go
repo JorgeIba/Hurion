@@ -10,8 +10,6 @@ import (
 
 // StubDiscordProvider implements Discord provider interfaces for integration tests.
 type StubDiscordProvider struct {
-	IsAdminFunc           func(guildID, userID string) (bool, error)
-	IsMentorFunc          func(guildID, userID string) (bool, error)
 	GetCachedMemberFunc   func(guildID, userID string) (*discordgo.Member, error)
 	FetchMemberFunc       func(guildID, userID string) (*discordgo.Member, error)
 	FetchMessageFunc      func(channelID, messageID string) (*discordgo.Message, error)
@@ -20,20 +18,6 @@ type StubDiscordProvider struct {
 
 	// UserRoles stores roles for specific users to avoid clobbering in tests.
 	UserRoles map[string][]string
-}
-
-func (s *StubDiscordProvider) IsAdmin(guildID, userID string) (bool, error) {
-	if s.IsAdminFunc != nil {
-		return s.IsAdminFunc(guildID, userID)
-	}
-	return false, nil
-}
-
-func (s *StubDiscordProvider) IsMentor(guildID, userID string) (bool, error) {
-	if s.IsMentorFunc != nil {
-		return s.IsMentorFunc(guildID, userID)
-	}
-	return false, nil
 }
 
 func (s *StubDiscordProvider) GetCachedMember(guildID, userID string) (*discordgo.Member, error) {

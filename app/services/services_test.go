@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/JorgeIba/Hurion/app/data/mock_data"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -26,7 +27,7 @@ func TestNewServices(t *testing.T) {
 			defer ctrl.Finish()
 			mockStore := mock_data.NewMockDataStore(ctrl)
 
-			services := NewServices(mockStore)
+			services := NewServices(mockStore, testAuthorizer(t))
 
 			assert.NotNil(t, services)
 
@@ -48,4 +49,11 @@ func TestNewServices(t *testing.T) {
 			assert.Equal(t, services.Problem, services.Score.ProblemService)
 		})
 	}
+}
+
+func testAuthorizer(t *testing.T) Authorizer {
+	t.Helper()
+	auth := mock_services.NewMockAuthorizer(gomock.NewController(t))
+	auth.EXPECT().CanManageClasses(UserActor("actor"), gomock.Any()).Return(true, nil).AnyTimes()
+	return auth
 }

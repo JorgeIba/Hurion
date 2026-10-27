@@ -107,7 +107,7 @@ func TestResolveClassContext(t *testing.T) {
 
 			ctx := &context.ContextMessage{
 				Args:     tc.args,
-				Services: services.NewServices(mockStore),
+				Services: services.NewServices(mockStore, nil),
 				Message:  &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: tc.channelID}},
 			}
 
@@ -117,7 +117,7 @@ func TestResolveClassContext(t *testing.T) {
 	}
 }
 
-func TestGetMemberPrincipalChecksIdentityAndCopiesRoles(t *testing.T) {
+func TestGetMemberWithRolesChecksIdentityAndCopiesRoles(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
@@ -133,19 +133,19 @@ func TestGetMemberPrincipalChecksIdentityAndCopiesRoles(t *testing.T) {
 			t.Parallel()
 			fetcher := mock_providers.NewMockDiscordFetcher(gomock.NewController(t))
 			fetcher.EXPECT().GetCachedMember("guild", "123").Return(test.member, nil)
-			principal, err := GetMemberPrincipal(fetcher, "guild", "123")
+			userWithRoles, err := GetMemberWithRoles(fetcher, "guild", "123")
 			if !test.valid {
-				assert.Nil(t, principal)
+				assert.Nil(t, userWithRoles)
 				assert.IsType(t, &controllerserr.InternalError{}, err)
 				return
 			}
-			if assert.NoError(t, err) && assert.NotNil(t, principal) {
-				assert.Equal(t, "123", principal.UserID)
-				assert.Equal(t, "Ana", principal.DisplayName)
-				assert.Equal(t, []string{"student"}, principal.Roles)
-				principal.Roles[0] = "changed"
+			if assert.NoError(t, err) && assert.NotNil(t, userWithRoles) {
+				assert.Equal(t, "123", userWithRoles.UserID)
+				assert.Equal(t, "Ana", userWithRoles.DisplayName)
+				assert.Equal(t, []string{"student"}, userWithRoles.Roles)
+				userWithRoles.Roles[0] = "changed"
 				assert.Equal(t, []string{"student"}, test.member.Roles)
-				principal.DisplayName = "Changed"
+				userWithRoles.DisplayName = "Changed"
 				assert.Equal(t, "Ana", test.member.Nick)
 			}
 		})
@@ -227,139 +227,12 @@ func TestResolveClassCodeArg(t *testing.T) {
 
 			ctx := &context.ContextMessage{
 				Args:     tc.args,
-				Services: services.NewServices(mockStore),
+				Services: services.NewServices(mockStore, nil),
 				Message:  &discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: tc.channelID}},
 			}
 
 			got := ResolveClassCodeArg(ctx, 1)
 			tc.assertFunc(t, got)
-		})
-	}
-}
-
-func TestRequireClassAccess(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		executorID string
-		guildID    string
-		class      service_model.Class
-		setupMock  func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore)
-		assertFunc func(t *testing.T, allowed bool, err error)
-	}{
-		{
-			name:       "success - admin bypass",
-			executorID: "admin_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "admin_1").Return(true, nil)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, allowed)
-			},
-		},
-		{
-			name:       "success - user has access role",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(&discordgo.Member{User: &discordgo.User{ID: "user_1"}, Roles: []string{"role_mentor"}}, nil)
-				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
-					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
-					nil,
-				)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, allowed)
-			},
-		},
-		{
-			name:       "success - user does not have access role",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(&discordgo.Member{User: &discordgo.User{ID: "user_1"}, Roles: []string{"role_student"}}, nil)
-				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
-					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
-					nil,
-				)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.False(t, allowed)
-			},
-		},
-		{
-			name:       "success - fallback to live fetch works",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				// 1. Cache Miss
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("cache miss"))
-				// 2. API Success
-				fetcher.EXPECT().FetchMember(gomock.Any(), "user_1").Return(&discordgo.Member{User: &discordgo.User{ID: "user_1"}, Roles: []string{"role_mentor"}}, nil)
-				store.EXPECT().GetClassAccessRolesByClassCode("basicos_1").Return(
-					[]data.ClassAccessRole{{ClassCode: "basicos_1", RoleID: "role_mentor"}},
-					nil,
-				)
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.NoError(t, err)
-				assert.True(t, allowed)
-			},
-		},
-		{
-			name:       "error - cached and live fetch both fail",
-			executorID: "user_1",
-			guildID:    "guild_1",
-			class:      service_model.Class{ClassCode: "basicos_1"},
-			setupMock: func(fetcher *mock_providers.MockDiscordFetcher, validator *mock_providers.MockDiscordValidator, store *mock_data.MockDataStore) {
-				validator.EXPECT().IsAdmin(gomock.Any(), "user_1").Return(false, nil)
-				// 1. Cache Miss
-				fetcher.EXPECT().GetCachedMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("cache miss"))
-				// 2. API Fail
-				fetcher.EXPECT().FetchMember(gomock.Any(), "user_1").Return(nil, fmt.Errorf("api fail"))
-			},
-			assertFunc: func(t *testing.T, allowed bool, err error) {
-				assert.Error(t, err)
-				assert.False(t, allowed)
-				assert.IsType(t, &controllerserr.InternalError{}, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		tc := tt
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockStore := mock_data.NewMockDataStore(ctrl)
-			mockFetcher := mock_providers.NewMockDiscordFetcher(ctrl)
-			mockValidator := mock_providers.NewMockDiscordValidator(ctrl)
-			tc.setupMock(mockFetcher, mockValidator, mockStore)
-
-			ctx := &context.ContextMessage{
-				Executor:         service_model.User{UserID: tc.executorID},
-				ExecutorGuildID:  tc.guildID,
-				Services:         services.NewServices(mockStore),
-				DiscordFetcher:   mockFetcher,
-				DiscordValidator: mockValidator,
-			}
-
-			allowed, err := RequireClassAccess(ctx, tc.class)
-			tc.assertFunc(t, allowed, err)
 		})
 	}
 }
@@ -445,7 +318,7 @@ func TestSyncParticipants(t *testing.T) {
 				Args:            tc.args,
 				Executor:        tc.executor,
 				ExecutorGuildID: "guild_1",
-				Services:        services.NewServices(mockStore),
+				Services:        services.NewServices(mockStore, nil),
 				DiscordFetcher:  mockFetcher,
 			}
 
@@ -468,22 +341,22 @@ func TestIsValidClassCode(t *testing.T) {
 	assert.False(t, IsValidClassCode(""))
 }
 
-func TestGetMemberPrincipalsUsesCacheAndResolvesDistinctIDs(t *testing.T) {
+func TestGetMembersWithRolesUsesCacheAndResolvesDistinctIDs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	fetcher := mock_providers.NewMockDiscordFetcher(ctrl)
 	cached := &discordgo.Member{User: &discordgo.User{ID: "123"}, Nick: "Ana", Roles: []string{"student"}}
 	fetcher.EXPECT().GetCachedMember("guild", "123").Return(cached, nil)
 	fetcher.EXPECT().GetCachedMember("guild", "456").Return(nil, errors.New("cache miss"))
 	fetcher.EXPECT().FetchMember("guild", "456").Return(&discordgo.Member{User: &discordgo.User{ID: "456"}, Roles: []string{"other"}}, nil)
-	principals, err := GetMemberPrincipals(fetcher, "guild", []string{"123", "123", "456"})
+	usersWithRoles, err := GetMembersWithRoles(fetcher, "guild", []string{"123", "123", "456"})
 	require.NoError(t, err)
-	require.Len(t, principals, 2)
-	assert.Equal(t, "Ana", principals["123"].DisplayName)
-	assert.Equal(t, []string{"other"}, principals["456"].Roles)
+	require.Len(t, usersWithRoles, 2)
+	assert.Equal(t, "Ana", usersWithRoles["123"].DisplayName)
+	assert.Equal(t, []string{"other"}, usersWithRoles["456"].Roles)
 	cached.Roles[0] = "changed"
-	assert.Equal(t, []string{"student"}, principals["123"].Roles)
+	assert.Equal(t, []string{"student"}, usersWithRoles["123"].Roles)
 }
-func TestGetMemberPrincipalsRejectsUnavailableOrInvalidMembers(t *testing.T) {
+func TestGetMembersWithRolesRejectsUnavailableOrInvalidMembers(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		member *discordgo.Member
@@ -500,8 +373,8 @@ func TestGetMemberPrincipalsRejectsUnavailableOrInvalidMembers(t *testing.T) {
 			fetcher.EXPECT().GetCachedMember("guild", "111").Return(&discordgo.Member{User: &discordgo.User{ID: "111"}}, nil)
 			fetcher.EXPECT().GetCachedMember("guild", "123").Return(nil, nil)
 			fetcher.EXPECT().FetchMember("guild", "123").Return(test.member, test.err)
-			principals, err := GetMemberPrincipals(fetcher, "guild", []string{"111", "123", "123", "789"})
-			assert.Nil(t, principals)
+			usersWithRoles, err := GetMembersWithRoles(fetcher, "guild", []string{"111", "123", "123", "789"})
+			assert.Nil(t, usersWithRoles)
 			var internal *controllerserr.InternalError
 			require.ErrorAs(t, err, &internal)
 			assert.ErrorContains(t, err, "123")
