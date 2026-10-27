@@ -182,3 +182,13 @@ func NewBatchPreparationError(message string, err error) *BatchPreparationError 
 		WrappedError: err,
 	}
 }
+
+// PermissionDeniedError identifies an authenticated actor without management access.
+type PermissionDeniedError struct{ ServiceError }
+
+func NewPermissionDeniedError() *PermissionDeniedError {
+	return &PermissionDeniedError{
+		Code:    403,
+		Message: "permission denied",
+	}
+}

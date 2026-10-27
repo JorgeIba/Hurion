@@ -2,6 +2,7 @@ package mentor
 
 import (
 	"errors"
+	"github.com/JorgeIba/Hurion/app/services"
 
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
@@ -57,15 +58,15 @@ func (ctrl *ACInteractionController) HandleProposeACInteraction(event *discordgo
 		}
 	}
 
-	principal := service_model.Principal{User: controllers_common.MapMemberToUser(event.Member), Roles: event.Member.Roles}
-	problem, err := ctrl.services.Solution.AddPendingACByPrincipal(event.ID, principal, problemID)
+	userWithRoles := service_model.UserWithRoles{User: controllers_common.MapMemberToUser(event.Member), Roles: event.Member.Roles}
+	problem, err := ctrl.services.Solution.ProposeAC(event.ID, userWithRoles, problemID)
 	if err != nil {
-		ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionEnrolledProposeAC, principal.DisplayName, problemID))
+		ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionEnrolledProposeAC, userWithRoles.DisplayName, problemID))
 		return
 	}
 
 	card := discord.BuildACProposalWebhookParams(
-		principal.User,
+		userWithRoles.User,
 		problem,
 		image,
 		contentType,
@@ -81,7 +82,7 @@ func (ctrl *ACInteractionController) HandleProposeACInteraction(event *discordgo
 		return
 	}
 
-	logger.Log.Infof("Published AC proposal %s: proposer=%s problem=%d", event.ID, principal.UserID, problemID)
+	logger.Log.Infof("Published AC proposal %s: proposer=%s problem=%d", event.ID, userWithRoles.UserID, problemID)
 	if err := ctrl.responder.DeleteResponse(event.Interaction); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, messageACProposalPublished)
 	}
@@ -115,7 +116,7 @@ func (ctrl *ACInteractionController) handleACProposalDecision(event *discordgo.I
 		return
 	}
 
-	if err := ctrl.authorizeACInteraction(event); err != nil {
+	if err := ctrl.validateACActor(event); err != nil {
 		ctrl.responder.FollowupPrivately(event.Interaction, err.Error())
 		return
 	}
@@ -123,12 +124,17 @@ func (ctrl *ACInteractionController) handleACProposalDecision(event *discordgo.I
 	var pending service_model.PendingConfirmation
 	var err error
 	if accepted {
-		pending, err = ctrl.services.Solution.AcceptACProposal(referenceID)
+		pending, err = ctrl.services.Solution.AcceptACProposal(services.UserActor(event.Member.User.ID), referenceID)
 	} else {
-		pending, err = ctrl.services.Solution.RejectACProposal(referenceID)
+		pending, err = ctrl.services.Solution.RejectACProposal(services.UserActor(event.Member.User.ID), referenceID)
 	}
 
 	if err != nil {
+		if _, denied := errors.AsType[*serviceerr.PermissionDeniedError](err); denied {
+			ctrl.responder.FollowupPrivately(event.Interaction, adapters.MapError(err, adapters.ActionMentorAddAC))
+			return
+		}
+
 		if _, unavailable := errors.AsType[*serviceerr.NotFoundInfoError](err); unavailable {
 			ctrl.responder.FollowupPrivately(event.Interaction, messageACProposalUnavailable)
 			return

@@ -24,7 +24,7 @@ func TestWorkflow_EditBatchPreservesIdentitySolutionsAndOmittedFields(t *testing
 		t.Run(fmt.Sprintf("repeated target=%t", repeated), func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			source := env.seedClass(t, "source", "Source")
 			destination := env.seedClass(t, "destination", "Destination")
 			id, err := env.DB.AddProblem(data.Problem{Name: "Original", URL: "https://example.com/original", ClassID: source, Difficulty: new("hard"), Topic: new("Trees"), Priority: new("recommended")})
@@ -106,7 +106,7 @@ func TestWorkflow_EditBatchInvalidInputDoesNotPartiallyUpdate(t *testing.T) {
 		t.Run(invalid, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			source := env.seedClass(t, "source", "Source")
 			id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
 			before, err := env.DB.GetProblemByID(id)
@@ -145,7 +145,7 @@ func TestWorkflow_EditBatchUpdatesOnlySuppliedField(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			source := env.seedClass(t, "source", "Source")
 			destination := env.seedClass(t, "destination", "Destination")
 			id, err := env.DB.AddProblem(data.Problem{Name: "Original", URL: "https://example.com/original", ClassID: source, Difficulty: new("hard"), Topic: new("Trees"), Priority: new("recommended")})
@@ -183,7 +183,7 @@ func TestWorkflow_EditBatchUpdatesOnlySuppliedField(t *testing.T) {
 func TestWorkflow_EditBatchRepeatedTargetsCombinePartialUpdates(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	class := env.seedClass(t, "source", "Source")
 	id := env.seedProblem(t, "Original", "https://example.com/original", class, "hard", "Trees")
 	before, err := env.DB.GetProblemByID(id)
@@ -203,7 +203,7 @@ func TestWorkflow_EditBatchRepeatedTargetsCombinePartialUpdates(t *testing.T) {
 func TestWorkflow_EditBatchPreservesChangesToOmittedFieldsAfterPreview(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	source := env.seedClass(t, "source", "Source")
 	destination := env.seedClass(t, "destination", "Destination")
 	id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
@@ -228,7 +228,7 @@ func TestWorkflow_EditBatchRevalidatesAllTargetsBeforeWriting(t *testing.T) {
 		t.Run(change, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			source := env.seedClass(t, "source", "Source")
 			destination := env.seedClass(t, "destination", "Destination")
 			first := env.seedProblem(t, "First", "https://example.com/first", source, "easy", "Arrays")
@@ -258,7 +258,7 @@ func TestWorkflow_EditBatchRevalidatesAllTargetsBeforeWriting(t *testing.T) {
 func TestWorkflow_EditBatchCancelAndForgedCreateButtonDoNotWrite(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	class := env.seedClass(t, "source", "Source")
 	id := env.seedProblem(t, "Original", "https://example.com/original", class, "easy", "Arrays")
 	before, err := env.DB.GetProblemByID(id)
@@ -299,11 +299,11 @@ func (store *uncertainProblemUpdateStore) PatchProblemByProblemID(id int64, patc
 func TestWorkflow_EditBatchStorageFailureStopsLaterWritesAndReportsProgress(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(string, string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	class := env.seedClass(t, "source", "Source")
 	ids := []int64{env.seedProblem(t, "One", "https://example.com/one", class, "easy", "Arrays"), env.seedProblem(t, "Two", "https://example.com/two", class, "easy", "Arrays"), env.seedProblem(t, "Three", "https://example.com/three", class, "easy", "Arrays")}
 	store := &uncertainProblemUpdateStore{DataStore: env.DB}
-	env.ProblemController = mentor.NewProblemInteractionController(services.NewServices(store), env.Discord, dispatcher.NewDiscordInteractionResponder(env.Responder))
+	env.ProblemController = mentor.NewProblemInteractionController(services.NewServices(store, env.authorization()), dispatcher.NewDiscordInteractionResponder(env.Responder))
 	input := fmt.Sprintf(`[{"problem_id":%d,"class":"source","name":"Changed 1","url":"https://example.com/new1"},{"problem_id":%d,"class":"source","name":"Changed 2","url":"https://example.com/new2"},{"problem_id":%d,"class":"source","name":"Changed 3","url":"https://example.com/new3"}]`, ids[0], ids[1], ids[2])
 	preview := submitBatchCommandPreview(t, env, "problem", "edit_batch", input)
 	event := batchButtonEvent(t, preview, "Confirm")

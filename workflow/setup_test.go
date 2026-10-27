@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
 	appbot "github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/data"
@@ -45,6 +46,10 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 		cfg = configs[0]
 	}
 
+	if cfg.GuildID == "" {
+		cfg.GuildID = testGuildID
+	}
+
 	logger.Init()
 
 	db, err := data.NewDB(&data.DBConfig{
@@ -54,12 +59,13 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 	require.NoError(t, err, "failed to initialize workflow test DB")
 	t.Cleanup(db.CloseDB)
 
-	svcs := services.NewServices(db)
 	discord := newStubDiscordProvider()
 	sender := &fakeSender{}
 	client := &recordingDiscordInteractionClient{t: t}
 	responder := dispatcher.NewDiscordInteractionResponder(client)
-	problemInteractionController := mentor.NewProblemInteractionController(svcs, discord, responder)
+	auth := authorization.New(authorization.NewDiscordRoleSource(discord, testGuildID), "admin_role", "mentor_role", nil)
+	svcs := services.NewServices(db, auth)
+	problemInteractionController := mentor.NewProblemInteractionController(svcs, responder)
 	session := &discordgo.Session{
 		State: &discordgo.State{
 			Ready: discordgo.Ready{
@@ -70,7 +76,7 @@ func setupWorkflowEnv(t *testing.T, configs ...appbot.BotConfig) *workflowEnv {
 
 	return &workflowEnv{
 		ProblemController: problemInteractionController,
-		ACController:      mentor.NewACInteractionController(svcs, discord, discord, responder),
+		ACController:      mentor.NewACInteractionController(svcs, discord, responder),
 		Bot:               appbot.NewBot(svcs, discord, sender, responder, cfg),
 		DB:                db,
 		Services:          svcs,
@@ -224,8 +230,6 @@ func newStubDiscordProvider() *stubDiscordProvider {
 }
 
 type stubDiscordProvider struct {
-	isAdminFunc           func(guildID, userID string) (bool, error)
-	isMentorFunc          func(guildID, userID string) (bool, error)
 	getCachedMemberFunc   func(guildID, userID string) (*discordgo.Member, error)
 	fetchMemberFunc       func(guildID, userID string) (*discordgo.Member, error)
 	editEmbedFunc         func(channelID, messageID string, embed *discordgo.MessageEmbed) error
@@ -235,20 +239,6 @@ type stubDiscordProvider struct {
 	displayNames     map[string]string
 	messages         map[string]*discordgo.Message
 	removedReactions []string
-}
-
-func (s *stubDiscordProvider) IsAdmin(guildID, userID string) (bool, error) {
-	if s.isAdminFunc != nil {
-		return s.isAdminFunc(guildID, userID)
-	}
-	return false, nil
-}
-
-func (s *stubDiscordProvider) IsMentor(guildID, userID string) (bool, error) {
-	if s.isMentorFunc != nil {
-		return s.isMentorFunc(guildID, userID)
-	}
-	return false, nil
 }
 
 func (s *stubDiscordProvider) GetCachedMember(guildID, userID string) (*discordgo.Member, error) {
@@ -372,4 +362,8 @@ func newConfirmationMessage(id, replyTo string, args []string, originalAuthorID 
 			Author:    &discordgo.User{ID: originalAuthorID},
 		},
 	}
+}
+
+func (env *workflowEnv) authorization() services.Authorizer {
+	return authorization.New(authorization.NewDiscordRoleSource(env.Discord, testGuildID), "admin_role", "mentor_role", nil)
 }

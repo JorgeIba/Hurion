@@ -63,7 +63,7 @@ func TestScoreboardExporterWorker_ExportAll_WritesClassesJSON(t *testing.T) {
 	mockStore.EXPECT().GetAllSolvedProblemsByClass(int64(1)).Return(map[data.User][]data.SolvedProblem{}, nil)
 	mockProblemSvc.EXPECT().GetProblemsGroupedByTopic("basicos").Return([]service_model.ProblemsByTopic{}, nil)
 
-	classSvc := services.NewClassService(mockStore)
+	classSvc := services.NewClassService(mockStore, nil)
 	scoreSvc := &services.ScoreService{Datastore: mockStore, ProblemService: mockProblemSvc}
 
 	worker := NewScoreboardExporterWorker(classSvc, scoreSvc, store)

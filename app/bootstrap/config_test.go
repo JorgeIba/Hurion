@@ -185,3 +185,44 @@ test_mode: false
 		})
 	}
 }
+
+func TestLoadConfigMentorOverrides(t *testing.T) {
+	tests := []struct {
+		name        string
+		classConfig string
+		want        map[string]string
+	}{
+		{
+			name: "normalizes explicit override and inherits blank roles",
+			classConfig: `classes:
+  - code: basics
+    name: Basics
+  - code: " advanced "
+    name: Advanced
+    mentor_role_id: " custom "
+  - code: inherited
+    name: Inherited
+    mentor_role_id: "   "
+`,
+			want: map[string]string{"advanced": "custom"},
+		},
+		{name: "no overrides", classConfig: "classes: []\n", want: map[string]string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			config := "admin_role_id: \" admin \"\nmentor_role_id: \" global \"\n" + tt.classConfig
+			if !assert.NoError(t, os.WriteFile(path, []byte(config), 0600)) {
+				return
+			}
+			cfg, err := LoadConfig(path)
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Equal(t, "admin", cfg.AdminRoleID)
+			assert.Equal(t, "global", cfg.MentorRoleID)
+			assert.Equal(t, tt.want, cfg.MentorRolesByClass())
+		})
+	}
+}

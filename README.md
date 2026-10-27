@@ -76,6 +76,38 @@ Detailed guides for every part of the system:
 3.  **Launch (Standard):** `make run`
 4.  **Launch (Full Dev Mode):** `make run-dev` (enables `--seed` and `--exporter`)
 
+### Mentor roles by class
+
+Classes use the global `mentor_role_id` unless they configure their own:
+
+```yaml
+mentor_role_id: "global-role-id"
+classes:
+  - code: "advanced"
+    name: "Advanced"
+    mentor_role_id: "advanced-mentor-role-id"
+```
+
+An override replaces the global role for that class. An omitted or blank override
+inherits the global role. Administrators retain access to every class. These IDs
+load at startup, including without `--seed`; restart after editing configuration.
+The bot does not create Discord roles, and no database migration is needed.
+To restrict a student who mentors another class, configure a separate mentor role
+for the student's class as well; classes without overrides retain global access.
+
+Problem management and AC decisions check the affected classes. Moves require
+access to both classes; batches check every target before the first write.
+Confirmations recheck current roles and the current stored classes of problems.
+Management services enforce these checks using the actor ID and an injected
+`Authorizer`; administrative mutations and exports enforce admin access in their
+services as well. Controllers handle Discord input and confirmation ownership;
+the request context carries the actor identity, not an authorizer.
+User actions and startup reconciliation use the same services. The reconciler
+process is authorized only to create classes and link channels/access roles; it
+cannot delete data, export classes, or approve ACs.
+Forms can open before permission is checked; submission and confirmation still
+require access. If execution-time validation fails, submit a new batch. Student access roles remain separate.
+
 ### Runtime Flags & Makefile Composition
 The bot's behavior is controlled by CLI flags composed via `make run FLAGS="..."`:
 

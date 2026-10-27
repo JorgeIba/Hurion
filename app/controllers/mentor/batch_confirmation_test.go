@@ -2,18 +2,20 @@ package mentor
 
 import (
 	"errors"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
-	"github.com/JorgeIba/Hurion/app/data"
-	"github.com/JorgeIba/Hurion/app/providers"
-	"github.com/JorgeIba/Hurion/app/services"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
+	"github.com/JorgeIba/Hurion/app/data"
+	"github.com/JorgeIba/Hurion/app/data/mock_data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/JorgeIba/Hurion/app/providers"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
+	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -48,13 +50,16 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 				{name: "missing member", missingMember: true, wantPending: true, wantContent: "identified server member"},
 				{name: "malformed button", malformed: true, wantPending: true, wantContent: "invalid batch action button"},
 				{name: "expired", expired: true, wantContent: discord.BatchUnavailableMessage},
-				{name: "expires during role check", expireDuringCheck: true},
-				{name: "permissions revoked", denied: true, wantPending: true, wantFollowups: 1, wantContent: "mentor or admin"},
-				{name: "permission lookup failed", permissionFails: true, wantPending: true, wantFollowups: 1, wantContent: "verifying permissions"},
+				{name: "expires during acknowledgement", expireDuringCheck: true},
+				{name: "permissions revoked", denied: true, wantEdits: 1, wantContent: "mentor or admin"},
+				{name: "permission lookup failed", permissionFails: true, wantEdits: 1, wantContent: "Could not"},
 				{name: "failed acknowledgement", ackFails: true, wantPending: true},
 			} {
 				t.Run(test.name, func(t *testing.T) {
 					t.Parallel()
+					if family.edit && test.permissionFails {
+						test.wantContent = "Submit the batch again"
+					}
 					clock := &draftClock{}
 					clock.now.Store(time.Now().UnixNano())
 					problemCache := newValidatedProblemBatchCache(clock)
@@ -63,46 +68,43 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 					var present func() bool
 					if family.edit {
-						assert.True(t, editCache.saveValidatedBatch(key, []service_model.PreparedProblemPatch{{Entry: 1}}))
+						assert.True(t, editCache.saveValidatedBatch(key, []service_model.PreparedProblemPatch{{Entry: 1, Params: service_model.PatchProblemParams{ProblemID: 1, PatchProblemFields: service_model.PatchProblemFields{Name: service_model.PatchField[string]{Set: true, Value: "New"}}}}}))
 						present = func() bool { _, found := editCache.loadValidatedBatch(key); return found }
 					} else if family.problem {
-						assert.True(t, problemCache.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1}}))
+						assert.True(t, problemCache.saveValidatedBatch(key, []service_model.PreparedProblem{{Entry: 1, Params: service_model.CreateProblemParams{ClassCode: "basicos", Name: "New", URL: "https://example.com/new"}, Class: service_model.Class{ID: 1}}}))
 						present = func() bool { _, found := problemCache.loadValidatedBatch(key); return found }
 					} else {
-						assert.True(t, acCache.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1, User: service_model.User{UserID: "123"}}}))
+						assert.True(t, acCache.saveValidatedBatch(key, []service_model.PreparedAC{{Entry: 1, User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 1}, Class: service_model.Class{ID: 1}}}))
 						present = func() bool { _, found := acCache.loadValidatedBatch(key); return found }
 					}
 					if test.expired {
 						clock.now.Add(int64(5 * time.Minute))
 					}
 					mockCtrl := gomock.NewController(t)
-					validator := mock_providers.NewMockDiscordValidator(mockCtrl)
+					validator := mock_services.NewMockAuthorizer(mockCtrl)
 					fetcher := mock_providers.NewMockDiscordFetcher(mockCtrl)
-					if !family.problem && test.expireDuringCheck {
-						fetcher.EXPECT().GetCachedMember("guild", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}}, nil)
+					if !family.problem && (test.expireDuringCheck || test.denied || test.permissionFails) {
+						fetcher.EXPECT().GetCachedMember("guild", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"student"}}, nil)
 					}
-					if !test.otherActor && !test.otherGuild && !test.otherKind && !test.missingMember && !test.malformed && !test.expired && !test.ackFails {
-						validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
-							if test.expireDuringCheck {
-								clock.now.Add(int64(5 * time.Minute))
-							}
+					if !test.otherActor && !test.otherGuild && !test.otherKind && !test.missingMember && !test.malformed && !test.expired && !test.ackFails && !test.expireDuringCheck {
+						validator.EXPECT().CanManageClasses(services.UserActor("mentor"), gomock.Any()).DoAndReturn(func(service_model.Actor, ...string) (bool, error) {
 							if test.permissionFails {
 								return false, errors.New("Discord unavailable")
 							}
 							return !test.denied, nil
 						})
-						if test.denied {
-							validator.EXPECT().IsAdmin("guild", "mentor").Return(false, nil)
-						}
 					}
-					client := &batchInteractionClient{}
+					client := &confirmationInteractionClient{batchInteractionClient: &batchInteractionClient{}}
+					if test.expireDuringCheck {
+						client.onRespond = func() { clock.now.Add(int64(5 * time.Minute)) }
+					}
 					if test.ackFails {
 						client.ackErr = errors.New("ack failed")
 					}
 					responder := dispatcher.NewDiscordInteractionResponder(client)
 					var handle func(*discordgo.InteractionCreate)
 					if family.problem {
-						controller := NewProblemInteractionController(nil, validator, responder)
+						controller := NewProblemInteractionController(confirmationTestServices(t, validator), responder)
 						controller.validatedBatches = problemCache
 						handle = controller.HandleConfirmProblemBatchInteraction
 						if family.edit {
@@ -110,7 +112,7 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 							handle = controller.HandleConfirmProblemEditBatchInteraction
 						}
 					} else {
-						controller := NewACInteractionController(nil, validator, fetcher, responder)
+						controller := NewACInteractionController(confirmationTestServices(t, validator), fetcher, responder)
 						controller.validatedBatches = acCache
 						handle = controller.HandleConfirmACBatchInteraction
 					}
@@ -124,12 +126,12 @@ func TestBatchConfirmationProtectsPendingOwnershipAndDeadline(t *testing.T) {
 					if test.otherKind {
 						if family.problem {
 							route = string(discordcommands.ConfirmACBatch)
-							controller := NewACInteractionController(nil, validator, fetcher, responder)
+							controller := NewACInteractionController(confirmationTestServices(t, validator), fetcher, responder)
 							controller.validatedBatches = acCache
 							handle = controller.HandleConfirmACBatchInteraction
 						} else {
 							route = string(discordcommands.ConfirmProblemBatch)
-							controller := NewProblemInteractionController(nil, validator, responder)
+							controller := NewProblemInteractionController(confirmationTestServices(t, validator), responder)
 							controller.validatedBatches = problemCache
 							handle = controller.HandleConfirmProblemBatchInteraction
 						}
@@ -193,32 +195,27 @@ func confirmationEvent(problem bool, action string) *discordgo.InteractionCreate
 }
 
 // Seed a real validated snapshot so race checks also exercise actual writes.
-func setupConfirmationRace(t *testing.T, problem bool, validator providers.DiscordValidator, fetcher providers.DiscordFetcher, client *batchInteractionClient) (confirm, cancel func(*discordgo.InteractionCreate), db *data.DB) {
+func setupConfirmationRace(t *testing.T, problem bool, validator services.Authorizer, fetcher providers.DiscordFetcher, client *confirmationInteractionClient) (confirm, cancel func(*discordgo.InteractionCreate), db *data.DB) {
 	t.Helper()
 	db, err := data.NewDB(&data.DBConfig{DBPath: ":memory:", DBType: data.Test})
 	require.NoError(t, err)
 	t.Cleanup(db.CloseDB)
 	classID, err := db.CreateClass(data.Class{ClassCode: "basicos", Name: "Basicos"})
 	require.NoError(t, err)
-	svcs := services.NewServices(db)
+	svcs := services.NewServices(db, validator)
 	responder := dispatcher.NewDiscordInteractionResponder(client)
 	key := validatedBatchCacheKey{guildID: "guild", userID: "mentor", batchID: "batch"}
 	if problem {
-		prepared, issues, err := svcs.Problem.PrepareCreationBatch([]service_model.CreateProblemParams{{ClassCode: "basicos", Name: "New", URL: "https://example.com/new"}})
-		require.NoError(t, err)
-		require.Empty(t, issues)
-		controller := NewProblemInteractionController(svcs, validator, responder)
+		prepared := []service_model.PreparedProblem{{Entry: 1, Params: service_model.CreateProblemParams{ClassCode: "basicos", Name: "New", URL: "https://example.com/new"}, Class: service_model.Class{ID: classID, ClassCode: "basicos"}}}
+		controller := NewProblemInteractionController(svcs, responder)
 		require.True(t, controller.validatedBatches.saveValidatedBatch(key, prepared))
 		return controller.HandleConfirmProblemBatchInteraction, controller.HandleCancelProblemBatchInteraction, db
 	}
 	problemID, err := db.AddProblem(data.Problem{ClassID: classID, Name: "Existing", URL: "https://example.com/existing"})
 	require.NoError(t, err)
 	require.NoError(t, db.AddClassAccessRole(data.ClassAccessRole{ClassCode: "basicos", RoleID: "student"}))
-	principal := service_model.Principal{UserID: "123", Roles: []string{"student"}}
-	prepared, issues, err := svcs.Solution.PrepareCreationBatch([]service_model.CreateACParams{{UserID: "123", ProblemID: problemID}}, map[string]service_model.Principal{"123": principal})
-	require.NoError(t, err)
-	require.Empty(t, issues)
-	controller := NewACInteractionController(svcs, validator, fetcher, responder)
+	prepared := []service_model.PreparedAC{{Entry: 1, User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: problemID}, Class: service_model.Class{ID: classID, ClassCode: "basicos"}}}
+	controller := NewACInteractionController(svcs, fetcher, responder)
 	require.True(t, controller.validatedBatches.saveValidatedBatch(key, prepared))
 	return controller.HandleConfirmACBatchInteraction, controller.HandleCancelACBatchInteraction, db
 }
@@ -236,11 +233,11 @@ func TestConcurrentBatchConfirmationHasOneWinner(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 				mockCtrl := gomock.NewController(t)
-				validator := mock_providers.NewMockDiscordValidator(mockCtrl)
+				validator := mock_services.NewMockAuthorizer(mockCtrl)
 				fetcher := mock_providers.NewMockDiscordFetcher(mockCtrl)
 				started := make(chan struct{}, 2)
 				release := make(chan struct{})
-				validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) { started <- struct{}{}; <-release; return true, nil }).Times(2)
+				validator.EXPECT().CanManageClasses(services.UserActor("mentor"), gomock.Any()).Return(true, nil).MaxTimes(1)
 				if !problem {
 					count := 2
 					if otherAction == "Cancel" {
@@ -248,7 +245,7 @@ func TestConcurrentBatchConfirmationHasOneWinner(t *testing.T) {
 					}
 					fetcher.EXPECT().GetCachedMember("guild", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"student"}}, nil).Times(count)
 				}
-				client := &batchInteractionClient{}
+				client := &confirmationInteractionClient{batchInteractionClient: &batchInteractionClient{}, onRespond: func() { started <- struct{}{}; <-release }}
 				confirm, cancel, db := setupConfirmationRace(t, problem, validator, fetcher, client)
 				var clicks sync.WaitGroup
 				clicks.Go(func() { confirm(confirmationEvent(problem, "Confirm")) })
@@ -302,18 +299,19 @@ func TestDelayedConfirmationFailurePreservesWinner(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 				mockCtrl := gomock.NewController(t)
-				validator := mock_providers.NewMockDiscordValidator(mockCtrl)
+				validator := mock_services.NewMockAuthorizer(mockCtrl)
 				fetcher := mock_providers.NewMockDiscordFetcher(mockCtrl)
 				started, release := make(chan struct{}), make(chan struct{})
 				if failure == "authorization" {
-					slow := validator.EXPECT().IsMentor("guild", "mentor").DoAndReturn(func(string, string) (bool, error) {
+					validator.EXPECT().CanManageClasses(services.UserActor("mentor"), gomock.Any()).DoAndReturn(func(service_model.Actor, ...string) (bool, error) {
 						close(started)
 						<-release
 						return false, errors.New("Discord unavailable")
 					})
-					validator.EXPECT().IsMentor("guild", "mentor").Return(true, nil).After(slow)
+					if !problem {
+						fetcher.EXPECT().GetCachedMember("guild", "123").Return(&discordgo.Member{User: &discordgo.User{ID: "123"}, Roles: []string{"student"}}, nil)
+					}
 				} else {
-					validator.EXPECT().IsMentor("guild", "mentor").Return(true, nil).Times(2)
 					fetcher.EXPECT().GetCachedMember("guild", "123").DoAndReturn(func(string, string) (*discordgo.Member, error) {
 						close(started)
 						<-release
@@ -321,7 +319,7 @@ func TestDelayedConfirmationFailurePreservesWinner(t *testing.T) {
 					})
 					fetcher.EXPECT().FetchMember("guild", "123").Return(nil, errors.New("Discord unavailable"))
 				}
-				client := &batchInteractionClient{}
+				client := &confirmationInteractionClient{batchInteractionClient: &batchInteractionClient{}}
 				confirm, cancel, _ := setupConfirmationRace(t, problem, validator, fetcher, client)
 				done := make(chan struct{})
 				go func() { defer close(done); confirm(confirmationEvent(problem, "Confirm")) }()
@@ -330,11 +328,41 @@ func TestDelayedConfirmationFailurePreservesWinner(t *testing.T) {
 				close(release)
 				<-done
 				require.Len(t, client.edits, 1)
-				assert.Equal(t, "Batch cancelled. No changes were applied.", *client.edits[0].Content)
-				require.Len(t, client.followups, 1)
-				assert.Equal(t, discordgo.MessageFlagsEphemeral, client.followups[0].Flags)
-				assert.Empty(t, client.followups[0].AllowedMentions.Parse)
+				if failure == "authorization" {
+					assert.Contains(t, *client.edits[0].Content, "Could not")
+					require.Empty(t, client.followups)
+				} else {
+					assert.Equal(t, "Batch cancelled. No changes were applied.", *client.edits[0].Content)
+					require.Len(t, client.followups, 1)
+					assert.Equal(t, discordgo.MessageFlagsEphemeral, client.followups[0].Flags)
+					assert.Empty(t, client.followups[0].AllowedMentions.Parse)
+				}
 			})
 		}
 	}
+}
+
+// Pause acknowledgement to exercise competing clicks before either can claim the batch.
+type confirmationInteractionClient struct {
+	*batchInteractionClient
+	onRespond func()
+}
+
+func (c *confirmationInteractionClient) InteractionRespond(i *discordgo.Interaction, r *discordgo.InteractionResponse, options ...discordgo.RequestOption) error {
+	err := c.batchInteractionClient.InteractionRespond(i, r, options...)
+	if c.onRespond != nil {
+		c.onRespond()
+	}
+	return err
+}
+func confirmationTestServices(t *testing.T, auth services.Authorizer) *services.Services {
+	t.Helper()
+	store := mock_data.NewMockDataStore(gomock.NewController(t))
+	class := data.Class{ID: 1, ClassCode: "basicos"}
+	problem := data.Problem{ID: 1, ClassID: 1}
+	store.EXPECT().GetClassesByClassCodes([]string{"basicos"}).Return([]data.Class{class}, nil).AnyTimes()
+	store.EXPECT().GetProblemsByIDs([]int64{1}).Return([]data.Problem{problem}, nil).AnyTimes()
+	store.EXPECT().GetClassByClassID(int64(1)).Return(class, nil).AnyTimes()
+	store.EXPECT().GetACValidationData([]data.ACKey{{UserID: "123", ProblemID: 1}}).Return(map[data.ACKey]data.ACValidationData{{UserID: "123", ProblemID: 1}: {Problem: &problem, Class: &class, AccessRoleIDs: []string{"student"}}}, nil).AnyTimes()
+	return services.NewServices(store, auth)
 }

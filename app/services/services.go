@@ -15,24 +15,28 @@ type Services struct {
 }
 
 // NewServices creates a new Services instance with all service dependencies
-func NewServices(datastore data.DataStore) *Services {
+func NewServices(datastore data.DataStore, auth Authorizer) *Services {
 	// Create base services
 	userService := &UserService{
-		Datastore: datastore,
+		Authorizer: auth,
+		Datastore:  datastore,
 	}
 	enrollmentService := &EnrollmentService{
 		Datastore: datastore,
 	}
 	classService := &ClassService{
-		Datastore: datastore,
+		Authorizer: auth,
+		Datastore:  datastore,
 	}
-	problemService := NewProblemService(datastore)
+	problemService := NewProblemService(datastore, auth)
 	solutionService := &SolutionService{
-		Datastore: datastore,
+		Authorizer: auth,
+		Datastore:  datastore,
 	}
 
 	// Score service depends on problem service
 	scoreService := &ScoreService{
+		Authorizer:     auth,
 		Datastore:      datastore,
 		ProblemService: problemService,
 	}

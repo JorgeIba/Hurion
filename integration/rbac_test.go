@@ -27,11 +27,8 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 		env.SeedClass(t, classCode, "Basicos 2026")
 
 		studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
-		env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-			return false, nil
-		}
 
-		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "url", "Easy", "Arrays", "-", "New Problem"})
+		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "https://example.com/new", "Easy", "Arrays", "-", "New Problem"})
 		mentor.HandleAddProblem(ctx)
 
 		sentMsgs := env.Dispatcher.GetSentMessages()
@@ -47,9 +44,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 		env.SeedClass(t, classCode, "Basicos 2026")
 
 		mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-		env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-			return true, nil
-		}
+		env.SeedRoleToUser("mentor_1", "mentor_role")
 
 		ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!add_problem", classCode, "http://valid.url", "Easy", "Arrays", "recommended", "Success Problem"})
 		mentor.HandleAddProblem(ctx)
@@ -68,9 +63,6 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 	t.Run("Admin - Non-admin cannot create class", func(t *testing.T) {
 		env := setupIntegrationEnv(t)
 		studentUser := service_model.User{UserID: "student_1", DisplayName: "Student One"}
-		env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-			return false, nil
-		}
 
 		ctx := env.NewContext(studentUser.UserID, studentUser.DisplayName, "guild_1", []string{"!create_class", "new_class", "New Class"})
 		admin.HandleCreateClass(ctx)
@@ -84,9 +76,7 @@ func TestIntegration_RBAC_Identity(t *testing.T) {
 	t.Run("Admin - Admin can create class", func(t *testing.T) {
 		env := setupIntegrationEnv(t)
 		adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin"}
-		env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-			return true, nil
-		}
+		env.SeedRoleToUser("admin_1", "admin_role")
 
 		ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!create_class", "power_class", "Power Class"})
 		admin.HandleCreateClass(ctx)
@@ -186,9 +176,7 @@ func TestIntegration_RBAC_Enrollment(t *testing.T) {
 		// student has NO roles
 
 		mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor"}
-		env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-			return userID == mentorUser.UserID, nil
-		}
+		env.SeedRoleToUser(mentorUser.UserID, "mentor_role")
 
 		ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!add_ac", fmt.Sprintf("<@%s>", student.UserID), fmt.Sprintf("%d", problemID)})
 		mentor.HandleAddAC(ctx)

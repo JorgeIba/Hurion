@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/JorgeIba/Hurion/app/authorization"
 	"github.com/JorgeIba/Hurion/app/bot"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
@@ -113,11 +114,11 @@ func TestRunScript_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
+	fakeProvider := NewFakeDiscordProvider()
 	fakeSender := &mockMessageSender{}
-	svcs := services.NewServices(db)
+	svcs := services.NewServices(db, authorization.New(authorization.NewDiscordRoleSource(fakeProvider, "guild_1"), "admin_role", "mentor_role", nil))
 
-	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
+	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{GuildID: "guild_1"})
 	runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 	// 3. Act - execute script
@@ -148,10 +149,10 @@ func TestRunScript_ParseFailure(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
+	fakeProvider := NewFakeDiscordProvider()
 	fakeSender := &mockMessageSender{}
-	svcs := services.NewServices(db)
-	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
+	svcs := services.NewServices(db, authorization.New(authorization.NewDiscordRoleSource(fakeProvider, "guild_1"), "admin_role", "mentor_role", nil))
+	appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{GuildID: "guild_1"})
 	runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 	// 3. Act
@@ -164,8 +165,6 @@ func TestRunScript_ParseFailure(t *testing.T) {
 
 type dummyProvider struct{}
 
-func (d *dummyProvider) IsAdmin(guildID, userID string) (bool, error)  { return false, nil }
-func (d *dummyProvider) IsMentor(guildID, userID string) (bool, error) { return false, nil }
 func (d *dummyProvider) FetchMessage(channelID, messageID string) (*discordgo.Message, error) {
 	return nil, nil
 }
@@ -191,7 +190,7 @@ func TestRunScript_ValidationFailures(t *testing.T) {
 	require.NoError(t, err)
 	defer db.CloseDB()
 
-	svcs := services.NewServices(db)
+	svcs := services.NewServices(db, nil)
 	fakeSender := &mockMessageSender{}
 
 	t.Run("command without executor_id fails validation", func(t *testing.T) {
@@ -203,8 +202,8 @@ func TestRunScript_ValidationFailures(t *testing.T) {
 		err := os.WriteFile(scriptPath, []byte(scriptContent), 0644)
 		require.NoError(t, err)
 
-		fakeProvider := NewFakeDiscordProvider("admin_role", "mentor_role")
-		appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{})
+		fakeProvider := NewFakeDiscordProvider()
+		appBot := bot.NewBot(svcs, fakeProvider, fakeSender, nil, bot.BotConfig{GuildID: "guild_1"})
 		runner := NewRunner(appBot, fakeProvider, "guild_1")
 
 		err = runner.RunScript(scriptPath)
@@ -222,7 +221,7 @@ func TestRunScript_ValidationFailures(t *testing.T) {
 		require.NoError(t, err)
 
 		realProvider := &dummyProvider{}
-		appBot := bot.NewBot(svcs, realProvider, fakeSender, nil, bot.BotConfig{})
+		appBot := bot.NewBot(svcs, realProvider, fakeSender, nil, bot.BotConfig{GuildID: "guild_1"})
 		runner := NewRunner(appBot, realProvider, "guild_1")
 
 		err = runner.RunScript(scriptPath)

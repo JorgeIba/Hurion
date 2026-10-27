@@ -447,7 +447,7 @@ func HandleGetAllClasses(c *context.ContextMessage) {
 }
 
 func HandleGetMyClasses(c *context.ContextMessage) {
-	principal, err := controllers_common.GetMemberSafe(c, c.Executor.UserID)
+	userWithRoles, err := controllers_common.GetMemberSafe(c, c.Executor.UserID)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -456,7 +456,7 @@ func HandleGetMyClasses(c *context.ContextMessage) {
 		return
 	}
 
-	classes, err := c.Services.User.GetAccessibleClassesByRoles(principal.Roles)
+	classes, err := c.Services.User.GetAccessibleClassesByRoles(userWithRoles.Roles)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -504,7 +504,7 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 		return
 	}
 
-	principal, err := controllers_common.GetMemberSafe(c, userID)
+	userWithRoles, err := controllers_common.GetMemberSafe(c, userID)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(
@@ -513,7 +513,7 @@ func HandleGetClassesOfUser(c *context.ContextMessage) {
 		return
 	}
 
-	classes, err := c.Services.User.GetAccessibleClassesByRoles(principal.Roles)
+	classes, err := c.Services.User.GetAccessibleClassesByRoles(userWithRoles.Roles)
 	if err != nil {
 		logger.Log.Error(err)
 		c.Dispatcher.Send(

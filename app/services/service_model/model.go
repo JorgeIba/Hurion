@@ -11,15 +11,29 @@ import (
 // Core Service Models (Domain Entities)
 // ============================================================================
 
+// Actor identifies the person or application process requesting an operation.
+// Entry points establish this identity; its kind does not grant permissions.
+type Actor struct {
+	ID   string
+	Kind ActorKind
+}
+
+type ActorKind uint8
+
+const (
+	ActorUser ActorKind = iota + 1
+	ActorProcess
+)
+
 // User represents a user in the system
 type User struct {
 	UserID      string
 	DisplayName string
 }
 
-// Principal represents the user ACTING on the system right now,
-// containing all their verified security credentials.
-type Principal struct {
+// UserWithRoles contains a user and a snapshot of their verified role IDs.
+// It may describe an operation's recipient; Actor identifies who requests it.
+type UserWithRoles struct {
 	User
 	Roles []string
 }
@@ -53,6 +67,14 @@ type Classroom struct {
 type ClassAccessRole struct {
 	RoleID    string
 	ClassCode string
+}
+
+// ClassResourceLinkResult reports one role or room link. Results preserve input order.
+// Linked is false without an error when the resource was already linked.
+type ClassResourceLinkResult struct {
+	ResourceID string
+	Linked     bool
+	Err        error
 }
 
 // SolvedProblem represents a record of a user solving a problem

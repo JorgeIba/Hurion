@@ -67,7 +67,7 @@ func TestAutocompleteRestrictionsReturnEmptySuggestionsWithoutReadingCatalog(t *
 				store := mock_data.NewMockDataStore(gomock.NewController(t))
 				responder := &autocompleteResponder{}
 				commands := &autocompleteCommandProbe{}
-				bot := NewBot(services.NewServices(store), nil, nil, responder, BotConfig{
+				bot := NewBot(services.NewServices(store, nil), nil, nil, responder, BotConfig{
 					GuildID:          "guild",
 					TestMode:         test.testMode,
 					WhitelistUserIDs: []string{"another-user"},

@@ -31,9 +31,7 @@ func TestAddProblemPrefixUsesServiceValidationBeforeSaving(t *testing.T) {
 			t.Parallel()
 			env := setupIntegrationEnv(t)
 			classID := env.SeedClass(t, "basicos_1", "Basicos")
-			env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-				return true, nil
-			}
+			env.SeedRoleToUser("mentor_1", "mentor_role")
 			ctx := env.NewContext("mentor_1", "Mentor", "guild_1", []string{
 				"!add_problem", " basicos_1 ", tt.url, "-", "-", "-", " Two Sum ",
 			})
@@ -81,9 +79,7 @@ func TestIntegration_Mentor_AddAC(t *testing.T) {
 	env.SetRoles(student.UserID, []string{"role_enrolled"})
 
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
+	env.SeedRoleToUser(mentorUser.UserID, "mentor_role")
 
 	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!m_add_ac", fmt.Sprintf("<@%s>", student.UserID), fmt.Sprintf("%d", problemID)})
 
@@ -112,9 +108,7 @@ func TestIntegration_Mentor_UndoAC(t *testing.T) {
 	env.SeedAC(t, student.UserID, problemID)
 
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
+	env.SeedRoleToUser(mentorUser.UserID, "mentor_role")
 
 	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!m_undo_ac", fmt.Sprintf("<@%s>", student.UserID), fmt.Sprintf("%d", problemID)})
 
@@ -138,9 +132,7 @@ func TestIntegration_Mentor_RemoveProblem(t *testing.T) {
 	problemID := env.SeedProblem(t, "Two Sum", "url", classID, "Easy", "Arrays")
 
 	mentorUser := service_model.User{UserID: "mentor_1", DisplayName: "Mentor One"}
-	env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-		return userID == mentorUser.UserID, nil
-	}
+	env.SeedRoleToUser(mentorUser.UserID, "mentor_role")
 
 	ctx := env.NewContext(mentorUser.UserID, mentorUser.DisplayName, "guild_1", []string{"!remove_problem", fmt.Sprintf("%d", problemID)})
 
@@ -193,7 +185,7 @@ func TestIntegration_Mentor_UpdateProblem(t *testing.T) {
 			if !assert.NoError(t, err) {
 				return
 			}
-			env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) { return true, nil }
+			env.SeedRoleToUser("mentor_1", "mentor_role")
 			args := append([]string{"!update_problem", fmt.Sprintf("%d", problemID), "class_2"}, tt.values...)
 
 			mentor.HandleUpdateProblem(env.NewContext("mentor_1", "Mentor", "guild_1", args))
@@ -268,7 +260,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleAddProblem(c)
 			},
-			args: []string{"!add_problem", "class_1", "url", "Easy", "Topic", "-", "Name"},
+			args: []string{"!add_problem", "protected_class", "https://example.com/new", "Easy", "Topic", "-", "Name"},
 		},
 		{
 			name: "RemoveProblem unauthorized",
@@ -283,7 +275,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			handler: func(c *context.ContextMessage) {
 				mentor.HandleUpdateProblem(c)
 			},
-			args: []string{"!update_problem", "1", "class_1", "url", "Easy", "Topic", "-", "Name"},
+			args: []string{"!update_problem", "1", "protected_class", "https://example.com/new", "Easy", "Topic", "-", "Name"},
 		},
 	}
 
@@ -299,11 +291,9 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			classID := env.SeedClass(t, classCode, "Protected")
 			problemID := env.SeedProblem(t, "Stayin Alive", "url", classID, "Hard", "Safety")
 
-			// Mock NOT mentor
-			env.Validator.IsMentorFunc = func(guildID, userID string) (bool, error) {
-				return false, nil
-			}
-
+			env.SeedClassAccessRole(t, classCode, "student")
+			env.SeedRoleToUser("123", "student")
+			// No mentor role is assigned.
 			ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", tt.args)
 
 			// ACT
@@ -314,7 +304,7 @@ func TestIntegration_Mentor_UnauthorizedAccess(t *testing.T) {
 			assert.NotEmpty(t, sentMsgs)
 			permissionMessage := tt.permissionMessage
 			if permissionMessage == "" {
-				permissionMessage = "is not mentor"
+				permissionMessage = "mentor or admin"
 			}
 			assert.Contains(t, sentMsgs[len(sentMsgs)-1].Content, permissionMessage)
 

@@ -66,13 +66,13 @@ func ResolveClassCodeArg(c *context.ContextMessage, argIndex int) any {
 }
 
 // GetMemberSafe attempts to get a member from cache first, then falls back to live fetch.
-func GetMemberSafe(c *context.ContextMessage, userID string) (*service_model.Principal, error) {
-	return GetMemberPrincipal(c.DiscordFetcher, c.ExecutorGuildID, userID)
+func GetMemberSafe(c *context.ContextMessage, userID string) (*service_model.UserWithRoles, error) {
+	return GetMemberWithRoles(c.DiscordFetcher, c.ExecutorGuildID, userID)
 }
 
-// GetMemberPrincipal resolves a member from the SDK cache, falling back to the
+// GetMemberWithRoles resolves a member from the SDK cache, falling back to the
 // Discord API. It returns a role snapshot usable by message and interaction controllers.
-func GetMemberPrincipal(fetcher providers.DiscordFetcher, guildID, userID string) (*service_model.Principal, error) {
+func GetMemberWithRoles(fetcher providers.DiscordFetcher, guildID, userID string) (*service_model.UserWithRoles, error) {
 	if guildID == "" {
 		return nil, controllerserr.NewInternalError("this command can only be used in a server", fmt.Errorf("missing guild context"))
 	}
@@ -89,47 +89,27 @@ func GetMemberPrincipal(fetcher providers.DiscordFetcher, guildID, userID string
 		return nil, controllerserr.NewInternalError("could not verify Discord member identity", nil)
 	}
 
-	return &service_model.Principal{
+	return &service_model.UserWithRoles{
 		UserID:      userID,
 		DisplayName: GetDisplayNameFromMember(member),
 		Roles:       append([]string(nil), member.Roles...),
 	}, nil
 }
 
-// GetMemberPrincipals resolves distinct IDs once per call. A failure returns no partial map.
-func GetMemberPrincipals(fetcher providers.DiscordFetcher, guildID string, userIDs []string) (map[string]service_model.Principal, error) {
-	principals := make(map[string]service_model.Principal, len(userIDs))
+// GetMembersWithRoles resolves distinct IDs once per call. A failure returns no partial map.
+func GetMembersWithRoles(fetcher providers.DiscordFetcher, guildID string, userIDs []string) (map[string]service_model.UserWithRoles, error) {
+	usersWithRoles := make(map[string]service_model.UserWithRoles, len(userIDs))
 	for _, userID := range userIDs {
-		if _, found := principals[userID]; found {
+		if _, found := usersWithRoles[userID]; found {
 			continue
 		}
-		principal, err := GetMemberPrincipal(fetcher, guildID, userID)
+		userWithRoles, err := GetMemberWithRoles(fetcher, guildID, userID)
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve Discord member %s: %w", userID, err)
 		}
-		principals[userID] = *principal
+		usersWithRoles[userID] = *userWithRoles
 	}
-	return principals, nil
-}
-
-// RequireClassAccess verifies if the user has permission to access a class.
-func RequireClassAccess(c *context.ContextMessage, class service_model.Class) (bool, error) {
-	// Admin Bypass
-	isAdmin, err := c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.Executor.UserID)
-	if err != nil {
-		return false, controllerserr.NewInternalError("error verifying admin status", err)
-	}
-	if isAdmin {
-		return true, nil
-	}
-
-	// Get member roles
-	member, err := GetMemberSafe(c, c.Executor.UserID)
-	if err != nil {
-		return false, err
-	}
-
-	return c.Services.Enrollment.UserWithRolesHasAccessClass(member.Roles, class)
+	return usersWithRoles, nil
 }
 
 // SyncParticipants scans the command arguments for user participants and ensures they exist in the DB.

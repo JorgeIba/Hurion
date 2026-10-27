@@ -2,11 +2,12 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/services"
 	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/data"
 	"github.com/JorgeIba/Hurion/app/services/mock_services"
@@ -58,7 +59,7 @@ func TestWorkflow_EditProblemResolvesDestinationCodeAtSubmit(t *testing.T) {
 		t.Run(fmt.Sprintf("reuse code=%t", reuseCode), func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			source := env.seedClass(t, "source", "Source")
 			code := "destination|á%"
 			destination := env.seedClass(t, code, "Destination")
@@ -85,7 +86,7 @@ func TestWorkflow_EditProblemResolvesDestinationCodeAtSubmit(t *testing.T) {
 func TestWorkflow_EditProblemMovesAndClearsWithoutLosingIdentityOrSolutions(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	source := env.seedClass(t, "source", "Source")
 	destination := env.seedClass(t, "destination", "Destination")
 	env.seedClassroom(t, testChannelID, "destination")
@@ -144,7 +145,7 @@ func TestWorkflow_EditProblemPreservesUnchangedMetadataSelections(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			classID := env.seedClass(t, "source", "Source")
 			id, err := env.DB.AddProblem(data.Problem{
 				Name: "Original", URL: "https://example.com/original", ClassID: classID,
@@ -167,7 +168,8 @@ func TestWorkflow_EditProblemPreservesUnchangedMetadataSelections(t *testing.T) 
 func TestWorkflow_EditProblemRecoversDraftForSameProblemAndDestination(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
+	env.setRoles("other", []string{"mentor_role"})
 	source := env.seedClass(t, "source", "Source")
 	destination := env.seedClass(t, "destination", "Destination")
 	id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
@@ -212,7 +214,7 @@ func TestWorkflow_EditProblemRetryIncludesResolvedClass(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			source := env.seedClass(t, "source", "Source")
 			env.seedClass(t, "destination", "Destination")
 			id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
@@ -220,7 +222,8 @@ func TestWorkflow_EditProblemRetryIncludesResolvedClass(t *testing.T) {
 			original := env.Services.Problem
 			if test.longError {
 				mock := mock_services.NewMockProblemService(gomock.NewController(t))
-				mock.EXPECT().ReplaceProblemByProblemID(gomock.Any()).Return(serviceerr.NewValidationError(strings.Repeat("x", 2100), nil))
+				mock.EXPECT().GetProblemByID(gomock.Any()).DoAndReturn(env.Services.Problem.GetProblemByID).AnyTimes()
+				mock.EXPECT().ReplaceProblemByProblemID(services.UserActor("mentor"), gomock.Any()).Return(serviceerr.NewValidationError(strings.Repeat("x", 2100), nil))
 				env.Services.Problem = mock
 			}
 			fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: "invalid", Topic: new(" Raw topic ")}
@@ -241,13 +244,12 @@ func TestWorkflow_EditProblemRetryIncludesResolvedClass(t *testing.T) {
 func TestWorkflow_EditProblemRejectsRoleLoss(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	allowed := true
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return allowed, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	class := env.seedClass(t, "source", "Source")
 	id := env.seedProblem(t, "Original", "https://example.com/original", class, "hard", "Trees")
 	response := env.openProblemEditor(t, "mentor", id, "")
 	fields := interactiontransport.ProblemModalFields{Name: "Changed", URL: "https://example.com/new"}
-	allowed = false
+	env.setRoles("mentor", nil)
 	env.submitProblemEditor(t, "mentor", response, fields)
 	assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "mentor or admin")
 	current, err := env.DB.GetProblemByID(id)
@@ -258,7 +260,7 @@ func TestWorkflow_EditProblemRejectsRoleLoss(t *testing.T) {
 func TestWorkflow_EditProblemReceiptFailureDoesNotUndoWrite(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	class := env.seedClass(t, "source", "Source")
 	id := env.seedProblem(t, "Original", "https://example.com/original", class, "hard", "Trees")
 	before, err := env.DB.GetProblemByID(id)
@@ -266,8 +268,9 @@ func TestWorkflow_EditProblemReceiptFailureDoesNotUndoWrite(t *testing.T) {
 	response := env.openProblemEditor(t, "mentor", id, "")
 	problemService := env.Services.Problem
 	mock := mock_services.NewMockProblemService(gomock.NewController(t))
-	mock.EXPECT().ReplaceProblemByProblemID(gomock.Any()).DoAndReturn(func(params service_model.ReplaceProblemParams) error {
-		return problemService.ReplaceProblemByProblemID(params)
+	mock.EXPECT().GetProblemByID(gomock.Any()).DoAndReturn(env.Services.Problem.GetProblemByID).AnyTimes()
+	mock.EXPECT().ReplaceProblemByProblemID(services.UserActor("mentor"), gomock.Any()).DoAndReturn(func(actor service_model.Actor, params service_model.ReplaceProblemParams) error {
+		return problemService.ReplaceProblemByProblemID(actor, params)
 	}).Times(1)
 	env.Services.Problem = mock
 	receiptAttempts := 0
@@ -294,7 +297,7 @@ func TestWorkflow_EditProblemReceiptFailureDoesNotUndoWrite(t *testing.T) {
 func TestWorkflow_EditProblemFailedAcknowledgementAndDeletedTarget(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor", []string{"mentor_role"})
 	class := env.seedClass(t, "source", "Source")
 	id := env.seedProblem(t, "Original", "https://example.com/original", class, "hard", "Trees")
 	response := env.openProblemEditor(t, "mentor", id, "")
@@ -316,7 +319,8 @@ func TestWorkflow_EditProblemFailedAcknowledgementAndDeletedTarget(t *testing.T)
 func TestWorkflow_DistinctProblemEditorsUseLastSuccessfulWrite(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor1", []string{"mentor_role"})
+	env.setRoles("mentor2", []string{"mentor_role"})
 	source := env.seedClass(t, "source", "Source")
 	destination := env.seedClass(t, "destination", "Destination")
 	id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
@@ -346,13 +350,14 @@ func TestWorkflow_EditProblemRetainsDraftsForEveryFailedWrite(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor", []string{"mentor_role"})
 			source := env.seedClass(t, "source", "Source")
 			env.seedClass(t, "destination", "Destination")
 			id := env.seedProblem(t, "Original", "https://example.com/original", source, "hard", "Trees")
 			response := env.openProblemEditor(t, "mentor", id, "destination")
 			mock := mock_services.NewMockProblemService(gomock.NewController(t))
-			mock.EXPECT().ReplaceProblemByProblemID(gomock.Any()).Return(test.err).Times(1)
+			mock.EXPECT().GetProblemByID(gomock.Any()).DoAndReturn(env.Services.Problem.GetProblemByID).AnyTimes()
+			mock.EXPECT().ReplaceProblemByProblemID(services.UserActor("mentor"), gomock.Any()).Return(test.err).Times(1)
 			original := env.Services.Problem
 			env.Services.Problem = mock
 			fields := interactiontransport.ProblemModalFields{Name: " Raw name ", URL: "https://example.com/new"}
@@ -382,7 +387,7 @@ func TestWorkflow_ProblemFormsPreserveOptionalAbsenceThroughPersistence(t *testi
 			t.Run(action+"/"+test.name, func(t *testing.T) {
 				t.Parallel()
 				env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-				env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+				env.setRoles("mentor", []string{"mentor_role"})
 				classID := env.seedClass(t, "basicos_1", "Basicos")
 				var response *discordgo.InteractionResponse
 				var problemID int64

@@ -2,6 +2,9 @@ package integration
 
 import (
 	"fmt"
+	"github.com/JorgeIba/Hurion/app/authorization"
+	"github.com/JorgeIba/Hurion/app/bootstrap"
+	"github.com/JorgeIba/Hurion/app/services"
 	"testing"
 
 	"github.com/JorgeIba/Hurion/app/context"
@@ -31,9 +34,7 @@ func TestIntegration_ClearClass_Logic(t *testing.T) {
 	env.SeedAC(t, studentID, problemID)
 
 	// Stub Admin role
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	// 2. ACT: Call Controller directly for the final action
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class", classCode})
@@ -79,9 +80,7 @@ func TestIntegration_ClearClass_ContextAware(t *testing.T) {
 	env.SeedClassroom(t, "channel_1", classCode)
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class"})
 
@@ -107,9 +106,7 @@ func TestIntegration_ClearClass_ExplicitTargetSurvivesRoomRelink(t *testing.T) {
 	env.SeedClassroom(t, "channel_1", classACode)
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	// Confirmation payload capture converts contextual clear_class into an explicit class argument.
 	env.SeedClassroom(t, "channel_1", classBCode)
@@ -136,9 +133,7 @@ func TestIntegration_ClearClass_MissingContext(t *testing.T) {
 
 	env := setupIntegrationEnv(t)
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!clear_class"})
 
@@ -165,9 +160,7 @@ func TestIntegration_ExterminateClass_Logic(t *testing.T) {
 	env.SeedUser(t, studentID, "Student")
 	env.SeedAC(t, studentID, problemID)
 
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!exterminate_class", classCode})
 
@@ -198,9 +191,7 @@ func TestIntegration_ExterminateUser_Logic(t *testing.T) {
 	env.SeedAC(t, testUserID, p2)
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!exterminate", fmt.Sprintf("<@%s>", testUserID)})
 
@@ -226,9 +217,7 @@ func TestIntegration_LinkRoles_AlreadyLinkedMessage(t *testing.T) {
 	env.SeedClassAccessRole(t, classCode, "1111111111")
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!link_roles", classCode, "1111111111", "2222222222"})
 
@@ -254,9 +243,7 @@ func TestIntegration_LinkRooms_AlreadyLinkedMessage(t *testing.T) {
 	env.SeedClassroom(t, "1111111111", classCode)
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!link_rooms", classCode, "1111111111", "2222222222"})
 
@@ -282,9 +269,7 @@ func TestIntegration_CreateClass_AlreadyExists(t *testing.T) {
 	env.SeedClass(t, classCode, "Basicos 2026")
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!create_class", classCode, "Duplicate Class"})
 
@@ -313,9 +298,7 @@ func TestIntegration_ExportClass_Logic(t *testing.T) {
 	env.SeedAC(t, student.UserID, problemID)
 
 	adminUser := service_model.User{UserID: "admin_1", DisplayName: "Admin User"}
-	env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-		return userID == adminUser.UserID, nil
-	}
+	env.SeedRoleToUser(adminUser.UserID, "admin_role")
 
 	ctx := env.NewContext(adminUser.UserID, adminUser.DisplayName, "guild_1", []string{"!export", classCode})
 
@@ -385,14 +368,11 @@ func TestIntegration_Admin_UnauthorizedAccess(t *testing.T) {
 			student := service_model.User{UserID: "111", DisplayName: "Student"}
 
 			// Seed something to verify it is NOT deleted/modified
-			classCode := "protected_class"
+			classCode := "some_class"
 			env.SeedClass(t, classCode, "Protected")
+			env.SeedUser(t, "123", "Protected user")
 
-			// Mock NOT admin
-			env.Validator.IsAdminFunc = func(guildID, userID string) (bool, error) {
-				return false, nil
-			}
-
+			// No administrator role is assigned.
 			ctx := env.NewContext(student.UserID, student.DisplayName, "guild_1", tt.args)
 
 			// ACT
@@ -406,6 +386,34 @@ func TestIntegration_Admin_UnauthorizedAccess(t *testing.T) {
 			// Verify DB side-effects: class should still exist
 			_, err := env.DB.GetClassByClassCode(classCode)
 			assert.NoError(t, err, "DB state should not change after unauthorized access")
+		})
+	}
+}
+
+func TestIntegration_ConfigReconcilerUsesClassService(t *testing.T) {
+	t.Parallel()
+	env := setupIntegrationEnv(t)
+	svcs := services.NewServices(env.DB, authorization.New(nil, "", "", nil))
+	reconciler := bootstrap.NewReconciler(svcs.Class, services.ConfigReconcilerActor())
+	cfg := bootstrap.Config{Classes: []bootstrap.ClassConfig{{
+		Code: "seeded", Name: "Seeded class", RoomIDs: []string{"seed-room"}, RoleIDs: []string{"student-role"},
+	}}}
+	for _, pass := range []struct{ name string }{{"initial seed"}, {"repeated seed"}} {
+		t.Run(pass.name, func(t *testing.T) {
+			assert.NoError(t, reconciler.Reconcile(cfg))
+			class, err := env.DB.GetClassByClassCode("seeded")
+			assert.NoError(t, err)
+			assert.Equal(t, "Seeded class", class.Name)
+			rooms, err := env.DB.GetClassroomsByClassCode("seeded")
+			assert.NoError(t, err)
+			if assert.Len(t, rooms, 1) {
+				assert.Equal(t, "seed-room", rooms[0].RoomID)
+			}
+			roles, err := env.DB.GetClassAccessRolesByClassCode("seeded")
+			assert.NoError(t, err)
+			if assert.Len(t, roles, 1) {
+				assert.Equal(t, "student-role", roles[0].RoleID)
+			}
 		})
 	}
 }

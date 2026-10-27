@@ -3,11 +3,11 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"strings"
 	"testing"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/controllers/mentor"
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/bwmarrin/discordgo"
@@ -19,10 +19,10 @@ func TestWorkflow_ExplicitControllerPreservesDraftAcrossBotInstances(t *testing.
 	t.Parallel()
 	cfg := appbot.BotConfig{GuildID: testGuildID}
 	env := setupWorkflowEnv(t, cfg)
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor_1", []string{"mentor_role"})
 	env.seedClass(t, "basicos_1", "Basicos")
 	responder := dispatcher.NewDiscordInteractionResponder(env.Responder)
-	env.ProblemController = mentor.NewProblemInteractionController(env.Services, env.Discord, responder)
+	env.ProblemController = mentor.NewProblemInteractionController(env.Services, responder)
 	env.Bot = appbot.NewBot(env.Services, env.Discord, env.Dispatcher, responder, cfg)
 
 	failed := env.openProblemForm(t, "mentor_1", "basicos_1")
@@ -49,7 +49,7 @@ func TestWorkflow_FailedProblemFormRecoversRawValuesAndDiscardsDraftOnCancelOrVa
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos_1", "Basicos")
 			env.seedClassroom(t, testChannelID, "basicos_1")
 			opened := env.openProblemForm(t, "mentor_1", "")
@@ -122,7 +122,7 @@ func TestWorkflow_ProblemDraftRetryInstructionRecoversTheSelectedClass(t *testin
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
 			env.seedClass(t, "basicos_1", "Basicos 1")
 			env.seedClass(t, "basicos_2", "Basicos 2")
 			if strings.Contains(test.wantClass, "`") {
@@ -187,7 +187,7 @@ func TestWorkflow_UnknownProblemSelectionsAreIgnoredWithoutDiscardingOtherFields
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos_2", "Basicos 2")
 			env.handleInteractionEvent(addProblemCommand("mentor_1", "basicos_2"))
 			response := env.Responder.responses[0].response
@@ -240,7 +240,7 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
 			classCode := strings.Repeat("a", 50)
 			classID := env.seedClass(t, classCode, "Class at the code limit")
 			failed := env.openProblemForm(t, "mentor_1", classCode)
@@ -280,23 +280,27 @@ func TestWorkflow_OversizedProblemFieldsRemainRecoverableUntilCorrectedWithinLim
 	}
 }
 
-func TestWorkflow_ProblemDraftCannotBeRecoveredByAnotherUserOrClassOrAfterPermissionRevocation(t *testing.T) {
+func TestWorkflow_ProblemDraftIsScopedToUserAndClassAndSubmitRechecksPermission(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	allowed := true
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return allowed, nil }
+	env.setRoles("mentor_1", []string{"mentor_role"})
 	env.seedClass(t, "basicos_1", "Basicos")
 	env.seedClass(t, "basicos_2", "Basicos 2")
 	failed := env.openProblemForm(t, "mentor_1", "basicos_1")
 	failed.Name, failed.URL = "My draft", "invalid"
 	env.submitProblemForm(t, "mentor_1", failed)
+	env.setRoles("mentor_2", []string{"mentor_role"})
 	assert.Empty(t, env.openProblemForm(t, "mentor_2", "basicos_1").Name)
 	assert.Empty(t, env.openProblemForm(t, "mentor_1", "basicos_2").Name)
-	allowed = false
-	env.handleInteractionEvent(addProblemCommand("mentor_1", "basicos_1"))
-	assert.Contains(t, env.Responder.responses[len(env.Responder.responses)-1].response.Data.Content, "mentor or admin")
-	allowed = true
-	assert.Equal(t, failed, env.openProblemForm(t, "mentor_1", "basicos_1"), "denied access must not consume the draft")
+	env.setRoles("mentor_1", nil)
+	recovered := env.openProblemForm(t, "mentor_1", "basicos_1")
+	assert.Equal(t, failed, recovered)
+	recovered.URL = "https://example.com/new"
+	env.submitProblemForm(t, "mentor_1", recovered)
+	assert.Contains(t, *env.Responder.edits[len(env.Responder.edits)-1].response.Content, "mentor or admin")
+	problems, err := env.Services.Problem.GetProblemsByClass("basicos_1")
+	require.NoError(t, err)
+	assert.Empty(t, problems)
 }
 
 func TestWorkflow_ProblemDraftsRemainIsolatedBetweenBotInstances(t *testing.T) {
@@ -304,7 +308,7 @@ func TestWorkflow_ProblemDraftsRemainIsolatedBetweenBotInstances(t *testing.T) {
 	first := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 	second := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 	for _, env := range []*workflowEnv{first, second} {
-		env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+		env.setRoles("mentor_1", []string{"mentor_role"})
 		env.seedClass(t, "basicos_1", "Basicos")
 	}
 	for _, test := range []struct {
@@ -325,7 +329,7 @@ func TestWorkflow_ProblemDraftsRemainIsolatedBetweenBotInstances(t *testing.T) {
 func TestWorkflow_FailedModalDeliveryKeepsProblemDraftForNextCommand(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor_1", []string{"mentor_role"})
 	env.seedClass(t, "basicos_1", "Basicos")
 	failed := env.openProblemForm(t, "mentor_1", "basicos_1")
 	failed.Name, failed.URL = "My original draft", "invalid"

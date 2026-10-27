@@ -13,24 +13,11 @@ import (
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/excelizer"
-	"github.com/JorgeIba/Hurion/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
 
 func HandleClearClass(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
-		logger.Log.Errorf("Error checking if author is admin: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
-		)
-		return err
-	} else if !isAdmin {
-		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
-		)
-		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
-	}
 
 	class, err := controllers_common.ResolveClassContext(c, 1)
 	if err != nil {
@@ -50,7 +37,7 @@ func HandleClearClass(c *context.ContextMessage) error {
 		return fmt.Errorf("error resolving class for clear_class: %w", err)
 	}
 
-	if err := c.Services.Class.ClearClassContentsByClassCode(class.ClassCode); err != nil {
+	if err := c.Services.Class.ClearClassContentsByClassCode(services.UserActor(c.Executor.UserID), class.ClassCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -69,22 +56,9 @@ func HandleClearClass(c *context.ContextMessage) error {
 }
 
 func HandleExterminateClass(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
-		logger.Log.Errorf("Error checking if author is admin: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
-		)
-		return err
-	} else if !isAdmin {
-		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
-		)
-		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
-	}
 
 	classCode := c.Args[1]
-	if err := c.Services.Class.DeleteClassByClassCode(classCode); err != nil {
+	if err := c.Services.Class.DeleteClassByClassCode(services.UserActor(c.Executor.UserID), classCode); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -103,19 +77,6 @@ func HandleExterminateClass(c *context.ContextMessage) error {
 }
 
 func HandleCreateClass(c *context.ContextMessage) {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
-		logger.Log.Errorf("Error checking if author is admin: %v\n", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
-		)
-		return
-	} else if !isAdmin {
-		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
-		)
-		return
-	}
 
 	classCode, className := c.Args[1], strings.Join(c.Args[2:], " ")
 	if !controllers_common.IsValidClassCode(classCode) {
@@ -127,7 +88,7 @@ func HandleCreateClass(c *context.ContextMessage) {
 		return
 	}
 
-	if _, err := c.Services.Class.CreateClass(classCode, className); err != nil {
+	if _, err := c.Services.Class.CreateClass(services.UserActor(c.Executor.UserID), classCode, className); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -144,19 +105,6 @@ func HandleCreateClass(c *context.ContextMessage) {
 }
 
 func HandleExterminate(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
-		logger.Log.Errorf("Error checking if author is admin: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
-		)
-		return err
-	} else if !isAdmin {
-		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
-		)
-		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
-	}
 
 	mention := c.Args[1]
 	userID, ok := controllers_common.ParseUserID(mention)
@@ -167,7 +115,7 @@ func HandleExterminate(c *context.ContextMessage) error {
 		return nil
 	}
 
-	if err := c.Services.User.ExterminateUser(userID); err != nil {
+	if err := c.Services.User.ExterminateUser(services.UserActor(c.Executor.UserID), userID); err != nil {
 		logger.Log.Error(err)
 
 		c.Dispatcher.Send(
@@ -186,24 +134,11 @@ func HandleExterminate(c *context.ContextMessage) error {
 }
 
 func HandleExportClass(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
-		logger.Log.Errorf("Error checking if author is admin: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
-		)
-		return err
-	} else if !isAdmin {
-		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
-		)
-		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
-	}
 
 	classCode := c.Args[1]
 
 	logger.Log.Infof("Generating Excel export for class %s", classCode)
-	users, problemsByTopic, score, err := c.Services.Score.GetClassExportData(classCode)
+	users, problemsByTopic, score, err := c.Services.Score.GetClassExportData(services.UserActor(c.Executor.UserID), classCode)
 	if err != nil {
 		logger.Log.Error(err)
 
@@ -249,62 +184,35 @@ func HandleExportClass(c *context.ContextMessage) error {
 	return nil
 }
 
-func checkIfUserIsAdmin(c *context.ContextMessage) (bool, error) {
-	if c.Executor.UserID == "" {
-		return false, fmt.Errorf("no executor user ID available")
-	}
-
-	if c.ExecutorGuildID == "" {
-		return false, fmt.Errorf("admin commands can only be used in a server, not in DMs")
-	}
-
-	return c.DiscordValidator.IsAdmin(c.ExecutorGuildID, c.Executor.UserID)
-}
-
 func HandleLinkRoles(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
-		logger.Log.Errorf("Error checking admin status: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
-		)
-		return err
-	} else if !isAdmin {
-		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
-		)
-		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
-	}
-
 	classCode := c.Args[1]
 	rolesLinked := 0
 	rolesAlreadyLinked := 0
 	rolesFailed := 0
-	for i := 2; i < len(c.Args); i++ {
-		roleParam := c.Args[i]
-		roleID, ok := controllers_common.ParseRoleID(roleParam)
+	var roleIDs []string
+	for _, param := range c.Args[2:] {
+		roleID, ok := controllers_common.ParseRoleID(param)
 		if !ok {
-			logger.Log.Warnf("Skipping invalid role param: %s", roleParam)
+			logger.Log.Warnf("Skipping invalid role param: %s", param)
 			rolesFailed++
 			continue
 		}
+		roleIDs = append(roleIDs, roleID)
+	}
 
-		exists, err := c.Services.Class.HasAccessRole(classCode, roleID)
-		if err != nil {
-			logger.Log.Errorf("Failed to check role %s for class %s: %v", roleID, classCode, err)
+	results, err := c.Services.Class.LinkClassAccessRoles(services.UserActor(c.Executor.UserID), classCode, roleIDs...)
+	if err != nil {
+		logger.Log.Errorf("Failed to link roles to class %s: %v", classCode, err)
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionLinkRoles, classCode)))
+		return err
+	}
+
+	for _, result := range results {
+		if result.Err != nil {
+			logger.Log.Errorf("Failed to link role %s to class %s: %v", result.ResourceID, classCode, result.Err)
 			rolesFailed++
-			continue
-		}
-		if exists {
-			logger.Log.Infof("Role %q is already linked to class %q, skipping.", roleID, classCode)
+		} else if !result.Linked {
 			rolesAlreadyLinked++
-			continue
-		}
-
-		err = c.Services.Class.AssignAccessRole(service_model.ClassAccessRole{ClassCode: classCode, RoleID: roleID})
-		if err != nil {
-			logger.Log.Errorf("Failed to link role %s to class %s: %v", roleID, classCode, err)
-			rolesFailed++
 		} else {
 			rolesLinked++
 		}
@@ -322,54 +230,34 @@ func HandleLinkRoles(c *context.ContextMessage) error {
 }
 
 func HandleLinkRooms(c *context.ContextMessage) error {
-	if isAdmin, err := checkIfUserIsAdmin(c); err != nil {
-		logger.Log.Errorf("Error checking admin status: %v", err)
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "There was a problem verifying permissions."),
-		)
-		return err
-	} else if !isAdmin {
-		logger.Log.Infoln("Bro has not enough permissions (is not admin)")
-		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, "Bro has not enough permissions (is not admin)"),
-		)
-		return controllerserr.NewUnauthorizedError("user is not an admin", nil)
-	}
-
 	classCode := c.Args[1]
 	roomsLinked := 0
 	roomsAlreadyLinked := 0
 	roomsFailed := 0
-	for i := 2; i < len(c.Args); i++ {
-		roomParam := c.Args[i]
-		roomID, ok := controllers_common.ParseChannelID(roomParam)
+	var roomIDs []string
+	for _, param := range c.Args[2:] {
+		roomID, ok := controllers_common.ParseChannelID(param)
 		if !ok {
-			logger.Log.Warnf("Skipping invalid room param: %s", roomParam)
+			logger.Log.Warnf("Skipping invalid room param: %s", param)
 			roomsFailed++
 			continue
 		}
+		roomIDs = append(roomIDs, roomID)
+	}
 
-		ownerClass, exists, err := c.Services.Class.GetClassCodeFromRoom(roomID)
-		if err != nil {
-			logger.Log.Errorf("Failed to check room %s for class %s: %v", roomID, classCode, err)
-			roomsFailed++
-			continue
-		}
-		if exists {
-			if ownerClass == classCode {
-				logger.Log.Infof("Room %q is already linked to class %q, skipping.", roomID, classCode)
-				roomsAlreadyLinked++
-			} else {
-				logger.Log.Errorf("Failed to link room %s to class %s: room is already linked to class %s", roomID, classCode, ownerClass)
-				roomsFailed++
-			}
-			continue
-		}
+	results, err := c.Services.Class.LinkClassrooms(services.UserActor(c.Executor.UserID), classCode, roomIDs...)
+	if err != nil {
+		logger.Log.Errorf("Failed to link rooms to class %s: %v", classCode, err)
+		c.Dispatcher.Send(dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionLinkRooms, classCode)))
+		return err
+	}
 
-		err = c.Services.Class.RegisterClassroom(service_model.Classroom{RoomID: roomID, ClassCode: classCode})
-		if err != nil {
-			logger.Log.Errorf("Failed to link room %s to class %s: %v", roomID, classCode, err)
+	for _, result := range results {
+		if result.Err != nil {
+			logger.Log.Errorf("Failed to link room %s to class %s: %v", result.ResourceID, classCode, result.Err)
 			roomsFailed++
+		} else if !result.Linked {
+			roomsAlreadyLinked++
 		} else {
 			roomsLinked++
 		}

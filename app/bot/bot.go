@@ -128,7 +128,7 @@ func (bot *Bot) HandleMessageEvent(m *discordgo.MessageCreate) {
 }
 
 func (bot *Bot) messageHandler(m *discordgo.MessageCreate) {
-	if m.Author.Bot || m.GuildID == "" {
+	if m.Author.Bot || m.GuildID == "" || m.GuildID != bot.guildID {
 		return
 	}
 
@@ -144,7 +144,6 @@ func (bot *Bot) messageHandler(m *discordgo.MessageCreate) {
 
 	context := &context.ContextMessage{
 		Message:                m,
-		DiscordValidator:       bot.discordProvider,
 		DiscordFetcher:         bot.discordProvider,
 		DiscordMessageModifier: bot.discordProvider,
 		Args:                   args,
@@ -181,7 +180,7 @@ func (bot *Bot) HandleReactionEvent(r *discordgo.MessageReactionAdd) {
 }
 
 func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
-	if r.UserID == bot.discordProvider.BotUserID() || r.GuildID == "" {
+	if r.UserID == bot.discordProvider.BotUserID() || r.GuildID == "" || r.GuildID != bot.guildID {
 		return
 	}
 
@@ -199,7 +198,6 @@ func (bot *Bot) reactionHandler(r *discordgo.MessageReactionAdd) {
 
 	context := &context.ContextMessage{
 		MessageReaction:        r,
-		DiscordValidator:       bot.discordProvider,
 		DiscordFetcher:         bot.discordProvider,
 		DiscordMessageModifier: bot.discordProvider,
 		Services:               bot.services,

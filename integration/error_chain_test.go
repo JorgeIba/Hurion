@@ -21,7 +21,7 @@ func TestErrorChainPreservesControllerServiceDataAndSQLCause(t *testing.T) {
 	}
 	defer db.CloseDB()
 
-	classService := services.NewClassService(db)
+	classService := services.NewClassService(db, nil)
 	_, serviceError := classService.GetClassByClassCode("missing")
 	if serviceError == nil {
 		t.Fatal("expected missing class error")

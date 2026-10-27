@@ -2,16 +2,16 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/JorgeIba/Hurion/app/bot/discordcommands"
-	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
-	"github.com/JorgeIba/Hurion/app/services/service_model"
+	"github.com/JorgeIba/Hurion/app/services"
 	"strings"
 	"testing"
 	"unicode/utf16"
 
 	appbot "github.com/JorgeIba/Hurion/app/bot"
+	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/services/mock_services"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +28,7 @@ type interactionResponseEditCall struct {
 	response    *discordgo.WebhookEdit
 }
 
-func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupOrParsing(t *testing.T) {
+func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeWriting(t *testing.T) {
 	for _, kind := range []discordgo.InteractionType{discordgo.InteractionApplicationCommand, discordgo.InteractionModalSubmit} {
 		for _, test := range []struct {
 			name          string
@@ -38,33 +38,37 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 			want          string
 		}{
 			{name: "neither mentor nor admin", member: &discordgo.Member{User: &discordgo.User{ID: "student_1"}}, want: "mentor or admin"},
-			{name: "permission lookup fails", member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}, permissionErr: fmt.Errorf("Discord unavailable"), want: "problem verifying permissions"},
-			{name: "admin lookup fails", member: &discordgo.Member{User: &discordgo.User{ID: "admin_1"}}, adminErr: fmt.Errorf("Discord unavailable"), want: "problem verifying permissions"},
+			{name: "permission lookup fails", member: &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}, permissionErr: fmt.Errorf("Discord unavailable"), want: "Unexpected internal error"},
+			{name: "admin lookup fails", member: &discordgo.Member{User: &discordgo.User{ID: "admin_1"}}, adminErr: fmt.Errorf("Discord unavailable"), want: "Unexpected internal error"},
 			{name: "missing member", want: "identified server member"},
 			{name: "missing member user", member: &discordgo.Member{}, want: "identified server member"},
 			{name: "missing user identity", member: &discordgo.Member{User: &discordgo.User{}}, want: "identified server member"},
 		} {
 			t.Run(fmt.Sprintf("%d/%s", kind, test.name), func(t *testing.T) {
 				env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
+				env.seedClass(t, "basicos", "Basicos")
+				env.seedClassroom(t, testChannelID, "basicos")
 				calls := 0
-				env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
+				env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
 					calls++
 					assert.Equal(t, testGuildID, guildID)
 					assert.Equal(t, test.member.User.ID, userID)
-					return false, test.permissionErr
+					if test.permissionErr != nil {
+						return nil, test.permissionErr
+					}
+					if test.adminErr != nil {
+						return nil, test.adminErr
+					}
+					return env.Discord.GetCachedMember(guildID, userID)
 				}
-				adminCalls := 0
-				env.Discord.isAdminFunc = func(guildID, userID string) (bool, error) {
-					adminCalls++
-					assert.Equal(t, testGuildID, guildID)
-					assert.Equal(t, test.member.User.ID, userID)
-					return false, test.adminErr
-				}
+
 				var data discordgo.InteractionData = discordgo.ApplicationCommandInteractionData{
 					Name: "problem", Options: []*discordgo.ApplicationCommandInteractionDataOption{{Name: "add", Type: discordgo.ApplicationCommandOptionSubCommand}},
 				}
 				if kind == discordgo.InteractionModalSubmit {
-					data = discordgo.ModalSubmitInteractionData{CustomID: string(discordcommands.CreateProblem)}
+					form, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{ClassCode: "basicos", ProblemModalFields: interactiontransport.ProblemModalFields{Name: "New", URL: "https://example.com/new"}})
+					require.NoError(t, err)
+					data = submittedProblemFormData(t, form)
 				}
 				event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 					GuildID: testGuildID, ChannelID: testChannelID, Type: kind, Member: test.member, Data: data,
@@ -72,6 +76,11 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 				env.handleInteractionEvent(event)
 				require.Len(t, env.Responder.responses, 1)
 				response := env.Responder.responses[0].response
+				if kind == discordgo.InteractionApplicationCommand && test.member != nil && test.member.User != nil && test.member.User.ID != "" {
+					assert.Equal(t, discordgo.InteractionResponseModal, response.Type)
+					assert.Zero(t, calls)
+					return
+				}
 				assert.Equal(t, discordgo.MessageFlagsEphemeral, response.Data.Flags)
 				if kind == discordgo.InteractionModalSubmit {
 					assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, response.Type)
@@ -83,14 +92,8 @@ func TestWorkflow_ProblemInteractionsRejectUnauthorizedMembersBeforeClassLookupO
 				}
 				if test.member == nil || test.member.User == nil || test.member.User.ID == "" {
 					assert.Zero(t, calls)
-					assert.Zero(t, adminCalls)
 				} else {
 					assert.Equal(t, 1, calls)
-					if test.permissionErr != nil {
-						assert.Zero(t, adminCalls)
-					} else {
-						assert.Equal(t, 1, adminCalls)
-					}
 				}
 			})
 		}
@@ -101,9 +104,12 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 	classID := env.seedClass(t, "basicos_1", "Basicos")
 	env.seedClassroom(t, testChannelID, "basicos_1")
-	isMentor := true
 	checks := 0
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return isMentor, nil }
+	env.setRoles("mentor_1", []string{"mentor_role"})
+	env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+		checks++
+		return env.Discord.GetCachedMember(guildID, userID)
+	}
 	member := &discordgo.Member{User: &discordgo.User{ID: "mentor_1"}}
 	command := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 		GuildID: testGuildID, ChannelID: testChannelID, Member: member, Type: discordgo.InteractionApplicationCommand,
@@ -112,10 +118,14 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 	env.handleInteractionEvent(command)
 	require.Len(t, env.Responder.responses, 1)
 	require.Equal(t, discordgo.InteractionResponseModal, env.Responder.responses[0].response.Type)
-	isMentor = false
+	env.setRoles("mentor_1", nil)
 	submit := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 		GuildID: testGuildID, ChannelID: testChannelID, Member: member, Type: discordgo.InteractionModalSubmit,
-		Data: discordgo.ModalSubmitInteractionData{CustomID: env.Responder.responses[0].response.Data.CustomID},
+		Data: func() discordgo.ModalSubmitInteractionData {
+			form, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: interactiontransport.ProblemModalFields{Name: "New", URL: "https://example.com/new"}})
+			require.NoError(t, err)
+			return submittedProblemFormData(t, form)
+		}(),
 	}}
 	env.handleInteractionEvent(submit)
 	require.Len(t, env.Responder.responses, 2)
@@ -125,7 +135,7 @@ func TestWorkflow_ProblemSubmitRejectsMentorWhoseRoleWasRemovedAfterOpeningForm(
 	problems, err := env.DB.GetProblemsByClass(classID)
 	require.NoError(t, err)
 	assert.Empty(t, problems)
-	assert.Equal(t, 2, checks)
+	assert.Equal(t, 1, checks)
 }
 
 func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *testing.T) {
@@ -144,7 +154,7 @@ func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *t
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
 			classID := env.seedClass(t, "basicos_1", "Basicos")
 			response, err := buildCreateProblemModalForTest(interactiontransport.CreateProblemModal{ClassCode: "basicos_1", ProblemModalFields: test.fields})
 			require.NoError(t, err)
@@ -191,12 +201,12 @@ func TestWorkflow_ProblemSubmitSavesNormalizedValuesAndRejectsInvalidValues(t *t
 func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor_1", []string{"mentor_role"})
 	classID := env.seedClass(t, "basicos_2", "Basicos 2")
 	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
 	modal.Name, modal.URL = strings.Repeat("🚀", 1500), "https://example.com/problem"
 	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
-	problemService.EXPECT().CreateProblemIntoClass(service_model.CreateProblemParams{
+	problemService.EXPECT().CreateProblemIntoClass(services.UserActor("mentor_1"), service_model.CreateProblemParams{
 		ClassCode:  modal.ClassCode,
 		Name:       modal.Name,
 		URL:        modal.URL,
@@ -218,7 +228,7 @@ func TestWorkflow_OversizedMappedProblemErrorUsesBoundedResponse(t *testing.T) {
 func TestWorkflow_ProblemAddRetainsDraftForDuplicateFailure(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor_1", []string{"mentor_role"})
 	env.seedClass(t, "basicos_2", "Basicos 2")
 	modal := env.openProblemForm(t, "mentor_1", "basicos_2")
 	modal.ProblemModalFields = interactiontransport.ProblemModalFields{
@@ -226,7 +236,7 @@ func TestWorkflow_ProblemAddRetainsDraftForDuplicateFailure(t *testing.T) {
 		Difficulty: new("hard"), Priority: new("recommended"), Topic: new(" Binary search "),
 	}
 	problemService := mock_services.NewMockProblemService(gomock.NewController(t))
-	problemService.EXPECT().CreateProblemIntoClass(service_model.CreateProblemParams{
+	problemService.EXPECT().CreateProblemIntoClass(services.UserActor("mentor_1"), service_model.CreateProblemParams{
 		ClassCode:  modal.ClassCode,
 		Name:       modal.Name,
 		URL:        modal.URL,
@@ -297,9 +307,12 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 			t.Parallel()
 
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return !test.adminOnly, nil }
-			adminChecks := 0
-			env.Discord.isAdminFunc = func(_, _ string) (bool, error) { adminChecks++; return test.adminOnly, nil }
+			if !test.adminOnly {
+				env.setRoles("mentor_1", []string{"mentor_role"})
+			}
+			if test.adminOnly {
+				env.setRoles("mentor_1", []string{"admin_role"})
+			}
 			env.seedClass(t, "basicos_1", "Basicos 2026")
 			env.seedClass(t, "basicos_2", "Basicos 2027")
 			if test.channelClass != "" {
@@ -345,8 +358,12 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 				Type: discordgo.InteractionModalSubmit, Data: data, Member: command.Member,
 			}}
 			if test.channelClass != "" {
-				require.NoError(t, env.Services.Class.RemoveClassroom(testChannelID))
-				env.seedClassroom(t, testChannelID, "basicos_2")
+				env.setRoles("admin_1", []string{"admin_role"})
+				actor := services.UserActor("admin_1")
+				require.NoError(t, env.Services.Class.RemoveClassroom(actor, testChannelID))
+				linked, err := env.Services.Class.LinkClassroom(actor, service_model.Classroom{RoomID: testChannelID, ClassCode: "basicos_2"})
+				require.NoError(t, err)
+				assert.True(t, linked)
 			}
 
 			env.handleInteractionEvent(submit)
@@ -381,11 +398,6 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 			assert.Equal(t, "recommended", *problem.Priority)
 			assert.Contains(t, *receipt.response.Content, fmt.Sprintf("Problem `%d`", problem.ID))
 			assert.Contains(t, *receipt.response.Content, problemName)
-			if test.adminOnly {
-				assert.Equal(t, 2, adminChecks, "admin authority is checked both on open and submit")
-			} else {
-				assert.Zero(t, adminChecks, "mentors do not require another role lookup")
-			}
 		})
 	}
 }
@@ -393,16 +405,8 @@ func TestWorkflow_ProblemAdd_UsesInjectedResponderForFormAcknowledgementAndSaved
 func TestWorkflow_AdminWithoutMentorRoleCreatesAndUpdatesProblemThroughPrefixCommands(t *testing.T) {
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 	env.seedClass(t, "basicos_1", "Basicos")
-	env.Discord.isMentorFunc = func(guildID, userID string) (bool, error) {
-		assert.Equal(t, testGuildID, guildID)
-		assert.Equal(t, "admin_1", userID)
-		return false, nil
-	}
-	env.Discord.isAdminFunc = func(guildID, userID string) (bool, error) {
-		assert.Equal(t, testGuildID, guildID)
-		assert.Equal(t, "admin_1", userID)
-		return true, nil
-	}
+	env.setRoles("admin_1", []string{"admin_role"})
+
 	env.sendMessage(t, "admin_1", "Admin", "!add_problem basicos_1 https://example.com/problem easy - recommended Two Sum")
 	problems, err := env.Services.Problem.GetProblemsGroupedByTopic("basicos_1")
 	require.NoError(t, err)
@@ -436,7 +440,11 @@ func TestWorkflow_ProblemSubmitDoesNotCheckPermissionsOrSaveWhenAcknowledgementF
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
 			classID := env.seedClass(t, "basicos_1", "Basicos")
 			checks := 0
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { checks++; return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
+			env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
+				checks++
+				return env.Discord.GetCachedMember(guildID, userID)
+			}
 			env.Responder.respondFunc = func(response *discordgo.InteractionResponse) error {
 				assert.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, response.Type)
 				return test.err
@@ -471,10 +479,11 @@ func TestWorkflow_ProblemSubmitAcknowledgesBeforePermissionLookupAndKeepsSaveWhe
 	classID := env.seedClass(t, "basicos_1", "Basicos")
 	acknowledged := false
 	checks := 0
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) {
+	env.setRoles("mentor_1", []string{"mentor_role"})
+	env.Discord.fetchMemberFunc = func(guildID, userID string) (*discordgo.Member, error) {
 		assert.True(t, acknowledged, "submit must be acknowledged before live permission lookup")
 		checks++
-		return true, nil
+		return env.Discord.GetCachedMember(guildID, userID)
 	}
 	env.Responder.respondFunc = func(response *discordgo.InteractionResponse) error {
 		require.Equal(t, discordgo.InteractionResponseDeferredChannelMessageWithSource, response.Type)
@@ -510,11 +519,12 @@ func TestWorkflow_ProblemSubmitAcknowledgesBeforePermissionLookupAndKeepsSaveWhe
 func TestWorkflow_ProblemSubmitReportsClassRemovedAfterFormOpenedWithoutSaving(t *testing.T) {
 	t.Parallel()
 	env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-	env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+	env.setRoles("mentor_1", []string{"mentor_role"})
 	classID := env.seedClass(t, "basicos_1", "Basicos")
 	modal := env.openProblemForm(t, "mentor_1", "basicos_1")
 	modal.Name, modal.URL = "Two Sum", "https://example.com/problem"
-	require.NoError(t, env.Services.Class.DeleteClassByClassCode("basicos_1"))
+	env.setRoles("admin_1", []string{"admin_role"})
+	require.NoError(t, env.Services.Class.DeleteClassByClassCode(services.UserActor("admin_1"), "basicos_1"))
 	env.submitProblemForm(t, "mentor_1", modal)
 	require.Len(t, env.Responder.edits, 1)
 	assert.Contains(t, *env.Responder.edits[0].response.Content, "Class code `basicos_1` not found")
@@ -537,7 +547,7 @@ func TestWorkflow_ProblemAdd_ReportsClassErrorsBeforeOpeningForm(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			env := setupWorkflowEnv(t, appbot.BotConfig{GuildID: testGuildID})
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
 			if test.seedClass {
 				env.seedClass(t, test.classCode, "Long class code")
 			}
@@ -592,7 +602,7 @@ func TestWorkflow_ProblemSubmit_UsesInjectedResponderForPrivateErrors(t *testing
 			t.Parallel()
 
 			env := setupWorkflowEnv(t, test.config)
-			env.Discord.isMentorFunc = func(_, _ string) (bool, error) { return true, nil }
+			env.setRoles("mentor_1", []string{"mentor_role"})
 			event := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
 				ID: "submit_1", Token: "submit_token", GuildID: test.guildID, ChannelID: testChannelID,
 				Type:   discordgo.InteractionModalSubmit,

@@ -18,7 +18,9 @@ import (
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
+	"github.com/JorgeIba/Hurion/app/services/mock_services"
 	"github.com/bwmarrin/discordgo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -84,7 +86,7 @@ func TestInvalidStringProblemIDStopsBeforePersistenceOrPublication(t *testing.T)
 			t.Parallel()
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			client := &proposalInteractionClient{}
-			controller := NewACInteractionController(services.NewServices(store), nil, nil, dispatcher.NewDiscordInteractionResponder(client))
+			controller := NewACInteractionController(services.NewServices(store, nil), nil, dispatcher.NewDiscordInteractionResponder(client))
 			event := proposalCommand("invalid-submission", 5)
 			event.ApplicationCommandData().Options[0].Options[0].Value = test.value
 			// No datastore expectations: invalid input must stop before any read/write.
@@ -126,13 +128,13 @@ func TestPrefixAndSlashProposalsShareRenewalIncludingPublicationFailures(t *test
 			})
 			require.NoError(t, err)
 			require.NoError(t, db.AddClassAccessRole(data.ClassAccessRole{ClassCode: "ac", RoleID: "student"}))
-			svcs := services.NewServices(db)
+			svcs := services.NewServices(db, nil)
 			// Both transports must obtain the problem through SolutionService.
 			svcs.Problem = nil
 			fetcher := mock_providers.NewMockDiscordFetcher(gomock.NewController(t))
 			fetcher.EXPECT().GetCachedMember("guild", "student").Return(&discordgo.Member{User: &discordgo.User{ID: "student"}, Roles: []string{"student"}}, nil).Times(2)
 			out := make(chan dispatcher.MessageResponse, 2)
-			prefix := makeCommandContext([]string{"!ac", fmt.Sprint(problemID)}, "student", "guild", "prefix-original", svcs, nil, fetcher, out)
+			prefix := makeCommandContext([]string{"!ac", fmt.Sprint(problemID)}, "student", "guild", "prefix-original", svcs, fetcher, out)
 			enrolled.HandleProposeAC(prefix)
 			require.Equal(t, dispatcher.Reaction, awaitMessage(t, out).Type)
 
@@ -140,7 +142,7 @@ func TestPrefixAndSlashProposalsShareRenewalIncludingPublicationFailures(t *test
 				publicationErr: test.publicationErr,
 				deletionErr:    test.deletionErr,
 			}
-			controller := NewACInteractionController(svcs, nil, nil, dispatcher.NewDiscordInteractionResponder(client))
+			controller := NewACInteractionController(svcs, nil, dispatcher.NewDiscordInteractionResponder(client))
 			controller.HandleProposeACInteraction(proposalCommand("slash-reference", problemID))
 			_, _, err = db.GetPendingConfirmation("prefix-original")
 			require.True(t, dataerr.IsNotFound(err))
@@ -243,25 +245,25 @@ func TestACProposalButtonsRespectAuthorityAndCurrentReference(t *testing.T) {
 					_, err = failureDB.Exec(query)
 					require.NoError(t, err)
 				}
-				validator := mock_providers.NewMockDiscordValidator(gomock.NewController(t))
+				validator := mock_services.NewMockAuthorizer(gomock.NewController(t))
 				var permissionErr error
 				if scenario == "permission lookup failed" {
 					permissionErr = errors.New("role lookup unavailable")
 				}
 				mentor := scenario != "admin" && scenario != "denied" && permissionErr == nil
 				checks := 1
+				if scenario == "resolved" || scenario == "replaced" {
+					checks = 0
+				}
 				if scenario == "persistence failed" {
 					checks = 2
 				}
-				validator.EXPECT().IsMentor("guild", "actor").Return(mentor, permissionErr).Times(checks)
-				if !mentor && permissionErr == nil {
-					validator.EXPECT().IsAdmin("guild", "actor").Return(scenario == "admin", nil)
-				}
+				validator.EXPECT().CanManageClasses(services.UserActor("actor"), gomock.Any()).Return(mentor || scenario == "admin", permissionErr).Times(checks)
 				client := &proposalInteractionClient{}
 				if scenario == "public update failed" {
 					client.editErr = errors.New("Discord could not update the public card")
 				}
-				controller := NewACInteractionController(services.NewServices(db), validator, nil, dispatcher.NewDiscordInteractionResponder(client))
+				controller := NewACInteractionController(services.NewServices(db, validator), nil, dispatcher.NewDiscordInteractionResponder(client))
 				customID := interactiontransport.ACProposalRejectID("proposal-reference")
 				if approve {
 					customID = interactiontransport.ACProposalApproveID("proposal-reference")
@@ -319,6 +321,9 @@ func TestACProposalButtonsRespectAuthorityAndCurrentReference(t *testing.T) {
 					require.Empty(t, client.edits, "failed decisions must not render public success")
 					require.Len(t, client.followups, 1)
 					require.Equal(t, discordgo.MessageFlagsEphemeral, client.followups[0].Flags)
+					if scenario == "denied" {
+						assert.Contains(t, client.followups[0].Content, "mentor or admin role is required")
+					}
 					if scenario == "replaced" || scenario == "resolved" {
 						require.Contains(t, client.followups[0].Content, "resolved or replaced")
 					}

@@ -15,7 +15,7 @@ func TestACBatchAccessErrorsUseVerifiedDisplayName(t *testing.T) {
 	issues := []batchInputIssue{{entry: 1, err: serviceerr.NewUserNotEnrolledError("no access", nil)}}
 	for _, name := range []string{"Jorge Luis", "", "Unknown", "name`\n@everyone"} {
 		t.Run(name, func(t *testing.T) {
-			students := map[string]service_model.Principal{"123": {User: service_model.User{UserID: "123", DisplayName: name}}}
+			students := map[string]service_model.UserWithRoles{"123": {User: service_model.User{UserID: "123", DisplayName: name}}}
 			mapped := mapACBatchValidationIssues(entries, issues, students)
 			require.Len(t, mapped, 1)
 			assert.Equal(t, 1, mapped[0].Entry)
@@ -36,7 +36,7 @@ func TestACBatchAccessErrorsUseVerifiedDisplayName(t *testing.T) {
 func TestACBatchConfirmationErrorsUseCurrentDiscordName(t *testing.T) {
 	t.Parallel()
 	batch := []service_model.PreparedAC{{User: service_model.User{UserID: "123", DisplayName: "Old Name"}, Problem: service_model.Problem{ID: 13}}}
-	students := map[string]service_model.Principal{"123": {User: service_model.User{UserID: "123", DisplayName: "Current Name"}}}
+	students := map[string]service_model.UserWithRoles{"123": {User: service_model.User{UserID: "123", DisplayName: "Current Name"}}}
 	issues := []service_model.BatchEntryError{{Entry: 1, Err: serviceerr.NewUserNotEnrolledError("no access", nil)}}
 	mapped := mapACBatchExecutionIssues(batch, issues, students)
 	assert.Contains(t, mapped[0].Message, "`Current Name`")

@@ -75,7 +75,7 @@ func TestProblemService_GetProblemsByClass(t *testing.T) {
 			t.Parallel()
 			store := mock_data.NewMockDataStore(gomock.NewController(t))
 			test.setupMock(store)
-			problems, err := NewProblemService(store).GetProblemsByClass("basicos")
+			problems, err := NewProblemService(store, testAuthorizer(t)).GetProblemsByClass("basicos")
 			test.assertFunc(t, problems, err)
 		})
 	}

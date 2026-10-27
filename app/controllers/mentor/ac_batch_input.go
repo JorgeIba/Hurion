@@ -42,7 +42,7 @@ func mapACBatchInputToCreateACParams(entries batchInput[acInput]) []service_mode
 	return params
 }
 
-func mapACBatchValidationIssues(entries batchInput[acInput], issues []batchInputIssue, students map[string]service_model.Principal) []discord.JSONInputIssue {
+func mapACBatchValidationIssues(entries batchInput[acInput], issues []batchInputIssue, students map[string]service_model.UserWithRoles) []discord.JSONInputIssue {
 	locations := make([]discord.JSONInputIssue, len(issues))
 	for index, issue := range issues {
 		var input acInput
@@ -65,7 +65,7 @@ func mapACBatchValidationIssues(entries batchInput[acInput], issues []batchInput
 	return locations
 }
 
-func mapACBatchExecutionIssues(batch []service_model.PreparedAC, issues []service_model.BatchEntryError, students map[string]service_model.Principal) []discord.JSONInputIssue {
+func mapACBatchExecutionIssues(batch []service_model.PreparedAC, issues []service_model.BatchEntryError, students map[string]service_model.UserWithRoles) []discord.JSONInputIssue {
 	entries := make(batchInput[acInput], len(batch))
 	for index, entry := range batch {
 		entries[index] = acInput{UserID: entry.User.UserID, ProblemID: entry.Problem.ID}
