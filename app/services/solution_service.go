@@ -45,12 +45,18 @@ func (service *SolutionService) recordAC(userID string, problemID int64) error {
 
 // GrantAC authorizes the actor and validates the student's class access before recording an AC.
 func (service *SolutionService) GrantAC(actor service_model.Actor, student service_model.UserWithRoles, problemID int64) error {
-	prepared, err := service.validateACAccess(service_model.CreateACParams{UserID: student.UserID, ProblemID: problemID}, student)
+	params := service_model.CreateACParams{UserID: student.UserID, ProblemID: problemID}
+	validationData, err := service.loadACValidationData(params)
 	if err != nil {
 		return err
 	}
 
-	if err := requireManageClasses(service.Authorizer, actor, prepared.Class.ClassCode); err != nil {
+	if err := requireManageClasses(service.Authorizer, actor, validationData.Class.ClassCode); err != nil {
+		return err
+	}
+
+	prepared, err := prepareAC(params, student, validationData)
+	if err != nil {
 		return err
 	}
 
@@ -201,18 +207,35 @@ func (service *SolutionService) validateACNotSolved(userID string, problemID int
 }
 
 func (service *SolutionService) validateACAccess(params service_model.CreateACParams, student service_model.UserWithRoles) (service_model.PreparedAC, error) {
+	validationData, err := service.loadACValidationData(params)
+	if err != nil {
+		return service_model.PreparedAC{}, err
+	}
+
+	return prepareAC(params, student, validationData)
+}
+
+func (service *SolutionService) loadACValidationData(params service_model.CreateACParams) (data.ACValidationData, error) {
 	if params.UserID == "" || params.ProblemID <= 0 {
-		return service_model.PreparedAC{}, serviceerr.NewValidationError("user ID and positive problem ID are required", nil)
+		return data.ACValidationData{}, serviceerr.NewValidationError("user ID and positive problem ID are required", nil)
 	}
 
 	// Load the same validation data used by batches for this single target.
 	target := data.ACKey{UserID: params.UserID, ProblemID: params.ProblemID}
 	validationDataByAC, err := service.Datastore.GetACValidationData([]data.ACKey{target})
 	if err != nil {
-		return service_model.PreparedAC{}, serviceerr.MakeGeneralError(err)
+		return data.ACValidationData{}, serviceerr.MakeGeneralError(err)
 	}
 
-	return prepareAC(params, student, validationDataByAC[target])
+	validationData := validationDataByAC[target]
+	if validationData.Problem == nil {
+		return data.ACValidationData{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d does not exist", params.ProblemID), nil)
+	}
+	if validationData.Class == nil {
+		return data.ACValidationData{}, serviceerr.NewClassCodeNotFoundError(fmt.Sprintf("class %d does not exist", validationData.Problem.ClassID), nil)
+	}
+
+	return validationData, nil
 }
 
 // prepareAC validates one request using resolved validation data, without datastore reads.

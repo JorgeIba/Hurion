@@ -1169,3 +1169,41 @@ func TestSolutionManagementDistinguishesMissingDataFromLookupFailures(t *testing
 		})
 	}
 }
+
+func TestGrantACAuthorizesBeforeRevealingEnrollment(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name    string
+		roles   []string
+		allowed bool
+		authErr error
+		wantErr error
+	}{
+		{name: "denied with enrolled student", roles: []string{"student"}, wantErr: &serviceerr.PermissionDeniedError{}},
+		{name: "denied with unenrolled student", wantErr: &serviceerr.PermissionDeniedError{}},
+		{name: "unavailable authorization with unenrolled student", authErr: errors.New("Discord unavailable"), wantErr: &serviceerr.InternalError{}},
+		{name: "authorized with unenrolled student", allowed: true, wantErr: &serviceerr.UserNotEnrolledError{}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			store := mock_data.NewMockDataStore(ctrl)
+			auth := mock_services.NewMockAuthorizer(ctrl)
+			actor := UserActor("mentor")
+			key := data.ACKey{UserID: "123", ProblemID: 42}
+			store.EXPECT().GetACValidationData([]data.ACKey{key}).Return(map[data.ACKey]data.ACValidationData{
+				key: {
+					Problem:       &data.Problem{ID: 42, ClassID: 10},
+					Class:         &data.Class{ID: 10, ClassCode: "A"},
+					AccessRoleIDs: []string{"student"},
+				},
+			}, nil).Times(1)
+			auth.EXPECT().CanManageClasses(actor, "A").Return(tt.allowed, tt.authErr).Times(1)
+
+			err := (&SolutionService{Datastore: store, Authorizer: auth}).GrantAC(actor, service_model.UserWithRoles{UserID: "123", Roles: tt.roles}, 42)
+
+			assert.IsType(t, tt.wantErr, err)
+		})
+	}
+}
