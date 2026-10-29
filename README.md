@@ -25,14 +25,14 @@ cd Hurion
 cp config.example.yaml config.yaml
 ```
 
-Edit `config.yaml` with your server ID, admin and mentor role IDs, and class channel and role IDs. Then set your bot token and start Hurion:
+Edit `config.yaml` with your server ID, admin and mentor role IDs, and class channel and role IDs. For per-class mentor roles and every configuration field, see the [configuration reference](docs/CONFIGURATION.md). Then set your bot token and start Hurion:
 
 ```bash
 export DISCORD_BOT_TOKEN="<your bot token>"
 make run FLAGS="--seed"
 ```
 
-The `--seed` flag creates any missing classes and channel or role links from `config.yaml`; it does not create problems.
+The `--seed` flag creates any missing classes and channel or role links from `config.yaml`; it does not create problems. For the detailed bot-only and bot-plus-web setup, see [Local Development](docs/LOCAL_DEVELOPMENT.md).
 
 ### Try your first submission
 
@@ -49,12 +49,15 @@ The interactive scoreboard runs separately from the bot. Build and serve it usin
 **Using Hurion**
 
 - [Commands reference](docs/COMMANDS.md) — commands by role.
+- [Scoreboard user guide](docs/SCOREBOARD_GUIDE.md) — standings, problems, search, filters, and sorting.
 - [Mentor batch guide](docs/MENTOR_BATCHES.md) — JSON workflows for adding or editing problems and recording solves.
 
-**Running Hurion**
+**Configuration and running Hurion**
 
+- [Configuration reference](docs/CONFIGURATION.md) — `config.yaml` fields and environment variables.
+- [Local development](docs/LOCAL_DEVELOPMENT.md) — run the bot, exporter, and web UI; common Make targets.
 - [Docker setup](README.Docker.md) — container configuration and deployment.
-- [Scoreboard web UI](docs/WEB_UI.md) — local development and deployment.
+- [Scoreboard web UI](docs/WEB_UI.md) — frontend configuration and deployment.
 - [Scoreboard exporter](docs/SCOREBOARD_EXPORTER.md) — publish data for the interactive scoreboard.
 - [Database replication](docs/LITESTREAM.md) — backup and restore with Litestream.
 

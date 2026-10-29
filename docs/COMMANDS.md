@@ -1,5 +1,7 @@
 # Commands Reference
 
+Hurion has prefix commands that start with `!` and slash commands selected from Discord's `/` command picker. Use `!help` to see both command groups, and `!help <command>` for details about a prefix command. Slash commands cannot be invoked with the `!` prefix.
+
 Hurion uses a **stateless, contextual engine**. Many commands will automatically infer the `class_code` based on the Discord channel where they are executed.
 
 
@@ -11,13 +13,13 @@ Available to all users.
 
 | Command | Usage | Description | Confirmation |
 |---|---|---|:---:|
-| `!help` | `!help [command]` | Show info for all commands or details for a specific command | No |
+| `!help` | `!help [command]` | List prefix and slash commands or show details for a prefix command. | No |
 | `!list` | `!list [class_code]` | Show problems for a class. Inferred from channel if `class_code` is missing. | No |
 | `!scores` | `!scores` | Show scores for **all classes** as image tables. | No |
-| `!score` | `!score [class_code]` | Get a link to the interactive scoreboard for a class. Inferred from channel if `class_code` is missing. | No |
+| `!score` | `!score [class_code]` | Open the interactive scoreboard for a class. Inferred from channel if `class_code` is missing. | No |
 | `!score_image` | `!score_image [class_code]` | Generate and attach a static PNG score table for a class. Inferred from channel if `class_code` is missing. | No |
 | `!score_of` | `!score_of <@user> [class_code]` | Show a user's score in a class. Inferred from channel if `class_code` is missing. | No |
-| `!users` | `!users [class_code]` | List active users. Inferred from channel if `class_code` is missing. | No |
+| `!users` | `!users [class_code]` | List users registered in a class. Inferred from channel if `class_code` is missing. | No |
 | `!classes` | `!classes` | List all available classes. | No |
 | `!classes_of` | `!classes_of <@user>` | Show all classes a specific user has access to. | No |
 | `!get_roles` | `!get_roles [class_code]` | Show linked Discord roles. Inferred from channel if missing. | No |
@@ -41,7 +43,7 @@ Available to users with a valid class role.
 
 ## 👨‍🏫 Mentor Commands
 
-Available to users with the configured Mentor or Admin Discord role.
+Mentor commands require the configured mentor role for each affected class, or the Admin role. A class-specific `mentor_role_id` replaces the global mentor role for that class. Cross-class operations require permission for every affected class, and confirmations recheck permissions when applied. See the [configuration reference](CONFIGURATION.md).
 
 | Command | Usage | Description | Confirmation |
 |---|---|---|:---:|
@@ -85,6 +87,6 @@ Available to users with the Admin Discord role.
 
 > ℹ️ **Note on Parameters**: 
 > - `CamelUpperCase` parameters (like Problem Name) can contain spaces. 
-> - `lowercase_snake` parameters (like class_code) must be a single word. 
-> - **Optional Positional Parameters**: Arguments like `difficulty`, `topic`, and `priority` cannot be entirely omitted. Use a dash (`-`) to skip one (e.g., `!add_problem basicos_1 http://link.com - - - My Problem`).
+> - `lowercase_snake` parameters (like `class_code`) use lowercase letters, digits, and underscores, with no spaces.
+> - **Optional Positional Parameters**: Arguments like `difficulty`, `topic`, and `priority` cannot be entirely omitted. Use a dash (`-`) to skip one (e.g., `!add_problem basics http://link.com - - - My Problem`).
 > - **Priority**: Priority is a positional argument, like difficulty and topic. Use `-` to leave it unset. Valid codes are `essential`, `recommended`, `supplementary`, `not_required`, and `discouraged` (case-insensitive).

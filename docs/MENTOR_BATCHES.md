@@ -2,6 +2,8 @@
 
 Mentors and admins can create problems, patch existing problems, or record student ACs with Discord slash commands. Each batch is validated and previewed before confirmation. JSON schemas and public data exports also support AI-assisted preparation; the exports are read-only snapshots, not a write API.
 
+Mentor access is class-scoped. A class uses the global `mentor_role_id` unless its configuration defines a class-specific override, which replaces the global role for that class. Administrators can manage every class. A batch that touches multiple classes, or moves a problem between classes, requires permission for every affected class. See the [Configuration Reference](CONFIGURATION.md) for setup details.
+
 ## Commands and input
 
 | Command | Operation |
@@ -21,7 +23,7 @@ Use `/problem add_batch`. Every entry requires an existing `class`, a non-empty 
 ```json
 [
   {
-    "class": "basicos_1",
+    "class": "basics",
     "name": "Two Sum",
     "url": "https://example.com/problems/two-sum",
     "difficulty": "easy",
@@ -29,7 +31,7 @@ Use `/problem add_batch`. Every entry requires an existing `class`, a non-empty 
     "priority": "essential"
   },
   {
-    "class": "basicos_1",
+    "class": "basics",
     "name": "Binary Search",
     "url": "https://example.com/problems/binary-search",
     "difficulty": "medium",
@@ -77,7 +79,7 @@ The scoreboard export omits students with no solved problems. If the target stud
 
 ## Preview, confirmation, and failures
 
-The private preview has **Confirm** and **Cancel** buttons. Only the user who submitted the batch, in the same server and with current mentor or admin permissions, can use them. On confirmation, the bot checks permissions and target state again and revalidates the entire batch before starting writes. If revalidation finds an issue, no writes begin; correct the input and submit it again.
+The private preview has **Confirm** and **Cancel** buttons. Only the user who submitted the batch, in the same server and with current permissions for the affected classes, can use them. On confirmation, the bot checks roles and target classes again and revalidates the entire batch before starting writes. If revalidation finds an issue, no writes begin; correct the input and submit it again.
 
 Pending previews expire after five minutes, can be evicted when that command's cache reaches 50 batches, and are lost if the bot restarts. Submit the JSON again when a preview is unavailable. Confirmation consumes a batch once. If Discord fails to deliver the result, inspect the stored state before trying again; the bot will not repeat the mutation automatically.
 
