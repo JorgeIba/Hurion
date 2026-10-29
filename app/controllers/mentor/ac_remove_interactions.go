@@ -6,6 +6,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -34,14 +35,7 @@ func (ctrl *ACInteractionController) HandleRemoveACInteraction(event *discordgo.
 		return
 	}
 
-	if targetUserID != event.Member.User.ID {
-		if err := ctrl.authorizeACInteraction(event); err != nil {
-			ctrl.editInteractionResponse(event.Interaction, err.Error())
-			return
-		}
-	}
-
-	if err := ctrl.services.Solution.UndoAC(targetUserID, problemID); err != nil {
+	if err := ctrl.services.Solution.UndoAC(services.UserActor(event.Member.User.ID), targetUserID, problemID); err != nil {
 		logger.Log.Errorf("Could not remove AC: actor=%s user=%s problem=%d error=%v", event.Member.User.ID, targetUserID, problemID, err)
 		ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionMentorUndoAC, "<@"+targetUserID+">", problemID))
 		return
