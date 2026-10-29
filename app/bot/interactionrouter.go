@@ -22,6 +22,13 @@ type autocompleteRouteKey struct {
 var interactionAutocompleteMap = map[autocompleteRouteKey]InteractionRouter{
 	{
 		command:    discordcommands.ACCommandName,
+		subcommand: discordcommands.ACRemoveCommandName,
+		option:     discordcommands.ACProblemIDOptionName,
+	}: func(c *context.InteractionContext) {
+		c.AutocompleteController.HandleProblems(c.Interaction)
+	},
+	{
+		command:    discordcommands.ACCommandName,
 		subcommand: discordcommands.ACSubmitCommandName,
 		option:     discordcommands.ACProblemIDOptionName,
 	}: func(c *context.InteractionContext) {
@@ -38,6 +45,9 @@ var interactionAutocompleteMap = map[autocompleteRouteKey]InteractionRouter{
 
 var interactionCommandMap = map[string]map[string]InteractionRouter{
 	discordcommands.ACCommandName: {
+		discordcommands.ACRemoveCommandName: func(c *context.InteractionContext) {
+			c.ACController.HandleRemoveACInteraction(c.Interaction)
+		},
 		discordcommands.ACSubmitCommandName: func(c *context.InteractionContext) {
 			c.ACController.HandleProposeACInteraction(c.Interaction)
 		},

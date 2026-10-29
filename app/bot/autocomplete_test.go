@@ -51,6 +51,7 @@ func TestAutocompleteRestrictionsReturnEmptySuggestionsWithoutReadingCatalog(t *
 		option     string
 	}{
 		{command: "ac", subcommand: "submit", option: "id"},
+		{command: "ac", subcommand: "remove", option: "id"},
 		{command: "problem", subcommand: "edit", option: "problem"},
 	} {
 		for _, test := range []struct {
