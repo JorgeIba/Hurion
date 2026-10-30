@@ -22,14 +22,14 @@ type autocompleteRouteKey struct {
 var interactionAutocompleteMap = map[autocompleteRouteKey]InteractionRouter{
 	{
 		command:    discordcommands.ACCommandName,
-		subcommand: discordcommands.ACRemoveCommandName,
+		subcommand: discordcommands.ACSubmitCommandName,
 		option:     discordcommands.ACProblemIDOptionName,
 	}: func(c *context.InteractionContext) {
 		c.AutocompleteController.HandleProblems(c.Interaction)
 	},
 	{
 		command:    discordcommands.ACCommandName,
-		subcommand: discordcommands.ACSubmitCommandName,
+		subcommand: discordcommands.ACRemoveCommandName,
 		option:     discordcommands.ACProblemIDOptionName,
 	}: func(c *context.InteractionContext) {
 		c.AutocompleteController.HandleProblems(c.Interaction)
@@ -37,6 +37,13 @@ var interactionAutocompleteMap = map[autocompleteRouteKey]InteractionRouter{
 	{
 		command:    discordcommands.ProblemCommandName,
 		subcommand: discordcommands.ProblemEditCommandName,
+		option:     discordcommands.ProblemIDOptionName,
+	}: func(c *context.InteractionContext) {
+		c.AutocompleteController.HandleProblems(c.Interaction)
+	},
+	{
+		command:    discordcommands.ProblemCommandName,
+		subcommand: discordcommands.ProblemRemoveCommandName,
 		option:     discordcommands.ProblemIDOptionName,
 	}: func(c *context.InteractionContext) {
 		c.AutocompleteController.HandleProblems(c.Interaction)
@@ -56,6 +63,9 @@ var interactionCommandMap = map[string]map[string]InteractionRouter{
 		},
 	},
 	discordcommands.ProblemCommandName: {
+		discordcommands.ProblemRemoveCommandName: func(c *context.InteractionContext) {
+			c.ProblemController.HandleRemoveProblemInteraction(c.Interaction)
+		},
 		discordcommands.ProblemEditBatchCommandName: func(c *context.InteractionContext) {
 			c.ProblemController.HandleEditProblemBatchInteraction(c.Interaction)
 		},
@@ -90,6 +100,12 @@ var interactionModalMap = map[discordcommands.Action]InteractionRouter{
 }
 
 var interactionComponentMap = map[discordcommands.Action]InteractionRouter{
+	discordcommands.ConfirmProblemRemoval: func(c *context.InteractionContext) {
+		c.ProblemController.HandleConfirmProblemRemovalInteraction(c.Interaction)
+	},
+	discordcommands.CancelProblemRemoval: func(c *context.InteractionContext) {
+		c.ProblemController.HandleCancelProblemRemovalInteraction(c.Interaction)
+	},
 	discordcommands.ConfirmProblemEditBatch: func(c *context.InteractionContext) {
 		c.ProblemController.HandleConfirmProblemEditBatchInteraction(c.Interaction)
 	},

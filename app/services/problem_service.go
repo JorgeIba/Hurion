@@ -23,6 +23,7 @@ type ProblemService interface {
 	PrepareProblemPatchBatch(actor service_model.Actor, params []service_model.PatchProblemParams) ([]service_model.PreparedProblemPatch, []service_model.BatchEntryError, error)
 	ExecuteProblemPatchBatch(actor service_model.Actor, batch []service_model.PreparedProblemPatch) (service_model.ProblemPatchBatchResult, []service_model.BatchEntryError, error)
 	CreateProblemIntoClass(actor service_model.Actor, params service_model.CreateProblemParams) (int64, error)
+	PrepareProblemRemoval(actor service_model.Actor, problemID int64) (service_model.ProblemRemovalPreview, error)
 	RemoveProblemFromClass(actor service_model.Actor, problemID int64) error
 	ReplaceProblemByProblemID(actor service_model.Actor, params service_model.ReplaceProblemParams) error
 	PatchProblemByProblemID(actor service_model.Actor, params service_model.PatchProblemParams) error
@@ -223,30 +224,37 @@ func (service *problemService) ExecuteCreationBatch(actor service_model.Actor, b
 	return result, nil, nil
 }
 
-// RemoveProblemFromClass removes a problem from a class
-func (service *problemService) RemoveProblemFromClass(actor service_model.Actor, problemID int64) error {
+// PrepareProblemRemoval resolves the current target and checks class permissions without writing.
+func (service *problemService) PrepareProblemRemoval(actor service_model.Actor, problemID int64) (service_model.ProblemRemovalPreview, error) {
 	problem, err := service.Datastore.GetProblemByID(problemID)
 	if err != nil {
 		if dataerr.IsNotFound(err) {
-			return serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
+			return service_model.ProblemRemovalPreview{}, serviceerr.NewProblemNotFoundError(fmt.Sprintf("problem %d doesn't exist", problemID), err)
 		}
-
-		return serviceerr.MakeGeneralError(err)
+		return service_model.ProblemRemovalPreview{}, serviceerr.MakeGeneralError(err)
 	}
-
 	class, err := service.Datastore.GetClassByClassID(problem.ClassID)
 	if err != nil {
-		return serviceerr.MakeGeneralError(err)
+		return service_model.ProblemRemovalPreview{}, serviceerr.MakeGeneralError(err)
 	}
-	codes := []string{class.ClassCode}
-	if err := requireManageClasses(service.authorizer, actor, codes...); err != nil {
-		return err
+	if err := requireManageClasses(service.authorizer, actor, class.ClassCode); err != nil {
+		return service_model.ProblemRemovalPreview{}, err
 	}
 
+	return service_model.ProblemRemovalPreview{
+		Problem: mapDataProblemToServiceProblem(problem),
+		Class:   mapDataClassToServiceClass(class),
+	}, nil
+}
+
+// RemoveProblemFromClass rechecks the current target and permissions before deleting it.
+func (service *problemService) RemoveProblemFromClass(actor service_model.Actor, problemID int64) error {
+	if _, err := service.PrepareProblemRemoval(actor, problemID); err != nil {
+		return err
+	}
 	if _, err := service.Datastore.RemoveProblemByID(problemID); err != nil {
 		return serviceerr.MakeGeneralError(err)
 	}
-
 	return nil
 }
 

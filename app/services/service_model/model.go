@@ -255,3 +255,10 @@ func (p *Problem) GetTopic() string {
 	}
 	return *p.Topic
 }
+
+// ProblemRemovalPreview identifies the problem and class shown before deletion.
+// It is a snapshot, not authorization to execute a later removal.
+type ProblemRemovalPreview struct {
+	Problem Problem
+	Class   Class
+}
