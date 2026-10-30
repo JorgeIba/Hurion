@@ -1,13 +1,21 @@
 package mentor
 
 import (
+	"errors"
+	"strings"
+
+	appcontext "github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
+	controllers_common "github.com/JorgeIba/Hurion/app/controllers/common"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/customerr/serviceerr"
 	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
+
+const messageACRemovalPublicationUncertain = "Removal completed, but I could not confirm whether the public receipt was published. Check this channel for the receipt."
 
 // HandleRemoveACInteraction removes a recorded AC; proposals are handled separately.
 func (ctrl *ACInteractionController) HandleRemoveACInteraction(event *discordgo.InteractionCreate) {
@@ -36,7 +44,23 @@ func (ctrl *ACInteractionController) HandleRemoveACInteraction(event *discordgo.
 
 	if err := ctrl.services.Solution.UndoAC(services.UserActor(event.Member.User.ID), targetUserID, problemID); err != nil {
 		logger.Log.Errorf("Could not remove AC: actor=%s user=%s problem=%d error=%v", event.Member.User.ID, targetUserID, problemID, err)
-		ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionMentorUndoAC, "<@"+targetUserID+">", problemID))
+		targetName := "<@" + targetUserID + ">"
+		if _, conflict := errors.AsType[*serviceerr.ConflictError](err); conflict {
+			name := ""
+			if targetUserID == event.Member.User.ID {
+				name = controllers_common.GetDisplayNameFromMember(event.Member)
+			} else {
+				name = controllers_common.ResolveDisplayName(&appcontext.ContextMessage{
+					DiscordFetcher: ctrl.fetcher,
+					Services:       ctrl.services,
+				}, event.GuildID, targetUserID)
+			}
+			displayName := strings.TrimSpace(name)
+			if displayName != "" && displayName != targetUserID && displayName != "Unknown" {
+				targetName = strings.NewReplacer("`", "'", "\r", " ", "\n", " ").Replace(displayName)
+			}
+		}
+		ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionMentorUndoAC, targetName, problemID))
 		return
 	}
 
@@ -46,5 +70,14 @@ func (ctrl *ACInteractionController) HandleRemoveACInteraction(event *discordgo.
 		logger.Log.Warnf("Could not load removed AC problem name: problem=%d error=%v", problemID, lookupErr)
 	}
 
-	ctrl.editInteractionResponse(event.Interaction, discord.FormatRemovedACReceipt(problemID, problem.Name, targetUserID))
+	content := discord.FormatRemovedACReceipt(problemID, problem.Name, targetUserID)
+	if _, err := ctrl.responder.Publish(event.Interaction, discord.BuildACRemovalMessage(problemID, problem.Name, targetUserID, event.Member.User.ID)); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, content+" "+messageACRemovalPublicationUncertain)
+		return
+	}
+
+	// Remove the ephemeral response to avoid cluttering the channel with a duplicate message.
+	if err := ctrl.responder.DeleteResponse(event.Interaction); err != nil {
+		ctrl.editInteractionResponse(event.Interaction, content)
+	}
 }
