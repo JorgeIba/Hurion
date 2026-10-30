@@ -61,6 +61,7 @@ func (ctrl *ACInteractionController) HandleProposeACInteraction(event *discordgo
 	userWithRoles := service_model.UserWithRoles{User: controllers_common.MapMemberToUser(event.Member), Roles: event.Member.Roles}
 	problem, err := ctrl.services.Solution.ProposeAC(event.ID, userWithRoles, problemID)
 	if err != nil {
+		logger.Log.Errorf("Could not prepare AC proposal %s: proposer=%s problem=%d error=%v", event.ID, userWithRoles.UserID, problemID, err)
 		ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionEnrolledProposeAC, userWithRoles.DisplayName, problemID))
 		return
 	}

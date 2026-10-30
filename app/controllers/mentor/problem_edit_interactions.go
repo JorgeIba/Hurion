@@ -7,6 +7,7 @@ import (
 
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/service_model"
@@ -84,11 +85,13 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 	params := mapEditProblemModalToReplaceProblemParams(modal)
 
 	if err := ctrl.services.Problem.ReplaceProblemByProblemID(services.UserActor(event.Member.User.ID), params); err != nil {
+		logger.Log.Errorf("Problem update failed: actor=%s class=%s problem=%d error=%v", event.Member.User.ID, params.ClassCode, params.ProblemID, err)
 		content := adapters.MapError(err, adapters.ActionMentorUpdateProblem, params.ProblemID, modal.ClassCode, params.Name)
 		recoverDraft := ctrl.editProblemDrafts.saveFailedDraft(key, modal)
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatEditProblemError(content, modal.ProblemID, modal.ClassCode, recoverDraft))
 		return
 	}
+	logger.Log.Infof("Problem updated: actor=%s class=%s problem=%d", event.Member.User.ID, params.ClassCode, params.ProblemID)
 	ctrl.editProblemDrafts.consumeDraft(key)
 	ctrl.editInteractionResponse(event.Interaction, discord.FormatUpdatedProblemReceipt(params.ProblemID, modal.ClassCode, params.Name))
 }

@@ -84,6 +84,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 
 	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(services.UserActor(event.Member.User.ID), params)
 	if err != nil {
+		logger.Log.Errorf("Problem creation failed: actor=%s class=%s error=%v", event.Member.User.ID, params.ClassCode, err)
 		content := adapters.MapError(err, adapters.ActionMentorAddProblem, params.ClassCode, params.URL, params.Name)
 		// Keep raw input after any failed write so corrections do not require
 		// retyping the form, including values that failed validation.
@@ -92,6 +93,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		return
 	}
 
+	logger.Log.Infof("Problem created: actor=%s class=%s problem=%d", event.Member.User.ID, params.ClassCode, problemID)
 	ctrl.problemDrafts.consumeDraft(key)
 	// Response delivery is separate from persistence; a failed receipt must not retry the write.
 	ctrl.editInteractionResponse(event.Interaction, discord.FormatCreatedProblemReceipt(problemID, params.ClassCode, params.Name))

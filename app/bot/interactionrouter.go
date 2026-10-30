@@ -5,6 +5,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/context"
 	"github.com/JorgeIba/Hurion/app/controllers/general"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
+	"github.com/JorgeIba/Hurion/app/logger"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -187,6 +188,7 @@ func routeInteractionCommand(c *context.InteractionContext) {
 		return
 	}
 
+	logger.Log.Infof("Command invoked: /%s %s", command.Name, subcommandName)
 	router(c)
 }
 
@@ -200,6 +202,7 @@ func routeInteractionAutocomplete(c *context.InteractionContext) {
 func routeInteractionModalSubmit(c *context.InteractionContext) {
 	route := interactiontransport.ModalAction(c.Interaction.ModalSubmitData().CustomID)
 	if router, ok := interactionModalMap[route]; ok {
+		logger.Log.Infof("Modal submitted: %s", route)
 		router(c)
 	}
 }
@@ -207,6 +210,7 @@ func routeInteractionModalSubmit(c *context.InteractionContext) {
 func routeInteractionComponent(c *context.InteractionContext) {
 	route := interactiontransport.ComponentAction(c.Interaction.MessageComponentData().CustomID)
 	if router, ok := interactionComponentMap[route]; ok {
+		logger.Log.Infof("Component invoked: %s", route)
 		router(c)
 	}
 }

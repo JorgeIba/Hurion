@@ -26,7 +26,7 @@ func NewDiscordInteractionResponder(client discordInteractionClient) *DiscordInt
 func (r *DiscordInteractionResponder) Respond(interaction *discordgo.Interaction, response *discordgo.InteractionResponse) error {
 	err := r.client.InteractionRespond(interaction, response)
 	if err != nil {
-		logger.Log.Errorf("Failed to respond to interaction: %v", err)
+		logger.Log.Errorf("Failed to respond to interaction: interaction=%s error=%v", interaction.ID, err)
 	}
 	return err
 }
@@ -45,7 +45,7 @@ func (r *DiscordInteractionResponder) RespondPrivately(interaction *discordgo.In
 func (r *DiscordInteractionResponder) DeleteResponse(interaction *discordgo.Interaction) error {
 	err := r.client.InteractionResponseDelete(interaction)
 	if err != nil {
-		logger.Log.Errorf("Failed to delete interaction response: %v", err)
+		logger.Log.Errorf("Failed to delete interaction response: interaction=%s error=%v", interaction.ID, err)
 	}
 
 	return err
@@ -54,7 +54,7 @@ func (r *DiscordInteractionResponder) DeleteResponse(interaction *discordgo.Inte
 func (r *DiscordInteractionResponder) EditResponse(interaction *discordgo.Interaction, response *discordgo.WebhookEdit) (*discordgo.Message, error) {
 	message, err := r.client.InteractionResponseEdit(interaction, response)
 	if err != nil {
-		logger.Log.Errorf("Failed to edit interaction response: %v", err)
+		logger.Log.Errorf("Failed to edit interaction response: interaction=%s error=%v", interaction.ID, err)
 	}
 	return message, err
 }
@@ -63,7 +63,7 @@ func (r *DiscordInteractionResponder) EditResponse(interaction *discordgo.Intera
 func (r *DiscordInteractionResponder) Publish(interaction *discordgo.Interaction, response *discordgo.MessageSend) (*discordgo.Message, error) {
 	message, err := r.client.ChannelMessageSendComplex(interaction.ChannelID, response)
 	if err != nil {
-		logger.Log.Errorf("Failed to publish channel message: %v", err)
+		logger.Log.Errorf("Failed to publish channel message: interaction=%s error=%v", interaction.ID, err)
 	}
 
 	return message, err
@@ -78,7 +78,7 @@ func (r *DiscordInteractionResponder) FollowupPrivately(interaction *discordgo.I
 		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
 	})
 	if err != nil {
-		logger.Log.Errorf("Failed to send private interaction followup: %v", err)
+		logger.Log.Errorf("Failed to send private interaction followup: interaction=%s error=%v", interaction.ID, err)
 	}
 	return err
 }
