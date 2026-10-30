@@ -156,7 +156,7 @@ func TestMapError(t *testing.T) {
 			err:    serviceerr.NewConflictError("any", nil),
 			action: ActionMentorUndoAC,
 			args:   []any{"<@123>", int64(77)},
-			want:   "User `<@123>` has not solved problem `77` yet",
+			want:   "User <@123> has not solved problem `77` yet",
 		},
 		{
 			name:   "wrapped class not found is mapped correctly",

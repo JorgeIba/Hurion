@@ -176,8 +176,9 @@ var templates = map[Action]map[ErrorKind]string{
 		errorKindProblemNotFound:   "Problem id `%[2]d` not found for user `%[1]s`",
 		errorKindUserNotFound:      "User `%[1]s` not found",
 		errorKindUserMissingFromDB: "System Error: User `%[1]s` not found in database. Contact Admin.",
-		errorKindConflict:          "User `%[1]s` has not solved problem `%[2]d` yet",
-		errorKindDefault:           "Unexpected error while undoing AC for user `%[1]s` (problem `%[2]d`).",
+		// The target is preformatted so a fallback Discord mention stays renderable.
+		errorKindConflict: "User %[1]s has not solved problem `%[2]d` yet",
+		errorKindDefault:  "Unexpected error while undoing AC for user `%[1]s` (problem `%[2]d`).",
 	},
 	ActionMentorAddProblem: {
 		errorKindPermissionDenied:  "The mentor or admin role is required for the affected classes. No changes were applied.",
