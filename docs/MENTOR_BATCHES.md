@@ -81,6 +81,8 @@ The scoreboard export omits students with no solved problems. If the target stud
 
 The private preview has **Confirm** and **Cancel** buttons. Only the user who submitted the batch, in the same server and with current permissions for the affected classes, can use them. On confirmation, the bot checks roles and target classes again and revalidates the entire batch before starting writes. If revalidation finds an issue, no writes begin; correct the input and submit it again.
 
+An AC batch preview lists each student and problem (`ID: name`) with its status: **will be recorded**, **already recorded; skipped**, or **duplicate entry; no additional AC**. If the list is too long, the preview omits some entries and reports how many were left out so the confirmation fits Discord's message limit.
+
 Pending previews expire after five minutes, can be evicted when that command's cache reaches 50 batches, and are lost if the bot restarts. Submit the JSON again when a preview is unavailable. Confirmation consumes a batch once. If Discord fails to deliver the result, inspect the stored state before trying again; the bot will not repeat the mutation automatically.
 
 ## AI-assisted preparation and published data

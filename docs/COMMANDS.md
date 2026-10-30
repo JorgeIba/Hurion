@@ -35,7 +35,7 @@ Available to users with a valid class role.
 |---|---|---|:---:|
 | `!ac` | `!ac <problem_id>` | Propose a problem as solved. | Mentor Reaction |
 | `/ac submit` | `/ac submit id:<problem_id> [screenshot:<image>]` | Propose a solved problem with optional screenshot evidence. Search the ID field by ID or name, then select a suggestion or enter a numeric ID. | Mentor Buttons |
-| `/ac remove` | `/ac remove id:<problem_id> [user:<user>]` | Remove your recorded AC. Removing another user’s AC requires permission to manage the problem’s class (its configured mentor role or admin). Does not cancel pending proposals. | None |
+| `/ac remove` | `/ac remove id:<problem_id> [user:<user>]` | Remove your recorded AC. Removing another user’s AC requires permission to manage the problem’s class (its configured mentor role or admin). The response includes the problem name when available. Does not cancel pending proposals. | None |
 | `!undo_ac` | `!undo_ac <problem_id>` | Remove a problem from your own solved list. | No |
 | `!my_classes` | `!my_classes` | Show all classes you currently have access to. | No |
 
