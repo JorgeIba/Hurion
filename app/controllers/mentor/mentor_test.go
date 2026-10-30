@@ -248,6 +248,24 @@ func TestHandleUndoAC(t *testing.T) {
 			},
 		},
 		{
+			name:       "missing AC keeps unresolved user mention renderable",
+			args:       []string{"!undo_ac", "<@123>", "77"},
+			executorID: "mentor_123",
+			guildID:    "guild_123",
+			setupMock: func(t *testing.T, m *mock_data.MockDataStore, v *mock_services.MockAuthorizer, f *mock_providers.MockDiscordFetcher) {
+				f.EXPECT().GetCachedMember("guild_123", "123").Return(nil, fmt.Errorf("cache miss"))
+				m.EXPECT().GetUserByUserID("123").Return(data.User{UserID: "123", DisplayName: "Unknown"}, nil)
+				m.EXPECT().GetProblemByID(int64(77)).Return(data.Problem{ID: 77, ClassID: 1}, nil)
+				m.EXPECT().GetClassByClassID(int64(1)).Return(data.Class{ID: 1, ClassCode: "class_1"}, nil)
+				v.EXPECT().CanManageClasses(services.UserActor("mentor_123"), "class_1").Return(true, nil)
+				m.EXPECT().HasUserSolvedProblem("123", int64(77)).Return(false, nil)
+			},
+			assertFunc: func(t *testing.T, out chan dispatcher.MessageResponse) {
+				msg := awaitMessage(t, out)
+				assert.Equal(t, "User <@123> has not solved problem `77` yet", msg.Content)
+			},
+		},
+		{
 			name:       "permission check failure",
 			args:       []string{"!undo_ac", "<@123>", "77"},
 			executorID: "mentor_123",

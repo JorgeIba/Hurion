@@ -168,9 +168,13 @@ func HandleUndoAC(c *context.ContextMessage) {
 
 	if err = c.Services.Solution.UndoAC(services.UserActor(c.Executor.UserID), userID, problemID); err != nil {
 		logger.Log.Error(err)
+		errorTargetName := displayName
+		if _, conflict := errors.AsType[*serviceerr.ConflictError](err); conflict {
+			errorTargetName = formatACUndoConflictTarget(displayName, userID)
+		}
 
 		c.Dispatcher.Send(
-			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUndoAC, displayName, problemID)),
+			dispatcher.MakeSimpleMessage(c.Message.ChannelID, adapters.MapError(err, adapters.ActionMentorUndoAC, errorTargetName, problemID)),
 		)
 		return
 	}

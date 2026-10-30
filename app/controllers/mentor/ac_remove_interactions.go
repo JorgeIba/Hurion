@@ -55,10 +55,7 @@ func (ctrl *ACInteractionController) HandleRemoveACInteraction(event *discordgo.
 					Services:       ctrl.services,
 				}, event.GuildID, targetUserID)
 			}
-			displayName := strings.TrimSpace(name)
-			if displayName != "" && displayName != targetUserID && displayName != "Unknown" {
-				targetName = strings.NewReplacer("`", "'", "\r", " ", "\n", " ").Replace(displayName)
-			}
+			targetName = formatACUndoConflictTarget(name, targetUserID)
 		}
 		ctrl.editInteractionResponse(event.Interaction, adapters.MapError(err, adapters.ActionMentorUndoAC, targetName, problemID))
 		return
@@ -80,4 +77,15 @@ func (ctrl *ACInteractionController) HandleRemoveACInteraction(event *discordgo.
 	if err := ctrl.responder.DeleteResponse(event.Interaction); err != nil {
 		ctrl.editInteractionResponse(event.Interaction, content)
 	}
+}
+
+func formatACUndoConflictTarget(displayName, targetUserID string) string {
+	displayName = strings.TrimSpace(displayName)
+	// EnsureUser stores "Unknown" as a placeholder when no Discord name is available.
+	if displayName == "" || displayName == targetUserID || displayName == "Unknown" {
+		return "<@" + targetUserID + ">"
+	}
+
+	safeName := strings.NewReplacer("`", "'", "\r", " ", "\n", " ").Replace(displayName)
+	return "`" + safeName + "`"
 }
