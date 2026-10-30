@@ -26,6 +26,11 @@ type ProblemInteractionController struct {
 	validatedEditBatches *validatedProblemEditBatchCache
 	problemDrafts        *createProblemDraftCache
 	editProblemDrafts    *editProblemDraftCache
+
+	// Reuse the batch cache with one problem ID per entry to keep this change small
+	// and retain expiry and atomic consumption. Migrate when a single-value cache
+	// is available.
+	pendingRemovals *validatedBatchCache[int64]
 }
 
 func NewProblemInteractionController(svcs *services.Services, responder dispatcher.InteractionResponder) *ProblemInteractionController {
@@ -37,6 +42,7 @@ func NewProblemInteractionController(svcs *services.Services, responder dispatch
 		validatedEditBatches: newValidatedProblemEditBatchCache(nil),
 		problemDrafts:        newCreateProblemDraftCache(nil),
 		editProblemDrafts:    newEditProblemDraftCache(nil),
+		pendingRemovals:      newValidatedBatchCache[int64](nil),
 	}
 }
 

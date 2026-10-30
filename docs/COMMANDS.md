@@ -47,6 +47,7 @@ Available to users with the configured Mentor or Admin Discord role.
 | `!ac` | `!ac <@user> <problem_id>` | Directly mark a problem as solved for a user. | No |
 | `/problem add` | `/problem add [class:<class_code>]` | Open a form to create a problem. The class defaults to the one linked to the current channel. | Submit form |
 | `/problem edit` | `/problem edit problem:<problem_id> [class:<class_code>]` | Open a form to replace a problem's fields. The class defaults to its current class; its ID and recorded ACs are preserved. | Submit form |
+| `/problem remove` | `/problem remove problem:<problem_id>` | Preview a problem deletion, then confirm to permanently delete it and its recorded ACs. Requires permission to manage its class. Confirmations expire after five minutes and belong to the requesting member. | Delete / Cancel |
 | `/problem add_batch` | `/problem add_batch` | Open a form to read a problem batch from JSON. Validates the batch and reports issues; requires Confirm before applying it. | Confirm / Cancel |
 | `/problem edit_batch` | `/problem edit_batch` | Open a form to update supplied fields of existing problems from JSON. Validates the batch and reports issues; requires Confirm before applying it. | Confirm / Cancel |
 | `/ac add_batch` | `/ac add_batch` | Open a form to read explicit student ACs from JSON. Validates the batch and reports issues; requires Confirm before applying it. | Confirm / Cancel |
@@ -61,7 +62,7 @@ For JSON formats, examples, limits, confirmation behavior, and failure handling,
 
 ### Problem autocomplete
 
-The problem fields in `/ac submit`, `/ac remove` and `/problem edit` suggest problems from the class linked to the current channel. Type an ID prefix or part of a name; suggestions are ordered by ID and limited to 25 matches. Selecting `5: Tree Sum` supplies only ID `5`. If the channel has no linked class, suggestions are empty; a numeric ID can still be entered manually. The optional `class` field in `/problem edit` selects the destination class and does not change the source of problem suggestions.
+The problem fields in `/ac submit`, `/ac remove` and `/problem edit`/`/problem remove` suggest problems from the class linked to the current channel. Type an ID prefix or part of a name; suggestions are ordered by ID and limited to 25 matches. Selecting `5: Tree Sum` supplies only ID `5`. If the channel has no linked class, suggestions are empty; a numeric ID can still be entered manually. The optional `class` field in `/problem edit` selects the destination class and does not change the source of problem suggestions.
 
 Suggestions read the current class catalog without a cache. Command execution keeps its existing permission and validation rules.
 
