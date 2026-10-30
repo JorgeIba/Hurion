@@ -65,7 +65,7 @@ func (ctrl *ACInteractionController) HandleProposeACInteraction(event *discordgo
 		return
 	}
 
-	card := discord.BuildACProposalWebhookParams(
+	card := discord.BuildACProposalMessage(
 		userWithRoles.User,
 		problem,
 		image,
@@ -74,7 +74,7 @@ func (ctrl *ACInteractionController) HandleProposeACInteraction(event *discordgo
 		interactiontransport.ACProposalApproveID(event.ID), interactiontransport.ACProposalRejectID(event.ID),
 	)
 
-	if _, err := ctrl.responder.Followup(event.Interaction, card); err != nil {
+	if _, err := ctrl.responder.Publish(event.Interaction, card); err != nil {
 		// Publication does not roll back renewal. A later submission can replace this
 		// reference again, including when Discord's publication outcome is uncertain.
 		logger.Log.Errorf("Could not publish AC proposal %s: %v", event.ID, err)

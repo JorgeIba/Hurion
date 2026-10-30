@@ -6,6 +6,7 @@ import (
 )
 
 type discordInteractionClient interface {
+	ChannelMessageSendComplex(string, *discordgo.MessageSend, ...discordgo.RequestOption) (*discordgo.Message, error)
 	InteractionRespond(*discordgo.Interaction, *discordgo.InteractionResponse, ...discordgo.RequestOption) error
 	InteractionResponseDelete(*discordgo.Interaction, ...discordgo.RequestOption) error
 	InteractionResponseEdit(*discordgo.Interaction, *discordgo.WebhookEdit, ...discordgo.RequestOption) (*discordgo.Message, error)
@@ -58,12 +59,11 @@ func (r *DiscordInteractionResponder) EditResponse(interaction *discordgo.Intera
 	return message, err
 }
 
-// Followup sends a public interaction followup. It is useful when a command
-// should acknowledge privately but publish one shared result in the channel.
-func (r *DiscordInteractionResponder) Followup(interaction *discordgo.Interaction, response *discordgo.WebhookParams) (*discordgo.Message, error) {
-	message, err := r.client.FollowupMessageCreate(interaction, true, response)
+// Publish sends a standalone channel message without interaction response metadata.
+func (r *DiscordInteractionResponder) Publish(interaction *discordgo.Interaction, response *discordgo.MessageSend) (*discordgo.Message, error) {
+	message, err := r.client.ChannelMessageSendComplex(interaction.ChannelID, response)
 	if err != nil {
-		logger.Log.Errorf("Failed to send interaction followup: %v", err)
+		logger.Log.Errorf("Failed to publish channel message: %v", err)
 	}
 
 	return message, err

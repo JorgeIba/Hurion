@@ -20,7 +20,7 @@ func TestACProposalEvidenceAppearsOnceAndSurvivesResolution(t *testing.T) {
 				if withImage {
 					image = []byte("screenshot evidence")
 				}
-				card := BuildACProposalWebhookParams(service_model.User{
+				card := BuildACProposalMessage(service_model.User{
 					UserID:      "123456789012345678",
 					DisplayName: "Student",
 				}, service_model.Problem{
@@ -48,11 +48,9 @@ func TestACProposalEvidenceAppearsOnceAndSurvivesResolution(t *testing.T) {
 					upload, err := io.ReadAll(card.Files[0].Reader)
 					require.NoError(t, err)
 					require.Equal(t, image, upload)
-					require.Len(t, card.Attachments, 1)
 					message.Attachments = []*discordgo.MessageAttachment{{ID: "stored-evidence", Filename: "proof.png"}}
 				} else {
 					require.Empty(t, card.Files)
-					require.Empty(t, card.Attachments)
 				}
 				originalDescription := message.Embeds[0].Description
 				edit := BuildACProposalResolutionEdit(message, "Mentor", accepted)
@@ -94,7 +92,7 @@ func TestACProposalEvidenceAppearsOnceAndSurvivesResolution(t *testing.T) {
 func TestACProposalIdentifiesSameNamedStudentsWithoutAllowingMentionPings(t *testing.T) {
 	descriptions := make([]string, 0, 2)
 	for _, id := range []string{"123456789012345678", "234567890123456789"} {
-		card := BuildACProposalWebhookParams(service_model.User{
+		card := BuildACProposalMessage(service_model.User{
 			UserID:      id,
 			DisplayName: "Student",
 		}, service_model.Problem{ID: 5, Name: "Two Sum"}, nil, "", "", "approve", "reject")

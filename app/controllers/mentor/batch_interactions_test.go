@@ -170,3 +170,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 		})
 	}
 }
+
+func (client *batchInteractionClient) ChannelMessageSendComplex(string, *discordgo.MessageSend, ...discordgo.RequestOption) (*discordgo.Message, error) {
+	panic("unexpected channel publication")
+}

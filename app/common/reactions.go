@@ -3,6 +3,7 @@ package common
 const (
 	REACTION_YES         = "✅"
 	REACTION_NO          = "❌"
+	REACTION_NO_BLACK    = "✖️"
 	REACTION_THUMBS_UP   = "👍"
 	REACTION_THUMBS_DOWN = "👎"
 	REACTION_ACCEPTED    = "🎈"

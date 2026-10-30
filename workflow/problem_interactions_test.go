@@ -630,3 +630,7 @@ func TestWorkflow_ProblemSubmit_UsesInjectedResponderForPrivateErrors(t *testing
 		})
 	}
 }
+
+func (r *recordingDiscordInteractionClient) ChannelMessageSendComplex(string, *discordgo.MessageSend, ...discordgo.RequestOption) (*discordgo.Message, error) {
+	panic("unexpected channel publication")
+}

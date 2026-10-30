@@ -64,9 +64,9 @@ func TestDiscordInteractionResponderReturnsAndLogsEachDeliveryFailureOnce(t *tes
 			send: func() error { return responder.DeleteResponse(interaction) },
 		},
 		{
-			name: "public followup",
+			name: "channel publication",
 			send: func() error {
-				_, err := responder.Followup(interaction, &discordgo.WebhookParams{})
+				_, err := responder.Publish(interaction, &discordgo.MessageSend{})
 				return err
 			},
 		},
@@ -117,4 +117,8 @@ func TestPrivateFollowupUsesEphemeralMessageWithoutMentions(t *testing.T) {
 	assert.Equal(t, discordgo.MessageFlagsEphemeral, client.response.Flags)
 	require.NotNil(t, client.response.AllowedMentions)
 	assert.Empty(t, client.response.AllowedMentions.Parse)
+}
+
+func (client failingDiscordInteractionClient) ChannelMessageSendComplex(string, *discordgo.MessageSend, ...discordgo.RequestOption) (*discordgo.Message, error) {
+	return nil, client.err
 }
