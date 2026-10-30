@@ -10,12 +10,15 @@ const (
 	ProblemCommandName          = "problem"
 	ProblemAddCommandName       = "add"
 	ProblemEditCommandName      = "edit"
+	ProblemRemoveCommandName    = "remove"
 	ProblemAddBatchCommandName  = "add_batch"
 	ProblemEditBatchCommandName = "edit_batch"
 	ProblemIDOptionName         = "problem"
 )
 
 const (
+	ConfirmProblemRemoval   Action = "huron:problem:remove:confirm"
+	CancelProblemRemoval    Action = "huron:problem:remove:cancel"
 	ProblemEditBatch        Action = "huron:problem:batch:edit"
 	ConfirmProblemEditBatch Action = "huron:problem:batch:edit:confirm"
 	CancelProblemEditBatch  Action = "huron:problem:batch:edit:cancel"
@@ -72,6 +75,20 @@ func ProblemSlashCommand(classCodeMaxLength int) *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        ProblemEditBatchCommandName,
 				Description: "Update supplied problem fields from JSON",
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        ProblemRemoveCommandName,
+				Description: "Remove a problem and its recorded ACs after confirmation",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         ProblemIDOptionName,
+						Description:  "Problem ID (search by ID or name in this channel's class)",
+						Required:     true,
+						Autocomplete: true,
+					},
+				},
 			},
 		},
 	}

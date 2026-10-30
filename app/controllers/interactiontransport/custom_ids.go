@@ -37,7 +37,11 @@ func ComponentAction(customID string) discordcommands.Action {
 	route, _, _ := strings.Cut(customID, batchActionSeparator)
 
 	switch discordcommands.Action(route) {
-	case discordcommands.ConfirmProblemEditBatch, discordcommands.CancelProblemEditBatch, discordcommands.ConfirmProblemBatch,
+	case discordcommands.ConfirmProblemRemoval,
+		discordcommands.CancelProblemRemoval,
+		discordcommands.ConfirmProblemEditBatch,
+		discordcommands.CancelProblemEditBatch,
+		discordcommands.ConfirmProblemBatch,
 		discordcommands.ConfirmACBatch,
 		discordcommands.CancelProblemBatch,
 		discordcommands.CancelACBatch,
@@ -195,4 +199,20 @@ func ParseProblemEditBatchConfirmID(customID string) (string, error) {
 }
 func ParseProblemEditBatchCancelID(customID string) (string, error) {
 	return parseBatchActionID(customID, discordcommands.CancelProblemEditBatch, "invalid batch cancellation button")
+}
+
+func ProblemRemovalConfirmID(confirmationID string) string {
+	return string(discordcommands.ConfirmProblemRemoval) + batchActionSeparator + confirmationID
+}
+
+func ProblemRemovalCancelID(confirmationID string) string {
+	return string(discordcommands.CancelProblemRemoval) + batchActionSeparator + confirmationID
+}
+
+func ParseProblemRemovalConfirmID(customID string) (string, error) {
+	return parseBatchActionID(customID, discordcommands.ConfirmProblemRemoval, "Invalid problem removal confirmation.")
+}
+
+func ParseProblemRemovalCancelID(customID string) (string, error) {
+	return parseBatchActionID(customID, discordcommands.CancelProblemRemoval, "Invalid problem removal cancellation.")
 }

@@ -1,11 +1,10 @@
 package mentor
 
 import (
-	"fmt"
-
 	"github.com/JorgeIba/Hurion/app/controllers/adapters"
 	"github.com/JorgeIba/Hurion/app/controllers/interactiontransport"
 	"github.com/JorgeIba/Hurion/app/logger"
+	"github.com/JorgeIba/Hurion/app/presentation/discord"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
 )
@@ -42,5 +41,10 @@ func (ctrl *ACInteractionController) HandleRemoveACInteraction(event *discordgo.
 	}
 
 	logger.Log.Infof("Removed AC: actor=%s user=%s problem=%d", event.Member.User.ID, targetUserID, problemID)
-	ctrl.editInteractionResponse(event.Interaction, fmt.Sprintf("Removed AC for problem `%d` from <@%s>.", problemID, targetUserID))
+	problem, lookupErr := ctrl.services.Problem.GetProblemByID(problemID)
+	if lookupErr != nil {
+		logger.Log.Warnf("Could not load removed AC problem name: problem=%d error=%v", problemID, lookupErr)
+	}
+
+	ctrl.editInteractionResponse(event.Interaction, discord.FormatRemovedACReceipt(problemID, problem.Name, targetUserID))
 }

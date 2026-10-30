@@ -6,6 +6,9 @@ import (
 )
 
 type ProblemInteractionController interface {
+	HandleRemoveProblemInteraction(*discordgo.InteractionCreate)
+	HandleConfirmProblemRemovalInteraction(*discordgo.InteractionCreate)
+	HandleCancelProblemRemovalInteraction(*discordgo.InteractionCreate)
 	HandleEditProblemBatchInteraction(*discordgo.InteractionCreate)
 	HandleEditProblemBatchModalSubmitInteraction(*discordgo.InteractionCreate)
 	HandleConfirmProblemEditBatchInteraction(*discordgo.InteractionCreate)

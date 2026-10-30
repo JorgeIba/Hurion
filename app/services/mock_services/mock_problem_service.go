@@ -208,6 +208,21 @@ func (mr *MockProblemServiceMockRecorder) PrepareProblemPatchBatch(actor, params
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemPatchBatch", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemPatchBatch), actor, params)
 }
 
+// PrepareProblemRemoval mocks base method.
+func (m *MockProblemService) PrepareProblemRemoval(actor service_model.Actor, problemID int64) (service_model.ProblemRemovalPreview, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareProblemRemoval", actor, problemID)
+	ret0, _ := ret[0].(service_model.ProblemRemovalPreview)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareProblemRemoval indicates an expected call of PrepareProblemRemoval.
+func (mr *MockProblemServiceMockRecorder) PrepareProblemRemoval(actor, problemID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareProblemRemoval", reflect.TypeOf((*MockProblemService)(nil).PrepareProblemRemoval), actor, problemID)
+}
+
 // PrepareProblemReplacement mocks base method.
 func (m *MockProblemService) PrepareProblemReplacement(actor service_model.Actor, params service_model.ReplaceProblemParams) (service_model.PreparedProblemReplacement, error) {
 	m.ctrl.T.Helper()
