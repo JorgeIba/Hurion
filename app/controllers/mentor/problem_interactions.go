@@ -110,6 +110,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 
 	problemID, err := ctrl.services.Problem.CreateProblemIntoClass(services.UserActor(event.Member.User.ID), params)
 	if err != nil {
+		logger.Log.Errorf("Problem creation failed: actor=%s class=%s error=%v", event.Member.User.ID, params.ClassCode, err)
 		content := adapters.MapError(err, adapters.ActionMentorAddProblem, params.ClassCode, params.URL, params.Name)
 		// Keep raw input after any failed write so corrections do not require
 		// retyping the form, including values that failed validation.
@@ -118,6 +119,7 @@ func (ctrl *ProblemInteractionController) HandleCreateProblemModalSubmitInteract
 		return
 	}
 
+	logger.Log.Infof("Problem created: actor=%s class=%s problem=%d", event.Member.User.ID, params.ClassCode, problemID)
 	ctrl.problemDrafts.consumeDraft(key)
 	// Response delivery is separate from persistence; a failed receipt must not retry the write.
 	ctrl.editInteractionResponse(event.Interaction, discord.FormatCreatedProblemReceipt(problemID, params.ClassCode, params.Name))
@@ -194,11 +196,13 @@ func (ctrl *ProblemInteractionController) HandleEditProblemModalSubmitInteractio
 	params := mapEditProblemModalToReplaceProblemParams(modal)
 
 	if err := ctrl.services.Problem.ReplaceProblemByProblemID(services.UserActor(event.Member.User.ID), params); err != nil {
+		logger.Log.Errorf("Problem update failed: actor=%s class=%s problem=%d error=%v", event.Member.User.ID, params.ClassCode, params.ProblemID, err)
 		content := adapters.MapError(err, adapters.ActionMentorUpdateProblem, params.ProblemID, modal.ClassCode, params.Name)
 		recoverDraft := ctrl.editProblemDrafts.saveFailedDraft(key, modal)
 		ctrl.editInteractionResponse(event.Interaction, discord.FormatEditProblemError(content, modal.ProblemID, modal.ClassCode, recoverDraft))
 		return
 	}
+	logger.Log.Infof("Problem updated: actor=%s class=%s problem=%d", event.Member.User.ID, params.ClassCode, params.ProblemID)
 	ctrl.editProblemDrafts.consumeDraft(key)
 	ctrl.editInteractionResponse(event.Interaction, discord.FormatUpdatedProblemReceipt(params.ProblemID, modal.ClassCode, params.Name))
 }

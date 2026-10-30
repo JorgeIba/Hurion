@@ -88,6 +88,7 @@ func TestDiscordInteractionResponderReturnsAndLogsEachDeliveryFailureOnce(t *tes
 			require.Len(t, entries, 1)
 			assert.Equal(t, logrus.ErrorLevel, entries[0].Level)
 			assert.Contains(t, entries[0].Message, failure.Error())
+			assert.Contains(t, entries[0].Message, interaction.ID)
 		})
 	}
 }
