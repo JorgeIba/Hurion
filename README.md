@@ -75,4 +75,4 @@ Hurion is named after Huron, the ferret mascot of ESCOM's algorithms club, and O
 
 Open a [new issue](https://github.com/JorgeIba/Hurion/issues/new) first. Use its discussion to agree on the goal, scope, and approach before implementation starts. Link every PR to that issue in its description. If the work needs multiple PRs, link each one to the same issue (for example, `Refs #<issue-number>`) and close it when all the work is complete.
 
-The current logo was created with AI using the club mascot as a reference. Contributions toward a handcrafted vector version are welcome.
+The current logo began as an AI-generated image based on our club mascot and was refined with manual edits and image processing. We’d welcome a designer’s help turning it into a polished vector.
