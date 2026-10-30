@@ -18,15 +18,13 @@ const (
 	acProposalPendingText       = "Pending mentor review"
 	acProposalDescriptionFormat = "<@%s> submitted an AC proposal for: **[%d: %s](%s)**"
 	acProposalTitle             = "AC?"
-	acProposalRejectEmoji       = "✖️"
-	acProposalUploadID          = "0"
 	acProposalRejectedByText    = " Rejected by "
 	acProposalApprovedByText    = " Approved by "
 	acProposalRejectedTitle     = "AC Rejected"
 	acProposalApprovedTitle     = "AC Approved"
 )
 
-func BuildACProposalWebhookParams(
+func BuildACProposalMessage(
 	proposer service_model.User,
 	problem service_model.Problem,
 	image []byte,
@@ -34,7 +32,7 @@ func BuildACProposalWebhookParams(
 	filename string,
 	approveID string,
 	rejectID string,
-) *discordgo.WebhookParams {
+) *discordgo.MessageSend {
 	// Escape Markdown so problem names cannot break the bold link label.
 	problemName := strings.NewReplacer(
 		`\`, `\\`,
@@ -51,7 +49,7 @@ func BuildACProposalWebhookParams(
 		proposer.UserID, problem.ID, problemName, problem.URL,
 	)
 
-	card := &discordgo.WebhookParams{
+	card := &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
 			Title:       acProposalTitle,
 			Description: description,
@@ -65,7 +63,7 @@ func BuildACProposalWebhookParams(
 			},
 			discordgo.Button{
 				CustomID: rejectID,
-				Emoji:    &discordgo.ComponentEmoji{Name: acProposalRejectEmoji},
+				Emoji:    &discordgo.ComponentEmoji{Name: common.REACTION_NO_BLACK},
 				Style:    discordgo.DangerButton,
 			},
 		}}},
@@ -78,7 +76,6 @@ func BuildACProposalWebhookParams(
 			ContentType: contentType,
 			Reader:      bytes.NewReader(image),
 		}}
-		card.Attachments = []*discordgo.MessageAttachment{{ID: acProposalUploadID, Filename: filename}}
 	}
 
 	return card

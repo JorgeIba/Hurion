@@ -94,7 +94,7 @@ func TestACProposalEvidenceTravelsFromSubmissionThroughApproval(t *testing.T) {
 			require.Equal(t, 1, downloads)
 			require.Equal(t, discordgo.MessageFlagsEphemeral, client.responses[0].Data.Flags)
 			if test.invalidImage || test.downloadErr != nil {
-				require.Empty(t, client.followups, "invalid evidence must not publish a proposal card")
+				require.Empty(t, client.publications, "invalid evidence must not publish a proposal card")
 				require.Empty(t, client.deletedResponses)
 				require.Len(t, client.edits, 1)
 				require.NotEmpty(t, *client.edits[0].Content)
@@ -108,10 +108,11 @@ func TestACProposalEvidenceTravelsFromSubmissionThroughApproval(t *testing.T) {
 			}
 			require.Empty(t, client.edits)
 			require.Len(t, client.deletedResponses, 1)
-			require.Len(t, client.followups, 1)
-			card := client.followups[0]
+			require.Empty(t, client.followups)
+			require.Len(t, client.publications, 1)
+			card := client.publications[0]
+			require.Nil(t, card.Reference)
 			require.Len(t, card.Files, 1)
-			require.Len(t, card.Attachments, 1)
 			require.Len(t, card.Embeds, 1)
 			require.Nil(t, card.Embeds[0].Image)
 			upload, err := io.ReadAll(card.Files[0].Reader)
@@ -138,7 +139,8 @@ func TestACProposalEvidenceTravelsFromSubmissionThroughApproval(t *testing.T) {
 					ComponentType: discordgo.ButtonComponent,
 				},
 			}})
-			require.Len(t, client.followups, 1, "resolution must not publish another card")
+			require.Len(t, client.publications, 1, "resolution must not publish another card")
+			require.Empty(t, client.followups)
 			require.Equal(t, 1, downloads, "resolution must not download evidence again")
 			require.Len(t, client.edits, 1)
 			edit := client.edits[0]

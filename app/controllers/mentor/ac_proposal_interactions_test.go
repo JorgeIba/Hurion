@@ -31,11 +31,14 @@ type proposalInteractionClient struct {
 	deletionErr    error
 	editErr        error
 	deliveries     []string
+	publications   []*discordgo.MessageSend
+	channelID      string
 }
 
-func (client *proposalInteractionClient) FollowupMessageCreate(interaction *discordgo.Interaction, wait bool, response *discordgo.WebhookParams, options ...discordgo.RequestOption) (*discordgo.Message, error) {
+func (client *proposalInteractionClient) ChannelMessageSendComplex(channelID string, response *discordgo.MessageSend, options ...discordgo.RequestOption) (*discordgo.Message, error) {
 	client.deliveries = append(client.deliveries, "publish")
-	_, _ = client.batchInteractionClient.FollowupMessageCreate(interaction, wait, response, options...)
+	client.channelID = channelID
+	client.publications = append(client.publications, response)
 	return nil, client.publicationErr
 }
 
@@ -52,10 +55,11 @@ func (client *proposalInteractionClient) InteractionResponseEdit(interaction *di
 
 func proposalCommand(referenceID string, problemID int64) *discordgo.InteractionCreate {
 	return &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
-		ID:      referenceID,
-		Type:    discordgo.InteractionApplicationCommand,
-		GuildID: "guild",
-		Member:  &discordgo.Member{User: &discordgo.User{ID: "student", Username: "Student"}, Roles: []string{"student"}},
+		ID:        referenceID,
+		ChannelID: "proposal-channel",
+		Type:      discordgo.InteractionApplicationCommand,
+		GuildID:   "guild",
+		Member:    &discordgo.Member{User: &discordgo.User{ID: "student", Username: "Student"}, Roles: []string{"student"}},
 		Data: discordgo.ApplicationCommandInteractionData{
 			Name: "ac",
 			Options: []*discordgo.ApplicationCommandInteractionDataOption{{
@@ -152,14 +156,18 @@ func TestPrefixAndSlashProposalsShareRenewalIncludingPublicationFailures(t *test
 			require.Equal(t, problemID, pendingProblemID)
 			require.Len(t, client.responses, 1)
 			require.Equal(t, discordgo.MessageFlagsEphemeral, client.responses[0].Data.Flags)
-			require.Len(t, client.followups, 1)
-			card := client.followups[0]
+			require.Empty(t, client.followups)
+			require.Len(t, client.publications, 1)
+			require.Equal(t, "proposal-channel", client.channelID)
+			card := client.publications[0]
+			require.Nil(t, card.Reference)
+			require.NotNil(t, card.AllowedMentions)
+			require.Empty(t, card.AllowedMentions.Parse)
 			require.Zero(t, card.Flags&discordgo.MessageFlagsEphemeral, "mentor evidence must be public")
 			require.Len(t, card.Embeds, 1)
 			require.Contains(t, card.Embeds[0].Description, "Two Sum")
 			require.Contains(t, card.Embeds[0].Description, "<@student>")
 			require.Empty(t, card.Files, "screenshots are optional")
-			require.Empty(t, card.Attachments)
 			if test.publicationErr != nil {
 				require.Empty(t, client.deletedResponses)
 				require.Equal(t, []string{"publish"}, client.deliveries)
