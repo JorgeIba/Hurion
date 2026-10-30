@@ -1,137 +1,78 @@
 <p align="center">
-  <img src="docs/logo_readme.png" alt="Hurion Logo" width="200">
+  <img src="docs/logo_readme.png" alt="Hurion logo" width="160">
 </p>
 
 <h1 align="center">Hurion</h1>
 
 <p align="center">
-  <strong>The course assistant for algorithms clubs.</strong><br>
-  Manage classes, verify solutions, and track progress — all without leaving Discord.
+  A Discord bot for algorithm and competitive-programming classes. Students submit solved problems, mentors review them, and Hurion tracks class progress.
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Go-1.27%2B-00ADD8?style=flat-square&logo=go" alt="Go Version">
-  <img src="https://img.shields.io/badge/Database-SQLite-003B57?style=flat-square&logo=sqlite" alt="SQLite">
-  <img src="https://img.shields.io/badge/Deployment-Docker-2496ED?style=flat-square&logo=docker" alt="Docker">
-  <img src="https://img.shields.io/badge/Platform-Discord-5865F2?style=flat-square&logo=discord" alt="Discord">
-</p>
+## What Hurion does
 
----
+- **Students** submit solves with `!ac <problem_id>` or `/ac submit id:<problem_id>`. Slash submissions can include an optional screenshot.
+- **Mentors** review submissions and manage problem lists, including batch add and edit workflows.
+- **Admins** connect Discord channels and roles to classes, and export class results to Excel.
+- **Scoreboards** are available as static PNGs with `!score_image` or through the interactive web UI with `!score`. The web UI supports search, filters, and sorting, and adapts to mobile screens.
 
-## 🎯 What does it do?
+## Quick start
 
-Hurion transforms a Discord server into a full-scale classroom management system. It's built on a **stateless, role-based architecture** that maps a server's structure directly to its courses.
+You need Go 1.27+, GCC or another C compiler for SQLite, and a Discord bot with the **Server Members** and **Message Content** intents enabled. Invite the bot to your server, then clone Hurion and create its config file:
 
-### 👤 For Students
-*   **Submit with Ease:** Use `!ac <id>` or `/ac submit id:<id>` to propose a solved problem, with an optional screenshot.
-*   **Real-time Leaderboards:** Check standings and class scores with beautiful image-based tables.
-*   **Personal Tracking:** Keep a history of solved problems across different classes.
-
-### 👨‍🏫 For Mentors
-*   **Verification Loop:** Approve solutions with a single ✅ reaction. No more manual spreadsheets.
-*   **Content Management:** Add, update, or remove problems in seconds.
-*   **Class Oversight:** See who is active and who needs support with `!users`.
-
-### ⚙️ For Admins
-*   **Infrastructure Linking:** Connect Discord channels to classes and roles to access-levels.
-*   **Data Portability:** Export entire class results to Excel with `!export`.
-*   **System Control:** Manage classes and users with high-integrity confirmation flows.
-
----
-
-## 💬 See it in action
-
-> **Student:** `!ac 101`
->
-> **Hurion:** *Reacts with ✅ and ❌*
-> 
-> **Mentor:** *Reacts with ✅ on the same message*
->
-> **Hurion:** 🎈 **Accepted!** @Student has solved **"Two Sum"**. Their score has been updated.
-
----
-
-## 📚 Documentation
-
-Detailed guides for every part of the system:
-
-- 🏗️ **[Architecture & Design](docs/ARCHITECTURE.md)** — Layered structure and DB schema.
-- 📜 **[Commands Reference](docs/COMMANDS.md)** — Full list of commands by role.
-- 🤖 **[AI Hub](.ai/CONTEXT.md)** — Rules for AI-assisted contributions.
-- 🧪 **[Testing Guidelines](.ai/TESTING.md)** — Patterns for verified changes.
-- 🏃‍♂️ **[Script Runner Guide](docs/SCRIPT_RUNNER.md)** — Writing, running, and testing command scripts offline or online.
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-*   **Go 1.27+**
-*   **GCC / C Compiler** (For SQLite CGo)
-*   **Discord Bot Token** with *Member* and *Message Content* intents enabled.
-
-### Local Setup
-1.  **Configure:** Create a `.env` with your `DISCORD_BOT_TOKEN`.
-2.  **Initialize:** Define classes in `config.yaml`.
-3.  **Launch (Standard):** `make run`
-4.  **Launch (Full Dev Mode):** `make run-dev` (enables `--seed` and `--exporter`)
-
-### Mentor roles by class
-
-Classes use the global `mentor_role_id` unless they configure their own:
-
-```yaml
-mentor_role_id: "global-role-id"
-classes:
-  - code: "advanced"
-    name: "Advanced"
-    mentor_role_id: "advanced-mentor-role-id"
+```bash
+git clone https://github.com/JorgeIba/Hurion.git
+cd Hurion
+cp config.example.yaml config.yaml
 ```
 
-An override replaces the global role for that class. An omitted or blank override
-inherits the global role. Administrators retain access to every class. These IDs
-load at startup, including without `--seed`; restart after editing configuration.
-The bot does not create Discord roles, and no database migration is needed.
-To restrict a student who mentors another class, configure a separate mentor role
-for the student's class as well; classes without overrides retain global access.
+Edit `config.yaml` with your server ID, admin and mentor role IDs, and class channel and role IDs. For per-class mentor roles and every configuration field, see the [configuration reference](docs/CONFIGURATION.md). Then set your bot token and start Hurion:
 
-Problem management and AC decisions check the affected classes. Moves require
-access to both classes; batches check every target before the first write.
-Confirmations recheck current roles and the current stored classes of problems.
-Management services enforce these checks using the actor ID and an injected
-`Authorizer`; administrative mutations and exports enforce admin access in their
-services as well. Controllers handle Discord input and confirmation ownership;
-the request context carries the actor identity, not an authorizer.
-User actions and startup reconciliation use the same services. The reconciler
-process is authorized only to create classes and link channels/access roles; it
-cannot delete data, export classes, or approve ACs.
-Forms can open before permission is checked; submission and confirmation still
-require access. If execution-time validation fails, submit a new batch. Student access roles remain separate.
+```bash
+export DISCORD_BOT_TOKEN="<your bot token>"
+make run FLAGS="--seed"
+```
 
-### Runtime Flags & Makefile Composition
-The bot's behavior is controlled by CLI flags composed via `make run FLAGS="..."`:
+The `--seed` flag creates any missing classes and channel or role links from `config.yaml`; it does not create problems. For the detailed bot-only and bot-plus-web setup, see [Local Development](docs/LOCAL_DEVELOPMENT.md).
 
-*   **Standard Mode (`make run`):** Boots up and connects to Discord using existing SQLite data.
-*   **Dev Mode (`make run-dev`):** Shortcut that passes `--seed --exporter`.
-*   **Seed Mode (`make run FLAGS="--seed"`):** Performs an **additive bootstrap** against the database before connecting to Discord.
-*   **Exporter Mode (`make run FLAGS="--exporter"`):** Enables automatic background export of `<class_code>_score.json` files to Azure Blob Storage or local disk for the Discord Activity web UI. See **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
-*   **Mock Discord Mode (`make run-mock`):** Runs the bot offline without connecting to Discord APIs (`--mock-discord --script <path>`).
+### Try your first submission
 
-### 📚 Data Persistence, Web UI & Replication
-*   **Database Disaster Recovery**: For Litestream WAL replication and restoration guides, see **[docs/LITESTREAM.md](docs/LITESTREAM.md)**.
-*   **Discord Activity JSON Exporter**: For background export architecture, opt-in `--exporter` flag, and schema details, see **[docs/SCOREBOARD_EXPORTER.md](docs/SCOREBOARD_EXPORTER.md)**.
-*   **Scoreboard Web UI**: For React 19 frontend setup, local dev server, and Azure Static Web Apps deployment, see **[docs/WEB_UI.md](docs/WEB_UI.md)**.
-*   **Docker Setup**: For container configuration, see **[README.Docker.md](README.Docker.md)**.
+1. Run `!classes` in Discord to confirm the configured classes.
+2. In a class channel, a mentor can create a problem with `/problem add`; run `!list` there to find its ID.
+3. A student with access to that class can submit it with `/ac submit id:<problem_id>`. A mentor can then review the proposal.
 
----
+### Optional: interactive scoreboard
+
+The interactive scoreboard runs separately from the bot. Build and serve it using the [web UI guide](docs/WEB_UI.md). To enable `!score`, set `WEB_UI_BASE_URL` for the bot and restart Hurion with `make run FLAGS="--exporter"` to publish score data for the web UI. See the [exporter guide](docs/SCOREBOARD_EXPORTER.md) for details. For Docker, see the [Docker guide](README.Docker.md).
+
+## Documentation
+
+**Using Hurion**
+
+- [Commands reference](docs/COMMANDS.md) — commands by role.
+- [Scoreboard user guide](docs/SCOREBOARD_GUIDE.md) — standings, problems, search, filters, and sorting.
+- [Mentor batch guide](docs/MENTOR_BATCHES.md) — JSON workflows for adding or editing problems and recording solves.
+
+**Configuration and running Hurion**
+
+- [Configuration reference](docs/CONFIGURATION.md) — `config.yaml` fields and environment variables.
+- [Local development](docs/LOCAL_DEVELOPMENT.md) — run the bot, exporter, and web UI; common Make targets.
+- [Docker setup](README.Docker.md) — container configuration and deployment.
+- [Scoreboard web UI](docs/WEB_UI.md) — frontend configuration and deployment.
+- [Scoreboard exporter](docs/SCOREBOARD_EXPORTER.md) — publish data for the interactive scoreboard.
+- [Database replication](docs/LITESTREAM.md) — backup and restore with Litestream.
+
+**Development**
+
+- [Architecture](docs/ARCHITECTURE.md) — application layers and database schema.
+- [Script runner](docs/SCRIPT_RUNNER.md) — run command scripts offline or against Discord.
+- [Testing guidelines](.ai/TESTING.md) — project testing conventions.
 
 ## 🌟 Why Hurion?
 
-The name **Hurion** is the fusion of two identities:
+Hurion is named after Huron, the ferret mascot of ESCOM's algorithms club, and Orion, the Greek hunter and constellation.
 
-*   **The Huron (Ferret):** The agile mascot of the algorithms club at **ESCOM** (Escuela Superior de Cómputo). Known for its curiosity and its ability to "ferret out" solutions in complex environments.
-*   **Orion:** The legendary Greek hunter and celestial guide. Just as the constellation guides travelers, Hurion guides students through their journey in competitive programming.
+## Contributing
 
-**Hurion** is the "Hunter of Solutions"—a centralized assistant designed to handle the heavy administrative lifting so mentors can focus on teaching and students can focus on coding.
+Open a [new issue](https://github.com/JorgeIba/Hurion/issues/new) first. Use its discussion to agree on the goal, scope, and approach before implementation starts. Link every PR to that issue in its description. If the work needs multiple PRs, link each one to the same issue (for example, `Refs #<issue-number>`) and close it when all the work is complete.
 
-> **🎨 Note on the Logo:** The current logo was generated with the help of AI based on our club's original mascot. If you're a designer and would like to help us create a proper, handcrafted vector version, we would love your contribution!
+The current logo began as an AI-generated image based on our club mascot and was refined with manual edits and image processing. We’d welcome a designer’s help turning it into a polished vector.

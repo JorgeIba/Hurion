@@ -48,7 +48,7 @@ make run FLAGS="--seed --exporter"
 The exporter uses the `storage.BlobStorage` interface (`Save(ctx context.Context, name string, data []byte) error`) to support both cloud and local workflows:
 
 ### A. Local Development (`DiskStorage`)
-* Automatically selected when Azure environment variables are absent.
+* Automatically selected when Azure is not configured or cannot be initialized from the environment.
 * Writes JSON files atomically (`writeAtomic` via temporary file and `os.Rename`) to `./data/exports/`.
 * This includes `classes.json`, `<class_code>_score.json`, and the three batch schemas.
 
@@ -56,6 +56,8 @@ The exporter uses the `storage.BlobStorage` interface (`Save(ctx context.Context
 * Selected when `AZURE_STORAGE_ACCOUNT` is set together with either `AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_KEY` via `storage.NewStorageFromEnv()`.
 * Uses `AZURE_STORAGE_CONTAINER`, defaulting to `exports` when unset.
 * Stream JSON byte buffers directly to Azure Blob Storage over HTTPS via the official Azure SDK for Go (`azblob`).
+
+`AZURE_STORAGE_ACCOUNT` is required even when using a connection string. If both credential options are set, `AZURE_STORAGE_CONNECTION_STRING` takes precedence over `AZURE_STORAGE_KEY`. When neither credential option is set, the exporter writes to `./data/exports`; if Azure client initialization fails, it also falls back to disk. Errors during later uploads are logged without switching providers. See the [Configuration Reference](CONFIGURATION.md) for the full environment variable index.
 
 The JSON Schemas are embedded from `app/batchschema/` into the bot binary and written through the same `Storage.Save` path as class and scoreboard exports. The web build does not copy or publish schema files.
 
@@ -65,18 +67,9 @@ The JSON Schemas are embedded from `app/batchschema/` into the bot binary and wr
 
 ---
 
-## 4. Production Environment Variables (Azure VM)
+## 4. Deployment
 
-The following environment variables are configured on the Azure VM where the Hurion Bot executes:
-
-| Variable | Description | Example |
-| :--- | :--- | :--- |
-| `DISCORD_BOT_TOKEN` | Discord Bot Authentication Token | `MTA...` |
-| `AZURE_STORAGE_ACCOUNT` | Azure Storage Account Name | `hurionstorage` |
-| `AZURE_STORAGE_KEY` | Azure Storage Shared Access Key | `w8x...==` |
-| `AZURE_STORAGE_CONNECTION_STRING` | Alternative Azure Storage credentials, used together with `AZURE_STORAGE_ACCOUNT` | `DefaultEndpointsProtocol=...` |
-| `AZURE_STORAGE_CONTAINER` | Azure Blob Container for exports | `exports` |
-| `WEB_UI_BASE_URL` | Base URL of hosted Azure Static Web App | `https://<your-app-name>.azurestaticapps.net` |
+For the complete environment variable index, see the [Configuration Reference](CONFIGURATION.md). For container setup, see [README.Docker.md](../README.Docker.md); Azure VM provisioning is covered by [infra/README.md](../infra/README.md).
 
 The public agent guide is served by the Static Web App at `${WEB_UI_BASE_URL}/llms.txt`.
 
@@ -91,8 +84,8 @@ Exported files (`<class_code>_score.json`) follow this JSON schema:
 
 ```json
 {
-  "classCode": "basicos_1",
-  "className": "Algoritmos Básicos I",
+  "classCode": "basics",
+  "className": "Basics Level 2026",
   "problems": [
     {
       "id": 101,

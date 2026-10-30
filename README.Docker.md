@@ -15,6 +15,8 @@
    ```
    Edit `config.yaml` to set your `admin_role_id`, `mentor_role_id`, and class definitions. Role IDs are now managed here instead of `.env`.
 
+Docker Compose loads `.env` into the container. For field descriptions, per-class mentor role overrides, and all environment variables, see the [configuration reference](docs/CONFIGURATION.md).
+
 When you're ready, start your application by running:
 ```bash
 docker compose up --build -d

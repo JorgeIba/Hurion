@@ -36,14 +36,7 @@ Each new `server-<id>` prefix starts a separate replica history and leaves previ
 
 ## 3. Environment Variables
 
-To enable production Azure replication, specify these variables in your `.env` file:
-
-| Environment Variable | Description | Example |
-| :--- | :--- | :--- |
-| `DB_PATH` | Path to the SQLite database file | `/hurion/data/db.sqlite` |
-| `AZURE_STORAGE_ACCOUNT` | Azure Storage Account Name | `hurionstorage` |
-| `AZURE_STORAGE_KEY` *(or `LITESTREAM_AZURE_ACCOUNT_KEY`)* | Azure Shared Access Key | `w8x...==` |
-| `AZURE_STORAGE_CONTAINER` | Azure Container Name | `exports` |
+Inside the container, `DB_PATH` defaults to `/hurion/data/db.sqlite`. The startup script selects Azure replication only when all three are set: `AZURE_STORAGE_ACCOUNT`, `AZURE_STORAGE_CONTAINER`, and either `LITESTREAM_AZURE_ACCOUNT_KEY` or `AZURE_STORAGE_KEY`. Otherwise, it uses local backups. `AZURE_STORAGE_CONNECTION_STRING` does not select Litestream's Azure configuration. For the complete environment variable index and `.env` loading behavior, see the [Configuration Reference](CONFIGURATION.md).
 
 ---
 

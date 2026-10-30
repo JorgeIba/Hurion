@@ -173,7 +173,7 @@ The DDL source of truth is [app/data/schema.sql](../app/data/schema.sql).
 
 | Format | Rule | Examples |
 |---|---|---|
-| `lowercase_snake` | Must be a single word (no spaces) | `class_code` → `basicos_1` |
+| `lowercase_snake` | Use lowercase letters, digits, and underscores; no spaces | `class_code` → `basics_2026` |
 | `CamelUpperCase` | Can contain multiple words (quotes not needed) | `ProblemName` → `Two Sum`, `ClassName` → `Basicos 2025` |
 
 The `difficulty` parameter accepts: `Easy`, `Medium`, `Hard`, or `-` to skip.

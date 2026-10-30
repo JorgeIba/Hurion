@@ -1,6 +1,6 @@
 # Scoreboard Web UI & Dev Server Guide
 
-This document covers the setup, local development workflow, and cloud deployment configuration for the **Hurion Scoreboard Web UI** (`web/`).
+This document covers frontend-specific configuration and cloud deployment for the **Hurion Scoreboard Web UI** (`web/`). For the complete local setup, see [Local Development](LOCAL_DEVELOPMENT.md). For class users, see the [Scoreboard User Guide](SCOREBOARD_GUIDE.md).
 
 ---
 
@@ -15,37 +15,9 @@ The Scoreboard Web UI is a standalone React 19 + Vite web application that rende
 
 ---
 
-## 2. Local Development Workflow
+## 2. Frontend development
 
-To build and test the Web UI locally on your machine:
-
-1. **Install Frontend Dependencies & Build Assets**:
-   ```bash
-   pnpm --prefix web install
-   pnpm --prefix web build
-   ```
-   *(Compiles React 19 production bundle into `web/dist/`)*
-
-2. **Generate Local Scoreboard JSON Exports**:
-   ```bash
-   make run-dev
-   ```
-   *(Runs the bot with `--seed --exporter`, exporting JSON files into `./data/exports/`)*
-
-3. **Launch Local Web UI Dev Server**:
-   ```bash
-   make run-server PORT=8080
-   ```
-   *(If `web/dist/` is not yet compiled, the server automatically returns a 503 developer notice page with build instructions)*
-
-4. **Open in Web Browser**:
-   Navigate to:
-   [http://localhost:8080/?class=basicos_1](http://localhost:8080/?class=basicos_1)
-
-5. **Stop the Web UI Server**:
-   ```bash
-   make stop-server
-   ```
+Install dependencies with `pnpm --dir web install`. For the bot, local data, and server workflow, see [Local Development](LOCAL_DEVELOPMENT.md). When changing the React UI, run `pnpm --dir web dev`; Vite serves port `3000` and proxies `/exports` to the local Go server on port `8080`.
 
 ---
 
@@ -73,19 +45,14 @@ Azure Static Web Apps uses `web/public/staticwebapp.config.json` (which Vite cop
 ```
 
 > [!NOTE]
-> When fetching directly from Azure Blob Storage in production (`VITE_EXPORTS_BASE_URL`), ensure the `exports` container has public anonymous blob read access and CORS enabled (`GET, HEAD, OPTIONS`) for the Static Web App domain.
-> The public agent guide is available at `${WEB_UI_BASE_URL}/llms.txt`; its schemas and state links point to the exports storage published by the bot. Set the GitHub Actions repository variable `VITE_EXPORTS_BASE_URL` to override the exports URL for both the guide and web app. `pnpm build` generates the guide automatically using Vite's resolved environment (including `.env` files); `pnpm dev` serves it with `/exports`.
+> When fetching directly from Azure Blob Storage in production, ensure the `exports` container has public anonymous blob read access and CORS enabled (`GET, HEAD, OPTIONS`) for the Static Web App domain.
+> The public agent guide is available at `${WEB_UI_BASE_URL}/llms.txt`; its schemas and state links point to the exports storage published by the bot. `pnpm build` generates the guide automatically using Vite's resolved environment; `pnpm dev` serves it with `/exports`.
 
 ---
 
-## 4. Environment Variables
+## 4. Configuration
 
-| Variable | Scope | Description | Example / Default |
-| :--- | :--- | :--- | :--- |
-| `PORT` | Local Dev (Go) | Listening TCP port for the local Go Web UI server | `8080` |
-| `EXPORTS_DIR` | Local Dev (Go) | Path to local directory containing exported JSON score files | `./data/exports` |
-| `VITE_EXPORTS_BASE_URL` | Frontend (Vite) | Base URL for fetching scoreboards (uses `/exports` if unset) | `https://<your-storage-account>.blob.core.windows.net/exports` |
-| `WEB_UI_BASE_URL` | Discord Bot (VM) | Base URL used by Discord embeds to link to the Web UI (`!score`) | `https://<your-app-name>.azurestaticapps.net` |
+`VITE_EXPORTS_BASE_URL` is the frontend's build-time URL override for scoreboard JSON. Set it in `web/.env.local` or the shell for local builds, or use the GitHub Actions repository variable for Azure Static Web Apps. Local browsers and Discord Activities use `/exports`. The complete variable list, including the Go server's `PORT` and `EXPORTS_DIR`, lives in the [Configuration Reference](CONFIGURATION.md).
 
 ## 5. Class Priority Presentation
 
