@@ -19,7 +19,7 @@ Available to all users.
 | `!score` | `!score [class_code]` | Open the interactive scoreboard for a class. Inferred from channel if `class_code` is missing. | No |
 | `!score_image` | `!score_image [class_code]` | Generate and attach a static PNG score table for a class. Inferred from channel if `class_code` is missing. | No |
 | `!score_of` | `!score_of <@user> [class_code]` | Show a user's score in a class. Inferred from channel if `class_code` is missing. | No |
-| `!users` | `!users [class_code]` | List users registered in a class. Inferred from channel if `class_code` is missing. | No |
+| `!users` | `!users [class_code]` | List active users in a class (users with at least one solve). Inferred from channel if `class_code` is missing. | No |
 | `!classes` | `!classes` | List all available classes. | No |
 | `!classes_of` | `!classes_of <@user>` | Show all classes a specific user has access to. | No |
 | `!get_roles` | `!get_roles [class_code]` | Show linked Discord roles. Inferred from channel if missing. | No |

@@ -35,7 +35,7 @@ Problems shows the class catalog grouped by topic. The difficulty and priority f
 
 The difficulty filter offers Easy, Medium, and Hard. The priority filter offers Essential, Recommended, Supplementary, Not Required, and Discouraged. The sort menu offers highest or lowest ID first, easy or hard difficulty first, and priority from most recommended to least recommended or in reverse. Problems without difficulty or priority sort last. In the default Standings order and in Problems, topic groups follow the highest ID they contain; choosing lowest ID first orders topics by their lowest ID. When sorting a student's Standings, topics instead follow that student's solved or pending counts.
 
-Use **Expand All** or **Collapse All** to control every visible topic, or toggle a topic by its heading. Filters expand matching topics temporarily and restore their prior collapsed state when the filters are cleared. The count shows how many problems match the current filters.
+Use **Expand All** or **Collapse All** to control every visible topic, or toggle a topic by its heading. In Standings, an active search temporarily expands all visible topics; clearing the search restores their previous collapsed state. Difficulty and priority filters alone do not expand topics. The count shows how many problems match the current filters.
 
 ## Narrow screens
 
