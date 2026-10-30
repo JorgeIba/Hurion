@@ -32,6 +32,7 @@ Available to users with a valid class role.
 |---|---|---|:---:|
 | `!ac` | `!ac <problem_id>` | Propose a problem as solved. | Mentor Reaction |
 | `/ac submit` | `/ac submit id:<problem_id> [screenshot:<image>]` | Propose a solved problem with optional screenshot evidence. Search the ID field by ID or name, then select a suggestion or enter a numeric ID. | Mentor Buttons |
+| `/ac remove` | `/ac remove id:<problem_id> [user:<user>]` | Remove your recorded AC. Removing another user’s AC requires permission to manage the problem’s class (its configured mentor role or admin). Does not cancel pending proposals. | None |
 | `!undo_ac` | `!undo_ac <problem_id>` | Remove a problem from your own solved list. | No |
 | `!my_classes` | `!my_classes` | Show all classes you currently have access to. | No |
 
@@ -60,7 +61,7 @@ For JSON formats, examples, limits, confirmation behavior, and failure handling,
 
 ### Problem autocomplete
 
-The problem fields in `/ac submit` and `/problem edit` suggest problems from the class linked to the current channel. Type an ID prefix or part of a name; suggestions are ordered by ID and limited to 25 matches. Selecting `5: Tree Sum` supplies only ID `5`. If the channel has no linked class, suggestions are empty; a numeric ID can still be entered manually. The optional `class` field in `/problem edit` selects the destination class and does not change the source of problem suggestions.
+The problem fields in `/ac submit`, `/ac remove` and `/problem edit` suggest problems from the class linked to the current channel. Type an ID prefix or part of a name; suggestions are ordered by ID and limited to 25 matches. Selecting `5: Tree Sum` supplies only ID `5`. If the channel has no linked class, suggestions are empty; a numeric ID can still be entered manually. The optional `class` field in `/problem edit` selects the destination class and does not change the source of problem suggestions.
 
 Suggestions read the current class catalog without a cache. Command execution keeps its existing permission and validation rules.
 

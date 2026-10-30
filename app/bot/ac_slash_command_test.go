@@ -35,7 +35,7 @@ func TestUpsertACSlashCommand(t *testing.T) {
 			}
 			command := api.commands[0]
 			assert.Equal(t, "ac", command.Name)
-			if assert.Len(t, command.Options, 2) {
+			if assert.Len(t, command.Options, 3) {
 				propose := command.Options[0]
 				assert.Equal(t, "submit", propose.Name)
 				assert.Equal(t, discordgo.ApplicationCommandOptionSubCommand, propose.Type)
@@ -53,6 +53,15 @@ func TestUpsertACSlashCommand(t *testing.T) {
 				assert.Equal(t, "add_batch", command.Options[1].Name)
 				assert.Equal(t, discordgo.ApplicationCommandOptionSubCommand, command.Options[1].Type)
 				assert.Empty(t, command.Options[1].Options)
+				remove := command.Options[2]
+				assert.Equal(t, "remove", remove.Name)
+				if assert.Len(t, remove.Options, 2) {
+					assert.Equal(t, "id", remove.Options[0].Name)
+					assert.True(t, remove.Options[0].Required)
+					assert.True(t, remove.Options[0].Autocomplete)
+					assert.Equal(t, discordgo.ApplicationCommandOptionUser, remove.Options[1].Type)
+					assert.False(t, remove.Options[1].Required)
+				}
 			}
 		})
 	}

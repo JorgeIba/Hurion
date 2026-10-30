@@ -21,6 +21,7 @@ type ProblemInteractionController interface {
 }
 
 type ACInteractionController interface {
+	HandleRemoveACInteraction(*discordgo.InteractionCreate)
 	HandleProposeACInteraction(*discordgo.InteractionCreate)
 	HandleAddACBatchInteraction(*discordgo.InteractionCreate)
 	HandleCreateACBatchModalSubmitInteraction(*discordgo.InteractionCreate)

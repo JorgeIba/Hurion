@@ -6,6 +6,8 @@ const (
 	ACCommandName          = "ac"
 	ACAddBatchCommandName  = "add_batch"
 	ACSubmitCommandName    = "submit"
+	ACRemoveCommandName    = "remove"
+	ACUserOptionName       = "user"
 	ACProblemIDOptionName  = "id"
 	ACScreenshotOptionName = "screenshot"
 )
@@ -48,6 +50,25 @@ func ACSlashCommand() *discordgo.ApplicationCommand {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        ACAddBatchCommandName,
 				Description: "Read an AC batch from JSON",
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        ACRemoveCommandName,
+				Description: "Remove your AC, or another user's AC as a mentor or admin",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         ACProblemIDOptionName,
+						Description:  "Problem ID (search by ID or name in this channel's class)",
+						Required:     true,
+						Autocomplete: true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionUser,
+						Name:        ACUserOptionName,
+						Description: "User whose AC to remove; defaults to yourself",
+					},
+				},
 			},
 		},
 	}

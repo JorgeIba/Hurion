@@ -268,6 +268,9 @@ func (ctrl *ACInteractionController) HandleCancelACBatchInteraction(event *disco
 	ctrl.responder.EditResponse(event.Interaction, discord.BuildBatchCancellationResult(cancelled))
 }
 
+// deferACInteractionResponse acknowledges the interaction privately before slow work
+// such as permission lookups or database operations, preventing Discord from timing
+// out the command. The caller sends the final result with editInteractionResponse.
 func (ctrl *ACInteractionController) deferACInteractionResponse(interaction *discordgo.Interaction) error {
 	return ctrl.responder.Respond(interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
