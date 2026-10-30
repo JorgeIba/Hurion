@@ -12,7 +12,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/dispatcher"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/bwmarrin/discordgo"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
 
@@ -20,11 +20,13 @@ func TestRemoveACInteraction(t *testing.T) {
 	for _, tc := range []struct {
 		name, target                         string
 		missing, dbFailure, invalid, noGuild bool
+		lookupFailure                        bool
 		roles                                []string
 		permissionErr                        error
 		denied                               bool
 	}{
 		{name: "self"},
+		{name: "name lookup failure", lookupFailure: true},
 		{name: "explicit self", target: "123"},
 		{name: "mentor", target: "456", roles: []string{"class-mentor"}},
 		{name: "admin", target: "456", roles: []string{"admin"}},
@@ -80,19 +82,38 @@ func TestRemoveACInteraction(t *testing.T) {
 					store.EXPECT().RemoveAC(target, int64(5)).Return(err)
 				}
 			}
+			if !tc.denied && !tc.invalid && !tc.noGuild && !tc.missing && !tc.dbFailure {
+				var lookupErr error
+				if tc.lookupFailure {
+					lookupErr = errors.New("offline")
+				}
+				name := "Two Sum"
+				if tc.lookupFailure {
+					name = ""
+				}
+				store.EXPECT().GetProblemByID(int64(5)).Return(data.Problem{ID: 5, Name: name}, lookupErr)
+			}
 			ctrl.HandleRemoveACInteraction(event)
-			require.Len(t, client.responses, 1)
-			require.Equal(t, discordgo.MessageFlagsEphemeral, client.responses[0].Data.Flags)
-			if tc.invalid || tc.noGuild {
-				require.Empty(t, client.edits)
+			if !assert.Len(t, client.responses, 1) {
 				return
 			}
-			require.Len(t, client.edits, 1)
+			assert.Equal(t, discordgo.MessageFlagsEphemeral, client.responses[0].Data.Flags)
+			if tc.invalid || tc.noGuild {
+				assert.Empty(t, client.edits)
+				return
+			}
+			if !assert.Len(t, client.edits, 1) {
+				return
+			}
 			result := *client.edits[0].Content
 			if tc.denied || tc.missing || tc.dbFailure {
-				require.NotContains(t, result, "Removed AC")
+				assert.NotContains(t, result, "Removed AC")
 			} else {
-				require.Contains(t, result, "Removed AC for problem `5` from <@"+target+">.")
+				reference := "5: Two Sum"
+				if tc.lookupFailure {
+					reference = "5"
+				}
+				assert.Equal(t, "Removed AC for problem `"+reference+"` from <@"+target+">.", result)
 			}
 		})
 	}

@@ -2,6 +2,7 @@ package discord_test
 
 import (
 	"github.com/JorgeIba/Hurion/app/presentation/discord"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
@@ -153,3 +154,96 @@ func TestJSONParseReceiptFitsDiscordLimit(t *testing.T) {
 }
 
 func countUTF16ForTest(value string) int { return len(utf16.Encode([]rune(value))) }
+
+func TestRemovedACReceiptProblemIdentity(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		problemName string
+		assertFunc  func(*testing.T, string)
+	}{
+		{name: "named problem", problemName: "Two Sum", assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Equal(t, "Removed AC for problem `3: Two Sum` from <@123>.", content)
+		}},
+		{name: "missing name", assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Equal(t, "Removed AC for problem `3` from <@123>.", content)
+		}},
+		{name: "blank name", problemName: "  ", assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Equal(t, "Removed AC for problem `3` from <@123>.", content)
+		}},
+		{name: "formatting characters", problemName: "Sum `x`\nagain", assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Equal(t, "Removed AC for problem `3: Sum 'x' again` from <@123>.", content)
+		}},
+		{name: "long Unicode name", problemName: strings.Repeat("🚀", 2000), assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Contains(t, content, "Removed AC for problem `3: ")
+			assert.Contains(t, content, "…` from <@123>.")
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			content := discord.FormatRemovedACReceipt(3, tt.problemName, "123")
+			tt.assertFunc(t, content)
+			assert.LessOrEqual(t, countUTF16ForTest(content), 2000)
+		})
+	}
+}
+
+func TestACBatchPreviewIdentifiesStudentsAndProblemsWithinLimit(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		entries    []service_model.PreparedAC
+		assertFunc func(*testing.T, string)
+	}{
+		{name: "new and previously recorded ACs", entries: []service_model.PreparedAC{
+			{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 3, Name: "Two Sum"}},
+			{User: service_model.User{UserID: "456"}, Problem: service_model.Problem{ID: 4, Name: "Binary Search"}, AlreadyRecorded: true},
+		}, assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Contains(t, content, "Students: 2. Already recorded entries: 1.")
+			assert.Contains(t, content, "<@123> — `3: Two Sum` — will be recorded")
+			assert.Contains(t, content, "<@456> — `4: Binary Search` — already recorded; skipped")
+		}},
+		{name: "duplicate unsolved target", entries: []service_model.PreparedAC{
+			{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 3, Name: "Two Sum"}},
+			{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: 3, Name: "Two Sum"}},
+		}, assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Contains(t, content, "<@123> — `3: Two Sum` — duplicate entry; no additional AC")
+			assert.Equal(t, 1, strings.Count(content, "will be recorded"))
+		}},
+		{name: "large preview", entries: func() []service_model.PreparedAC {
+			entries := make([]service_model.PreparedAC, 100)
+			for i := range entries {
+				entries[i] = service_model.PreparedAC{User: service_model.User{UserID: "123"}, Problem: service_model.Problem{ID: int64(i + 1), Name: strings.Repeat("🚀", 100)}}
+			}
+			return entries
+		}(), assertFunc: func(t *testing.T, content string) {
+			t.Helper()
+			assert.Contains(t, content, "not shown.")
+			assert.Contains(t, content, "<@123> — `1: ")
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			content := discord.FormatACBatchValidationResult(tt.entries)
+			tt.assertFunc(t, content)
+			preview := discord.BuildValidatedBatchPreview(content, "confirm", "cancel")
+			if !assert.NotNil(t, preview.Content) {
+				return
+			}
+			assert.LessOrEqual(t, countUTF16ForTest(*preview.Content), 2000)
+			assert.Contains(t, *preview.Content, "Confirm to apply this batch?")
+			if assert.NotNil(t, preview.AllowedMentions) {
+				assert.Empty(t, preview.AllowedMentions.Parse)
+			}
+		})
+	}
+}

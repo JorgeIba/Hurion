@@ -78,6 +78,18 @@ func inlineCode(value string) string {
 	return "`" + value + "`"
 }
 
+// FormatProblemReference keeps problem identities readable in Discord receipts.
+func FormatProblemReference(problemID int64, name string) string {
+	if strings.TrimSpace(name) == "" {
+		return inlineCode(fmt.Sprint(problemID))
+	}
+	return inlineCode(fmt.Sprintf("%d: %s", problemID, truncateJSONInputError(name, 500)))
+}
+
+func FormatRemovedACReceipt(problemID int64, name, userID string) string {
+	return fmt.Sprintf("Removed AC for problem %s from <@%s>.", FormatProblemReference(problemID, name), userID)
+}
+
 // Format retry commands without changing identifiers that the mentor must copy.
 func retryCommand(value string) string {
 	if strings.Contains(value, "`") {
@@ -152,6 +164,9 @@ func FormatProblemBatchValidationResult(prepared []service_model.PreparedProblem
 	return fmt.Sprintf("Problem batch validated. Entries: %d. Classes: %d. No changes were applied.", len(prepared), len(classes))
 }
 
+// acBatchPreviewContentLimit reserves room for the omitted count and confirmation prompt.
+const acBatchPreviewContentLimit = 1700
+
 func FormatACBatchValidationResult(prepared []service_model.PreparedAC) string {
 	students := make(map[string]struct{})
 	alreadyRecorded := 0
@@ -162,7 +177,32 @@ func FormatACBatchValidationResult(prepared []service_model.PreparedAC) string {
 		}
 	}
 
-	return fmt.Sprintf("AC batch validated. Entries: %d. Students: %d. Already recorded entries: %d. No changes were applied.", len(prepared), len(students), alreadyRecorded)
+	content := fmt.Sprintf("AC batch validated. Entries: %d. Students: %d. Already recorded entries: %d. No changes were applied.", len(prepared), len(students), alreadyRecorded)
+	seen := make(map[struct {
+		userID    string
+		problemID int64
+	}]bool)
+	for index, entry := range prepared {
+		key := struct {
+			userID    string
+			problemID int64
+		}{entry.User.UserID, entry.Problem.ID}
+		status := "will be recorded"
+		if entry.AlreadyRecorded {
+			status = "already recorded; skipped"
+		} else if seen[key] {
+			status = "duplicate entry; no additional AC"
+		}
+		seen[key] = true
+		line := fmt.Sprintf("\n<@%s> — %s — %s", entry.User.UserID, FormatProblemReference(entry.Problem.ID, entry.Problem.Name), status)
+		// Reserve space for the omitted count and the confirmation prompt.
+		if utf16Count(content+line) > acBatchPreviewContentLimit {
+			content += fmt.Sprintf("\n%d more entry/entries not shown.", len(prepared)-index)
+			break
+		}
+		content += line
+	}
+	return content
 }
 
 const BatchUnavailableMessage = "This batch is no longer available. Submit it again to validate a new batch."
