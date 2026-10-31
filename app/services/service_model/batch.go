@@ -1,6 +1,6 @@
 package service_model
 
-const MaxBatchOperations = 100
+const MaxBatchOperations = 1000
 
 // BatchEntryError uses one-based entry numbers; zero identifies a batch-wide error.
 type BatchEntryError struct {

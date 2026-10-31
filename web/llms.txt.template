@@ -11,12 +11,12 @@ AI agents generate JSON batches for mentors, who then paste them or upload a `.j
 ## General Constraints
 
 1. **Root Type:** Every batch document must be a JSON array of objects (`[{...}, ...]`). Never wrap it in a top-level object.
-2. **Batch Size:** Between 1 and 100 entries per batch.
+2. **Batch Size:** Between 1 and 1,000 entries per batch.
 3. **Delivery:** Up to 4,000 characters when pasted directly into the Discord modal. For larger batches, generate a `.json` file (up to 5 MiB supported).
 4. **Strict Schema:** Unknown, misspelled, or extra fields are strictly rejected.
 5. **Topics:** For creation, `topic` is required and must be a non-blank, specific topic (e.g., `"Binary Search"`, `"Dynamic Programming"`), never `"General"`. For edits, omit `topic` to preserve it; if the existing value is shown as `"General"` or is missing, assign a representative specific topic when editing that problem. A supplied topic must be specific and non-blank; use `null` only when the mentor explicitly asks to clear it.
 6. **AC targets:** Every `problem_id` in an AC batch must already exist. If a requested problem is new, create it with `/problem add_batch` first, wait for successful confirmation, and refresh the class scoreboard to obtain the assigned ID. Never guess an ID or combine creation and ACs as if they were one operation.
-7. **Output:** Return one raw JSON array ready to paste into the Discord modal, without Markdown fences or surrounding prose. Keep batches within 100 entries and the 4,000-character text limit; otherwise provide a `.json` file no larger than 5 MiB.
+7. **Output:** Return one raw JSON array ready to paste into the Discord modal, without Markdown fences or surrounding prose. Keep batches within 1,000 entries and the 4,000-character text limit; otherwise provide a `.json` file no larger than 5 MiB.
 
 ## Data Discovery Endpoints
 

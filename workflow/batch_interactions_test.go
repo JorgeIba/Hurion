@@ -252,10 +252,10 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 		{name: "unknown class", command: "problem", input: `[{"class":"missing","name":"Valid","url":"https://example.com","topic":"Arrays"}]`, want: []string{"Batch validation failed", "Entry 1", "Class code `missing` not found"}},
 		{name: "invalid problem values", command: "problem", input: `[{}]`, want: []string{"Entry 1", "Please correct the values"}},
 		{name: "valid problem followed by unknown class", command: "problem", input: `[{"class":"basicos","name":"Valid","url":"https://example.com","topic":"Arrays"},{"class":"missing","name":"Other","url":"https://example.com","topic":"Arrays"}]`, want: []string{"Batch validation failed", "Entry 2"}},
-		{name: "empty problem batch", command: "problem", input: `[]`, want: []string{"between 1 and 100 operations"}},
-		{name: "oversized problem batch", command: "problem", input: `[` + strings.Repeat(`{},`, 100) + `{}]`, want: []string{"between 1 and 100 operations"}},
-		{name: "empty AC batch", command: "ac", input: `[]`, want: []string{"between 1 and 100 operations"}},
-		{name: "oversized AC batch", command: "ac", input: `[` + strings.Repeat(`{},`, 100) + `{}]`, want: []string{"between 1 and 100 operations"}},
+		{name: "empty problem batch", command: "problem", input: `[]`, want: []string{"between 1 and 1000 operations"}},
+		{name: "oversized problem batch", command: "problem", input: `[` + strings.Repeat(`{},`, 1000) + `{}]`, want: []string{"between 1 and 1000 operations"}},
+		{name: "empty AC batch", command: "ac", input: `[]`, want: []string{"between 1 and 1000 operations"}},
+		{name: "oversized AC batch", command: "ac", input: `[` + strings.Repeat(`{},`, 1000) + `{}]`, want: []string{"between 1 and 1000 operations"}},
 		{name: "invalid student", command: "ac", input: `[{"user_id":"Ana","problem_id":1}]`, want: []string{"Entry 1", "positive numeric Discord ID"}},
 		{name: "invalid problem ID", command: "ac", input: `[{"user_id":"123","problem_id":0}]`, want: []string{"Entry 1", "problem_id must be positive"}},
 		{name: "unknown problem", command: "ac", input: `[{"user_id":"123","problem_id":9999}]`, want: []string{"Entry 1", "Problem id `9999` not found"}, wantLookups: 1},
@@ -347,7 +347,7 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 
 func TestWorkflow_ACBatchRejectsInvalidInputBeforeStudentLookups(t *testing.T) {
 	t.Parallel()
-	oversizedEntries := make([]string, 101)
+	oversizedEntries := make([]string, 1001)
 	oversizedUsers := make([]string, len(oversizedEntries))
 	for index := range oversizedEntries {
 		oversizedUsers[index] = fmt.Sprint(1000 + index)
@@ -371,9 +371,9 @@ func TestWorkflow_ACBatchRejectsInvalidInputBeforeStudentLookups(t *testing.T) {
 			users: []string{"Ana", "123"},
 		},
 		{
-			name:  "101 valid entries with distinct students",
+			name:  "1001 valid entries with distinct students",
 			input: "[" + strings.Join(oversizedEntries, ",") + "]",
-			want:  []string{"between 1 and 100 operations"},
+			want:  []string{"between 1 and 1000 operations"},
 			users: oversizedUsers,
 		},
 	} {
