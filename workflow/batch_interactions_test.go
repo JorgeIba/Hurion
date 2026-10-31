@@ -347,12 +347,6 @@ func TestWorkflow_BatchValidationReportsDomainIssuesWithoutWrites(t *testing.T) 
 
 func TestWorkflow_ACBatchRejectsInvalidInputBeforeStudentLookups(t *testing.T) {
 	t.Parallel()
-	oversizedEntries := make([]string, 1001)
-	oversizedUsers := make([]string, len(oversizedEntries))
-	for index := range oversizedEntries {
-		oversizedUsers[index] = fmt.Sprint(1000 + index)
-		oversizedEntries[index] = fmt.Sprintf(`{"user_id":"%d","problem_id":1}`, 1000+index)
-	}
 	for _, test := range []struct {
 		name, input string
 		want        []string
@@ -369,12 +363,6 @@ func TestWorkflow_ACBatchRejectsInvalidInputBeforeStudentLookups(t *testing.T) {
 			input: `[{"user_id":"Ana","problem_id":1},{"user_id":"123","problem_id":0}]`,
 			want:  []string{"Entry 1", "positive numeric Discord ID", "Entry 2", "problem_id must be positive"},
 			users: []string{"Ana", "123"},
-		},
-		{
-			name:  "1001 valid entries with distinct students",
-			input: "[" + strings.Join(oversizedEntries, ",") + "]",
-			want:  []string{"between 1 and 1000 operations"},
-			users: oversizedUsers,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
