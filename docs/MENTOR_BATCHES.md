@@ -12,7 +12,7 @@ Mentor access is class-scoped. A class uses the global `mentor_role_id` unless i
 | `/problem edit_batch` | Patch existing problems |
 | `/ac add_batch` | Record student ACs |
 
-Each command opens a form that accepts one JSON array with 1–100 entries. Paste up to 4,000 characters, or upload one non-empty `.json` file up to 5 MiB. At least one source is required. If both are supplied, the file takes precedence; a file read error does not fall back to the pasted text.
+Each command opens a form that accepts one JSON array with 1–1,000 entries. Paste up to 4,000 characters, or upload one non-empty `.json` file up to 5 MiB. At least one source is required. If both are supplied, the file takes precedence; a file read error does not fall back to the pasted text.
 
 The array must contain JSON objects with the exact field names shown below. Unknown fields, repeated field names, invalid JSON types, and malformed JSON are rejected. Validation checks the complete batch and reports entry-level issues before showing a preview.
 

@@ -4,7 +4,7 @@
   "description": "Input for the Discord command /ac add_batch. The document is a JSON array; each entry records that a student solved an existing problem. The student must have access to the problem's class. All targets are validated before writes; new users and ACs are persisted together, and ACs that already exist are skipped.",
   "type": "array",
   "minItems": 1,
-  "maxItems": 100,
+  "maxItems": 1000,
   "items": {
     "type": "object",
     "additionalProperties": false,

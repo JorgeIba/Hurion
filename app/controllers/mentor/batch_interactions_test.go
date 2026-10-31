@@ -15,6 +15,7 @@ import (
 	"github.com/JorgeIba/Hurion/app/providers/mock_providers"
 	"github.com/JorgeIba/Hurion/app/services"
 	"github.com/JorgeIba/Hurion/app/services/mock_services"
+	"github.com/JorgeIba/Hurion/app/services/service_model"
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -65,6 +66,11 @@ func (transport batchFileTransport) RoundTrip(request *http.Request) (*http.Resp
 
 func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T) {
 	t.Parallel()
+	oversizedEntries := make([]string, service_model.MaxBatchOperations+1)
+	for index := range oversizedEntries {
+		oversizedEntries[index] = `{"user_id":"123","problem_id":42}`
+	}
+	oversizedACBatch := "[" + strings.Join(oversizedEntries, ",") + "]"
 	for _, test := range []struct {
 		name, route, body, want, text string
 		status, size                  int
@@ -77,6 +83,7 @@ func TestBatchSubmitReadsFilesAndStopsOnTransportOrPermissionErrors(t *testing.T
 		{name: "malformed file does not fall back to valid text", text: `[{"user_id":"123","problem_id":42}]`, body: `[{`, status: 200, want: "Could not read JSON", wantDownload: true},
 		{name: "failed download does not fall back to valid text", text: `[{"user_id":"123","problem_id":42}]`, body: `[]`, status: 403, want: "HTTP 403", wantDownload: true},
 		{name: "AC file", body: `[{"user_id":"123","problem_id":42},{"user_id":"123","problem_id":42}]`, status: 200, want: "Entries: 2", wantDownload: true},
+		{name: "oversized AC file is rejected before student lookups", body: oversizedACBatch, status: 200, want: "between 1 and 1000 operations", wantDownload: true},
 		{name: "malformed JSON file", body: `[{`, status: 200, want: "line 1, column", wantDownload: true},
 		{name: "strict entry decoding", body: `[{"extra":1}]`, status: 200, want: "Entry 1", wantDownload: true},
 		{name: "invalid UTF8", body: "[\"\xff\"]", status: 200, want: "Could not read JSON", wantDownload: true},
