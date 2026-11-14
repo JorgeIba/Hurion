@@ -53,4 +53,8 @@ require (
 
 tool go.uber.org/mock/mockgen
 
+// Temporary backport of the gateway Open/reconnect deadlock fix:
+// https://github.com/1outres/discordgo/commit/7b392ac9076b91b5023c04989b092cdc2dc201a8
+// When DiscordGo publishes a new release, verify it includes this fix and preserves
+// modal encoding, submission decoding, and optional fields before removing this replacement.
 replace github.com/bwmarrin/discordgo => github.com/JorgeIba/discordgo v0.29.1-0.20261114010821-3806cac7ea90
