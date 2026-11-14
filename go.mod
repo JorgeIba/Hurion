@@ -52,3 +52,5 @@ require (
 )
 
 tool go.uber.org/mock/mockgen
+
+replace github.com/bwmarrin/discordgo => github.com/JorgeIba/discordgo v0.29.1-0.20261114010821-3806cac7ea90
