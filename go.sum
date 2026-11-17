@@ -4,6 +4,8 @@ github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 h1:fhqpLE3UEXi9lPaBRpQ6Xu
 github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0/go.mod h1:7dCRMLwisfRH3dBupKeNCioWYUZ4SS09Z14H+7i8ZoY=
 github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0 h1:irsmOWwkp0KCTTNS5e2hdFeIvSQClQo2No3IaNmL3Vw=
 github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0/go.mod h1:GWcBkQj3MqN7ozHKLaCCAuNLiXoIGv2RtanfAwSjY/Y=
+github.com/JorgeIba/discordgo v0.29.1-0.20261116075841-6b38aba27cdf h1:0Rkbi9WIu5dMPQcRGGbz5a2MP6zF77vLaWak6hwTnLA=
+github.com/JorgeIba/discordgo v0.29.1-0.20261116075841-6b38aba27cdf/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
 github.com/Necroforger/dgwidgets v0.0.0-20190131052008-56c8c1ca33e0 h1:x09GwpB1wwKc1o2TBcDP3uR5qPiOVo6Lh79dv2WdX3g=
 github.com/Necroforger/dgwidgets v0.0.0-20190131052008-56c8c1ca33e0/go.mod h1:3aFNgGdU2RT4mNS7ExVL2BGPsKa14bkOPOjrT9s9oR8=
 github.com/bwmarrin/discordgo v0.28.1 h1:gXsuo2GBO7NbR6uqmrrBDplPUx2T3nzu775q/Rd1aG4=
